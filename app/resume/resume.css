@@ -1,0 +1,241 @@
+/*
+ * The plain résumé. One column, generous measure, prints cleanly.
+ *
+ * It borrows the site's type and accent but drops the neobrutalist chrome — hard shadows and
+ * 2px black borders look deliberate on a canvas and look like a mistake on paper.
+ */
+
+.resume {
+  max-width: 46rem;
+  margin: 0 auto;
+  padding: 4rem 1.5rem 6rem;
+  color: var(--ink);
+  font-size: 0.9375rem;
+  line-height: 1.6;
+}
+
+.resume__back {
+  display: inline-block;
+  font-size: 0.8125rem;
+  font-weight: 500;
+  color: var(--ink-muted);
+  text-decoration: none;
+  margin-bottom: 2.5rem;
+  border-bottom: 1.5px solid var(--accent);
+  padding-bottom: 1px;
+}
+.resume__back:hover {
+  color: var(--ink);
+}
+
+.resume__head h1 {
+  font-size: clamp(2.25rem, 6vw, 3rem);
+  font-weight: 700;
+  letter-spacing: -0.03em;
+  line-height: 1.05;
+  margin: 0 0 0.35rem;
+}
+.resume__role {
+  font-size: 1.125rem;
+  font-weight: 500;
+  margin: 0 0 0.6rem;
+}
+.resume__contact {
+  font-size: 0.875rem;
+  color: var(--ink-muted);
+  margin: 0 0 1.25rem;
+}
+.resume__contact a {
+  color: var(--ink);
+  text-decoration: none;
+  box-shadow: inset 0 -0.4em 0 var(--accent);
+}
+.resume__intro {
+  font-size: 1.0625rem;
+  line-height: 1.55;
+  margin: 0 0 1.5rem;
+  max-width: 40rem;
+}
+
+.resume__stats {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 1.75rem;
+  list-style: none;
+  margin: 0 0 1rem;
+  padding: 1rem 0 0;
+  border-top: 2px solid var(--ink);
+}
+.resume__stats b {
+  display: block;
+  font-size: 1.375rem;
+  font-weight: 700;
+  letter-spacing: -0.02em;
+  line-height: 1.1;
+}
+.resume__stats span {
+  font-size: 0.6875rem;
+  font-weight: 700;
+  letter-spacing: 0.07em;
+  text-transform: uppercase;
+  color: var(--ink-subtle);
+}
+
+.resume h2 {
+  font-size: 0.75rem;
+  font-weight: 700;
+  letter-spacing: 0.12em;
+  text-transform: uppercase;
+  color: var(--ink-subtle);
+  margin: 2.75rem 0 1rem;
+  padding-bottom: 0.4rem;
+  border-bottom: 1.5px solid color-mix(in srgb, var(--ink) 20%, transparent);
+}
+
+.entry {
+  margin-bottom: 1.75rem;
+  /* keep a job and its bullets on one page when printed */
+  break-inside: avoid;
+}
+.entry--tight {
+  margin-bottom: 0.9rem;
+}
+.entry__head {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: baseline;
+  gap: 0.5rem;
+  margin-bottom: 0.35rem;
+}
+.entry__head h3 {
+  font-size: 1rem;
+  font-weight: 700;
+  margin: 0;
+  flex: 1;
+  min-width: 60%;
+}
+.entry__at {
+  font-weight: 400;
+  color: var(--ink-muted);
+}
+.entry__period {
+  font-size: 0.75rem;
+  color: var(--ink-subtle);
+  white-space: nowrap;
+  font-variant-numeric: tabular-nums;
+}
+.entry__lede {
+  margin: 0 0 0.5rem;
+  color: var(--ink-muted);
+}
+.entry__award {
+  margin: 0 0 0.5rem;
+  font-weight: 700;
+  font-size: 0.875rem;
+}
+.entry ul {
+  margin: 0 0 0.5rem;
+  padding-left: 1.1rem;
+}
+.entry li {
+  margin-bottom: 0.3rem;
+  color: var(--ink-muted);
+}
+.entry li strong {
+  color: var(--ink);
+}
+.entry__stack {
+  font-size: 0.75rem;
+  letter-spacing: 0.02em;
+  color: var(--ink-subtle);
+  margin: 0;
+}
+
+.resume__skills {
+  margin: 0;
+}
+.resume__skills > div {
+  display: grid;
+  grid-template-columns: 8rem 1fr;
+  gap: 0.5rem 1rem;
+  padding: 0.4rem 0;
+  border-bottom: 1px solid color-mix(in srgb, var(--ink) 10%, transparent);
+}
+.resume__skills dt {
+  font-size: 0.6875rem;
+  font-weight: 700;
+  letter-spacing: 0.07em;
+  text-transform: uppercase;
+  color: var(--ink-subtle);
+  padding-top: 0.15rem;
+}
+.resume__skills dd {
+  margin: 0;
+  color: var(--ink-muted);
+}
+
+.resume__list {
+  margin: 0;
+  padding-left: 1.1rem;
+}
+.resume__list li {
+  margin-bottom: 0.4rem;
+  color: var(--ink-muted);
+}
+.resume__list strong,
+.resume__list a {
+  color: var(--ink);
+}
+
+.resume__foot {
+  margin-top: 3rem;
+  padding-top: 1rem;
+  border-top: 1.5px solid color-mix(in srgb, var(--ink) 20%, transparent);
+  font-size: 0.8125rem;
+  color: var(--ink-subtle);
+}
+
+@media (max-width: 30rem) {
+  .resume__skills > div {
+    grid-template-columns: 1fr;
+    gap: 0.15rem;
+  }
+}
+
+@page {
+  margin: 16mm;
+}
+
+@media print {
+  .resume {
+    max-width: none;
+    padding: 0;
+    font-size: 10pt;
+  }
+  /* the canvas link is a dead end on paper */
+  .resume__back {
+    display: none;
+  }
+  .resume__contact a,
+  .resume__list a {
+    box-shadow: none;
+    text-decoration: none;
+  }
+  .resume h2 {
+    margin-top: 1.4rem;
+  }
+  a[href^='http']::after {
+    content: ' (' attr(href) ')';
+    font-size: 8pt;
+    color: #555;
+  }
+}
+
+.resume__nav {
+  display: flex;
+  gap: 1.25rem;
+  margin-bottom: 2.5rem;
+}
+.resume__nav .resume__back {
+  margin-bottom: 0;
+}

@@ -1,0 +1,118 @@
+@import "tailwindcss";
+
+/*
+ * Tokens are the ones in design/DIRECTION.md, measured from the reference sites rather than
+ * guessed. Do not substitute a value that "looks about right" — change DIRECTION.md first.
+ *
+ * `--border` is a TOKEN, never a literal #000: pure-black borders are correct in `cream` and
+ * wrong in a dark theme, and themes swap this.
+ */
+:root {
+  --canvas-base: #f7f5ee;
+  --canvas-grid: rgba(22, 22, 22, 0.055);
+
+  --surface: #ffffff;
+
+  --ink: #161616;
+  --ink-muted: rgba(22, 22, 22, 0.74);
+  --ink-subtle: rgba(22, 22, 22, 0.6);
+
+  --accent: #facc00;
+  --accent-ink: #161616;
+
+  /*
+   * Text on a per-card pastel. The card colours in content/apps.ts are each card's identity and
+   * do NOT follow the theme, so this must stay dark everywhere — in a dark theme `--ink` is
+   * light, and light-on-pastel is unreadable.
+   */
+  --on-app: #161616;
+
+  --border: #161616;
+  --bw: 2px;
+
+  --radius-card: 14px;
+  --radius-chip: 8px;
+
+  --dock-size: 54px;
+  --dock-gap: 8px;
+  --dock-radius: 23.5%;
+  --dock-bottom: 26px;
+  --dock-pad: 12px;
+  --dock-panel-r: 22px;
+
+  /* fixed overlay bands the canvas must keep cards out of */
+  --overlay-top: 78px;
+  --overlay-bottom: 108px;
+
+  --ease-out: cubic-bezier(0.16, 1, 0.3, 1);
+}
+
+@theme inline {
+  --color-canvas: var(--canvas-base);
+  --color-surface: var(--surface);
+  --color-ink: var(--ink);
+  --color-ink-muted: var(--ink-muted);
+  --color-ink-subtle: var(--ink-subtle);
+  --color-accent: var(--accent);
+  --color-line: var(--border);
+  --font-sans: var(--font-space-grotesk), system-ui, sans-serif;
+}
+
+* {
+  box-sizing: border-box;
+}
+
+html,
+body {
+  height: 100%;
+  margin: 0;
+  overflow: hidden;
+  overscroll-behavior: none;
+}
+
+body {
+  font-family: var(--font-space-grotesk), system-ui, sans-serif;
+  color: var(--ink);
+  /*
+   * Derived from the theme, never hardcoded. This gradient was literal hex and stayed cream
+   * when the theme went dark, leaving light hero text on a light canvas.
+   * The construction is the same as before — two soft glows over a vertical wash — but every
+   * stop is now mixed from --canvas-base and --surface, so it follows whatever theme is set.
+   */
+  background:
+    radial-gradient(circle at 50% 8%, color-mix(in srgb, var(--surface) 62%, transparent), transparent 34%),
+    radial-gradient(circle at 20% 18%, color-mix(in srgb, var(--surface) 28%, transparent), transparent 28%),
+    linear-gradient(
+      180deg,
+      color-mix(in srgb, var(--canvas-base) 88%, var(--surface)) 0%,
+      var(--canvas-base) 36%,
+      color-mix(in srgb, var(--canvas-base) 93%, var(--border)) 100%
+    );
+  -webkit-font-smoothing: antialiased;
+  text-rendering: geometricPrecision;
+}
+
+/*
+ * The résumé page is a normal document: it scrolls, prints, and works without JavaScript.
+ *
+ * `overflow: visible`, NOT `auto`. With `auto` the body becomes its own scroll container whose
+ * content exactly fills it — so it has nothing to scroll — and the `overscroll-behavior: none`
+ * above (which stops the canvas rubber-banding) then blocks the wheel from chaining up to the
+ * document scroller. The page ends up scrollable by script and dead to the mouse wheel.
+ */
+html:has([data-scroll-page]),
+body:has([data-scroll-page]) {
+  overflow: visible;
+  height: auto;
+  overscroll-behavior: auto;
+  background: var(--surface);
+}
+
+@media (prefers-reduced-motion: reduce) {
+  *,
+  *::before,
+  *::after {
+    animation-duration: 0.01ms !important;
+    transition-duration: 0.01ms !important;
+  }
+}

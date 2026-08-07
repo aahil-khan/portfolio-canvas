@@ -1,0 +1,1248 @@
+<!doctype html>
+<html lang="en" data-theme="cream">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1,maximum-scale=1,user-scalable=no">
+<title>P1 — canvas feel prototype</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@400;500;700&display=swap" rel="stylesheet">
+<style>
+/* ============================================================
+   P1 PROTOTYPE — throwaway. Proving FEEL only.
+   v3: every object draggable · per-card personality · dock lift
+   ============================================================ */
+
+:root{
+  --canvas-grid:rgba(22,22,22,.055);
+  --surface:#FFFFFF;
+  --surface-sunken:#F4F2EA;
+
+  --ink:#161616;
+  --ink-muted:rgba(22,22,22,.62);
+  --ink-subtle:rgba(22,22,22,.45);
+
+  --accent:#FACC00;
+  --border:#161616;
+  --bw:2px;
+
+  --radius-card:14px;
+  --radius-chip:8px;
+
+  --dock-size:54px;
+  --dock-gap:8px;
+  --dock-radius:23.5%;
+  --dock-bottom:26px;
+  --dock-pad:12px;
+  --dock-panel-r:22px;
+
+  --ease-out:cubic-bezier(.16,1,.3,1);
+}
+
+*{box-sizing:border-box}
+html,body{height:100%;margin:0;overflow:hidden;overscroll-behavior:none}
+
+body{
+  font-family:"Space Grotesk",system-ui,sans-serif;
+  color:var(--ink);
+  background:
+    radial-gradient(circle at 50% 8%,rgba(255,255,255,.75),transparent 34%),
+    radial-gradient(circle at 20% 18%,rgba(255,255,255,.35),transparent 28%),
+    linear-gradient(180deg,#FBFAF6 0%,#F7F5EE 36%,#F1EFE6 100%);
+  -webkit-font-smoothing:antialiased;
+  text-rendering:geometricPrecision;
+}
+
+/* ---------- canvas ---------- */
+#viewport{position:fixed;inset:0;overflow:hidden;touch-action:none}
+#world{position:absolute;top:0;left:0;transform-origin:0 0;will-change:transform}
+#grid{
+  position:absolute;left:-25000px;top:-25000px;width:50000px;height:50000px;
+  background-image:
+    linear-gradient(to right,var(--canvas-grid) 1px,transparent 1px),
+    linear-gradient(to bottom,var(--canvas-grid) 1px,transparent 1px);
+  background-size:48px 48px;pointer-events:none;
+}
+
+/* ---------- shared: anything you can pick up ---------- */
+.obj{position:absolute;touch-action:none}
+.obj.is-dragging{cursor:grabbing}
+.grab{cursor:grab}
+
+/* ---------- hero: now a draggable object ---------- */
+#hero{width:600px;text-align:center;user-select:none}
+#hero .card{
+  display:inline-block;padding:26px 34px 30px;border-radius:20px;
+  border:var(--bw) solid transparent;transition:border-color .18s var(--ease-out),background .18s var(--ease-out);
+}
+#hero:hover .card{border-color:rgba(22,22,22,.16);background:rgba(255,255,255,.42)}
+#hero .avatar{
+  width:76px;height:76px;border-radius:999px;margin:0 auto 16px;
+  border:var(--bw) solid var(--border);background:var(--accent);
+  display:grid;place-items:center;font-weight:700;font-size:27px;
+  box-shadow:4px 4px 0 0 var(--border);
+}
+#hero h1{
+  font-size:62px;line-height:1;letter-spacing:-.025em;font-weight:700;margin:0 0 12px;
+  white-space:nowrap;                      /* the name must never wrap */
+}
+#hero .role{
+  font-size:19px;font-weight:500;color:var(--ink-muted);margin:0 0 14px;
+}
+#hero .role b{color:var(--ink);font-weight:500;background:var(--accent);padding:1px 7px;border-radius:6px;
+  border:1.5px solid var(--border);white-space:nowrap}
+#hero .meta{
+  font-size:12px;font-weight:500;letter-spacing:.06em;text-transform:uppercase;color:var(--ink-subtle);
+}
+
+/* ---------- cards ---------- */
+.card-obj{
+  background:var(--surface);
+  border:var(--bw) solid var(--border);
+  border-radius:var(--radius-card);
+  box-shadow:6px 6px 0 0 var(--border);
+  display:flex;flex-direction:column;overflow:hidden;
+  transition:box-shadow .18s var(--ease-out);
+}
+.card-obj.is-focused{box-shadow:8px 8px 0 0 var(--border)}
+
+/* header carries the card's identity — colour, icon, name */
+.card__head{
+  flex:0 0 auto;display:flex;align-items:center;gap:9px;padding:11px 12px;
+  border-bottom:var(--bw) solid var(--border);
+  background:var(--c);                       /* per-card accent, set inline */
+  cursor:grab;user-select:none;touch-action:none;
+}
+.card__head.is-dragging{cursor:grabbing}
+.card__ico{
+  width:26px;height:26px;flex:0 0 auto;border-radius:7px;background:rgba(255,255,255,.72);
+  border:1.5px solid var(--border);display:grid;place-items:center;font-size:14px;line-height:1;
+}
+.card__name{font-size:.9375rem;font-weight:700;letter-spacing:-.01em;flex:1}
+/* a drawn glyph, not a typed letter — ✕/X both render as a character and read as one */
+.card__x{
+  width:22px;height:22px;flex:0 0 auto;border-radius:999px;background:rgba(255,255,255,.55);
+  border:1.5px solid var(--border);cursor:pointer;padding:0;position:relative;
+  transition:background .14s var(--ease-out);
+}
+.card__x::before,.card__x::after{
+  content:"";position:absolute;left:50%;top:50%;width:9px;height:1.5px;background:var(--ink);
+  border-radius:1px;
+}
+.card__x::before{transform:translate(-50%,-50%) rotate(45deg)}
+.card__x::after{transform:translate(-50%,-50%) rotate(-45deg)}
+.card__x:hover{background:#fff}
+
+.card__body{flex:1;overflow:auto;padding:18px 20px 20px;font-size:.9375rem;line-height:1.6}
+.card__body > :first-child{margin-top:0}
+.card__body h2{font-size:1.25rem;font-weight:700;letter-spacing:-.015em;line-height:1.2;margin:0 0 10px}
+.card__body p{margin:0 0 13px;color:var(--ink-muted);max-width:62ch}
+.card__body p strong{color:var(--ink);font-weight:500}
+
+/* per-card interior flourishes */
+.lede{font-size:1.0625rem;line-height:1.5;color:var(--ink) !important}
+.chip{display:inline-block;font-size:.6875rem;font-weight:700;letter-spacing:.05em;text-transform:uppercase;
+  border:1.5px solid var(--border);border-radius:var(--radius-chip);padding:3px 8px;margin:0 5px 5px 0;
+  background:var(--c-soft,#F4F2EA)}
+.link{display:inline-flex;align-items:center;gap:5px;font-weight:500;color:var(--ink);text-decoration:none;
+  box-shadow:inset 0 -.5em 0 var(--c);padding:0 2px}
+.link:hover{box-shadow:inset 0 -1.1em 0 var(--c)}
+
+.item{border-top:1.5px solid rgba(22,22,22,.13);padding:11px 0;display:flex;gap:12px;align-items:baseline}
+.item:first-of-type{border-top:0;padding-top:2px}
+
+/* rows that open a detail card — real buttons, so they're keyboard-reachable */
+button.item{
+  width:100%;text-align:left;background:none;font:inherit;color:inherit;cursor:pointer;
+  border-left:0;border-right:0;border-bottom:0;border-radius:9px;
+  padding:11px 10px;margin:0 -10px;width:calc(100% + 20px);
+  transition:background .14s var(--ease-out),transform .14s var(--ease-out);
+}
+button.item:hover,button.item:focus-visible{background:var(--c-soft);transform:translateX(3px)}
+button.item .ttl{display:flex;align-items:center;gap:6px}
+button.item .ttl::after{
+  content:"→";font-weight:700;opacity:0;transform:translateX(-4px);
+  transition:opacity .14s var(--ease-out),transform .14s var(--ease-out);
+}
+button.item:hover .ttl::after,button.item:focus-visible .ttl::after{opacity:.55;transform:translateX(0)}
+
+/* ---- stack ---- */
+.grp{margin-bottom:13px}
+.grp > b{display:block;font-size:.625rem;font-weight:700;letter-spacing:.09em;text-transform:uppercase;
+  color:var(--ink-subtle);margin-bottom:7px}
+.grp .row2{display:flex;flex-wrap:wrap;gap:6px}
+.tool{
+  display:inline-flex;align-items:center;gap:7px;font-size:.8125rem;font-weight:500;
+  border:1.5px solid var(--border);border-radius:9px;padding:5px 10px 5px 7px;background:#fff;
+  box-shadow:2px 2px 0 0 var(--border);
+  transition:transform .16s var(--ease-out),box-shadow .16s var(--ease-out),background .16s ease;
+}
+.tool:hover{transform:translate(-1px,-2px);box-shadow:3px 4px 0 0 var(--border);background:var(--c-soft)}
+.tool img{width:17px;height:17px;object-fit:contain;flex:0 0 auto}
+/* some vendor logos ship white-on-transparent for dark UIs; invert them on our light card */
+.tool img.inv{filter:invert(1)}
+.tool .fallback{
+  width:17px;height:17px;flex:0 0 auto;border-radius:4px;background:var(--c);
+  border:1px solid var(--border);display:grid;place-items:center;
+  font-size:9px;font-weight:700;line-height:1;
+}
+
+/* ---- detail cards ---- */
+.detail-meta{font-size:.75rem;font-weight:700;letter-spacing:.05em;text-transform:uppercase;
+  color:var(--ink-subtle);margin:0 0 10px}
+.bullets{margin:0 0 14px;padding:0;list-style:none}
+.bullets li{position:relative;padding-left:18px;margin-bottom:8px;color:var(--ink-muted);line-height:1.55}
+.bullets li::before{content:"";position:absolute;left:0;top:.55em;width:7px;height:7px;border-radius:2px;
+  background:var(--c);border:1.5px solid var(--border)}
+.bullets li b{color:var(--ink);font-weight:700}
+.award{display:inline-flex;align-items:center;gap:7px;background:var(--c);border:1.5px solid var(--border);
+  border-radius:9px;padding:6px 11px;font-weight:700;font-size:.8125rem;box-shadow:2px 2px 0 0 var(--border);
+  margin-bottom:12px}
+
+/* Screenshot slot. Fixed 16:9 so dropping a real image in causes zero reflow. */
+.shot{
+  display:block;width:100%;aspect-ratio:16/9;margin:0 0 14px;padding:0;
+  border:2px dashed rgba(22,22,22,.3);border-radius:10px;background:var(--c-soft);
+  font:inherit;color:var(--ink-subtle);cursor:pointer;position:relative;overflow:hidden;
+  transition:border-color .16s var(--ease-out),background .16s var(--ease-out);
+}
+.shot:hover,.shot:focus-visible{border-color:var(--border);background:var(--c)}
+.shot span{position:absolute;inset:0;display:grid;place-content:center;gap:3px;
+  font-size:.75rem;font-weight:700;letter-spacing:.06em;text-transform:uppercase;text-align:center}
+.shot span small{font-size:.6875rem;font-weight:500;letter-spacing:.02em;text-transform:none;opacity:.75}
+.shot img{width:100%;height:100%;object-fit:cover;display:block}
+.shot-lg{aspect-ratio:16/9;margin:0}
+.item .yr{font-size:.6875rem;font-weight:700;letter-spacing:.04em;color:var(--ink-subtle);min-width:38px;
+  font-variant-numeric:tabular-nums}
+.item .ttl{font-weight:700}
+.item .sub{color:var(--ink-muted);font-size:.875rem;display:block;margin-top:1px}
+.item .tag{font-size:.6875rem;font-weight:700;letter-spacing:.05em;text-transform:uppercase;margin-left:auto;
+  white-space:nowrap;background:var(--c);border:1.5px solid var(--border);border-radius:6px;padding:2px 6px}
+
+.stats{display:flex;gap:20px;flex-wrap:wrap;margin-top:16px;padding-top:14px;border-top:var(--bw) dashed rgba(22,22,22,.2)}
+.stat b{display:block;font-size:1.5rem;font-weight:700;letter-spacing:-.025em;line-height:1.05}
+.stat span{font-size:.625rem;font-weight:700;letter-spacing:.07em;text-transform:uppercase;color:var(--ink-subtle)}
+
+.kv{display:grid;grid-template-columns:88px 1fr;gap:6px 12px;align-items:baseline}
+.kv dt{font-size:.6875rem;font-weight:700;letter-spacing:.06em;text-transform:uppercase;color:var(--ink-subtle);
+  padding-top:3px}
+.kv dd{margin:0;color:var(--ink-muted)}
+
+.swatches{display:flex;flex-wrap:wrap;gap:7px;margin-top:4px}
+.sw{width:34px;height:34px;border-radius:9px;border:1.5px solid var(--border);cursor:pointer}
+.sw:hover{transform:translateY(-2px)}
+
+/* ---------- dock: hover lift + label. no magnification. ---------- */
+#dock{position:fixed;left:50%;bottom:var(--dock-bottom);transform:translateX(-50%);z-index:60}
+#dockPanel{
+  display:flex;align-items:flex-end;gap:var(--dock-gap);
+  padding:var(--dock-pad);border-radius:var(--dock-panel-r);
+  background:color-mix(in srgb,#bbbbbc 15%,rgba(255,255,255,.2));
+  backdrop-filter:blur(10px) saturate(150%);
+  -webkit-backdrop-filter:blur(10px) saturate(150%);
+  box-shadow:
+    inset 0 0 0 1px rgba(255,255,255,.5),
+    inset 1.6px 2.4px 0 -1.6px rgba(255,255,255,.85),
+    inset -1.4px -1.8px 0 -1.4px rgba(255,255,255,.7),
+    0 8px 24px rgba(22,22,22,.14);
+}
+.dock__item{
+  position:relative;flex:0 0 auto;width:var(--dock-size);height:var(--dock-size);
+  border:0;padding:0;background:none;cursor:pointer;
+  transition:transform .22s var(--ease-out);
+}
+.dock__item:hover,.dock__item:focus-visible{transform:translateY(-10px)}
+.dock__icon{
+  width:100%;height:100%;border-radius:var(--dock-radius);
+  border:var(--bw) solid var(--border);
+  display:grid;place-items:center;font-size:21px;line-height:1;
+  background:var(--c,#fff);
+  box-shadow:2px 2px 0 0 var(--border);
+  pointer-events:none;
+  transition:box-shadow .22s var(--ease-out);
+}
+.dock__item:hover .dock__icon{box-shadow:3px 4px 0 0 var(--border)}
+.dock__item[data-open="true"]::after{
+  content:"";position:absolute;left:50%;bottom:-7px;width:5px;height:5px;border-radius:999px;
+  background:var(--ink);transform:translateX(-50%);
+}
+.dock__tip{
+  position:absolute;bottom:calc(100% + 6px);left:50%;transform:translateX(-50%) translateY(4px);
+  background:var(--ink);color:#fff;font-size:12px;font-weight:500;
+  padding:5px 9px;border-radius:7px;white-space:nowrap;pointer-events:none;
+  opacity:0;transition:opacity .18s var(--ease-out),transform .18s var(--ease-out);
+}
+.dock__item:hover .dock__tip,.dock__item:focus-visible .dock__tip{opacity:1;transform:translateX(-50%) translateY(0)}
+.dock__sep{flex:0 0 auto;width:1px;height:calc(var(--dock-size)*.62);background:rgba(22,22,22,.22);margin:0 5px;align-self:center}
+
+/* ---------- top pill ---------- */
+#pill{
+  position:fixed;top:22px;left:50%;transform:translateX(-50%);z-index:60;
+  display:flex;align-items:center;gap:2px;padding:5px;border-radius:999px;
+  background:rgba(255,255,255,.5);backdrop-filter:blur(10px) saturate(150%);
+  -webkit-backdrop-filter:blur(10px) saturate(150%);
+  border:1px solid rgba(22,22,22,.16);
+  box-shadow:inset 0 0 0 1px rgba(255,255,255,.6),0 4px 14px rgba(22,22,22,.08);
+}
+#pill button{
+  border:0;background:none;font:inherit;font-size:13px;font-weight:500;color:var(--ink);
+  padding:6px 12px;border-radius:999px;cursor:pointer;white-space:nowrap;
+  transition:background .14s var(--ease-out);
+}
+#pill button:hover{background:rgba(22,22,22,.08)}
+#pill .div{width:1px;height:18px;background:rgba(22,22,22,.16);margin:0 3px}
+#pill button.on{background:var(--accent)}
+
+#zoomTag{position:fixed;right:20px;bottom:calc(var(--dock-bottom) + 6px);z-index:60;
+  font-size:12px;font-weight:500;color:var(--ink-subtle);font-variant-numeric:tabular-nums;
+  user-select:none;pointer-events:none}
+#hint{position:fixed;left:20px;bottom:calc(var(--dock-bottom) + 6px);z-index:60;
+  font-size:12px;color:var(--ink-subtle);user-select:none;pointer-events:none;transition:opacity .5s ease}
+
+/* ---------- cursor ---------- */
+#cursor{position:fixed;top:0;left:0;width:7px;height:7px;border-radius:999px;background:var(--ink);
+  pointer-events:none;z-index:200;transform:translate(-50%,-50%);opacity:0;
+  transition:opacity .16s ease,width .18s var(--ease-out),height .18s var(--ease-out),background .18s ease}
+#cursor.on{opacity:1}
+#cursor.big{width:32px;height:32px;background:rgba(22,22,22,.12);border:1.5px solid var(--ink)}
+/* Small precision targets get colour feedback, never size — a 32px ring covers a 22px
+   close button, which reads as the button being hard to hit. */
+#cursor.precise{width:9px;height:9px;background:var(--accent);box-shadow:0 0 0 1.5px var(--ink)}
+@media (hover:hover) and (pointer:fine){ body,body *{cursor:none !important} }
+@media (hover:none),(pointer:coarse){ #cursor{display:none} }
+
+@media (prefers-reduced-motion:reduce){
+  *,*::before,*::after{animation-duration:.01ms !important;transition-duration:.01ms !important}
+}
+</style>
+</head>
+<body>
+
+<div id="viewport">
+  <div id="world">
+    <div id="grid"></div>
+  </div>
+</div>
+
+<div id="pill">
+  <button id="btnFit">Fit all</button>
+  <button id="btnMin">Minimise all</button>
+  <button id="btnRand">Random</button>
+  <span class="div"></span>
+  <button id="btnSound" aria-pressed="false">🔇 Sound</button>
+</div>
+
+<div id="dock"><div id="dockPanel"></div></div>
+<div id="zoomTag">100%</div>
+<div id="hint">drag anything &middot; ⌘/ctrl + scroll to zoom &middot; 0 to reset</div>
+<div id="cursor"></div>
+
+<script>
+'use strict'
+
+/* ============================================================
+   1. APPS — each carries its own colour and shape.
+      This is what stops every card looking identical.
+   ============================================================ */
+const APPS = [
+  { id:'about',   label:'About',      icon:'👋', c:'#FACC00', soft:'#FEF3BF', w:520, h:330, rot:-1.0 },
+  { id:'work',    label:'Work',       icon:'◆',  c:'#A8E6A1', soft:'#E4F7E1', w:600, h:430, rot: 0.7 },
+  { id:'exp',     label:'Experience', icon:'▦',  c:'#FFB4A2', soft:'#FFE6DF', w:540, h:330, rot:-1.2 },
+  { id:'stack',   label:'Stack',      icon:'⚙',  c:'#A9D6FF', soft:'#E3F1FF', w:650, h:620, rot: 0.3 },   /* dense grid: rotation reads as misalignment */
+  { id:'writing', label:'Writing',    icon:'✎',  c:'#D9C2FF', soft:'#F0E8FF', w:520, h:250, rot:-0.8 },
+  { id:'resume',  label:'Résumé',     icon:'▤',  c:'#FFE0A3', soft:'#FFF3DC', w:470, h:250, rot: 0.9 },
+  { id:'themes',  label:'Themes',     icon:'◑',  c:'#FFC2E2', soft:'#FFE7F3', w:460, h:290, rot:-1.1 },
+  { id:'contact', label:'Contact',    icon:'✉',  c:'#B8F2E6', soft:'#E6FBF7', w:480, h:250, rot: 0.6 },
+  { sep:true },
+  { id:'github',  label:'GitHub',     icon:'⌥',  c:'#E8E6DE', ext:true },
+  { id:'li',      label:'LinkedIn',   icon:'in', c:'#E8E6DE', ext:true },
+]
+
+/* Bodies are deliberately different shapes — prose, list, stats, definition list,
+   swatches — so no two cards read the same even before colour. */
+const BODY = {
+  about:`<p class="lede">I build production systems — scalable APIs, RAG pipelines and
+    LLM-powered applications that actually ship.</p>
+    <p>Currently finishing a B.E. at Thapar and a Diploma at IIT Madras, simultaneously.</p>
+    <p><a class="link" href="#">aahilminookhan@gmail.com</a></p>
+    <div><span class="chip">TypeScript</span><span class="chip">Python</span><span class="chip">RAG</span><span class="chip">AWS</span></div>`,
+
+  work:`<button class="item" data-detail="flowsync"><span class="yr">2025</span><span><span class="ttl">FlowSync AI</span>
+      <span class="sub">Project memory for coding agents, over MCP</span></span><span class="tag">System</span></button>
+    <button class="item" data-detail="konta"><span class="yr">2025</span><span><span class="ttl">Konta</span>
+      <span class="sub">Local-first context-aware browsing</span></span><span class="tag">Award</span></button>
+    <button class="item" data-detail="gina"><span class="yr">2025</span><span><span class="ttl">GINA</span>
+      <span class="sub">Natural language → SQL analytics</span></span><span class="tag">Research</span></button>
+    <button class="item" data-detail="portana"><span class="yr">2025</span><span><span class="ttl">Portana</span>
+      <span class="sub">AI-powered interactive portfolio</span></span><span class="tag">Product</span></button>
+    <div class="stats">
+      <span class="stat"><b>1.26s</b><span>p50 latency</span></span>
+      <span class="stat"><b>10,000+</b><span>students served</span></span>
+      <span class="stat"><b>40%</b><span>fewer errors</span></span>
+    </div>`,
+
+  exp:`<button class="item" data-detail="datesheet"><span class="yr">2025</span><span><span class="ttl">Backend Engineer</span>
+      <span class="sub">Datesheet Generator &middot; Mar – Jul 2025</span></span></button>
+    <button class="item" data-detail="edutube"><span class="yr">2024</span><span><span class="ttl">Team Lead / Full-stack</span>
+      <span class="sub">Thapar EduTube &middot; Oct 2024 – Jan 2025</span></span></button>
+    <div class="item"><span class="yr">edu</span><span><span class="ttl">Thapar Institute — B.E.</span>
+      <span class="sub">CGPA 9.23 &middot; IIT Madras Diploma in Programming, 8.34</span></span></div>`,
+
+  stack:`<div class="stack-mount"></div>`,
+
+  writing:`<div class="item"><span class="yr">2026</span><span><span class="ttl">Chrome Already Built Our Idea.</span>
+      <span class="sub">We won the hackathon anyway.</span></span><span class="tag">6 min</span></div>
+    <div class="item"><span class="yr">2025</span><span><span class="ttl">An Old Laptop as a Cloud Server</span>
+      <span class="sub">Self-hosting, end to end.</span></span><span class="tag">8 min</span></div>`,
+
+  resume:`<p class="lede">The whole thing, as a page you can scroll and print.</p>
+    <p><a class="link" href="#">Open résumé →</a> &nbsp; <a class="link" href="#">Download PDF ↓</a></p>
+    <p style="font-size:.8125rem;color:var(--ink-subtle)">Server-rendered, works with JavaScript off.</p>`,
+
+  themes:`<p>17 themes. Cream is home.</p>
+    <div class="swatches">
+      <span class="sw" style="background:#F7F5EE"></span><span class="sw" style="background:#EFF1F5"></span>
+      <span class="sw" style="background:#1E1E2E"></span><span class="sw" style="background:#232136"></span>
+      <span class="sw" style="background:#2E3440"></span><span class="sw" style="background:#282828"></span>
+      <span class="sw" style="background:#282A36"></span><span class="sw" style="background:#1A1B26"></span>
+      <span class="sw" style="background:#2D353B"></span><span class="sw" style="background:#1F1F28"></span>
+    </div>
+    <p style="font-size:.8125rem;color:var(--ink-subtle);margin-top:12px">Not wired up yet — P4.</p>`,
+
+  contact:`<p class="lede">One message away.</p>
+    <p><a class="link" href="#">aahilminookhan@gmail.com</a></p>
+    <div><span class="chip">GitHub</span><span class="chip">LinkedIn</span><span class="chip">Medium</span></div>`,
+}
+
+/* ---- detail cards, opened by clicking a row. Content is real, from resume.json. ---- */
+const D = (c, soft) => ({ c, soft })
+const DETAILS = {
+  flowsync: { label:'FlowSync AI', icon:'◆', ...D('#A8E6A1','#E4F7E1'), w:560, h:440, rot:0.8,
+    body:`<p class="detail-meta">2025 · System · TypeScript, Python, AWS</p>
+      <p class="lede">Persistent memory for coding agents, over the Model Context Protocol.</p>
+      <ul class="bullets">
+        <li>Gave coding agents persistent project context via <b>MCP</b>, so they stop re-learning the codebase every session.</li>
+        <li>Built a <b>VS Code extension</b> and MCP server for context logging, project search, recent changes and a branch-aware RAG pipeline with vector retrieval.</li>
+        <li>Event-driven async <b>AWS pipeline</b> extracting decisions, risks and tasks straight from git diffs using Bedrock models.</li>
+        <li>Branch-aware RAG with DynamoDB caching: <b>1.26s</b> median push-to-search latency, <b>1.60s</b> p95.</li>
+      </ul>
+      <div><span class="chip">TypeScript</span><span class="chip">Python</span><span class="chip">AWS Lambda</span><span class="chip">Bedrock</span><span class="chip">DynamoDB</span><span class="chip">S3</span><span class="chip">MCP</span></div>` },
+
+  konta: { label:'Konta', icon:'◆', ...D('#A8E6A1','#E4F7E1'), w:560, h:440, rot:-0.9,
+    body:`<p class="detail-meta">2025 · Product · Local-first</p>
+      <div class="award">🏆 Winner — Samsung PRISM Web Agent Hackathon</div>
+      <p class="lede">A Chrome extension that turns your browsing into a private, on-device knowledge base.</p>
+      <ul class="bullets">
+        <li><b>Local-first</b>: nothing leaves the machine. Semantic embeddings run on-device.</li>
+        <li>Multi-stage retrieval pipeline for private, low-latency search.</li>
+        <li><b>Knowledge graph</b> linking pages by semantic, temporal and contextual relationships.</li>
+        <li>Sessionization with context-boundary detection, so unrelated browsing tasks never merge.</li>
+      </ul>
+      <div><span class="chip">React</span><span class="chip">TypeScript</span><span class="chip">IndexedDB</span><span class="chip">Transformers.js</span><span class="chip">ONNX</span></div>` },
+
+  gina: { label:'GINA', icon:'◆', ...D('#A8E6A1','#E4F7E1'), w:560, h:410, rot:1.0,
+    body:`<p class="detail-meta">2025 · Research · NL → SQL</p>
+      <p class="lede">Grounded insights from natural-language analytics.</p>
+      <ul class="bullets">
+        <li>Multi-model <b>NL→SQL</b> pipeline for conversational data analytics with structured outputs.</li>
+        <li><b>SSE streaming</b> with fast-path routing (snapshot + cache restore) for latency and transparency.</li>
+        <li>Context-aware multi-turn handling using structured conversation state, so follow-ups stay grounded.</li>
+        <li>Semantic schema-correction loops and failure-tolerant API/SSE error handling.</li>
+      </ul>
+      <div><span class="chip">Next.js</span><span class="chip">Fastify</span><span class="chip">PostgreSQL</span><span class="chip">Supabase</span><span class="chip">SSE</span></div>` },
+
+  portana: { label:'Portana', icon:'◆', ...D('#A8E6A1','#E4F7E1'), w:540, h:390, rot:-0.7,
+    body:`<p class="detail-meta">2025 · Product · The previous version of this site</p>
+      <p class="lede">A conversational portfolio you could interrogate instead of scroll.</p>
+      <ul class="bullets">
+        <li><b>AI-driven</b> portfolio platform with conversational project exploration.</li>
+        <li>Modular API routes enabling real-time rendering.</li>
+        <li><b>n8n</b>-based auto-sync workflows for GitHub and LinkedIn, keeping content current without edits.</li>
+        <li>Analytics and monitoring for usage and system behaviour.</li>
+      </ul>
+      <div><span class="chip">Next.js</span><span class="chip">Fastify</span><span class="chip">Qdrant</span><span class="chip">n8n</span><span class="chip">Umami</span><span class="chip">Docker</span></div>` },
+
+  datesheet: { label:'Backend Engineer', icon:'▦', ...D('#FFB4A2','#FFE6DF'), w:560, h:400, rot:0.9,
+    body:`<p class="detail-meta">Datesheet Generator · Thapar University · Mar – Jul 2025</p>
+      <p class="lede">Re-architected an exam scheduling system that couldn't survive a page refresh.</p>
+      <ul class="bullets">
+        <li>Moved from <b>session-based state to a persistent MySQL-backed workflow</b> — the core fix.</li>
+        <li>Secure login, multi-user support and <b>savepoints</b>, so partial work resumes instead of restarting.</li>
+        <li>Improved generation workflows, cutting scheduling errors by <b>40%</b>.</li>
+        <li>Integrated with <b>Oracle PeopleSoft</b> to automate structured data ingestion and export.</li>
+      </ul>
+      <div><span class="chip">Flask</span><span class="chip">MySQL</span><span class="chip">Python</span></div>` },
+
+  edutube: { label:'Team Lead / Full-stack', icon:'▦', ...D('#FFB4A2','#FFE6DF'), w:580, h:440, rot:-1.0,
+    body:`<p class="detail-meta">Thapar EduTube · Oct 2024 – Jan 2025</p>
+      <p class="lede">Led 3 engineers building a lecture platform for <b>10,000+</b> students.</p>
+      <ul class="bullets">
+        <li>Designed backend APIs for lecture ingestion, metadata management, full-text search and access control.</li>
+        <li>Built full-stack admin and teacher dashboards for uploads, course management and workflow customisation.</li>
+        <li>Chose <b>PostgreSQL FTS over Elasticsearch</b> after evaluating both — optimising for latency <i>and</i> operational simplicity.</li>
+        <li>Deployed and operated production services on <b>AWS EC2</b> with Docker, reliable enough for daily academic use.</li>
+      </ul>
+      <div><span class="chip">Node.js</span><span class="chip">Express</span><span class="chip">PostgreSQL FTS</span><span class="chip">Redis</span><span class="chip">Docker</span><span class="chip">AWS EC2</span></div>` },
+}
+
+/*
+ * Every project and job gets a 16:9 screenshot slot, injected centrally rather than pasted into
+ * six body strings. The aspect ratio is fixed, so dropping a real image in later reflows nothing.
+ * Clicking one opens it as its own card, so shots can be pulled out and compared side by side.
+ */
+const shotSlot = (key, label) =>
+  `<button class="shot" data-shot="${key}" data-shot-label="${label}">
+     <span>Screenshot<small>click to open as a card</small></span>
+   </button>`
+
+for (const [key, d] of Object.entries(DETAILS))
+  d.body = d.body.replace('<ul class="bullets">', shotSlot(key, d.label) + '<ul class="bullets">')
+
+/* ---- stack ----
+ * A logo shelf grouped by kind, replacing a flat 35-tile wall with filter pills.
+ * Logos are devicon assets lifted from the old repo's public/Logos; entries with no shipped
+ * asset render a coloured initial rather than borrowing a wrong logo.
+ */
+const L = 'logos/'
+const TOOLS = [
+  ['Languages', [
+    ['Python', L+'python-original.svg'], ['TypeScript', null], ['JavaScript', L+'javascript-original.svg'],
+  ]],
+  ['Backend', [
+    ['Node.js', L+'nodejs-original.svg'], ['Express', L+'express-original.svg'],
+    ['Fastify', null], ['FastAPI', null], ['Flask', L+'flask-original.svg'],
+  ]],
+  ['Frontend', [
+    ['React', L+'react-original.svg'], ['Next.js', L+'nextjs-original.svg'],
+    ['Tailwind', L+'tailwindcss-original.svg'],
+  ]],
+  ['Data', [
+    ['PostgreSQL', L+'postgresql-original.svg'], ['MySQL', L+'mysql-original.svg'],
+    ['Redis', L+'redis-original.svg'], ['Prisma', L+'prisma-original.svg'],
+    ['Qdrant', L+'qdrant.png', true],   // ships pure white — measured luminance 255
+  ]],
+  ['Cloud & ops', [
+    ['AWS', L+'amazonwebservices-original-wordmark.svg'], ['Docker', L+'docker-original.svg'],
+    ['GitHub Actions', L+'github-original.svg'], ['Nginx', null],
+  ]],
+  ['Testing', [
+    ['Jest', L+'jest-plain.svg'], ['Postman', L+'postman-original.svg'], ['Vitest', null],
+  ]],
+]
+
+/* ============================================================
+   2. CANVAS
+   ============================================================ */
+const viewport = document.getElementById('viewport')
+const world    = document.getElementById('world')
+const zoomTag  = document.getElementById('zoomTag')
+
+const MIN_SCALE = 0.35, MAX_SCALE = 2.0
+const cam = { x:0, y:0, s:1 }
+let camDirty = true
+
+function applyCam(){
+  world.style.transform = `translate3d(${cam.x}px,${cam.y}px,0) scale(${cam.s})`
+  zoomTag.textContent = Math.round(cam.s * 100) + '%'
+}
+const clampScale = (s) => Math.min(MAX_SCALE, Math.max(MIN_SCALE, s))
+const screenToWorld = (px, py) => ({ x:(px - cam.x)/cam.s, y:(py - cam.y)/cam.s })
+const reducedMotion = () => matchMedia('(prefers-reduced-motion: reduce)').matches
+
+function zoomAt(px, py, nextScale){
+  const s = clampScale(nextScale)
+  if (s === cam.s) return
+  const wx = (px - cam.x) / cam.s, wy = (py - cam.y) / cam.s
+  cam.s = s; cam.x = px - wx * s; cam.y = py - wy * s
+  camDirty = true
+}
+
+/* --- pan --- */
+let panning = false, panId = null
+let last = { x:0, y:0, t:0 }, vel = { x:0, y:0 }
+
+viewport.addEventListener('pointerdown', (e) => {
+  if (e.button !== 0 || e.target.closest('.obj')) return
+  panning = true; panId = e.pointerId
+  viewport.setPointerCapture(panId)
+  document.body.style.cursor = 'grabbing'
+  camBefore = null; focusedId = null      // moving by hand cancels a pending "fly back"
+  last = { x:e.clientX, y:e.clientY, t:performance.now() }
+  vel = { x:0, y:0 }
+  fadeHint()
+})
+viewport.addEventListener('pointermove', (e) => {
+  if (!panning || e.pointerId !== panId) return
+  const now = performance.now()
+  const dx = e.clientX - last.x, dy = e.clientY - last.y
+  const dt = Math.max(1, now - last.t)
+  cam.x += dx; cam.y += dy
+  vel.x = vel.x * .7 + (dx / dt) * .3
+  vel.y = vel.y * .7 + (dy / dt) * .3
+  last = { x:e.clientX, y:e.clientY, t:now }
+  camDirty = true
+})
+function endPan(e){
+  if (!panning || (e && e.pointerId !== panId)) return
+  panning = false
+  document.body.style.cursor = ''
+  if (Math.hypot(vel.x, vel.y) > .12 && !reducedMotion()) glide(vel.x * 16, vel.y * 16)
+}
+viewport.addEventListener('pointerup', endPan)
+viewport.addEventListener('pointercancel', endPan)
+
+let glideRAF = null
+function glide(vx, vy){
+  cancelAnimationFrame(glideRAF)
+  const step = () => {
+    vx *= .94; vy *= .94
+    cam.x += vx; cam.y += vy; camDirty = true
+    if (Math.hypot(vx, vy) > .12) glideRAF = requestAnimationFrame(step)
+  }
+  glideRAF = requestAnimationFrame(step)
+}
+
+viewport.addEventListener('wheel', (e) => {
+  /*
+   * The wheel belongs to whatever is under the pointer. Over a card it scrolls that card and
+   * nothing else — deliberately NOT chained to the canvas at the scroll edge, because reaching
+   * the bottom of a card and having the whole world lurch is disorienting. Zoom still works,
+   * since ctrl/⌘ + wheel is a global gesture rather than a scroll.
+   */
+  if (!e.ctrlKey && !e.metaKey && e.target.closest('.card-obj')) return
+  e.preventDefault()
+  cancelAnimationFrame(glideRAF)
+  if (e.ctrlKey || e.metaKey){
+    // deltaY is device-dependent: trackpad ~1-10, mouse notch 100-300. Clamp, then exponentiate.
+    const dy = Math.max(-50, Math.min(50, e.deltaY))
+    zoomAt(e.clientX, e.clientY, cam.s * Math.exp(-dy * .0035))
+  } else {
+    cam.x -= e.deltaX; cam.y -= e.deltaY; camDirty = true
+  }
+  fadeHint()
+}, { passive:false })
+
+/* --- pinch --- */
+const touches = new Map(); let pinchDist = 0
+viewport.addEventListener('pointerdown', (e) => {
+  if (e.pointerType !== 'touch') return
+  touches.set(e.pointerId, e)
+  if (touches.size === 2) pinchDist = twoFingerDist()
+})
+viewport.addEventListener('pointermove', (e) => {
+  if (e.pointerType !== 'touch' || !touches.has(e.pointerId)) return
+  touches.set(e.pointerId, e)
+  if (touches.size === 2){
+    const d = twoFingerDist()
+    if (pinchDist > 0){
+      const [a,b] = [...touches.values()]
+      zoomAt((a.clientX+b.clientX)/2, (a.clientY+b.clientY)/2, cam.s * (d / pinchDist))
+    }
+    pinchDist = d
+  }
+})
+const clearTouch = (e) => { touches.delete(e.pointerId); if (touches.size < 2) pinchDist = 0 }
+viewport.addEventListener('pointerup', clearTouch)
+viewport.addEventListener('pointercancel', clearTouch)
+function twoFingerDist(){
+  const [a,b] = [...touches.values()]
+  return Math.hypot(a.clientX-b.clientX, a.clientY-b.clientY)
+}
+
+;(function frame(){
+  if (camDirty){ applyCam(); camDirty = false }
+  requestAnimationFrame(frame)
+})()
+
+function flyTo(tx, ty, ts, ms = 620){
+  if (reducedMotion()){ cam.x=tx; cam.y=ty; cam.s=ts; camDirty=true; return }
+  cancelAnimationFrame(glideRAF)
+  const from = { ...cam }, t0 = performance.now()
+  const step = (now) => {
+    const p = Math.min(1,(now-t0)/ms), k = 1 - Math.pow(1-p,3)
+    cam.x = from.x+(tx-from.x)*k; cam.y = from.y+(ty-from.y)*k; cam.s = from.s+(ts-from.s)*k
+    camDirty = true
+    if (p < 1) glideRAF = requestAnimationFrame(step)
+  }
+  glideRAF = requestAnimationFrame(step)
+}
+
+/* ============================================================
+   3. DRAGGABLE OBJECTS — one implementation for hero AND cards
+   ============================================================ */
+let zTop = 10
+const objects = new Map()   // id -> { el, x, y, w, h, rot }
+
+function place(o){
+  o.el.style.left = o.x + 'px'
+  o.el.style.top  = o.y + 'px'
+  o.el.style.transform = o.rot ? `rotate(${o.rot}deg)` : ''
+}
+
+function raise(id){
+  const o = objects.get(id); if (!o) return
+  o.el.style.zIndex = ++zTop
+  for (const [k,v] of objects) v.el.classList.toggle('is-focused', k === id)
+}
+
+/**
+ * Drag in world space. The delta is divided by cam.s, so the object stays glued to the
+ * cursor at any zoom level. Writes are imperative during the gesture, committed on release.
+ */
+function enableDrag(handle, id, onDouble){
+  let lastTap = 0, lastX = 0, lastY = 0
+
+  handle.addEventListener('pointerdown', (e) => {
+    if (e.button !== 0 || e.target.closest('button,a')) return
+    const o = objects.get(id); if (!o) return
+    e.stopPropagation()
+
+    /*
+     * Double-tap is timed by hand rather than via the native dblclick event, so it behaves
+     * identically for mouse and touch and doesn't depend on how click synthesis interacts with
+     * setPointerCapture (which this handle needs so a drag survives the cursor leaving it).
+     *
+     * It resolves on pointer*up*, never on down: deciding on the way down means a click followed
+     * quickly by a drag gets swallowed as "double tap" and the card refuses to move.
+     */
+    const now = performance.now()
+    const isSecondTap = now - lastTap < 320 && Math.hypot(e.clientX - lastX, e.clientY - lastY) < 6
+    lastTap = now; lastX = e.clientX; lastY = e.clientY
+    let moved = false
+
+    handle.setPointerCapture(e.pointerId)
+    handle.classList.add('is-dragging')
+    raise(id)
+
+    const start = screenToWorld(e.clientX, e.clientY)
+    const ox = o.x, oy = o.y
+    let raf = null, nx = ox, ny = oy
+
+    const move = (ev) => {
+      const p = screenToWorld(ev.clientX, ev.clientY)
+      nx = ox + (p.x - start.x); ny = oy + (p.y - start.y)
+      if (Math.hypot(nx - ox, ny - oy) > 3) moved = true
+      if (!raf) raf = requestAnimationFrame(() => {
+        o.el.style.left = nx + 'px'; o.el.style.top = ny + 'px'; raf = null
+      })
+    }
+    const up = () => {
+      handle.removeEventListener('pointermove', move)
+      handle.removeEventListener('pointerup', up)
+      handle.removeEventListener('pointercancel', up)
+      handle.classList.remove('is-dragging')
+      cancelAnimationFrame(raf)
+      o.x = nx; o.y = ny; place(o)
+      // a second tap that didn't turn into a drag is a double-tap
+      if (onDouble && isSecondTap && !moved){ lastTap = 0; onDouble() }
+    }
+    handle.addEventListener('pointermove', move)
+    handle.addEventListener('pointerup', up)
+    handle.addEventListener('pointercancel', up)
+  })
+}
+
+/* ============================================================
+   4. HERO — a first-class canvas object
+   ============================================================ */
+const heroEl = document.createElement('div')
+heroEl.className = 'obj grab'
+heroEl.id = 'hero'
+heroEl.innerHTML = `
+  <div class="card">
+    <div class="avatar">AK</div>
+    <h1>Aahil&nbsp;Khan</h1>
+    <p class="role">Full-stack &amp; <b>AI engineer</b></p>
+    <p class="meta">Patiala, India &middot; open to work</p>
+  </div>`
+world.appendChild(heroEl)
+objects.set('hero', { el:heroEl, x:0, y:0, w:600, h:0, rot:0 })
+enableDrag(heroEl, 'hero', () => focusOn('hero'))
+
+/* ============================================================
+   5. CARDS
+   ============================================================ */
+function buildCardEl(app){
+  const el = document.createElement('div')
+  el.className = 'obj card-obj'
+  el.style.cssText = `width:${app.w}px;height:${app.h}px;--c:${app.c};--c-soft:${app.soft}`
+  el.innerHTML = `
+    <div class="card__head">
+      <span class="card__ico">${app.icon}</span>
+      <span class="card__name">${app.label}</span>
+      <button class="card__x" aria-label="Close ${app.label}"></button>
+    </div>
+    <div class="card__body">${app.body || BODY[app.id] || '<p>—</p>'}</div>`
+  return el
+}
+
+/*
+ * Card heights are MEASURED, not guessed. Every height in this file used to be a hand-picked
+ * number, and an audit found all eight cards too tall — Stack by 243px — because the check
+ * only ever compared scrollHeight to clientHeight, which detects overflow but never slack.
+ * Each card is rendered once off-screen at its natural height and the result is stored, so a
+ * card shows all its content and scrolls only when it exceeds MAX_CARD_H.
+ */
+const MAX_CARD_H = 640
+
+function measureCards(){
+  const targets = [...APPS.filter(a => !a.sep && !a.ext), ...Object.values(DETAILS)]
+  for (const app of targets){
+    const probe = buildCardEl(app)
+    probe.style.height = 'auto'
+    probe.style.visibility = 'hidden'
+    probe.style.left = '-99999px'
+    probe.style.top = '0px'
+    world.appendChild(probe)
+    if (app.id === 'stack') buildStack(probe)      // stack builds its shelf at runtime
+    // offsetHeight is layout height, so it ignores the world's transform and any card rotation
+    app.h = Math.min(MAX_CARD_H, probe.offsetHeight)
+    probe.remove()
+  }
+}
+
+function openCard(app, wx, wy, { from = null } = {}){
+  if (objects.has(app.id)){ raise(app.id); return }
+
+  const el = buildCardEl(app)
+  el.style.zIndex = ++zTop
+  world.appendChild(el)
+
+  const o = { el, x:wx, y:wy, w:app.w, h:app.h, rot:app.rot || 0 }
+  objects.set(app.id, o)
+  place(o); raise(app.id); markDock()
+
+  if (!reducedMotion()){
+    if (from){
+      // grow out of the dock icon — only meaningful when the card lands on screen
+      const to = el.getBoundingClientRect()
+      el.animate(
+        [{ transform:`translate(${from.left-to.left}px,${from.top-to.top}px) scale(${from.width/to.width},${from.height/to.height})`,
+           opacity:0, borderRadius:'23.5%' },
+         { transform:`rotate(${o.rot}deg)`, opacity:1, borderRadius:'var(--radius-card)' }],
+        { duration:340, easing:'cubic-bezier(.16,1,.3,1)' })
+    } else {
+      // landed off screen: the camera is flying to it, so just pop in place
+      el.animate(
+        [{ transform:`rotate(${o.rot}deg) scale(.9)`, opacity:0 },
+         { transform:`rotate(${o.rot}deg) scale(1)`,  opacity:1 }],
+        { duration:300, delay:120, easing:'cubic-bezier(.16,1,.3,1)', fill:'backwards' })
+    }
+  }
+
+  el.addEventListener('pointerdown', () => raise(app.id), true)
+  enableDrag(el.querySelector('.card__head'), app.id, () => focusOn(app.id))
+  el.querySelector('.card__x').addEventListener('click', (e) => { e.stopPropagation(); closeCard(app.id) })
+
+  // rows that drill into a detail card
+  el.querySelectorAll('button.item[data-detail]').forEach((row) =>
+    row.addEventListener('click', () => openDetail(row.dataset.detail)))
+
+  // screenshot slots open as their own card
+  el.querySelectorAll('button.shot[data-shot]').forEach((s) =>
+    s.addEventListener('click', () => openShot(s.dataset.shot, s.dataset.shotLabel, app)))
+
+  if (app.id === 'stack') buildStack(el)
+  sound(b => b.open)
+  return el
+}
+
+/** Detail cards aren't in the dock — they're spawned by clicking a row. */
+function openDetail(key){
+  const d = DETAILS[key]
+  if (!d) return
+  if (objects.has(key)){ raise(key); revealObject(objects.get(key)); return }
+  const centre = screenToWorld(innerWidth / 2, innerHeight / 2)
+  const spot = findFreeSpot(d.w, d.h, centre)
+  openCard({ ...d, id:key }, spot.x, spot.y)
+  revealObject(objects.get(key))
+}
+
+/** A screenshot slot promoted to its own card, so shots can sit side by side on the canvas. */
+function openShot(key, label, parent){
+  const id = 'shot:' + key
+  if (objects.has(id)){ raise(id); revealObject(objects.get(id)); return }
+  const W = 520
+  const app = {
+    id, label: label + ' — shot', icon:'▣', c: parent.c, soft: parent.soft,
+    w: W, h: Math.round(W * 9 / 16) + 56, rot:(Math.random() - .5) * 2.4,
+    body:`<div class="shot shot-lg" style="cursor:default">
+            <span>Screenshot<small>drop the image in here</small></span>
+          </div>`,
+  }
+  const centre = screenToWorld(innerWidth / 2, innerHeight / 2)
+  const spot = findFreeSpot(W, app.h, centre)
+  openCard(app, spot.x, spot.y)
+  revealObject(objects.get(id))
+}
+
+/** Stack card: a logo shelf grouped by kind. */
+function buildStack(el){
+  const mount = el.querySelector('.stack-mount')
+  if (!mount) return
+
+  for (const [group, tools] of TOOLS){
+    const g = document.createElement('div')
+    g.className = 'grp'
+    g.innerHTML = `<b>${group}</b><div class="row2">` + tools.map(([name, src, inv]) =>
+      `<span class="tool">${
+        src ? `<img class="${inv ? 'inv' : ''}" src="${src}" alt="" loading="lazy">`
+            : `<span class="fallback">${name[0]}</span>`   // no logo shipped for this one yet
+      }${name}</span>`).join('') + `</div>`
+    mount.appendChild(g)
+  }
+}
+
+function closeCard(id){
+  const o = objects.get(id); if (!o || id === 'hero') return
+  const icon = document.querySelector(`.dock__item[data-app="${id}"]`)
+  const done = () => { o.el.remove(); objects.delete(id); markDock() }
+  if (!icon && !reducedMotion()){
+    // detail cards have no dock home to fly back to — shrink in place instead
+    o.el.animate(
+      [{ transform:`rotate(${o.rot}deg) scale(1)`, opacity:1 },
+       { transform:`rotate(${o.rot}deg) scale(.9)`, opacity:0 }],
+      { duration:200, easing:'cubic-bezier(.16,1,.3,1)' }).onfinish = done
+    sound(b => b.close)
+    return
+  }
+  if (icon && !reducedMotion()){
+    const from = o.el.getBoundingClientRect(), to = icon.getBoundingClientRect()
+    o.el.animate(
+      [{ transform:`rotate(${o.rot}deg)`, opacity:1 },
+       { transform:`translate(${to.left-from.left}px,${to.top-from.top}px) scale(${to.width/from.width},${to.height/from.height})`,
+         opacity:0, borderRadius:'23.5%' }],
+      { duration:290, easing:'cubic-bezier(.16,1,.3,1)' }).onfinish = done
+  } else done()
+  sound(b => b.close)
+}
+
+/* ============================================================
+   6. DOCK
+   ============================================================ */
+const dockPanel = document.getElementById('dockPanel')
+for (const app of APPS){
+  if (app.sep){ const s = document.createElement('div'); s.className = 'dock__sep'; dockPanel.appendChild(s); continue }
+  const b = document.createElement('button')
+  b.className = 'dock__item'; b.dataset.app = app.id; b.type = 'button'
+  b.setAttribute('aria-label', app.label)
+  b.innerHTML = `<span class="dock__icon" style="--c:${app.c}">${app.icon}</span><span class="dock__tip">${app.label}</span>`
+  b.addEventListener('click', () => onDockClick(app, b))
+  b.addEventListener('mouseenter', () => sound(x => x.hover))
+  dockPanel.appendChild(b)
+}
+const dockItems = [...dockPanel.querySelectorAll('.dock__item')]
+const markDock = () => dockItems.forEach(i => i.dataset.open = objects.has(i.dataset.app) ? 'true' : 'false')
+
+/* ---- placement: the canvas is infinite, so never stack cards on top of each other ---- */
+
+const GUTTER = 30   // world px of breathing room required around every card
+
+function occupied(){
+  return [...objects.values()].map(o => ({
+    x: o.x - GUTTER,
+    y: o.y - GUTTER,
+    w: (o.w || o.el.offsetWidth)  + GUTTER * 2,
+    h: (o.h || o.el.offsetHeight) + GUTTER * 2,
+  }))
+}
+
+/**
+ * Spiral outward from a preferred point until we find a rectangle that hits nothing.
+ * Rings are elliptical (1.6:1) because viewports are wider than they are tall, so
+ * spreading sideways keeps more of the arrangement on screen than spreading down.
+ */
+function findFreeSpot(w, h, prefer){
+  const boxes = occupied()
+  const free = (x, y) => !boxes.some(b =>
+    x < b.x + b.w && x + w > b.x && y < b.y + b.h && y + h > b.y)
+
+  let x = prefer.x - w / 2, y = prefer.y - h / 2
+  if (free(x, y)) return { x, y }
+
+  const STEP = 70
+  for (let ring = 1; ring <= 40; ring++){
+    const samples = 10 + ring * 4
+    for (let i = 0; i < samples; i++){
+      // rotate each ring's start angle so cards don't all march out along one axis
+      const a = (i / samples) * Math.PI * 2 + ring * 0.7
+      x = prefer.x + Math.cos(a) * ring * STEP * 1.6 - w / 2
+      y = prefer.y + Math.sin(a) * ring * STEP - h / 2
+      if (free(x, y)) return { x, y }
+    }
+  }
+  return { x, y }   // canvas is somehow full; last candidate will do
+}
+
+const OVERLAY_TOP = 78, OVERLAY_BOTTOM = 108   // top pill and dock are fixed, so reserve their bands
+
+/**
+ * Bring a world rect fully on screen: pan if that's enough, zoom OUT if it isn't.
+ * Never zooms in — arriving closer than you were is disorienting.
+ */
+function revealObject(o, pad = 44){
+  const availW = innerWidth  - pad * 2
+  const availH = innerHeight - OVERLAY_TOP - OVERLAY_BOTTOM - pad * 2
+
+  let s = cam.s, x = cam.x, y = cam.y
+  const fits = Math.min(availW / o.w, availH / o.h)
+  if (fits < s){
+    s = clampScale(fits)
+    // rescale about the viewport centre first, then pan from there
+    const wx = (innerWidth / 2 - cam.x) / cam.s, wy = (innerHeight / 2 - cam.y) / cam.s
+    x = innerWidth / 2 - wx * s
+    y = innerHeight / 2 - wy * s
+  }
+
+  const L = o.x * s + x, T = o.y * s + y
+  const R = L + o.w * s, B = T + o.h * s
+  let dx = 0, dy = 0
+  if (L < pad) dx = pad - L
+  else if (R > innerWidth - pad) dx = (innerWidth - pad) - R
+  if (T < OVERLAY_TOP + pad) dy = (OVERLAY_TOP + pad) - T
+  else if (B > innerHeight - OVERLAY_BOTTOM - pad) dy = (innerHeight - OVERLAY_BOTTOM - pad) - B
+
+  if (dx || dy || s !== cam.s) flyTo(x + dx, y + dy, s, 520)
+  return s !== cam.s
+}
+
+/**
+ * Double-click a card's bar to fly into it. Double-click again to fly back to where you were.
+ */
+let camBefore = null, focusedId = null
+function focusOn(id){
+  const o = objects.get(id); if (!o) return
+  if (focusedId === id && camBefore){
+    flyTo(camBefore.x, camBefore.y, camBefore.s, 560)
+    camBefore = null; focusedId = null
+    return
+  }
+  if (!camBefore) camBefore = { ...cam }
+  focusedId = id
+  const pad = 64
+  const bandH = innerHeight - OVERLAY_TOP - OVERLAY_BOTTOM
+  const s = clampScale(Math.min(1.5, (innerWidth - pad*2) / o.w, (bandH - pad*2) / o.h))
+  flyTo(innerWidth/2 - (o.x + o.w/2) * s,
+        OVERLAY_TOP + bandH/2 - (o.y + o.h/2) * s, s, 560)
+}
+
+function onDockClick(app, btn){
+  if (!reducedMotion()){
+    btn.animate([{ transform:'translateY(-10px) scale(1)' },
+                 { transform:'translateY(-14px) scale(1.06)', offset:.35 },
+                 { transform:'translateY(-8px) scale(.98)',  offset:.7 },
+                 { transform:'translateY(-10px) scale(1)' }],
+                { duration:400, easing:'cubic-bezier(.16,1,.3,1)' })
+  }
+  if (app.ext){ sound(x => x.hover); return }
+  if (objects.has(app.id)){ closeCard(app.id); return }
+
+  const centre = screenToWorld(innerWidth / 2, innerHeight / 2)
+  const spot = findFreeSpot(app.w, app.h, centre)
+
+  // the dock-FLIP only reads correctly if the card lands where you can see it
+  const L = spot.x * cam.s + cam.x, T = spot.y * cam.s + cam.y
+  const onScreen = L > -30 && L + app.w * cam.s < innerWidth + 30
+                && T > 40 && T + app.h * cam.s < innerHeight - 60
+
+  openCard(app, spot.x, spot.y, { from: onScreen ? btn.getBoundingClientRect() : null })
+  revealObject(objects.get(app.id))
+}
+
+/* ============================================================
+   7. SOUND
+   ============================================================ */
+let audio = null, soundOn = false
+const BANK = {
+  open:  { f:[520,780], d:.13, type:'sine',     g:.06  },
+  close: { f:[420,240], d:.11, type:'sine',     g:.05  },
+  hover: { f:[1250,1250],d:.03, type:'sine',    g:.018 },
+}
+function sound(pick){
+  if (!soundOn) return
+  if (!audio) audio = new (window.AudioContext || window.webkitAudioContext)()
+  if (audio.state === 'suspended') audio.resume()
+  const s = pick(BANK); if (!s) return
+  const t = audio.currentTime
+  const osc = audio.createOscillator(), gain = audio.createGain()
+  osc.type = s.type
+  osc.frequency.setValueAtTime(s.f[0], t)
+  osc.frequency.exponentialRampToValueAtTime(s.f[1], t + s.d)
+  gain.gain.setValueAtTime(.0001, t)
+  gain.gain.exponentialRampToValueAtTime(s.g, t + .012)
+  gain.gain.exponentialRampToValueAtTime(.0001, t + s.d)
+  osc.connect(gain).connect(audio.destination)
+  osc.start(t); osc.stop(t + s.d + .02)
+}
+const btnSound = document.getElementById('btnSound')
+btnSound.addEventListener('click', () => {
+  soundOn = !soundOn
+  btnSound.classList.toggle('on', soundOn)
+  btnSound.setAttribute('aria-pressed', String(soundOn))
+  btnSound.textContent = (soundOn ? '🔊' : '🔇') + ' Sound'
+  if (soundOn) sound(b => b.open)
+})
+
+/* ============================================================
+   8. COMMANDS
+   ============================================================ */
+document.getElementById('btnMin').addEventListener('click', () => {
+  for (const id of [...objects.keys()]) closeCard(id)
+})
+document.getElementById('btnRand').addEventListener('click', () => {
+  for (const id of [...objects.keys()]) closeCard(id)
+  const pool = APPS.filter(a => !a.sep && !a.ext).sort(() => Math.random() - .5).slice(0, 3)
+  const hero = objects.get('hero')
+  const centre = { x: hero.x + hero.w / 2, y: hero.y + hero.h / 2 }
+  pool.forEach((app, i) => setTimeout(() => {
+    const spot = findFreeSpot(app.w, app.h, centre)
+    openCard(app, spot.x, spot.y)
+    if (i === pool.length - 1) setTimeout(fitAll, 260)   // frame whatever it dealt out
+  }, i * 120))
+})
+document.getElementById('btnFit').addEventListener('click', fitAll)
+
+function fitAll(){
+  const boxes = [...objects.values()].map(o => ({
+    x:o.x, y:o.y, w:o.w || o.el.offsetWidth, h:o.h || o.el.offsetHeight }))
+  if (!boxes.length) return
+  const minX = Math.min(...boxes.map(b=>b.x)), minY = Math.min(...boxes.map(b=>b.y))
+  const maxX = Math.max(...boxes.map(b=>b.x+b.w)), maxY = Math.max(...boxes.map(b=>b.y+b.h))
+  const pad = 56
+  const s = Math.min(1, clampScale(Math.min(
+    (innerWidth - pad*2)/(maxX-minX), (innerHeight - pad*2 - 150)/(maxY-minY))))
+  flyTo(innerWidth/2 - ((minX+maxX)/2)*s, innerHeight/2 - ((minY+maxY)/2)*s, s)
+}
+
+addEventListener('keydown', (e) => {
+  if (e.target.matches('input,textarea')) return
+  if (e.key === '0') flyTo(home.x, home.y, home.s)
+  if (e.key === '=' || e.key === '+') zoomAt(innerWidth/2, innerHeight/2, cam.s * 1.2)
+  if (e.key === '-') zoomAt(innerWidth/2, innerHeight/2, cam.s / 1.2)
+  if (e.key === 'f') fitAll()
+  if (e.key === 'Escape'){
+    const top = [...objects.entries()].filter(([k]) => k !== 'hero')
+      .sort((a,b) => b[1].el.style.zIndex - a[1].el.style.zIndex)[0]
+    if (top) closeCard(top[0])
+  }
+})
+
+/* ============================================================
+   9. CURSOR
+   ============================================================ */
+const cursor = document.getElementById('cursor')
+let cx = innerWidth/2, cy = innerHeight/2, tx = cx, ty = cy
+addEventListener('pointermove', (e) => {
+  if (e.pointerType === 'touch') return
+  tx = e.clientX; ty = e.clientY
+  cursor.classList.add('on')
+  const precise = e.target.closest('.card__x,.tool,.chip,.link,a')
+  const big = !precise && e.target.closest('.dock__item,.card__head,#hero,button')
+  cursor.classList.toggle('precise', !!precise)
+  cursor.classList.toggle('big', !!big)
+})
+addEventListener('pointerleave', () => cursor.classList.remove('on'))
+;(function cursorFrame(){
+  cx += (tx-cx)*.35; cy += (ty-cy)*.35
+  cursor.style.transform = `translate(${cx}px,${cy}px) translate(-50%,-50%)`
+  requestAnimationFrame(cursorFrame)
+})()
+
+let hintTimer = null
+function fadeHint(){
+  clearTimeout(hintTimer)
+  const h = document.getElementById('hint')
+  hintTimer = setTimeout(() => { h.style.opacity = '0' }, 1200)
+}
+
+/* ============================================================
+   10. BOOT — hand-tuned, laid out in screen space then solved back
+   ============================================================ */
+const heroObj = objects.get('hero')
+heroObj.h = heroEl.offsetHeight
+const byId = (id) => APPS.find(a => a.id === id)
+
+measureCards()   // replaces every hand-guessed height with the real content height
+
+/** Random point inside `rect` where a w×h card touches nothing already placed. */
+function findFreeSpotInRect(w, h, rect, tries = 600){
+  const boxes = occupied()
+  const free = (x, y) => !boxes.some(b =>
+    x < b.x + b.w && x + w > b.x && y < b.y + b.h && y + h > b.y)
+  const spanX = rect.w - w, spanY = rect.h - h
+  if (spanX < 0 || spanY < 0) return null            // can't fit at this zoom
+  for (let i = 0; i < tries; i++){
+    const x = rect.x + Math.random() * spanX
+    const y = rect.y + Math.random() * spanY
+    if (free(x, y)) return { x, y }
+  }
+  return null
+}
+
+/**
+ * Lay the opening desktop out at random, but guarantee nothing overlaps and nothing clips.
+ *
+ * Randomised packing can simply fail when the cards are too big for the viewport, so rather
+ * than hoping, this retries the whole layout at progressively smaller zoom. Because zooming
+ * out strictly increases the space available, it always converges — the returned scale is
+ * the tightest one that actually fit.
+ */
+function layoutBoot(){
+  const POOL = [byId('about'), byId('work'), byId('exp')]
+  const PAD = 34
+
+  /*
+   * Legibility beats card count. Rather than cramming three cards in at any zoom, drop to two
+   * (then one) so the type stays readable on a small viewport — a 48% boot is technically a
+   * valid packing and practically unreadable.
+   */
+  const PLANS = [{ n:3, floor:.68 }, { n:2, floor:.60 }, { n:1, floor:.45 }]
+
+  const attempt = (cards, s) => {
+    for (const id of [...objects.keys()]) if (id !== 'hero'){ objects.get(id).el.remove(); objects.delete(id) }
+
+    cam.s = s
+    cam.x = innerWidth / 2
+    cam.y = OVERLAY_TOP + (innerHeight - OVERLAY_TOP - OVERLAY_BOTTOM) / 2
+
+    // the on-screen band, in world coordinates, inset by PAD
+    const viewW = innerWidth / s
+    const viewH = (innerHeight - OVERLAY_TOP - OVERLAY_BOTTOM) / s
+    const rect = {
+      x: -viewW / 2 + PAD / s, y: -viewH / 2 + PAD / s,
+      w: viewW - (PAD * 2) / s, h: viewH - (PAD * 2) / s,
+    }
+
+    // hero stays the anchor: near the middle, jittered
+    heroObj.x = -heroObj.w / 2 + (Math.random() - .5) * 130
+    heroObj.y = -heroObj.h / 2 + (Math.random() - .5) * 90
+    place(heroObj)
+
+    for (const app of [...cards].sort(() => Math.random() - .5)){
+      const spot = findFreeSpotInRect(app.w, app.h, rect)
+      if (!spot) return false
+      openCard(app, spot.x, spot.y)
+    }
+    return true
+  }
+
+  for (const plan of PLANS){
+    const cards = POOL.slice(0, plan.n)
+    for (let s = 0.88; s >= plan.floor; s -= 0.04){
+      // retry a few times per scale: rejection sampling can fail by luck even when a packing exists
+      for (let i = 0; i < 5; i++) if (attempt(cards, s)) return s
+    }
+  }
+  attempt(POOL.slice(0, 1), 0.45)
+  return cam.s
+}
+
+const BOOT_SCALE = layoutBoot()
+raise('work')
+markDock()
+
+const home = { x: cam.x, y: cam.y, s: BOOT_SCALE }
+camDirty = true
+</script>
+</body>
+</html>
