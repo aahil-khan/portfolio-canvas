@@ -947,10 +947,20 @@ button.item:focus-visible .ttl::after {
 
 /* ---------- typing test ---------- */
 .type__quote {
-  height: 104px; /* three lines at 1.75; never reflows the card */
-  overflow: hidden;
   font-size: 1.0625rem;
   line-height: 1.75;
+  /*
+   * Exactly three lines, derived rather than guessed.
+   *
+   * This was a hardcoded 104px labelled "three lines at 1.75" — but three lines is
+   * 3 x 1.75em = 89.25px, plus 20px of padding and 3px of border, which is 112.25px. It was 7px
+   * short, so the third line's descenders were sliced off by the bottom border on four of the
+   * five quotes. Derived from the same tokens that set the line, so it cannot drift again.
+   */
+  --quote-lines: 3;
+  height: calc(var(--quote-lines) * 1.75em + 20px + 3px);
+  /* a quote that somehow needs a fourth line clips instead of reflowing a measured card */
+  overflow: hidden;
   color: var(--ink-subtle);
   border: 1.5px solid var(--border);
   border-radius: var(--radius-chip);

@@ -32,7 +32,6 @@ import { Card, type CardDef } from './card'
 import { Cursor } from './cursor'
 import { ArrangeMenu } from './arrange-menu'
 import { GotoMenu, type GotoItem } from './goto-menu'
-import { ThemeToggle } from './theme-toggle'
 import { SoundMenu } from './sound-menu'
 import { Dock, type DockItem } from './dock'
 import { MeasureRig } from './measure-rig'
@@ -513,7 +512,23 @@ function CanvasDesktop({ cards, dock, externals, bootIds, hero, heroWidth }: Pro
         konami.current = []
         // findEgg plays the unlock cue itself, and only the first time
         if (!findEgg('konami')) play('unlock')
-        open('terminal')
+
+        /*
+         * Centre it, don't just open it.
+         *
+         * `open` on an already-placed card calls `reveal`, which pans the minimum needed and
+         * stops the moment the card clears the padding — so for a terminal already fully on
+         * screen it did nothing at all. And the terminal is restored by the saved session, so
+         * after the first unlock EVERY later entry of the code looked broken. Same trap the
+         * command palette's goTo fell into, fixed the same way.
+         */
+        if (!placedRef.current.terminal) {
+          open('terminal')
+        } else {
+          raise('terminal')
+          const r = rectOf('terminal')
+          if (r) canvas.centre(r)
+        }
       }
 
       if (e.key === '=' || e.key === '+') canvas.zoomBy(1.25)
@@ -526,7 +541,7 @@ function CanvasDesktop({ cards, dock, externals, bootIds, hero, heroWidth }: Pro
     }
     window.addEventListener('keydown', onKey)
     return () => window.removeEventListener('keydown', onKey)
-  }, [canvas, fitAll, close, open])
+  }, [canvas, fitAll, close, open, raise, rectOf])
 
   /**
    * Re-lay everything currently on the canvas, hero included. The layout functions are pure and
@@ -755,7 +770,6 @@ function CanvasDesktop({ cards, dock, externals, bootIds, hero, heroWidth }: Pro
         <button type="button" onClick={randomise}>Random</button>
         <ArrangeMenu onPick={arrange} onReset={resetLayout} />
         <span className="pill__div" aria-hidden />
-        <ThemeToggle />
         {/*
          * Past the divider, with Sound: everything left of it acts on the canvas, everything
          * right of it leaves or configures it. A plain anchor, not a router push — /resume is a
