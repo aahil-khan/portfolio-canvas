@@ -32,6 +32,7 @@ import { Card, type CardDef } from './card'
 import { Cursor } from './cursor'
 import { ArrangeMenu } from './arrange-menu'
 import { GotoMenu, type GotoItem } from './goto-menu'
+import { ThemeToggle } from './theme-toggle'
 import { SoundMenu } from './sound-menu'
 import { Dock, type DockItem } from './dock'
 import { MeasureRig } from './measure-rig'
@@ -754,6 +755,7 @@ function CanvasDesktop({ cards, dock, externals, bootIds, hero, heroWidth }: Pro
         <button type="button" onClick={randomise}>Random</button>
         <ArrangeMenu onPick={arrange} onReset={resetLayout} />
         <span className="pill__div" aria-hidden />
+        <ThemeToggle />
         {/*
          * Past the divider, with Sound: everything left of it acts on the canvas, everything
          * right of it leaves or configures it. A plain anchor, not a router push — /resume is a
