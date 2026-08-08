@@ -1148,7 +1148,11 @@ button.item:focus-visible .ttl::after {
   --max-h: 320px;
   width: 100%;
   max-width: calc(var(--max-h) * var(--ratio));
-  aspect-ratio: var(--ratio);
+  /*
+   * No aspect-ratio here. With `box-sizing: border-box` the ratio applies to the BORDER box, so
+   * the 1.5px border skews it — a 2.4 image rendered at 2.33. The <img> carries width/height
+   * attributes, so `height: auto` reproduces the exact ratio and still reserves space up front.
+   */
   overflow: hidden;
   border: 1.5px solid var(--border);
   border-radius: 10px;
@@ -1163,9 +1167,7 @@ button.item:focus-visible .ttl::after {
 .arc-img__box img {
   display: block;
   width: 100%;
-  height: 100%;
-  /* the box already matches the image, so `contain` only ever guards against rounding */
-  object-fit: contain;
+  height: auto;
 }
 .arc-full {
   width: 100%;
