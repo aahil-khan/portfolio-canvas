@@ -6,7 +6,7 @@ export const profile: Profile = {
   initials: 'AK',
   resumePdf: '/aahil-khan-resume.pdf',
   role: { prefix: 'Full-stack engineer,', emphasis: 'AI retrieval & agents' },
-  location: 'Patiala, India',
+  location: 'Bareilly, India',
   availability: '',
   email: 'aahilminookhan@gmail.com',
   intro:
