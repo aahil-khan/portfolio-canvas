@@ -26,7 +26,7 @@ export const tutorial = {
         { keys: 'drag', what: 'the background pans the whole canvas' },
         { keys: '⌘/Ctrl + scroll', what: 'zoom in and out — or pinch, on a trackpad' },
         { keys: 'scroll', what: 'pan up, down and sideways' },
-        { keys: 'double-click', what: 'a card flies you into it; again flies you back' },
+        { keys: 'double-click', what: 'on the top bar of a card, flies you into it; again flies you back' },
       ],
     },
     {
@@ -51,5 +51,5 @@ export const tutorial = {
 
   /** Shown last. There are eggs, and saying so is more fun than leaving them undiscovered. */
   footLabel: 'Also',
-  foot: 'There are five things hidden on this canvas. The Themes card is not one of them.',
+  foot: 'There are five things hidden on the page, try the Konami Code (¬‿¬)',
 } as const

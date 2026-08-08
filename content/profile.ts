@@ -11,11 +11,12 @@ export const profile: Profile = {
   availability: '',
   email: 'aahilminookhan@gmail.com',
   intro:
-    'I build AI retrieval and agent infrastructure — RAG pipelines, multi-agent systems and MCP tooling — with a soft spot for systems that can prove they got the answer right, instead of merely sounding like it.',
+    'I build AI stuff and anything else I find interesting, RAG pipelines, multi agent systems, Full Stack apps, and generally anything that looks shiny at 2AM in the morning :)',
   notes: [
-    'That means deterministic verdicts backed by retrieved evidence, audit trails that can show nothing was quietly edited, and evaluation harnesses that catch a regression before it ships.',
-    'Final-year Computer Engineering at Thapar, with an IIT Madras programming diploma running alongside it — two courseloads at once, which was either ambitious or a scheduling error.',
-    'Right now I split my time between two internships: production AI systems at Zariya AI, and accent-invariant speech research with Samsung PRISM.',
+    'Final year Computer Engineering at Thapar, with an IIT Madras Diploma in Programming under my belt, apparently one courseload wasn\'t enough',
+    'Right now I split my time between two internships: building production AI systems at Oddmind Innovations, and working on accent invariant speech research with Samsung PRISM.',
+    'I like building things, breaking them, and occasionally wondering why I decided to build them in the first place',
+    'Almost forgot, Welcome to the site! Leave a note if you like it :D'
   ],
   links: [
     { label: 'GitHub', href: 'https://github.com/aahil-khan' },

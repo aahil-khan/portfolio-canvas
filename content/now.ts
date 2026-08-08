@@ -21,20 +21,20 @@ export const now = {
   /** `YYYY-MM`. Shown as e.g. "August 2026", and it is the whole point — keep it current. */
   updated: '2026-08',
 
-  lede: 'A snapshot, kept deliberately short.',
+  lede: 'A snapshot, short and sweet.',
 
   items: [
     {
       label: 'Building',
-      what: 'SOP Opera — compound-risk detection for industrial safety, and the parts of it that have to stay deterministic.',
+      what: 'This canvas. It is the third attempt at a portfolio and the first one I have not deleted.',
     },
     {
-      label: 'Also building',
-      what: 'This canvas. It is the fourth attempt at a portfolio and the first one I have not deleted.',
+      label: 'Also Looking into',
+      what: 'Gnome extensions, love \'em to death, going to publish some of my own too'
     },
     {
       label: 'Thinking about',
-      what: 'Where retrieval should stop guessing and start refusing to answer.',
+      what: 'Increasing OSS contributions, boy is it getting competetive',
     },
   ] satisfies NowItem[],
 
