@@ -1,0 +1,765 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>portfolio-canvas — new cards prototype</title>
+
+<!--
+  Design gate for the notes wall, contribution graph, arcade and easter eggs.
+
+  This links the REAL stylesheets rather than copying them, so what you see here is exactly what
+  the app renders. Only the new component CSS is inline below — it copy-pastes into
+  app/desktop.css verbatim once approved.
+
+  `@import "tailwindcss"` at the top of globals.css 404s here; nothing in desktop.css depends on
+  preflight. Space Grotesk comes from the CDN in this throwaway only — DIRECTION.md forbids that
+  in the app itself.
+
+  Palette note: nine dock pastels are already taken (about/work/experience/stack/writing/archive/
+  resume/themes/contact). Notes takes kraft #E6D3B3, Arcade takes chartreuse #DCE8A0 — the two
+  hues left that don't collide with archive's #FFD9A8 or work's #A8E6A1.
+-->
+<link rel="stylesheet" href="../app/globals.css">
+<link rel="stylesheet" href="../app/desktop.css">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@400;500;700&display=swap" rel="stylesheet">
+
+<style>
+/* ---------- prototype shell only. NOT for desktop.css ---------- */
+html, body { overflow: auto !important; height: auto !important; }
+body {
+  font-family: 'Space Grotesk', system-ui, sans-serif;
+  padding: 40px 40px 120px;
+  cursor: auto !important;
+}
+body * { cursor: auto !important; }
+.sheet { max-width: 1560px; margin: 0 auto; }
+.sheet > h1 {
+  font-size: 0.75rem; font-weight: 700; letter-spacing: 0.09em; text-transform: uppercase;
+  color: var(--ink-subtle); margin: 0 0 6px;
+}
+.sheet > p.intro {
+  font-size: 0.875rem; color: var(--ink-muted); margin: 0 0 34px; max-width: 74ch; line-height: 1.6;
+}
+.row { display: flex; flex-wrap: wrap; gap: 46px; align-items: flex-start; margin-bottom: 52px; }
+.tagline {
+  font-size: 0.6875rem; font-weight: 700; letter-spacing: 0.08em; text-transform: uppercase;
+  color: var(--ink-subtle); margin: 0 0 12px;
+}
+.slot { display: flex; flex-direction: column; }
+/* the prototype places cards statically; the app positions them absolutely */
+.card { position: relative; }
+
+/* ================================================================
+   NEW COMPONENT CSS — this block is what lands in app/desktop.css
+   ================================================================ */
+
+/* ---------- notes wall ---------- */
+.notes__list {
+  height: 300px;               /* FIXED. Measured card height must never depend on note count. */
+  overflow: auto;
+  margin: 0 -4px 14px;
+  padding: 2px 4px 4px;
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+}
+.note {
+  background: var(--c-soft);
+  border: 1.5px solid var(--border);
+  border-radius: var(--radius-chip);
+  box-shadow: 2px 2px 0 0 var(--border);
+  padding: 9px 11px 8px;
+  flex: 0 0 auto;
+}
+.note:nth-child(odd)  { transform: rotate(-0.35deg); }
+.note:nth-child(even) { transform: rotate(0.3deg); }
+.note p {
+  margin: 0 0 5px;
+  color: var(--ink);
+  font-size: 0.875rem;
+  line-height: 1.45;
+  max-width: none;
+  overflow-wrap: anywhere;
+}
+.note__by {
+  display: flex; align-items: baseline; gap: 6px;
+  font-size: 0.6875rem; font-weight: 700; letter-spacing: 0.04em;
+  text-transform: uppercase; color: var(--ink-subtle);
+}
+.note__by time { font-weight: 400; letter-spacing: 0.02em; }
+
+.notes__empty {
+  height: 300px;
+  display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 4px;
+  text-align: center;
+  border: 2px dashed var(--border);
+  border-radius: var(--radius-chip);
+  background: var(--c-soft);
+  color: var(--ink-subtle);
+  font-size: 0.75rem; font-weight: 700; letter-spacing: 0.08em; text-transform: uppercase;
+  margin-bottom: 14px;
+}
+.notes__empty small { font-weight: 400; letter-spacing: 0.02em; text-transform: none; font-size: 0.8125rem; }
+
+.compose { display: flex; flex-direction: column; gap: 8px; position: relative; }
+.compose textarea,
+.compose input {
+  font: inherit; font-size: 0.875rem;
+  color: var(--ink); background: var(--surface);
+  border: 1.5px solid var(--border); border-radius: var(--radius-chip);
+  padding: 8px 10px; width: 100%; outline: none;
+}
+.compose textarea { height: 62px; resize: none; line-height: 1.45; }
+.compose textarea:focus,
+.compose input:focus { box-shadow: 2px 2px 0 0 var(--border); }
+.compose textarea::placeholder,
+.compose input::placeholder { color: var(--ink-subtle); }
+.compose__foot { display: flex; align-items: center; gap: 10px; }
+.compose__foot input { flex: 1; }
+.compose__count {
+  font-size: 0.6875rem; font-weight: 700; letter-spacing: 0.04em;
+  color: var(--ink-subtle); font-variant-numeric: tabular-nums; flex: 0 0 auto;
+}
+.compose__count.over { color: #b3261e; }
+/* honeypot — real users never see or focus this */
+.compose__hp { position: absolute; left: -9999px; width: 1px; height: 1px; opacity: 0; }
+
+.btn {
+  font: inherit; font-size: 0.75rem; font-weight: 700;
+  letter-spacing: 0.06em; text-transform: uppercase;
+  color: var(--on-app); background: var(--c);
+  border: 1.5px solid var(--border); border-radius: var(--radius-chip);
+  box-shadow: 2px 2px 0 0 var(--border);
+  padding: 8px 14px; flex: 0 0 auto;
+  transition: transform 0.16s var(--ease-out), box-shadow 0.16s var(--ease-out);
+}
+.btn:hover { transform: translate(-1px, -2px); box-shadow: 3px 4px 0 0 var(--border); }
+.btn:active { transform: translate(1px, 1px); box-shadow: 1px 1px 0 0 var(--border); }
+.btn[disabled] { opacity: 0.45; transform: none; box-shadow: 2px 2px 0 0 var(--border); }
+
+/* ---------- contribution graph ---------- */
+.gh { display: flex; flex-direction: column; gap: 8px; }
+.gh__grid {
+  display: grid;
+  grid-auto-flow: column;
+  grid-template-rows: repeat(7, 9px);
+  gap: 2.5px;
+  /* 53 columns x 11.5px = 609px, fits a 660 card (620 inner) with no horizontal scroll */
+}
+.gh__d { width: 9px; height: 9px; border-radius: 2px; background: var(--l0); }
+.gh__d[data-l="1"] { background: var(--l1); }
+.gh__d[data-l="2"] { background: var(--l2); }
+.gh__d[data-l="3"] { background: var(--l3); }
+.gh__d[data-l="4"] { background: var(--l4); }
+
+/* VARIANT A — ink ramp: monochrome, themes itself, spends none of the --accent budget. */
+.gh--ink {
+  --l0: color-mix(in srgb, var(--ink) 7%,  var(--surface));
+  --l1: color-mix(in srgb, var(--ink) 22%, var(--surface));
+  --l2: color-mix(in srgb, var(--ink) 44%, var(--surface));
+  --l3: color-mix(in srgb, var(--ink) 68%, var(--surface));
+  --l4: color-mix(in srgb, var(--ink) 92%, var(--surface));
+}
+/* VARIANT B — card-colour ramp: reads as "GitHub", needs a saturated card colour. */
+.gh--c {
+  --l0: color-mix(in srgb, var(--ink) 7%, var(--surface));
+  --l1: color-mix(in srgb, var(--c) 34%, var(--surface));
+  --l2: color-mix(in srgb, var(--c) 62%, var(--surface));
+  --l3: var(--c);
+  --l4: color-mix(in srgb, var(--c) 74%, var(--ink));
+}
+
+/*
+ * Same 53-column track as the grid below, so a label sits exactly over the week its month
+ * starts. Labels are allowed to overflow their column (GitHub does the same) — the alternative
+ * is truncating them to 9px.
+ */
+.gh__months {
+  display: grid;
+  grid-template-columns: repeat(53, 9px);
+  gap: 2.5px;
+  font-size: 0.625rem; font-weight: 700; letter-spacing: 0.06em;
+  text-transform: uppercase; color: var(--ink-subtle); height: 12px;
+}
+.gh__months span { white-space: nowrap; overflow: visible; }
+.gh__foot {
+  display: flex; align-items: center; gap: 8px;
+  font-size: 0.6875rem; font-weight: 700; letter-spacing: 0.04em;
+  text-transform: uppercase; color: var(--ink-subtle);
+}
+.gh__key { display: flex; align-items: center; gap: 3px; margin-left: auto; }
+
+/* ---------- games: shared ---------- */
+.game { display: flex; flex-direction: column; gap: 12px; }
+.game__board {
+  align-self: center;
+  border: var(--bw) solid var(--border);
+  border-radius: var(--radius-chip);
+  background: var(--c-soft);
+  flex: 0 0 auto;          /* fixed per game, so the card measures true */
+  overflow: hidden;
+}
+.game__foot { display: flex; align-items: center; gap: 10px; }
+.game__foot .btn { margin-left: auto; }
+.game__hint {
+  font-size: 0.6875rem; font-weight: 700; letter-spacing: 0.05em;
+  text-transform: uppercase; color: var(--ink-subtle);
+}
+/* the wrapper that owns its keys — see the keydown guard in desktop.tsx */
+[data-keys]:focus { outline: none; }
+[data-keys]:focus-visible { outline: 2px solid var(--accent); outline-offset: 3px; }
+
+/* ---------- typing test ---------- */
+.type__quote {
+  height: 104px;             /* FIXED: 3 lines at 1.75, never reflows the card */
+  overflow: hidden;
+  font-size: 1.0625rem; line-height: 1.75; color: var(--ink-subtle);
+  border: 1.5px solid var(--border); border-radius: var(--radius-chip);
+  background: var(--c-soft); padding: 10px 12px;
+}
+.type__w { transition: color 0.1s linear; }
+.type__w[data-s="ok"]  { color: var(--ink); }
+.type__w[data-s="bad"] { color: #b3261e; text-decoration: underline wavy #b3261e; text-underline-offset: 3px; }
+.type__w[data-s="now"] { color: var(--ink); background: var(--c); border-radius: 3px; box-shadow: 0 0 0 3px var(--c); }
+.type__sink { position: absolute; left: -9999px; width: 1px; height: 1px; opacity: 0; }
+
+.lead { list-style: none; margin: 0; padding: 0; }
+.lead li {
+  display: flex; align-items: baseline; gap: 8px;
+  font-size: 0.8125rem; padding: 4px 0;
+  border-top: 1.5px solid color-mix(in srgb, var(--ink) 15%, transparent);
+}
+.lead li:first-child { border-top: 0; }
+.lead .rk { font-size: 0.6875rem; font-weight: 700; color: var(--ink-subtle); min-width: 18px; font-variant-numeric: tabular-nums; }
+.lead .who { font-weight: 500; }
+.lead .wpm { margin-left: auto; font-weight: 700; font-variant-numeric: tabular-nums; }
+.lead li[data-me] .who::after { content: ' (you)'; color: var(--ink-subtle); font-weight: 400; }
+
+/* ---------- minesweeper ---------- */
+.ms { display: grid; grid-template-columns: repeat(9, 30px); grid-template-rows: repeat(9, 30px); }
+.ms__c {
+  width: 30px; height: 30px; padding: 0;
+  border: 1px solid color-mix(in srgb, var(--ink) 22%, transparent);
+  background: var(--c);
+  font: inherit; font-size: 0.8125rem; font-weight: 700;
+  color: var(--on-app); display: grid; place-items: center;
+}
+.ms__c[data-open] { background: var(--surface); color: var(--ink); }
+.ms__c[data-open][data-n="1"] { color: #1a56c4; }
+.ms__c[data-open][data-n="2"] { color: #157a3c; }
+.ms__c[data-open][data-n="3"] { color: #b3261e; }
+.ms__c[data-open][data-n="4"] { color: #5b2ea6; }
+.ms__c[data-flag] { background: var(--accent); }
+.ms__c[data-mine] { background: #b3261e; color: #fff; }
+
+/* ---------- snake ---------- */
+.snake { display: grid; grid-template-columns: repeat(16, 20px); grid-template-rows: repeat(16, 20px); }
+.snake__c { width: 20px; height: 20px; }
+/* Body is mixed toward ink: raw --c on --c-soft is only one step apart and reads as flat. */
+.snake__c[data-s] {
+  background: color-mix(in srgb, var(--c) 62%, var(--ink));
+  border: 1.5px solid var(--border);
+  border-radius: 3px;
+}
+.snake__c[data-s="head"] { background: color-mix(in srgb, var(--c) 22%, var(--ink)); }
+.snake__c[data-food] { background: var(--accent); border: 1.5px solid var(--border); border-radius: 50%; }
+
+/* ---------- 2048 ---------- */
+.g2048 { display: grid; grid-template-columns: repeat(4, 68px); grid-template-rows: repeat(4, 68px); gap: 6px; padding: 6px; }
+.g2048__t {
+  border-radius: 6px; display: grid; place-items: center;
+  font-weight: 700; font-size: 1.25rem; font-variant-numeric: tabular-nums;
+  background: color-mix(in srgb, var(--ink) 7%, var(--surface));
+  color: var(--ink);
+  transition: transform 0.12s var(--ease-out);
+}
+.g2048__t[data-v] { border: 1.5px solid var(--border); box-shadow: 2px 2px 0 0 var(--border); }
+.g2048__t[data-v="2"]   { background: color-mix(in srgb, var(--c) 22%, var(--surface)); }
+.g2048__t[data-v="4"]   { background: color-mix(in srgb, var(--c) 40%, var(--surface)); }
+.g2048__t[data-v="8"]   { background: color-mix(in srgb, var(--c) 60%, var(--surface)); }
+.g2048__t[data-v="16"]  { background: color-mix(in srgb, var(--c) 80%, var(--surface)); }
+.g2048__t[data-v="32"]  { background: var(--c); }
+.g2048__t[data-v="64"]  { background: color-mix(in srgb, var(--c) 84%, var(--ink)); color: var(--surface); }
+.g2048__t[data-v="128"] { background: var(--accent); font-size: 1.0625rem; }
+.g2048__t[data-v="256"] { background: var(--accent); font-size: 1.0625rem; }
+
+/* ---------- terminal (deliberate exception: the only dark surface in the app) ---------- */
+.term {
+  font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
+  font-size: 0.8125rem; line-height: 1.55;
+  background: #10120F; color: #C7F0C2;
+  border: 1.5px solid var(--border); border-radius: var(--radius-chip);
+  padding: 10px 12px;
+  height: 340px;            /* FIXED scrollback */
+  overflow: auto;
+}
+.term__l { white-space: pre-wrap; overflow-wrap: anywhere; margin: 0; }
+.term__l[data-k="in"]  { color: #EDE4C8; }
+.term__l[data-k="dim"] { color: #6E8A6B; }
+.term__l[data-k="err"] { color: #F0928A; }
+.term__p { display: flex; align-items: baseline; gap: 7px; margin-top: 2px; }
+.term__p span { color: #7FD98A; flex: 0 0 auto; }
+.term__p input {
+  font: inherit; flex: 1; background: transparent; border: 0; outline: none;
+  color: #C7F0C2; padding: 0; caret-color: #7FD98A;
+}
+
+/* ---------- deep-space card ---------- */
+.found { display: flex; flex-direction: column; gap: 12px; align-items: flex-start; }
+.found__n { font-variant-numeric: tabular-nums; }
+</style>
+</head>
+
+<body>
+<div class="sheet">
+  <h1>portfolio-canvas · new cards · design gate</h1>
+  <p class="intro">
+    Real <code>app/globals.css</code> + <code>app/desktop.css</code>, so this is exactly what the app
+    will render. Cards sit statically here; in the app they are absolutely positioned and tilted.
+    Every interactive area has a <strong>fixed height</strong> — that is what keeps the measure-once
+    layout maths honest. The contribution graph is shown in both ramps for you to choose.
+  </p>
+
+  <!-- ============ NOTES ============ -->
+  <div class="row">
+    <div class="slot">
+      <p class="tagline">Notes wall · 520 · kraft #E6D3B3</p>
+      <div class="card" style="width:520px;--c:#E6D3B3;--c-soft:#F5EBDB">
+        <div class="card__head">
+          <span class="card__ico"></span>
+          <span class="card__name">Notes</span>
+          <button class="card__x" aria-label="Close"></button>
+        </div>
+        <div class="card__body">
+          <p class="lede">Leave something behind.</p>
+          <div class="notes__list">
+            <div class="note">
+              <p>the double-tap-to-fly-into-a-card thing is genuinely delightful. took me way too long to find it</p>
+              <div class="note__by">Priya <time>2h ago</time></div>
+            </div>
+            <div class="note">
+              <p>came for the portfolio, stayed for the minesweeper. this is how it should be done</p>
+              <div class="note__by">marcus <time>5h ago</time></div>
+            </div>
+            <div class="note">
+              <p>Konami code. That is all I am going to say.</p>
+              <div class="note__by">anon <time>yesterday</time></div>
+            </div>
+            <div class="note">
+              <p>found the thing in deep space after panning for like four minutes. worth it</p>
+              <div class="note__by">Dee <time>2d ago</time></div>
+            </div>
+            <div class="note">
+              <p>the sound design is so subtle I thought I imagined it, then I muted it and missed it</p>
+              <div class="note__by">jls <time>3d ago</time></div>
+            </div>
+          </div>
+          <form class="compose" onsubmit="return false">
+            <textarea placeholder="Say something…" maxlength="180"></textarea>
+            <input class="compose__hp" tabindex="-1" autocomplete="off" aria-hidden="true" placeholder="Leave blank">
+            <div class="compose__foot">
+              <input placeholder="Name (optional)" maxlength="24">
+              <span class="compose__count">0/180</span>
+              <button class="btn" type="submit">Pin it</button>
+            </div>
+          </form>
+        </div>
+      </div>
+    </div>
+
+    <div class="slot">
+      <p class="tagline">Notes · empty state</p>
+      <div class="card" style="width:520px;--c:#E6D3B3;--c-soft:#F5EBDB">
+        <div class="card__head">
+          <span class="card__ico"></span>
+          <span class="card__name">Notes</span>
+          <button class="card__x" aria-label="Close"></button>
+        </div>
+        <div class="card__body">
+          <p class="lede">Leave something behind.</p>
+          <div class="notes__empty">
+            Nothing here yet
+            <small>Be the first to pin a note.</small>
+          </div>
+          <form class="compose" onsubmit="return false">
+            <textarea placeholder="Say something…" maxlength="180"></textarea>
+            <div class="compose__foot">
+              <input placeholder="Name (optional)" maxlength="24">
+              <span class="compose__count">0/180</span>
+              <button class="btn" type="submit">Pin it</button>
+            </div>
+          </form>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- ============ CONTRIBUTIONS — VARIANT A ============ -->
+  <div class="row">
+    <div class="slot">
+      <p class="tagline">Variant A · Contributions · 660 · grey #E8E6DE card + ink ramp</p>
+      <div class="card" style="width:660px;--c:#E8E6DE;--c-soft:#F4F2EA">
+        <div class="card__head">
+          <span class="card__ico"></span>
+          <span class="card__name">Contributions</span>
+          <button class="card__x" aria-label="Close"></button>
+        </div>
+        <div class="card__body">
+          <p class="lede"><strong>1,247</strong> contributions in the last year.</p>
+          <div class="gh gh--ink">
+            <div class="gh__months" id="gh-months-a"></div>
+            <div class="gh__grid" id="gh-grid-a"></div>
+            <div class="gh__foot">
+              <span>aahil-khan</span>
+              <span class="gh__key">
+                Less
+                <i class="gh__d"></i><i class="gh__d" data-l="1"></i><i class="gh__d" data-l="2"></i><i class="gh__d" data-l="3"></i><i class="gh__d" data-l="4"></i>
+                More
+              </span>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- ============ CONTRIBUTIONS — VARIANT B ============ -->
+  <div class="row">
+    <div class="slot">
+      <p class="tagline">Variant B · Contributions · 660 · green #8FD694 card + card-colour ramp</p>
+      <div class="card" style="width:660px;--c:#8FD694;--c-soft:#E4F4E5">
+        <div class="card__head">
+          <span class="card__ico"></span>
+          <span class="card__name">Contributions</span>
+          <button class="card__x" aria-label="Close"></button>
+        </div>
+        <div class="card__body">
+          <p class="lede"><strong>1,247</strong> contributions in the last year.</p>
+          <div class="gh gh--c">
+            <div class="gh__months" id="gh-months-b"></div>
+            <div class="gh__grid" id="gh-grid-b"></div>
+            <div class="gh__foot">
+              <span>aahil-khan</span>
+              <span class="gh__key">
+                Less
+                <i class="gh__d"></i><i class="gh__d" data-l="1"></i><i class="gh__d" data-l="2"></i><i class="gh__d" data-l="3"></i><i class="gh__d" data-l="4"></i>
+                More
+              </span>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- ============ ARCADE + TYPING ============ -->
+  <div class="row">
+    <div class="slot">
+      <p class="tagline">Arcade launcher · 460 · chartreuse #DCE8A0</p>
+      <div class="card" style="width:460px;--c:#DCE8A0;--c-soft:#F1F6DC">
+        <div class="card__head">
+          <span class="card__ico"></span>
+          <span class="card__name">Arcade</span>
+          <button class="card__x" aria-label="Close"></button>
+        </div>
+        <div class="card__body">
+          <p class="lede">Four small things to do instead of reading a résumé.</p>
+          <button class="item">
+            <span class="yr">92</span>
+            <span><span class="ttl">Typing Test</span><span class="sub">Words per minute, on a global board</span></span>
+            <span class="tag">WPM</span>
+          </button>
+          <button class="item">
+            <span class="yr">2:14</span>
+            <span><span class="ttl">Minesweeper</span><span class="sub">9×9, ten mines, no right-click needed</span></span>
+            <span class="tag">Best</span>
+          </button>
+          <button class="item">
+            <span class="yr">47</span>
+            <span><span class="ttl">Snake</span><span class="sub">Arrow keys or WASD</span></span>
+            <span class="tag">Best</span>
+          </button>
+          <button class="item">
+            <span class="yr">5024</span>
+            <span><span class="ttl">2048</span><span class="sub">Arrow keys. You will not get 2048.</span></span>
+            <span class="tag">Best</span>
+          </button>
+        </div>
+      </div>
+    </div>
+
+    <div class="slot">
+      <p class="tagline">Typing test · 560</p>
+      <div class="card" style="width:560px;--c:#DCE8A0;--c-soft:#F1F6DC">
+        <div class="card__head">
+          <span class="card__ico"></span>
+          <span class="card__name">Typing Test</span>
+          <button class="card__x" aria-label="Close"></button>
+        </div>
+        <div class="card__body">
+          <div class="game" data-keys tabindex="-1">
+            <div class="type__quote" id="type-quote"></div>
+            <div class="stats">
+              <div class="stat"><b>92</b><span>WPM</span></div>
+              <div class="stat"><b>97%</b><span>Accuracy</span></div>
+              <div class="stat"><b>0:18</b><span>Elapsed</span></div>
+            </div>
+            <div class="game__foot">
+              <span class="game__hint">Just start typing</span>
+              <button class="btn">Restart</button>
+            </div>
+            <ol class="lead">
+              <li><span class="rk">1</span><span class="who">rhea</span><span class="wpm">118</span></li>
+              <li><span class="rk">2</span><span class="who">tomasz</span><span class="wpm">104</span></li>
+              <li data-me><span class="rk">3</span><span class="who">aahil</span><span class="wpm">92</span></li>
+              <li><span class="rk">4</span><span class="who">anon</span><span class="wpm">88</span></li>
+              <li><span class="rk">5</span><span class="who">kai</span><span class="wpm">81</span></li>
+            </ol>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- ============ GAMES ============ -->
+  <div class="row">
+    <div class="slot">
+      <p class="tagline">Minesweeper · 420 · board 270px</p>
+      <div class="card" style="width:420px;--c:#DCE8A0;--c-soft:#F1F6DC">
+        <div class="card__head">
+          <span class="card__ico"></span>
+          <span class="card__name">Minesweeper</span>
+          <button class="card__x" aria-label="Close"></button>
+        </div>
+        <div class="card__body">
+          <div class="game">
+            <div class="game__board ms" id="ms"></div>
+            <div class="game__foot">
+              <span class="game__hint">10 mines · click to open, hold to flag</span>
+              <button class="btn">New</button>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <div class="slot">
+      <p class="tagline">Snake · 420 · board 320px</p>
+      <div class="card" style="width:420px;--c:#A9D6FF;--c-soft:#E3F1FF">
+        <div class="card__head">
+          <span class="card__ico"></span>
+          <span class="card__name">Snake</span>
+          <button class="card__x" aria-label="Close"></button>
+        </div>
+        <div class="card__body">
+          <div class="game" data-keys tabindex="-1">
+            <div class="game__board snake" id="snake"></div>
+            <div class="game__foot">
+              <span class="game__hint">Score 31 · best 47</span>
+              <button class="btn">New</button>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <div class="slot">
+      <p class="tagline">2048 · 420 · grid 300px</p>
+      <div class="card" style="width:420px;--c:#D9C2FF;--c-soft:#F0E8FF">
+        <div class="card__head">
+          <span class="card__ico"></span>
+          <span class="card__name">2048</span>
+          <button class="card__x" aria-label="Close"></button>
+        </div>
+        <div class="card__body">
+          <div class="game" data-keys tabindex="-1">
+            <div class="game__board g2048" id="g2048"></div>
+            <div class="game__foot">
+              <span class="game__hint">Score 3,180 · best 5,024</span>
+              <button class="btn">New</button>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- ============ EASTER EGGS ============ -->
+  <div class="row">
+    <div class="slot">
+      <p class="tagline">Terminal · 560 · secret, unlocked by Konami · dark body is a deliberate exception</p>
+      <div class="card" style="width:560px;--c:#BFE8C8;--c-soft:#E6F6EA">
+        <div class="card__head">
+          <span class="card__ico"></span>
+          <span class="card__name">Terminal</span>
+          <button class="card__x" aria-label="Close"></button>
+        </div>
+        <div class="card__body">
+          <div class="term">
+            <p class="term__l" data-k="dim">canvas 1.0 — type `help` for commands</p>
+            <p class="term__l" data-k="in">$ whoami</p>
+            <p class="term__l">aahil khan — builds things that remember context</p>
+            <p class="term__l" data-k="in">$ ls</p>
+            <p class="term__l">about  work  experience  stack  writing  archive  resume  themes  contact  notes  arcade</p>
+            <p class="term__l" data-k="in">$ sudo rm -rf /</p>
+            <p class="term__l" data-k="err">nice try</p>
+            <p class="term__l" data-k="in">$ theme tokyo-night</p>
+            <p class="term__l" data-k="dim">theme set to tokyo-night</p>
+            <div class="term__p"><span>$</span><input value="open arcade" spellcheck="false"></div>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <div class="slot">
+      <p class="tagline">Deep space · 420 · pinned, no drag, excluded from arrange/fit</p>
+      <div class="card" style="width:420px;--c:#FFC2E2;--c-soft:#FFE7F3">
+        <div class="card__head" style="cursor:auto">
+          <span class="card__ico"></span>
+          <span class="card__name">?</span>
+          <button class="card__x" aria-label="Close"></button>
+        </div>
+        <div class="card__body">
+          <div class="found">
+            <p class="lede">You went looking.</p>
+            <p>Most people never pan this far out. There is nothing useful here — that is rather the point.</p>
+            <button class="btn">I found it <span class="found__n">(7 people)</span></button>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <div class="slot">
+      <p class="tagline">Deep space · already claimed</p>
+      <div class="card" style="width:420px;--c:#FFC2E2;--c-soft:#FFE7F3">
+        <div class="card__head" style="cursor:auto">
+          <span class="card__ico"></span>
+          <span class="card__name">?</span>
+          <button class="card__x" aria-label="Close"></button>
+        </div>
+        <div class="card__body">
+          <div class="found">
+            <p class="lede">You went looking.</p>
+            <p>Most people never pan this far out. There is nothing useful here — that is rather the point.</p>
+            <button class="btn" disabled>Found by you and 7 others</button>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+</div>
+
+<script>
+/*
+ * Static fixtures only. Seeded, so screenshots are byte-identical between runs — a design gate
+ * you can't diff is not a gate.
+ */
+let _s = 20260808
+const rnd = () => (_s = (_s * 1664525 + 1013904223) % 4294967296) / 4294967296
+
+// ---- contribution grid: 53 weeks x 7 days ----
+const MONTHS = ['Aug','Sep','Oct','Nov','Dec','Jan','Feb','Mar','Apr','May','Jun','Jul']
+function buildGraph(gridId, monthsId) {
+  const grid = document.getElementById(gridId)
+  for (let w = 0; w < 53; w++) {
+    for (let d = 0; d < 7; d++) {
+      const i = document.createElement('i')
+      i.className = 'gh__d'
+      const r = rnd()
+      const weekend = d === 0 || d === 6
+      const dead = w > 18 && w < 23          // a believable holiday gap
+      let lvl = 0
+      if (!dead) {
+        const t = r * (weekend ? 0.55 : 1)
+        lvl = t > 0.86 ? 4 : t > 0.66 ? 3 : t > 0.42 ? 2 : t > 0.2 ? 1 : 0
+      }
+      if (lvl) i.dataset.l = String(lvl)
+      grid.appendChild(i)
+    }
+  }
+  // Explicit start column per month, so labels sit over the week the month actually begins.
+  // The real component derives these from the first day of each week in the API response.
+  const START = [0, 4, 9, 13, 17, 22, 26, 30, 35, 39, 43, 48]
+  const months = document.getElementById(monthsId)
+  MONTHS.forEach((m, i) => {
+    const s = document.createElement('span')
+    s.textContent = m
+    s.style.gridColumnStart = String(START[i] + 1)
+    months.appendChild(s)
+  })
+}
+buildGraph('gh-grid-a', 'gh-months-a')
+_s = 20260808                                 // reseed so both variants show identical data
+buildGraph('gh-grid-b', 'gh-months-b')
+
+// ---- typing test quote ----
+const QUOTE = 'the best interfaces feel like they were discovered rather than designed which is a very generous way of describing something that took eleven attempts'
+const done = 9, cur = 9
+document.getElementById('type-quote').innerHTML = QUOTE.split(' ')
+  .map((w, i) => {
+    const s = i < done ? (i === 4 ? 'bad' : 'ok') : i === cur ? 'now' : ''
+    return `<span class="type__w"${s ? ` data-s="${s}"` : ''}>${w}</span>`
+  })
+  .join(' ')
+
+// ---- minesweeper: a partially played board ----
+const ms = document.getElementById('ms')
+const MSF = [
+  '  1x1    ', '  111    ', '         ', ' 111     ', ' 1x1  111', ' 111  1x1',
+  '      111', '   111   ', '   1x1   ',
+]
+for (let r = 0; r < 9; r++) {
+  for (let c = 0; c < 9; c++) {
+    const b = document.createElement('button')
+    b.className = 'ms__c'
+    const ch = MSF[r][c]
+    if (r < 6 && !(r === 5 && c > 5)) {
+      b.dataset.open = ''
+      if (ch !== ' ' && ch !== 'x') { b.dataset.n = ch; b.textContent = ch }
+      if (ch === 'x') { delete b.dataset.open; b.dataset.flag = ''; b.textContent = '⚑' }
+    }
+    ms.appendChild(b)
+  }
+}
+
+// ---- snake ----
+const snake = document.getElementById('snake')
+const BODY = [[8,8],[8,7],[8,6],[7,6],[6,6],[6,5],[6,4],[5,4]]
+const FOOD = [11,3]
+for (let r = 0; r < 16; r++) {
+  for (let c = 0; c < 16; c++) {
+    const d = document.createElement('div')
+    d.className = 'snake__c'
+    const bi = BODY.findIndex(([br, bc]) => br === r && bc === c)
+    if (bi === 0) d.dataset.s = 'head'
+    else if (bi > 0) d.dataset.s = 'body'
+    if (FOOD[0] === r && FOOD[1] === c) d.dataset.food = ''
+    snake.appendChild(d)
+  }
+}
+
+// ---- 2048 ----
+const G = [[2,8,32,4],[4,64,128,16],[0,2,8,4],[0,0,2,0]]
+const g = document.getElementById('g2048')
+G.flat().forEach((v) => {
+  const t = document.createElement('div')
+  t.className = 'g2048__t'
+  if (v) { t.dataset.v = String(v); t.textContent = String(v) }
+  g.appendChild(t)
+})
+
+// ---- live character counter, to prove the interaction ----
+document.querySelectorAll('.compose').forEach((f) => {
+  const ta = f.querySelector('textarea')
+  const n = f.querySelector('.compose__count')
+  ta.addEventListener('input', () => {
+    n.textContent = `${ta.value.length}/180`
+    n.classList.toggle('over', ta.value.length > 170)
+  })
+})
+</script>
+</body>
+</html>
