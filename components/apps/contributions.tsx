@@ -33,30 +33,37 @@ export function ContributionGraph({ data }: { data: Contributions | null }) {
       </p>
 
       <div className="gh">
-        <div className="gh__months" style={{ gridTemplateColumns: `repeat(${WEEK_COLS}, 9px)` }}>
-          {data.months.map((m) => (
-            // grid columns are 1-indexed
-            <span key={`${m.label}-${m.week}`} style={{ gridColumnStart: m.week + 1 }}>
-              {m.label}
-            </span>
-          ))}
-        </div>
+        {/*
+         * A year is 609px of squares and a phone sheet is 358px, so the months and the grid
+         * scroll together inside this wrapper — they share one scroll position, which they could
+         * not do as siblings. The legend below stays put, since it is a key rather than data.
+         */}
+        <div className="gh__scroll">
+          <div className="gh__months" style={{ gridTemplateColumns: `repeat(${WEEK_COLS}, 9px)` }}>
+            {data.months.map((m) => (
+              // grid columns are 1-indexed
+              <span key={`${m.label}-${m.week}`} style={{ gridColumnStart: m.week + 1 }}>
+                {m.label}
+              </span>
+            ))}
+          </div>
 
-        <div className="gh__grid">
-          {data.weeks.map((week, wi) =>
-            week.map((day, di) =>
-              day ? (
-                <i
-                  key={day.date}
-                  className="gh__d"
-                  data-l={day.level || undefined}
-                  title={`${day.count} on ${day.date}`}
-                />
-              ) : (
-                <i key={`pad-${wi}-${di}`} className="gh__d gh__d--pad" />
+          <div className="gh__grid">
+            {data.weeks.map((week, wi) =>
+              week.map((day, di) =>
+                day ? (
+                  <i
+                    key={day.date}
+                    className="gh__d"
+                    data-l={day.level || undefined}
+                    title={`${day.count} on ${day.date}`}
+                  />
+                ) : (
+                  <i key={`pad-${wi}-${di}`} className="gh__d gh__d--pad" />
+                ),
               ),
-            ),
-          )}
+            )}
+          </div>
         </div>
 
         <div className="gh__foot">

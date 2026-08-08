@@ -5,6 +5,7 @@ import { useCallback, useEffect, useRef, useState, useSyncExternalStore } from '
 import { g2048 as C } from '@/content/arcade'
 import { getBestServerSnapshot, getBestSnapshot, recordBest, subscribeBest } from '@/lib/best'
 import { play } from '@/lib/audio'
+import { useSwipe } from '@/lib/use-swipe'
 
 const S = C.size
 /** Board geometry, mirrored by the CSS. 6 + 4×68 + 3×6 + 6 = 302px. */
@@ -178,11 +179,13 @@ export function Game2048() {
     wrap.current?.focus()
   }, [])
 
-  const onKey = useCallback(
-    (e: React.KeyboardEvent) => {
-      const dir = KEYS[e.key.length === 1 ? e.key.toLowerCase() : e.key]
-      if (!dir || over) return
-      e.preventDefault()
+  /*
+   * One move, whatever asked for it. A key and a swipe differ only in how the direction is
+   * named, so the board logic lives here and both entry points hand it a `Dir`.
+   */
+  const applyMove = useCallback(
+    (dir: Dir) => {
+      if (over) return
 
       const res = move(tiles, dir)
       if (!res.moved) return
@@ -210,6 +213,19 @@ export function Game2048() {
     },
     [tiles, over, score],
   )
+
+  const onKey = useCallback(
+    (e: React.KeyboardEvent) => {
+      const dir = KEYS[e.key.length === 1 ? e.key.toLowerCase() : e.key]
+      if (!dir) return
+      e.preventDefault()
+      applyMove(dir)
+    },
+    [applyMove],
+  )
+
+  /* SwipeDir and Dir name the same four directions, so this needs no translation table */
+  useSwipe(wrap, applyMove)
 
   return (
     <div className="game" data-keys tabIndex={-1} ref={wrap} onKeyDown={onKey}>

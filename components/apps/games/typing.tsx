@@ -144,36 +144,49 @@ export function TypingTest() {
 
   return (
     <div className="game" data-keys tabIndex={-1}>
-      {/* clicking the text focuses the hidden input that actually receives the keystrokes */}
-      <div className="type__quote" onClick={() => sink.current?.focus()}>
-        {words.map((w, i) => {
-          const state =
-            i < typedWords.length - 1
-              ? typedWords[i] === w
-                ? 'ok'
-                : 'bad'
-              : i === typedWords.length - 1 && !finished
-                ? 'now'
-                : undefined
-          return (
-            <span key={i} className="type__w" data-s={state}>
-              {w}{' '}
-            </span>
-          )
-        })}
-      </div>
+      {/*
+        * The key sink lies directly on top of the quote instead of off at `left: -9999px`.
+        *
+        * Two reasons, both only visible on a phone. Focusing an off-screen input makes the
+        * browser scroll to reveal it, which threw the card sideways the moment you started; and
+        * a tap has to land on the input itself to raise the keyboard reliably — routing it
+        * through a click handler on the text is a bet on synthesised events that does not always
+        * pay out. Laid over the quote, the tap simply hits the input.
+        */}
+      <div className="type__field">
+        <div className="type__quote">
+          {words.map((w, i) => {
+            const state =
+              i < typedWords.length - 1
+                ? typedWords[i] === w
+                  ? 'ok'
+                  : 'bad'
+                : i === typedWords.length - 1 && !finished
+                  ? 'now'
+                  : undefined
+            return (
+              <span key={i} className="type__w" data-s={state}>
+                {w}{' '}
+              </span>
+            )
+          })}
+        </div>
 
-      <input
-        ref={sink}
-        className="type__sink"
-        name="typed"
-        value={typed}
-        onChange={(e) => onType(e.target.value)}
-        aria-label={typing.hint}
-        autoComplete="off"
-        autoCorrect="off"
-        spellCheck={false}
-      />
+        <input
+          ref={sink}
+          className="type__sink"
+          name="typed"
+          value={typed}
+          onChange={(e) => onType(e.target.value)}
+          aria-label={typing.hint}
+          autoComplete="off"
+          autoCorrect="off"
+          /* the quotes are deliberately lowercase; a phone keyboard capitalises the first letter
+             of every one of them otherwise, and the first word can never be typed correctly */
+          autoCapitalize="none"
+          spellCheck={false}
+        />
+      </div>
 
       <div className="stats">
         <div className="stat">

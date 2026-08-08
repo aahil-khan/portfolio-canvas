@@ -188,16 +188,29 @@ export function MobileShell({ cards, dock, externals, hero }: Props) {
           * Kept mounted so it can animate both ways, same reasoning as the desktop menus:
           * unmounting removes the node before an exit transition can run.
           */}
+        {/*
+          * `--c` and `--c-soft` belong on the sheet, not the header.
+          *
+          * The canvas sets both on the card root, so every rule inside a card body can mix
+          * against the card's own colour — 28 of them do, from the contribution ramp to the
+          * theme swatches to the terminal. Setting them on the header alone left the body with
+          * `--c` undefined, and each of those mixes silently collapsed: the contribution graph
+          * rendered a full year of grey, which is what a broken theme looks like from outside.
+          */}
         <div
           className="m-sheet"
           ref={sheetRef}
           data-open={current ? true : undefined}
           aria-hidden={!current}
+          style={
+            current
+              ? { ['--c' as string]: current.colour, ['--c-soft' as string]: current.tint }
+              : undefined
+          }
         >
           <div
             className="m-sheet__head"
             ref={headRef}
-            style={current ? { ['--c' as string]: current.colour } : undefined}
             onPointerDown={onGrabDown}
             onPointerMove={onGrabMove}
             onPointerUp={onGrabUp}

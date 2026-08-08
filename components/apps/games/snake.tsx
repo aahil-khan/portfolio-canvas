@@ -6,6 +6,7 @@ import { useMeasuring } from '@/components/desktop/measuring-context'
 import { snake as C } from '@/content/arcade'
 import { getBestServerSnapshot, getBestSnapshot, recordBest, subscribeBest } from '@/lib/best'
 import { play } from '@/lib/audio'
+import { useSwipe, type SwipeDir } from '@/lib/use-swipe'
 
 type Point = { x: number; y: number }
 type Status = 'idle' | 'running' | 'paused' | 'over'
@@ -27,6 +28,13 @@ const DIRS: Record<string, Point> = {
   s: { x: 0, y: 1 },
   a: { x: -1, y: 0 },
   d: { x: 1, y: 0 },
+}
+
+const SWIPE_DIRS: Record<SwipeDir, Point> = {
+  up: { x: 0, y: -1 },
+  down: { x: 0, y: 1 },
+  left: { x: -1, y: 0 },
+  right: { x: 1, y: 0 },
 }
 
 function freeSpot(body: Point[]): Point {
@@ -138,6 +146,18 @@ export function Snake() {
     },
     [status, reset],
   )
+
+  /* the same four moves the arrow keys make, minus the 180° turn into your own neck */
+  const onSwipe = useCallback(
+    (d: SwipeDir) => {
+      const v = SWIPE_DIRS[d]
+      if (status === 'idle' || status === 'over') reset()
+      if (v.x === -lastDir.current.x && v.y === -lastDir.current.y) return
+      dir.current = v
+    },
+    [status, reset],
+  )
+  useSwipe(wrap, onSwipe)
 
   const bodySet = new Map(body.map((p, i) => [key(p), i]))
 

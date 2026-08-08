@@ -891,6 +891,12 @@ button.item:focus-visible .ttl::after {
   background: color-mix(in srgb, var(--c) 12%, var(--surface));
   flex: 0 0 auto;
   overflow: hidden;
+  /*
+   * A swipe on the board is a move, not a scroll. Without this, dragging up to send the snake
+   * north scrolls the sheet and takes the game off screen instead. Only the board claims the
+   * gesture — the rest of the card still scrolls normally.
+   */
+  touch-action: none;
   display: grid;
 }
 .game__foot {
@@ -953,12 +959,26 @@ button.item:focus-visible .ttl::after {
   box-shadow: 0 0 0 2px var(--c);
 }
 /* the real key sink: bare letters only reach a game if the target is an input */
+/*
+ * The sink covers the quote exactly. Invisible, but a real input in a real place — so focusing
+ * it scrolls nothing, and a tap on the words is a tap on the input.
+ */
+.type__field {
+  position: relative;
+}
 .type__sink {
   position: absolute;
-  left: -9999px;
-  width: 1px;
-  height: 1px;
+  inset: 0;
+  width: 100%;
+  height: 100%;
+  margin: 0;
+  padding: 0;
+  border: 0;
+  background: none;
+  font: inherit;
+  color: transparent;
   opacity: 0;
+  cursor: text;
 }
 .type__name {
   font: inherit;
@@ -1387,6 +1407,37 @@ button.item:focus-visible .ttl::after {
   display: flex;
   flex-direction: column;
   gap: 8px;
+  min-width: 0;
+}
+/*
+ * Scrolls when the year does not fit, which on a 358px phone sheet is always.
+ *
+ * `direction: rtl` starts the scroll at the right-hand edge — the most recent weeks, which are
+ * the ones worth seeing first; left-to-right would open on last August. The children are set
+ * back to `ltr` so the grid still flows oldest-to-newest and the month labels read normally.
+ * Below ~620px of content there is nothing to scroll and the direction has no visible effect.
+ */
+.gh__scroll {
+  display: flex;
+  flex-direction: column;
+  /*
+   * align-items, not flex. This is a column flex container, so `flex` sizes the vertical axis and
+   * the default `stretch` was squashing the months and the grid to the container's width — 358px
+   * of squares instead of 609, with nothing to scroll because nothing overflowed.
+   */
+  align-items: flex-start;
+  gap: 8px;
+  min-width: 0;
+  overflow-x: auto;
+  overscroll-behavior-x: contain;
+  scrollbar-width: none;
+  direction: rtl;
+}
+.gh__scroll::-webkit-scrollbar {
+  display: none;
+}
+.gh__scroll > * {
+  direction: ltr;
 }
 /*
  * 53 columns of 9px + 2.5px gaps = 609px, which clears the 620px inner width of a 660 card.
@@ -1593,7 +1644,6 @@ button.item:focus-visible .ttl::after {
 .arrange__menu {
   display: none;
   opacity: 0;
-  transform: translateX(-50%) translateY(-6px) scale(0.97);
   transition:
     opacity 100ms ease,
     transform 100ms var(--ease-out),
@@ -1601,7 +1651,14 @@ button.item:focus-visible .ttl::after {
   position: absolute;
   top: calc(100% + 10px);
   left: 50%;
-  transform: translateX(-50%);
+  /*
+   * One transform, declared once. There used to be two `transform` lines in this block and the
+   * second won, so the closed state was a bare `translateX(-50%)`: opening animated from the
+   * @starting-style offset, closing had no offset to return to and only faded — and because the
+   * two states were transform lists of different lengths the browser fell back to matrix
+   * interpolation, which is where the jump on close came from.
+   */
+  transform: translateX(-50%) translateY(-6px) scale(0.97);
   min-width: 232px;
   padding: 6px;
   border-radius: 14px;
@@ -2156,6 +2213,18 @@ html[data-mobile] #cursor {
   left: auto;
   right: 0;
   transform: translateY(-6px) scale(0.97);
+  /*
+   * The menu is a fixed 446px tall, which is taller than the space above the dock on anything
+   * smaller than a modern phone in portrait. It has the same z-index as the dock and comes
+   * earlier in the DOM, so the overflow did not sit on top of the dock — it disappeared behind
+   * it, and in landscape ran off the bottom of the screen as well.
+   *
+   * 156px is the bar above it plus the dock below it plus breathing room; the dock is shorter in
+   * landscape, so the same figure leaves a little more clearance there rather than less.
+   */
+  max-height: calc(100dvh - 156px);
+  overflow-y: auto;
+  overscroll-behavior: contain;
 }
 .m-bar .arrange__menu[data-open] {
   transform: translateY(0) scale(1);

@@ -21,15 +21,15 @@ export const arcade = {
       sub: '9×9, ten mines, right-click or hold to flag',
       tag: 'Best',
     },
-    { id: 'snake', label: 'Snake', sub: 'Arrow keys or WASD', tag: 'Best' },
-    { id: '2048', label: '2048', sub: 'Arrow keys. You will not get 2048.', tag: 'Best' },
+    { id: 'snake', label: 'Snake', sub: 'Arrow keys, WASD or swipe', tag: 'Best' },
+    { id: '2048', label: '2048', sub: 'Swipe or arrow keys. You will not get 2048.', tag: 'Best' },
   ],
   /** Shown in place of a best score before the game has ever been played. */
   noScore: '—',
 } as const
 
 export const typing = {
-  hint: 'Click the text and start typing',
+  hint: 'Tap or click the text, then start typing',
   restart: 'Restart',
   done: 'Again',
   wpm: 'WPM',
@@ -69,7 +69,7 @@ export const snake = {
   /** ms per step. Lower is faster; drops as the snake grows. */
   startSpeed: 170,
   minSpeed: 80,
-  hint: 'Arrow keys or WASD · space to pause',
+  hint: 'Arrow keys, WASD or swipe · space to pause',
   reset: 'New',
   score: 'Score',
   best: 'Best',
@@ -79,7 +79,7 @@ export const snake = {
 
 export const g2048 = {
   size: 4,
-  hint: 'Arrow keys or WASD',
+  hint: 'Swipe, arrow keys or WASD',
   reset: 'New',
   score: 'Score',
   best: 'Best',
