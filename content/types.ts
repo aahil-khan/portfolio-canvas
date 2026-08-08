@@ -25,8 +25,8 @@ export interface Profile {
   email: string
   /** One or two sentences. This is the lede of the About card. */
   intro: string
-  /** Optional second paragraph of the About card. Omit to hide. */
-  note?: string
+  /** Further paragraphs of the About card, one string each. Omit to hide. */
+  notes?: string[]
   links: { label: string; href: string }[]
   /** Initials for the avatar. Two characters looks best. */
   initials: string
@@ -60,7 +60,8 @@ export interface Project {
   image?: string
   /** Small grey line at the top of the detail card. */
   meta?: string
-  link?: string
+  /** Demo, repo, release. Rendered as link chips at the foot of the detail card. */
+  links?: { label: string; href: string }[]
 }
 
 export interface Job {

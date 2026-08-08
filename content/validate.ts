@@ -76,6 +76,12 @@ export function validateContent(): void {
   // every dock entry needs a renderer, and ids are used as card ids so must be unique
   dupes('apps', [...apps, ...externalApps].map((a) => a.id))
 
+  // a project link is typed as a string, so only a check catches a missing scheme
+  for (const p of projects)
+    for (const l of p.links ?? [])
+      if (!/^https?:\/\//.test(l.href))
+        errors.push(`project "${p.slug}" link "${l.label}" is not an absolute URL → ${l.href}`)
+
   if (!profile.email.includes('@')) errors.push(`profile.email does not look like an address`)
   if (profile.resumePdf) fileMustExist(profile.resumePdf, 'profile.resumePdf')
 

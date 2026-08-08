@@ -21,6 +21,15 @@ export const toolGroups: readonly ToolGroup[] = [
     ],
   },
   {
+    label: 'AI',
+    tools: [
+      { name: 'LangGraph' },
+      { name: 'MCP' },
+      { name: 'Bedrock' },
+      { name: 'Gemini' },
+    ],
+  },
+  {
     label: 'Backend',
     tools: [
       { name: 'Node.js', logo: '/logos/nodejs-original.svg' },
@@ -28,6 +37,7 @@ export const toolGroups: readonly ToolGroup[] = [
       { name: 'Fastify' },
       { name: 'FastAPI' },
       { name: 'Flask', logo: '/logos/flask-original.svg' },
+      { name: 'LiveKit' },
     ],
   },
   {

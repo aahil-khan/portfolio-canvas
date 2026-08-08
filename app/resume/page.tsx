@@ -95,6 +95,11 @@ export default function ResumePage() {
             ))}
         </p>
         <p className="resume__intro">{profile.intro}</p>
+        {profile.notes?.map((n, i) => (
+          <p className="resume__intro" key={i}>
+            {n}
+          </p>
+        ))}
         <ul className="resume__stats">
           {headlineStats.map((s) => (
             <li key={s.label}>
@@ -147,6 +152,18 @@ export default function ResumePage() {
                 ))}
               </ul>
               <p className="entry__stack">{p.stack.join(' · ')}</p>
+              {p.links?.length ? (
+                <p className="entry__links">
+                  {p.links.map((l, i) => (
+                    <span key={l.label}>
+                      {i ? <span aria-hidden> · </span> : null}
+                      <a href={l.href} target="_blank" rel="noopener noreferrer">
+                        {l.label}
+                      </a>
+                    </span>
+                  ))}
+                </p>
+              ) : null}
             </article>
           ))}
       </section>

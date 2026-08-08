@@ -250,6 +250,14 @@
   color: var(--on-app);
 }
 
+/* A row of them — .link is inline-flex, so two in a row would otherwise touch. */
+.links {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px 16px;
+  margin-top: 12px;
+}
+
 .item {
   border-top: 1.5px solid color-mix(in srgb, var(--ink) 15%, transparent);
   padding: 11px 0;

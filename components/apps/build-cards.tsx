@@ -98,7 +98,7 @@ export function buildCards(): CardDef[] {
     'about',
     <>
       <p className="lede">{profile.intro}</p>
-      {profile.note ? <p>{profile.note}</p> : null}
+      {profile.notes?.map((n, i) => <p key={i}>{n}</p>)}
       <p>
         <a className="link" href={`mailto:${profile.email}`}>
           {profile.email}
@@ -272,6 +272,21 @@ export function buildCards(): CardDef[] {
             ))}
           </ul>
           <StackChips names={p.stack} />
+          {p.links?.length ? (
+            <div className="links">
+              {p.links.map((l) => (
+                <a
+                  className="link"
+                  key={l.label}
+                  href={l.href}
+                  target="_blank"
+                  rel="noopener noreferrer"
+                >
+                  {l.label} →
+                </a>
+              ))}
+            </div>
+          ) : null}
         </>
       ),
     })
