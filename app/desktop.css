@@ -1228,28 +1228,34 @@ button.item:focus-visible .ttl::after {
   align-items: center;
   gap: 8px;
 }
-.mix__toggle {
-  width: 22px !important;
+/*
+ * Scoped under #pill to outrank `#pill .arrange__menu button` (1-1-1), which sets
+ * align-items: flex-start for the menu rows and was pulling the chevron 4.5px above centre.
+ * Matching the specificity is what makes the !important soup unnecessary.
+ */
+#pill .mix__master .mix__toggle {
+  width: 22px;
   height: 22px;
   flex: 0 0 auto;
-  padding: 0 !important;
-  border-radius: 999px !important;
-  border: 0 !important;
-  background: color-mix(in srgb, var(--ink) 8%, transparent) !important;
-  color: var(--ink-subtle) !important;
-  display: grid !important;
+  padding: 0;
+  border-radius: 999px;
+  border: 0;
+  background: color-mix(in srgb, var(--ink) 8%, transparent);
+  color: var(--ink-subtle);
+  display: grid;
   place-items: center;
+  gap: 0;
   transition: background 120ms var(--ease-out), color 120ms var(--ease-out);
 }
 .mix__toggle svg {
   transition: transform 160ms var(--ease-out);
 }
-.mix__toggle:hover {
-  background: color-mix(in srgb, var(--ink) 16%, transparent) !important;
-  color: var(--ink) !important;
+#pill .mix__master .mix__toggle:hover {
+  background: color-mix(in srgb, var(--ink) 16%, transparent);
+  color: var(--ink);
 }
-.mix__toggle[aria-expanded='true'] {
-  color: var(--ink) !important;
+#pill .mix__master .mix__toggle[aria-expanded='true'] {
+  color: var(--ink);
 }
 .mix__toggle[aria-expanded='true'] svg {
   transform: rotate(180deg);
@@ -1271,6 +1277,8 @@ button.item:focus-visible .ttl::after {
   overflow: hidden;
   /* reserve the toggle's width so every fader shares one track and readout column */
   padding-right: calc(22px + 8px);
+  /* and a little vertical room, or overflow:hidden shaves the outer edge of the end thumbs */
+  padding-block: 2px 4px;
 }
 .mix__detail[data-open] .mix__detail-inner {
   margin-top: 7px;
@@ -1324,7 +1332,7 @@ button.item:focus-visible .ttl::after {
   -webkit-appearance: none;
   appearance: none;
   width: 100%;
-  height: 14px;
+  height: 18px;
   background: none;
   cursor: pointer;
 }
