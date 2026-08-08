@@ -216,10 +216,12 @@ export function CommandPalette({
       keywords: 'music radio lofi beats',
       run: () => (amb.playing ? stopAmbience() : void playAmbience(amb.station)),
     })
+    /* Stations sit under the Sound header rather than a second one of their own: the toggles and
+       the stations are one control surface, and each station's blurb already identifies it. */
     for (const s of STATIONS)
       out.push({
         id: `st:${s.id}`,
-        group: 'Station',
+        group: 'Sound',
         chip: 'Sound',
         label: s.label,
         hint: s.blurb,
@@ -227,10 +229,15 @@ export function CommandPalette({
         run: () => void playAmbience(s),
       })
 
+    /*
+     * `ext:`, not `go:` — `go:` is taken by the jump-to-card rows, which are keyed off card ids,
+     * and there is a card called `resume`. Sharing the prefix produced two rows keyed `go:resume`
+     * whenever that card was open, which React reports as a duplicate key.
+     */
     out.push(
-      { id: 'go:resume', group: 'Elsewhere', chip: 'Elsewhere', label: 'Open résumé', hint: '/resume', keywords: 'cv print pdf page', run: () => router.push('/resume') },
-      { id: 'go:gh', group: 'Elsewhere', chip: 'Elsewhere', label: 'GitHub', keywords: 'code repo profile', run: () => window.open('https://github.com/aahil-khan', '_blank', 'noopener,noreferrer') },
-      { id: 'go:li', group: 'Elsewhere', chip: 'Elsewhere', label: 'LinkedIn', keywords: 'profile work', run: () => window.open('https://linkedin.com/in/aahil-khan', '_blank', 'noopener,noreferrer') },
+      { id: 'ext:resume', group: 'Elsewhere', chip: 'Elsewhere', label: 'Open résumé', hint: '/resume', keywords: 'cv print pdf page', run: () => router.push('/resume') },
+      { id: 'ext:gh', group: 'Elsewhere', chip: 'Elsewhere', label: 'GitHub', keywords: 'code repo profile', run: () => window.open('https://github.com/aahil-khan', '_blank', 'noopener,noreferrer') },
+      { id: 'ext:li', group: 'Elsewhere', chip: 'Elsewhere', label: 'LinkedIn', keywords: 'profile work', run: () => window.open('https://linkedin.com/in/aahil-khan', '_blank', 'noopener,noreferrer') },
     )
 
     return out

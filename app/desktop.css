@@ -724,9 +724,14 @@ button.item:focus-visible .ttl::after {
     0 0 0 1.5px var(--ink),
     0 0 0 3px color-mix(in srgb, var(--canvas-base) 75%, transparent);
 }
+/*
+ * One owner for cursor suppression. `:has(#viewport)` carries ID-level specificity, so no
+ * `.cmdk` rule — `!important` or not — can ever win against it. Anything that needs the real
+ * cursor back has to be excused here rather than fighting from the other end.
+ */
 @media (hover: hover) and (pointer: fine) {
-  body:has(#viewport),
-  body:has(#viewport) * {
+  body:has(#viewport):not(:has(.cmdk)),
+  body:has(#viewport):not(:has(.cmdk)) * {
     cursor: none !important;
   }
 }
@@ -1795,17 +1800,12 @@ html[data-mobile] #cursor {
 body:has(.cmdk) #cursor {
   display: none;
 }
-.cmdk,
-.cmdk * {
-  cursor: auto !important;
-}
 .cmdk__input {
-  cursor: text !important;
+  cursor: text;
 }
 .cmdk__row,
-.cmdk__chip,
-.cmdk__scrim {
-  cursor: pointer !important;
+.cmdk__chip {
+  cursor: pointer;
 }
 
 .cmdk {
