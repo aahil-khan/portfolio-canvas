@@ -1,6 +1,6 @@
 'use client'
 
-import { type ReactNode, useCallback, useEffect, useState } from 'react'
+import { type PointerEvent as ReactPointerEvent, type ReactNode, useCallback, useEffect, useRef, useState } from 'react'
 
 import { play } from '@/lib/audio'
 
@@ -61,6 +61,100 @@ export function MobileShell({ cards, dock, externals, hero }: Props) {
     play('click')
   }, [])
 
+  /* ---------- swipe down to dismiss ---------- */
+
+  const sheetRef = useRef<HTMLDivElement>(null)
+  const headRef = useRef<HTMLDivElement>(null)
+  /** Null until a press turns into a drag; `armed` is the pre-threshold state. */
+  const drag = useRef<{ id: number; y0: number; x0: number; t0: number; dy: number; armed: boolean } | null>(
+    null,
+  )
+
+  /**
+   * Cancel the browser's own gesture for this drag.
+   *
+   * `touch-action: none` on the head is not sufficient, which is worth knowing: with it alone,
+   * Chrome still recognises a quick downward swipe as a fling. The fling scrolls nothing here —
+   * there is nothing under the sheet to scroll — but it stays live for the best part of a
+   * second, and a tap that lands during a fling is spent stopping it instead of becoming a
+   * click. The visible symptom was the dock ignoring the first tap after every swipe-dismiss:
+   * `pointerdown` and `pointerup` both arrived on the right button and no `click` ever followed.
+   *
+   * Only `preventDefault` on a non-passive `touchmove` suppresses the gesture, and React's
+   * synthetic `onTouchMove` is passive, so this has to be a native listener.
+   */
+  useEffect(() => {
+    const el = headRef.current
+    if (!el) return
+    const stopGesture = (e: TouchEvent) => e.preventDefault()
+    el.addEventListener('touchmove', stopGesture, { passive: false })
+    return () => el.removeEventListener('touchmove', stopGesture)
+  }, [])
+
+  /**
+   * Follows the thumb by writing `transform` straight to the node — the drag never enters React
+   * state, for the same reason the canvas keeps its camera in a ref: a re-render per pointermove
+   * is what makes a gesture feel like it is lagging behind the finger.
+   */
+  const onGrabDown = useCallback((e: ReactPointerEvent<HTMLElement>) => {
+    if (e.pointerType === 'mouse' && e.button !== 0) return
+    drag.current = { id: e.pointerId, y0: e.clientY, x0: e.clientX, t0: e.timeStamp, dy: 0, armed: true }
+  }, [])
+
+  const onGrabMove = useCallback((e: ReactPointerEvent<HTMLElement>) => {
+    const d = drag.current
+    const el = sheetRef.current
+    if (!d || !el || d.id !== e.pointerId) return
+
+    const dy = e.clientY - d.y0
+    if (d.armed) {
+      /*
+       * Nothing is captured until the press is clearly a downward drag. Capturing on pointerdown
+       * would retarget the pointerup to the sheet head, and the Back and Close buttons inside it
+       * would stop firing their click — the gesture would eat the two controls it sits between.
+       */
+      if (dy < 6 || Math.abs(dy) <= Math.abs(e.clientX - d.x0)) return
+      d.armed = false
+      el.style.transition = 'none'
+      e.currentTarget.setPointerCapture(e.pointerId)
+    }
+    d.dy = Math.max(0, dy)
+    el.style.transform = `translateY(${d.dy}px)`
+  }, [])
+
+  const onGrabUp = useCallback(
+    (e: ReactPointerEvent<HTMLElement>) => {
+      const d = drag.current
+      const el = sheetRef.current
+      if (!d || !el || d.id !== e.pointerId) return
+      drag.current = null
+      if (d.armed) return // never became a drag; let the click through
+
+      // restoring the empty string hands the transition back to CSS, which is also where
+      // reduced motion is honoured — under `reduce` that computes to `none` and this is instant
+      el.style.transition = ''
+
+      const velocity = d.dy / Math.max(1, e.timeStamp - d.t0)
+      const dismiss = d.dy > el.offsetHeight * 0.28 || (velocity > 0.5 && d.dy > 24)
+
+      if (dismiss) {
+        /*
+         * Animate to the closed position explicitly rather than clearing the inline transform.
+         * Clearing it would settle the sheet back to 0 for the frame before React drops
+         * `data-open`, so the sheet would snap up and only then slide away.
+         */
+        el.style.transform = 'translateY(100%)'
+        closeAll()
+        window.setTimeout(() => {
+          if (el) el.style.transform = ''
+        }, 300)
+      } else {
+        el.style.transform = ''
+      }
+    },
+    [closeAll],
+  )
+
   // the sheet is the top layer, so Escape and the hardware/browser back gesture should dismiss it
   useEffect(() => {
     if (!stack.length) return
@@ -94,8 +188,22 @@ export function MobileShell({ cards, dock, externals, hero }: Props) {
           * Kept mounted so it can animate both ways, same reasoning as the desktop menus:
           * unmounting removes the node before an exit transition can run.
           */}
-        <div className="m-sheet" data-open={current ? true : undefined} aria-hidden={!current}>
-          <div className="m-sheet__head" style={current ? { ['--c' as string]: current.colour } : undefined}>
+        <div
+          className="m-sheet"
+          ref={sheetRef}
+          data-open={current ? true : undefined}
+          aria-hidden={!current}
+        >
+          <div
+            className="m-sheet__head"
+            ref={headRef}
+            style={current ? { ['--c' as string]: current.colour } : undefined}
+            onPointerDown={onGrabDown}
+            onPointerMove={onGrabMove}
+            onPointerUp={onGrabUp}
+            onPointerCancel={onGrabUp}
+          >
+            <span className="m-sheet__grab" aria-hidden />
             {stack.length > 1 ? (
               <button type="button" className="m-sheet__back" onClick={back} aria-label="Back">
                 <svg viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor"

@@ -9,6 +9,11 @@
  *   node scripts/shot.mjs http://localhost:3000 --w 390 --h 844 --name mobile
  *   node scripts/shot.mjs http://localhost:3000 --all      # 390 / 768 / 1440 / 1920
  *   node scripts/shot.mjs file://$PWD/prototype/index.html --wait 1500
+ *   node scripts/shot.mjs http://localhost:3000 --w 390 --h 844 --touch   # the phone shell
+ *
+ * `--touch` emulates a touchscreen. Without it the page reports `pointer: fine`, so the mobile
+ * media query never matches and you screenshot the canvas at phone width instead of the phone
+ * shell — which looks plausible enough to be mistaken for the real thing.
  *
  * Writes PNGs to .shots/ and prints the paths.
  */
@@ -80,7 +85,13 @@ const errors = []
 
 for (const t of targets) {
   const page = await browser.newPage()
-  await page.setViewport({ width: t.w, height: t.h, deviceScaleFactor: 2 })
+  await page.setViewport({
+    width: t.w,
+    height: t.h,
+    deviceScaleFactor: 2,
+    hasTouch: has('touch'),
+    isMobile: has('touch'),
+  })
   page.on('pageerror', (e) => errors.push(`[${t.name}] ${e.message}`))
   page.on('console', (m) => m.type() === 'error' && errors.push(`[${t.name}] console: ${m.text()}`))
 

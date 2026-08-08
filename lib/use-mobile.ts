@@ -9,12 +9,17 @@ import { useSyncExternalStore } from 'react'
  * in. Neither holds on a phone, so the site serves a different shell there rather than a
  * squeezed version of this one.
  *
- * Both conditions matter. Width alone would catch a narrow desktop window, where the canvas is
- * still perfectly usable with a mouse; `pointer: coarse` alone would catch a large tablet or a
- * touchscreen laptop, where it is also fine. Only when the viewport is *both* narrow and
- * touch-only is panning genuinely a bad idea.
+ * `pointer: coarse` is the outer gate, and it does the heavy lifting: it means touch is the
+ * primary input, which excludes both a narrow desktop window and a touchscreen laptop (whose
+ * trackpad still reports `fine`). On its own it would catch tablets, so a size test narrows it
+ * to phones.
+ *
+ * That size test needs *either* dimension, because a phone turned sideways is short rather than
+ * narrow. A landscape iPhone is 844×390 — well past the 760px width gate, which is why it used
+ * to fall through to the canvas. 520px sits in the gap between the tallest landscape phone
+ * (~430px) and the shortest landscape tablet (768px), so tablets keep the canvas either way up.
  */
-export const MOBILE_QUERY = '(max-width: 760px) and (pointer: coarse)'
+export const MOBILE_QUERY = '((max-width: 760px) or (max-height: 520px)) and (pointer: coarse)'
 
 /**
  * Runs in <head> before first paint and stamps `data-mobile` on <html>.

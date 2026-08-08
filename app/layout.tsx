@@ -37,7 +37,19 @@ export const metadata: Metadata = {
 
 export default function RootLayout({ children }: { children: React.ReactNode }) {
   return (
-    <html lang="en" data-theme={DEFAULT_THEME} className={spaceGrotesk.variable}>
+    /*
+     * suppressHydrationWarning covers this element's own attributes, nothing deeper. Both boot
+     * scripts below deliberately write to <html> before React hydrates — the theme one so a
+     * remembered theme never flashes the default, the mobile one so a phone never flashes the
+     * canvas. React then finds attributes the server never sent and reports a mismatch it
+     * cannot patch up. The writes are the point, so the warning is what has to go.
+     */
+    <html
+      lang="en"
+      data-theme={DEFAULT_THEME}
+      className={spaceGrotesk.variable}
+      suppressHydrationWarning
+    >
       <head>
         {/* themes are data in content/themes.ts; this is the only place they become CSS */}
         <style dangerouslySetInnerHTML={{ __html: themeCss() }} />

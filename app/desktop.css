@@ -33,6 +33,17 @@
 }
 
 /* ---------- hero ---------- */
+/*
+ * How the hero *looks* is class-scoped; only what is peculiar to the canvas sits under `#hero`.
+ *
+ * Both shells render the same hero node, but `#hero` is the canvas's world object — the phone
+ * never has that ancestor. Anything defined there is therefore silently absent on mobile, which
+ * is how the avatar lost its circle, the role lost its accent chip and the meta line lost its
+ * uppercase treatment, all while still looking close enough to pass a glance.
+ *
+ * Split by role, not by shell: appearance below is shared, and `#hero` keeps the world-space
+ * pixel sizes, the drag cursor and the hover card.
+ */
 #hero {
   text-align: center;
   user-select: none;
@@ -52,9 +63,8 @@
   border-color: color-mix(in srgb, var(--border) 20%, transparent);
   background: color-mix(in srgb, var(--surface) 38%, transparent);
 }
-#hero .hero__avatar {
-  width: 76px;
-  height: 76px;
+
+.hero__avatar {
   border-radius: 999px;
   margin: 0 auto 16px;
   border: var(--bw) solid var(--border);
@@ -63,25 +73,20 @@
   display: grid;
   place-items: center;
   font-weight: 700;
-  font-size: 27px;
   box-shadow: 4px 4px 0 0 var(--border);
 }
-/* fixed px, not vw: the hero lives in world space, so zoom is what scales it */
-#hero h1 {
-  font-size: 62px;
+.hero__card h1 {
   line-height: 1;
   letter-spacing: -0.025em;
   font-weight: 700;
   margin: 0 0 12px;
-  white-space: nowrap;
 }
-#hero .hero__role {
-  font-size: 19px;
+.hero__role {
   font-weight: 500;
   color: var(--ink-muted);
   margin: 0 0 14px;
 }
-#hero .hero__role b {
+.hero__role b {
   color: var(--accent-ink);
   font-weight: 500;
   background: var(--accent);
@@ -90,13 +95,27 @@
   border: 1.5px solid var(--border);
   white-space: nowrap;
 }
-#hero .hero__meta {
+.hero__meta {
   font-size: 12px;
   font-weight: 500;
   letter-spacing: 0.06em;
   text-transform: uppercase;
   color: var(--ink-subtle);
   margin: 0;
+}
+
+/* fixed px, not vw: the hero lives in world space, so zoom is what scales it */
+#hero .hero__avatar {
+  width: 76px;
+  height: 76px;
+  font-size: 27px;
+}
+#hero h1 {
+  font-size: 62px;
+  white-space: nowrap;
+}
+#hero .hero__role {
+  font-size: 19px;
 }
 
 /* ---------- cards ---------- */
@@ -1962,15 +1981,37 @@ html[data-mobile] #cursor {
   position: fixed;
   inset: 0;
   display: grid;
-  grid-template-rows: auto 1fr auto;
   /*
-   * minmax(0, 1fr), not the implicit column. A grid column sizes to its widest child's
-   * max-content, and the dock row is ~780px of icons — so every row inherited that width and
-   * the whole shell rendered twice as wide as the phone. `overflow-x: auto` on the scroller
-   * does not constrain the track on its own; the column has to be told it may shrink.
+   * minmax(0, 1fr) on both axes, never a bare `1fr` or an implicit track.
+   *
+   * Columns: a grid column sizes to its widest child's max-content, and the dock row is ~780px
+   * of icons — so every row inherited that width and the whole shell rendered twice as wide as
+   * the phone. `overflow-x: auto` on the scroller does not constrain the track on its own; the
+   * column has to be told it may shrink.
+   *
+   * Rows: `1fr` means minmax(auto, 1fr), so the middle row's floor is its content's minimum —
+   * and the sheet sits in that row with a whole card body inside it.
    */
+  grid-template-rows: auto minmax(0, 1fr) auto;
   grid-template-columns: minmax(0, 1fr);
   overflow: hidden;
+}
+
+/*
+ * Every child is placed by hand. Grid resolves explicitly-positioned items before auto-placed
+ * ones, so the sheet's `grid-row: 1 / 3` used to claim rows 1-2 of the only column and shunt the
+ * bar, hero and dock into rows 3, 4 and 5 — five rows instead of three, with the 1fr row spent
+ * on the sheet and ~500px of dead space above the content. Mixing explicit and automatic
+ * placement in a single-column grid is the trap; naming every row avoids it.
+ */
+.m-bar {
+  grid-area: 1 / 1;
+}
+.m-hero {
+  grid-area: 2 / 1;
+}
+.m-dock {
+  grid-area: 3 / 1;
 }
 
 /* ---------- top bar ---------- */
@@ -2144,14 +2185,32 @@ html[data-mobile] #cursor {
   visibility: visible;
 }
 .m-sheet__head {
+  position: relative;
   flex: 0 0 auto;
   display: flex;
   align-items: center;
   gap: 10px;
-  padding: calc(12px + env(safe-area-inset-top)) 14px 12px;
+  padding: calc(20px + env(safe-area-inset-top)) 14px 12px;
   background: var(--c, var(--surface));
   color: var(--on-app);
   border-bottom: var(--bw) solid var(--border);
+  /* the head is the drag surface, and it has nothing of its own to scroll */
+  touch-action: none;
+}
+/*
+ * The grab handle. Absolutely placed rather than made a flex child, so it centres on the sheet
+ * instead of on the space left between the Back button and the Close button — which are not
+ * symmetric, and one of which is conditional.
+ */
+.m-sheet__grab {
+  position: absolute;
+  top: calc(8px + env(safe-area-inset-top));
+  left: 50%;
+  transform: translateX(-50%);
+  width: 36px;
+  height: 4px;
+  border-radius: 999px;
+  background: color-mix(in srgb, var(--on-app) 32%, transparent);
 }
 .m-sheet__title {
   flex: 1;
@@ -2204,6 +2263,46 @@ html[data-mobile] #cursor {
 @media (prefers-reduced-motion: reduce) {
   .m-sheet {
     transition: none;
+  }
+}
+
+/*
+ * A phone on its side. The shell is the same, but 390px of height has to carry a bar, the hero
+ * and the dock — and then a sheet inside the first two of those. At portrait sizes the dock is
+ * 88px, which is 23% of the viewport gone before any content, so everything tightens up.
+ * Labels stay: they are what makes the dock readable, and dropping them saves 13px.
+ */
+@media (max-height: 520px) {
+  .m-bar {
+    padding: 6px 12px calc(6px + env(safe-area-inset-top));
+  }
+  .m-hero .hero__avatar {
+    width: 46px;
+    height: 46px;
+    font-size: 17px;
+    margin-bottom: 8px;
+    box-shadow: 3px 3px 0 0 var(--border);
+  }
+  .m-hero h1 {
+    font-size: clamp(1.75rem, 5vw, 2.5rem);
+    margin-bottom: 6px;
+  }
+  .m-hero .hero__role {
+    margin-bottom: 8px;
+  }
+  .m-dock__scroll {
+    padding: 5px 10px;
+  }
+  .m-dock__item .dock__icon {
+    width: 38px;
+    height: 38px;
+  }
+  /* still has to clear the grab handle, which sits 8px down and is 4px tall */
+  .m-sheet__head {
+    padding: calc(16px + env(safe-area-inset-top)) 14px 8px;
+  }
+  .m-sheet__body {
+    padding: 14px 16px calc(20px + env(safe-area-inset-bottom));
   }
 }
 
