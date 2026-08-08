@@ -15,6 +15,14 @@ export interface CardDef {
   width: number
   rotate: number
   body: ReactNode
+  /**
+   * Parked at a fixed spot and invisible to every layout algorithm.
+   *
+   * The deep-space card sits far outside the normal camera bounds on purpose. If it took part in
+   * `fitAll`, `arrange` or `randomise` it would drag the framing out to include it and shrink
+   * everything else to nothing — so those skip it, and it can't be dragged out of position.
+   */
+  pinned?: boolean
 }
 
 interface Props {
@@ -70,6 +78,7 @@ export function Card({
     onMove: useCallback((nx: number, ny: number) => onMove(def.id, nx, ny), [def.id, onMove]),
     onRaise: useCallback(() => onRaise(def.id), [def.id, onRaise]),
     onDoubleTap: useCallback(() => onFocusInto(def.id), [def.id, onFocusInto]),
+    disabled: def.pinned,
   })
 
   /**
@@ -173,6 +182,7 @@ export function Card({
       ref={el}
       data-obj
       data-card
+      data-pinned={def.pinned || undefined}
       className={arranging ? 'card is-arranging' : 'card'}
       style={{
         left: x,

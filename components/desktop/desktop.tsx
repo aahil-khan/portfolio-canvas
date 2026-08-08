@@ -137,16 +137,24 @@ function CanvasDesktop({ cards, dock, externals, bootIds, hero, heroWidth }: Pro
     [placed, heroPos, heroWidth],
   )
 
+  /**
+   * A pinned card sits far outside the normal camera bounds on purpose, so it is excluded from
+   * every layout algorithm: framing it would shrink everything else to nothing, and packing
+   * around it would push new cards halfway across the world to avoid a box nobody can see.
+   */
+  const isPinned = useCallback((id: string) => byId.current.get(id)?.pinned === true, [])
+
   const takenRects = useCallback((): Rect[] => {
     const out: Rect[] = []
     const hero = rectOf(HERO)
     if (hero) out.push(hero)
     for (const id of Object.keys(placed)) {
+      if (isPinned(id)) continue
       const r = rectOf(id)
       if (r && r.x > -50000) out.push(r)
     }
     return out
-  }, [placed, rectOf])
+  }, [placed, rectOf, isPinned])
 
   const onMeasure = useCallback((id: string, h: number) => {
     heights.current.set(id, h)
@@ -437,7 +445,15 @@ function CanvasDesktop({ cards, dock, externals, bootIds, hero, heroWidth }: Pro
   useEffect(() => {
     const onKey = (e: KeyboardEvent) => {
       const t = e.target as HTMLElement
-      if (t.matches('input,textarea') || e.metaKey || e.ctrlKey) return
+      /*
+       * `[data-keys]` marks a subtree that owns its keyboard completely — the games.
+       *
+       * The shortcuts below are bare single letters, so without this, typing "f" in a typing
+       * test fits the canvas, "-" zooms out mid-game, and Escape closes the card you are
+       * playing in. Matching `input,textarea` alone isn't enough: a focusable div, a
+       * contenteditable or a <select> all fall through it.
+       */
+      if (t.matches('input,textarea') || t.closest('[data-keys]') || e.metaKey || e.ctrlKey) return
       if (e.key === '=' || e.key === '+') canvas.zoomBy(1.25)
       else if (e.key === '-' || e.key === '_') canvas.zoomBy(1 / 1.25)
       else if (e.key === '0' || e.key === 'f') fitAll()
@@ -469,6 +485,7 @@ function CanvasDesktop({ cards, dock, externals, bootIds, hero, heroWidth }: Pro
       const items = [
         { id: HERO, w: heroWidth, h: heroH },
         ...Object.keys(placedRef.current)
+          .filter((id) => !isPinned(id))
           .sort((a, b) => (rank.get(a) ?? 999) - (rank.get(b) ?? 999) || a.localeCompare(b))
           .map((id) => ({
             id,
@@ -504,7 +521,7 @@ function CanvasDesktop({ cards, dock, externals, bootIds, hero, heroWidth }: Pro
       timers.current.push(window.setTimeout(() => setArranging(false), 620))
       play('arrange')
     },
-    [heroWidth, canvas, dock],
+    [heroWidth, canvas, dock, isPinned],
   )
 
   useDragObject({

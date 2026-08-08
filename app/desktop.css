@@ -129,6 +129,10 @@
 .card__head[data-dragging] {
   cursor: grabbing;
 }
+/* a pinned card can't be moved, so it must not advertise a grab handle */
+.card[data-pinned] .card__head {
+  cursor: default;
+}
 .card__ico {
   width: 26px;
   height: 26px;

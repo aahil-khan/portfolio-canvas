@@ -4,6 +4,7 @@ import { useLayoutEffect, useRef } from 'react'
 
 import { AppIcon } from './app-icon'
 import { MAX_CARD_H, type CardDef } from './card'
+import { MeasuringContext } from './measuring-context'
 
 /**
  * Renders every card once, off-screen, to learn its real height.
@@ -35,39 +36,41 @@ export function MeasureRig({
   }, [onMeasured])
 
   return (
-    <div
-      ref={root}
-      aria-hidden
-      style={{
-        position: 'absolute',
-        left: -99999,
-        top: 0,
-        visibility: 'hidden',
-        pointerEvents: 'none',
-      }}
-    >
-      {cards.map((c) => (
-        // same structure and classes as a real card, but height:auto so it reports its content
-        <div
-          key={c.id}
-          data-measure={c.id}
-          className="card"
-          style={{
-            width: c.width,
-            ['--c' as string]: c.colour,
-            ['--c-soft' as string]: c.tint,
-          }}
-        >
-          <div className="card__head">
-            <span className="card__ico">
-              <AppIcon name={c.icon} size={15} />
-            </span>
-            <span className="card__name">{c.label}</span>
-            <span className="card__x" />
+    <MeasuringContext.Provider value={true}>
+      <div
+        ref={root}
+        aria-hidden
+        style={{
+          position: 'absolute',
+          left: -99999,
+          top: 0,
+          visibility: 'hidden',
+          pointerEvents: 'none',
+        }}
+      >
+        {cards.map((c) => (
+          // same structure and classes as a real card, but height:auto so it reports its content
+          <div
+            key={c.id}
+            data-measure={c.id}
+            className="card"
+            style={{
+              width: c.width,
+              ['--c' as string]: c.colour,
+              ['--c-soft' as string]: c.tint,
+            }}
+          >
+            <div className="card__head">
+              <span className="card__ico">
+                <AppIcon name={c.icon} size={15} />
+              </span>
+              <span className="card__name">{c.label}</span>
+              <span className="card__x" />
+            </div>
+            <div className="card__body">{c.body}</div>
           </div>
-          <div className="card__body">{c.body}</div>
-        </div>
-      ))}
-    </div>
+        ))}
+      </div>
+    </MeasuringContext.Provider>
   )
 }

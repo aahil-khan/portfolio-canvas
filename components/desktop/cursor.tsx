@@ -27,7 +27,8 @@ export function Cursor() {
       ty = e.clientY
       el.classList.add('on')
       const t = e.target as HTMLElement
-      const precise = t.closest('.card__x,.tool,.chip,.link,a')
+      // form controls get the small dot too: the 22px ring hides the caret you're aiming at
+    const precise = t.closest('.card__x,.tool,.chip,.link,a,input,textarea')
       const big = !precise && t.closest('.dock__item,.card__head,#hero,button')
       el.classList.toggle('precise', !!precise)
       el.classList.toggle('big', !!big)
