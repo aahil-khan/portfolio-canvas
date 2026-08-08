@@ -24,6 +24,12 @@ function Hero() {
         {profile.location}
         {profile.availability ? ` · ${profile.availability}` : ''}
       </p>
+      {/*
+       * Rendered for both shells and revealed by CSS only under `.m-hero`, rather than branched
+       * on a media query in JS. The hero is one server-rendered node shared by the canvas and
+       * the phone — keeping it that way is what stops the two drifting apart.
+       */}
+      {profile.mobileNote ? <p className="hero__note">{profile.mobileNote}</p> : null}
     </div>
   )
 }

@@ -4,6 +4,7 @@ import type { Profile } from './types'
 export const profile: Profile = {
   name: 'Aahil Khan',
   initials: 'AK',
+  mobileNote: 'Best viewed on desktop',
   resumePdf: '/aahil-khan-resume.pdf',
   role: { prefix: 'Full-stack engineer,', emphasis: 'AI retrieval & agents' },
   location: 'Bareilly, India',
