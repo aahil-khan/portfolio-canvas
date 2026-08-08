@@ -23,6 +23,13 @@ export interface CardDef {
    * everything else to nothing — so those skip it, and it can't be dragged out of position.
    */
   pinned?: boolean
+  /**
+   * A fixed home in world coordinates, applied on every boot.
+   *
+   * Pinned cards are re-placed here even when a saved session says otherwise, so closing the
+   * deep-space card doesn't retire the easter egg permanently.
+   */
+  at?: { x: number; y: number }
 }
 
 interface Props {

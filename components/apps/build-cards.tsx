@@ -7,6 +7,9 @@ import { Shots } from '@/components/apps/shots'
 import { ArchiveFull } from '@/components/apps/archive-full'
 import { ArcadeLauncher } from '@/components/apps/arcade'
 import { ContributionGraph } from '@/components/apps/contributions'
+import { FoundIt } from '@/components/apps/found'
+import { Terminal } from '@/components/apps/terminal'
+import { deepSpace } from '@/content/eggs'
 import { Game2048 } from '@/components/apps/games/g2048'
 import { Minesweeper } from '@/components/apps/games/minesweeper'
 import { Snake } from '@/components/apps/games/snake'
@@ -280,6 +283,37 @@ export async function buildCards(): Promise<CardDef[]> {
       body: g.body,
     })
   }
+
+  /*
+   * The two easter-egg cards. Both are spawned-only, so neither shows a dock tile.
+   *
+   * The terminal is unlocked by the konami code. The deep-space card is `pinned` and given a
+   * fixed home far outside the normal camera bounds — pinned so it can't be dragged and is
+   * skipped by fit-all and every arrangement, because framing "everything" would otherwise have
+   * to include it and shrink the real content to a speck.
+   */
+  cards.push({
+    id: 'terminal',
+    label: 'Terminal',
+    icon: 'arcade',
+    colour: '#BFE8C8',
+    tint: '#E6F6EA',
+    width: 560,
+    rotate: 0.4,
+    body: <Terminal />,
+  })
+  cards.push({
+    id: 'deep-space',
+    label: '?',
+    icon: 'external',
+    colour: '#FFC2E2',
+    tint: '#FFE7F3',
+    width: 420,
+    rotate: -0.6,
+    pinned: true,
+    at: deepSpace.at,
+    body: <FoundIt />,
+  })
 
   /* --- an archive entry's image, opened on its own --- */
   for (const a of archive) {

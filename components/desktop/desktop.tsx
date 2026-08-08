@@ -24,6 +24,7 @@ import { useIsMobile } from '@/lib/use-mobile'
 import { useDragObject } from '@/lib/canvas/use-drag-object'
 import { resumeAmbienceOnFirstGesture } from '@/lib/ambience'
 import { play } from '@/lib/audio'
+import { findEgg } from '@/lib/eggs'
 
 import { Card, type CardDef } from './card'
 import { Cursor } from './cursor'
@@ -56,6 +57,13 @@ interface Props {
 
 const HERO = '__hero'
 
+/** The code. Compared case-insensitively so caps lock doesn't ruin it. */
+const KONAMI = [
+  'ArrowUp', 'ArrowUp', 'ArrowDown', 'ArrowDown',
+  'ArrowLeft', 'ArrowRight', 'ArrowLeft', 'ArrowRight',
+  'b', 'a',
+] as const
+
 /**
  * Picks a shell.
  *
@@ -73,6 +81,11 @@ export function Desktop(props: Props) {
   )
 }
 
+/*
+ * The konami detector, the pinned-card handling and the arcade's keyboard guard all live in this
+ * shell rather than in `Desktop` above: they are canvas concerns, and the mobile shell has no
+ * camera to hijack or arrangement to run.
+ */
 function CanvasDesktop({ cards, dock, externals, bootIds, hero, heroWidth }: Props) {
   const viewportRef = useRef<HTMLDivElement>(null)
   const worldRef = useRef<HTMLDivElement>(null)
@@ -123,6 +136,10 @@ function CanvasDesktop({ cards, dock, externals, bootIds, hero, heroWidth }: Pro
   const scaleOf = useCallback(() => canvas.get().s, [canvas])
 
   const camBefore = useRef<Camera | null>(null)
+  /** Rolling buffer of the last few keys, for the konami detector. */
+  const konami = useRef<string[]>([])
+  /** Which arrangements have been run this session, for the "tried every arrangement" egg. */
+  const ranArrangements = useRef(new Set<string>())
   const focusedOn = useRef<string | null>(null)
 
   /* --- geometry helpers --- */
@@ -175,6 +192,15 @@ function CanvasDesktop({ cards, dock, externals, bootIds, hero, heroWidth }: Pro
      * through to the opening layout when there is no usable session — which also covers a
      * first visit, a version bump, and content edits that invalidated every saved card.
      */
+    /*
+     * Cards with a fixed home go down on every boot, and win over anything a saved session says
+     * about them — otherwise closing the deep-space card would retire the easter egg for good.
+     */
+    const pinned: Record<string, Placed> = {}
+    for (const def of byId.current.values()) {
+      if (def.at) pinned[def.id] = { x: def.at.x, y: def.at.y, z: 1 }
+    }
+
     const saved = loadSession(new Set(byId.current.keys()))
     if (saved && saved.cards.length) {
       const restored: Record<string, Placed> = {}
@@ -184,7 +210,7 @@ function CanvasDesktop({ cards, dock, externals, bootIds, hero, heroWidth }: Pro
       }
       canvas.set(saved.cam)
       setHeroPos(saved.hero)
-      setPlaced(restored)
+      setPlaced({ ...restored, ...pinned })
       setReady(true)
       return
     }
@@ -246,15 +272,27 @@ function CanvasDesktop({ cards, dock, externals, bootIds, hero, heroWidth }: Pro
               s,
             })
             setHeroPos(hero)
-            setPlaced(next)
+            setPlaced({ ...next, ...pinned })
             setReady(true)
             return
           }
         }
       }
     }
+    // every plan failed (a very small viewport) — the pinned cards still belong on the canvas
+    setPlaced(pinned)
     setReady(true)
   }, [ready, measured, bootIds, canvas, heroWidth])
+
+  /*
+   * "Opened everything" — every dock card on the canvas at once. Checked here rather than in
+   * `open`, because Random and a restored session can also get you there.
+   */
+  useEffect(() => {
+    if (!ready || !dock.length) return
+    const onCanvas = new Set(Object.keys(placed))
+    if (dock.every((d) => onCanvas.has(d.id))) findEgg('completionist')
+  }, [placed, dock, ready])
 
   /*
    * Persist the desktop.
@@ -454,6 +492,20 @@ function CanvasDesktop({ cards, dock, externals, bootIds, hero, heroWidth }: Pro
        * contenteditable or a <select> all fall through it.
        */
       if (t.matches('input,textarea') || t.closest('[data-keys]') || e.metaKey || e.ctrlKey) return
+
+      /*
+       * Konami. Tracked before the shortcuts below, because B and A are otherwise inert but the
+       * arrow keys are not owned by anything here, and a partial match must not swallow a real
+       * shortcut. The buffer only ever holds as much as the code needs.
+       */
+      konami.current = [...konami.current, e.key].slice(-KONAMI.length)
+      if (konami.current.length === KONAMI.length && konami.current.every((k, i) => k.toLowerCase() === KONAMI[i].toLowerCase())) {
+        konami.current = []
+        // findEgg plays the unlock cue itself, and only the first time
+        if (!findEgg('konami')) play('unlock')
+        open('terminal')
+      }
+
       if (e.key === '=' || e.key === '+') canvas.zoomBy(1.25)
       else if (e.key === '-' || e.key === '_') canvas.zoomBy(1 / 1.25)
       else if (e.key === '0' || e.key === 'f') fitAll()
@@ -464,7 +516,7 @@ function CanvasDesktop({ cards, dock, externals, bootIds, hero, heroWidth }: Pro
     }
     window.addEventListener('keydown', onKey)
     return () => window.removeEventListener('keydown', onKey)
-  }, [canvas, fitAll, close])
+  }, [canvas, fitAll, close, open])
 
   /**
    * Re-lay everything currently on the canvas, hero included. The layout functions are pure and
@@ -520,6 +572,10 @@ function CanvasDesktop({ cards, dock, externals, bootIds, hero, heroWidth }: Pro
       }, 60))
       timers.current.push(window.setTimeout(() => setArranging(false), 620))
       play('arrange')
+
+      // "tried every arrangement" — the set is per visitor and survives reloads
+      ranArrangements.current.add(layoutId)
+      if (ranArrangements.current.size >= arrangements.length) findEgg('tidy-freak')
     },
     [heroWidth, canvas, dock, isPinned],
   )

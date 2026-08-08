@@ -742,6 +742,72 @@ button.item:focus-visible .ttl::after {
   font-variant-numeric: tabular-nums;
 }
 
+/* ---------- terminal ---------- */
+/*
+ * The only dark surface in the app, and a deliberate exception to the light-surface system —
+ * it is meant to feel like something you were not supposed to find. The card head stays a
+ * normal pastel so --on-app still clears contrast on it.
+ */
+.term {
+  font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
+  font-size: 0.8125rem;
+  line-height: 1.55;
+  background: #10120f;
+  color: #c7f0c2;
+  border: 1.5px solid var(--border);
+  border-radius: var(--radius-chip);
+  padding: 10px 12px;
+  height: 340px; /* fixed scrollback, so the card measures the same however much you type */
+  overflow: auto;
+  cursor: text;
+}
+.term__l {
+  white-space: pre-wrap;
+  overflow-wrap: anywhere;
+  margin: 0;
+}
+.term__l[data-k='in'] {
+  color: #ede4c8;
+}
+.term__l[data-k='dim'] {
+  color: #6e8a6b;
+}
+.term__l[data-k='err'] {
+  color: #f0928a;
+}
+.term__p {
+  display: flex;
+  align-items: baseline;
+  gap: 7px;
+  margin-top: 2px;
+}
+.term__p span {
+  color: #7fd98a;
+  flex: 0 0 auto;
+}
+.term__p input {
+  font: inherit;
+  flex: 1;
+  min-width: 0;
+  background: transparent;
+  border: 0;
+  outline: none;
+  color: #c7f0c2;
+  padding: 0;
+  caret-color: #7fd98a;
+}
+
+/* ---------- deep space ---------- */
+.found {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+  align-items: flex-start;
+}
+.found__n {
+  font-variant-numeric: tabular-nums;
+}
+
 /* ---------- arcade: shared ---------- */
 .game {
   display: flex;
