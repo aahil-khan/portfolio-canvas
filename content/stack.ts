@@ -3,9 +3,13 @@ import type { ToolGroup } from './types'
 /**
  * The toolbox, grouped as it appears on the Stack card.
  *
- * `logo` is a path under `public/`. Omit it and the tile renders a coloured initial —
- * which is the honest option when no asset is shipped, and better than borrowing a
- * near-enough logo from another tool.
+ * `logo` is a path under `public/`. Omit it and the tile renders as text alone. A coloured
+ * initial used to stand in, but "L" served both LLM APIs and LangGraph and read as a broken
+ * image rather than a considered absence — several of these are capabilities, not products,
+ * and have no mark to show.
+ *
+ * S3 and DynamoDB carry the AWS wordmark. That is their own parent brand rather than a
+ * near-enough logo borrowed from an unrelated tool, which is still the line.
  *
  * `invert: true` is for assets that ship white-on-transparent for dark UIs. This site is
  * light, so those need inverting. Run `npm run check` to detect new ones automatically —
@@ -16,7 +20,7 @@ export const toolGroups: readonly ToolGroup[] = [
     label: 'Languages',
     tools: [
       { name: 'Python', logo: '/logos/python-original.svg' },
-      { name: 'TypeScript' },
+      { name: 'TypeScript', logo: '/logos/Typescript.svg' },
       { name: 'JavaScript', logo: '/logos/javascript-original.svg' },
     ],
   },
@@ -27,10 +31,7 @@ export const toolGroups: readonly ToolGroup[] = [
       { name: 'Next.js', logo: '/logos/nextjs-original.svg' },
       { name: 'Node.js', logo: '/logos/nodejs-original.svg' },
       { name: 'Express.js', logo: '/logos/express-original.svg' },
-      { name: 'Fastify' },
-      { name: 'FastAPI' },
-      { name: 'LiveKit' },
-      { name: 'Flask', logo: '/logos/flask-original.svg' },
+      { name: 'FastAPI', logo: '/logos/FastAPI.svg' },
     ],
   },
   {
@@ -39,7 +40,7 @@ export const toolGroups: readonly ToolGroup[] = [
       { name: 'PostgreSQL', logo: '/logos/postgresql-original.svg' },
       { name: 'MySQL', logo: '/logos/mysql-original.svg' },
       { name: 'Redis', logo: '/logos/redis-original.svg' },
-      { name: 'DynamoDB' },
+      { name: 'DynamoDB', logo: '/logos/amazonwebservices-original-wordmark.svg' },
       { name: 'Prisma', logo: '/logos/prisma-original.svg' },
     ],
   },
@@ -50,7 +51,7 @@ export const toolGroups: readonly ToolGroup[] = [
       { name: 'Docker', logo: '/logos/docker-original.svg' },
       { name: 'Git', logo: '/logos/git-original.svg' },
       { name: 'GitHub Actions', logo: '/logos/github-original.svg' },
-      { name: 'S3' },
+      { name: 'S3', logo: '/logos/amazonwebservices-original-wordmark.svg' },
     ],
   },
   {
@@ -58,8 +59,6 @@ export const toolGroups: readonly ToolGroup[] = [
     tools: [
       { name: 'LLM APIs' },
       { name: 'LangGraph' },
-      { name: 'Bedrock' },
-      { name: 'Gemini' },
       { name: 'RAG pipelines' },
       { name: 'Vector embeddings' },
       { name: 'Semantic search' },
@@ -69,7 +68,7 @@ export const toolGroups: readonly ToolGroup[] = [
     label: 'Testing',
     tools: [
       { name: 'Jest', logo: '/logos/jest-plain.svg' },
-      { name: 'Vitest' },
+      { name: 'Vitest', logo: '/logos/Vitest.svg' },
     ],
   },
 ]

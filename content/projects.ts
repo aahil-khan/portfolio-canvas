@@ -21,18 +21,22 @@ export const projects: readonly Project[] = [
     tagline: 'Agentic industrial safety intelligence',
     year: 2026,
     kind: 'System',
-    meta: '2026 · System · Python, LangGraph, pgvector',
-    lede: 'A compound-risk engine that catches the hazard no single sensor is looking for.',
+    meta: '2026 · System · NextJS, FastAPI, LangGraph, pgvector',
+    lede: 'A compound risk engine that catches the hazard no single sensor is looking for.',
     highlights: [
       'Fuses gas readings, work permits, isolation state and worker location into **hazard pathways** — the danger that only exists when four boring facts line up.',
-      'Cut the false-negative rate from **44.5% to 0%** across 593 statutorily-labelled cases, and alarms **28 minutes** before a conventional single-sensor threshold fires.',
-      '**LangGraph** multi-agent assessment pipeline with conditional agent fan-out and hybrid pgvector/SQL retrieval over a clause-level regulatory corpus.',
+      'Cut the false negative rate from **44.5% to 0%** across 593 statutorily labelled cases, and alarms **28 minutes** before a conventional single sensor threshold fires.',
+      '**LangGraph** multi agent assessment pipeline with conditional agent fan-out and hybrid pgvector/SQL retrieval over a clause level regulatory corpus.',
       'The risk verdict stays **fully deterministic**, and every generated citation is validated against the evidence it was retrieved from — no confidently invented regulations.',
-      'Durable Postgres job queue plus a non-blocking **WebSocket** layer with per-client backpressure, so a slow browser never stalls the pipeline.',
-      'Hash-chained, **tamper-evident audit trail**: edit or reorder a recorded safety decision and the verification endpoint names the exact sequence where it happened.',
+      'Durable Postgres job queue plus a non-blocking **WebSocket** layer with per client backpressure, so a slow browser never stalls the pipeline.',
+      'Hash chained, **tamper evident audit trail**: edit or reorder a recorded safety decision and the verification endpoint names the exact sequence where it happened.',
     ],
     stack: ['Python', 'TypeScript', 'FastAPI', 'LangGraph', 'PostgreSQL', 'Next.js', 'Docker'],
     images: ['/work/sop-opera-1.webp', '/work/sop-opera-2.webp', '/work/sop-opera-3.webp'],
+    links: [
+      { label: 'Demo', href: 'https://sop-opera.vercel.app' },
+      { label: 'Repo', href: 'https://github.com/aahil-khan/SOP-Opera' },
+    ]
   },
   {
     slug: 'flowsync',
@@ -48,9 +52,9 @@ export const projects: readonly Project[] = [
       'Event-driven async **AWS pipeline** that reads git diffs with Bedrock models and pulls out the decisions, risks and tasks hiding in them.',
       'Branch-aware RAG with DynamoDB caching: **1.26s** median push-to-search latency, **1.60s** p95.',
     ],
-    stack: ['TypeScript', 'Python', 'AWS', 'Bedrock', 'DynamoDB', 'S3'],
+    stack: ['TypeScript', 'Python', 'AWS', 'DynamoDB', 'S3'],
     links: [
-      { label: 'Demo', href: 'https://flowsync.aahil-khan.tech/' },
+      { label: 'Demo', href: 'https://flowsync.aahil-khan.xyz/' },
       { label: 'Repo', href: 'https://github.com/anoushkawasthi/flowsync' },
     ],
   },
@@ -82,7 +86,7 @@ export const projects: readonly Project[] = [
     name: 'GINA',
     tagline: 'Natural language → SQL analytics',
     year: 2025,
-    kind: 'Research',
+    kind: 'System',
     meta: '2025 · Research · NL → SQL',
     lede: 'Grounded insights from natural-language analytics — ask in English, get a real query.',
     highlights: [
@@ -91,7 +95,7 @@ export const projects: readonly Project[] = [
       'Context-aware multi-turn handling using structured conversation state, so "and for last quarter?" still knows what you meant.',
       'Schema-correction retries and resilient API/SSE error handling keep the workflow reliable end to end.',
     ],
-    stack: ['Next.js', 'TypeScript', 'Fastify', 'PostgreSQL'],
+    stack: ['Next.js', 'TypeScript', 'PostgreSQL'],
     images: ['/work/gina-1.webp'],
     links: [
       { label: 'Demo', href: 'https://gina-cfp.vercel.app' },

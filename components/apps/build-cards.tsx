@@ -65,13 +65,15 @@ function StackShelf() {
           <div className="grp__row">
             {group.tools.map((tool) => (
               <span className="tool" key={tool.name}>
+                {/*
+                  * No asset means no glyph at all — just the name. The old coloured initial gave
+                  * "L" to both LLM APIs and LangGraph and read as a failed image; several of
+                  * these are capabilities rather than products and have no mark to show.
+                  */}
                 {tool.logo ? (
                   // eslint-disable-next-line @next/next/no-img-element -- tiny fixed-size logo
                   <img className={tool.invert ? 'inv' : undefined} src={tool.logo} alt="" loading="lazy" />
-                ) : (
-                  // no asset shipped: an initial is honest, borrowing a near-enough logo is not
-                  <span className="fallback">{tool.name[0]}</span>
-                )}
+                ) : null}
                 {tool.name}
               </span>
             ))}

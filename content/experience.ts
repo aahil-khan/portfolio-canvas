@@ -39,8 +39,6 @@ export const jobs: readonly Job[] = [
       "Node.js",
       "Prisma",
       "S3",
-      "LiveKit",
-      "Gemini",
     ],
     images: ["/work/zariya-1.webp", "/work/zariya-2.webp"],
   },
@@ -58,7 +56,7 @@ export const jobs: readonly Job[] = [
       "Improved the generation workflow, cutting scheduling errors by **40%**.",
       "Integrated with **Oracle PeopleSoft** to automate structured data ingestion and export between the legacy system and the new one.",
     ],
-    stack: ["Flask", "MySQL", "Python"],
+    stack: ["MySQL", "Python"],
   },
   {
     slug: "edutube",
