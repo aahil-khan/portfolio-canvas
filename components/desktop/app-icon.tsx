@@ -18,6 +18,14 @@ const S = {
 }
 
 const ICONS: Record<string, ReactElement<SVGProps<SVGSVGElement>>> = {
+  // a pinned note: the notes wall
+  notes: (
+    <svg {...S}>
+      <path d="M5 4h14v11l-4 5H5V4Z" />
+      <path d="M19 15h-4v5" />
+      <path d="M8.5 9h7M8.5 12.5h4" />
+    </svg>
+  ),
   // a grid of squares: the contribution calendar
   graph: (
     <svg {...S}>

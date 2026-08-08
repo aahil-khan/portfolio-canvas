@@ -742,6 +742,180 @@ button.item:focus-visible .ttl::after {
   font-variant-numeric: tabular-nums;
 }
 
+/* ---------- notes wall ---------- */
+/*
+ * FIXED height, deliberately. Card heights are measured once and never again, and that number
+ * feeds collision avoidance, fit-all and every arrangement. A list that grew with the number of
+ * notes would leave all of them working from a stale box.
+ */
+.notes__list {
+  height: 300px;
+  overflow: auto;
+  margin: 0 -4px 14px;
+  padding: 2px 4px 4px;
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+}
+.note {
+  background: var(--c-soft);
+  border: 1.5px solid var(--border);
+  border-radius: var(--radius-chip);
+  box-shadow: 2px 2px 0 0 var(--border);
+  padding: 9px 11px 8px;
+  flex: 0 0 auto;
+}
+.note:nth-child(odd) {
+  transform: rotate(-0.35deg);
+}
+.note:nth-child(even) {
+  transform: rotate(0.3deg);
+}
+.note p {
+  margin: 0 0 5px;
+  color: var(--ink);
+  font-size: 0.875rem;
+  line-height: 1.45;
+  max-width: none;
+  overflow-wrap: anywhere;
+}
+.note__by {
+  display: flex;
+  align-items: baseline;
+  gap: 6px;
+  font-size: 0.6875rem;
+  font-weight: 700;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+  color: var(--ink-subtle);
+}
+.note__by time {
+  font-weight: 400;
+  letter-spacing: 0.02em;
+}
+/* same 300px as the list, so the card measures identically whichever state it opens in */
+.notes__empty {
+  height: 300px;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 4px;
+  text-align: center;
+  border: 2px dashed var(--border);
+  border-radius: var(--radius-chip);
+  background: var(--c-soft);
+  color: var(--ink-subtle);
+  font-size: 0.75rem;
+  font-weight: 700;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  margin-bottom: 14px;
+}
+.notes__empty small {
+  font-weight: 400;
+  letter-spacing: 0.02em;
+  text-transform: none;
+  font-size: 0.8125rem;
+}
+
+.compose {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  position: relative;
+}
+.compose textarea,
+.compose input {
+  font: inherit;
+  font-size: 0.875rem;
+  color: var(--ink);
+  background: var(--surface);
+  border: 1.5px solid var(--border);
+  border-radius: var(--radius-chip);
+  padding: 8px 10px;
+  width: 100%;
+  outline: none;
+}
+.compose textarea {
+  height: 62px;
+  resize: none;
+  line-height: 1.45;
+}
+.compose textarea:focus,
+.compose input:focus {
+  box-shadow: 2px 2px 0 0 var(--border);
+}
+.compose textarea::placeholder,
+.compose input::placeholder {
+  color: var(--ink-subtle);
+}
+.compose__foot {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+}
+.compose__foot input {
+  flex: 1;
+}
+.compose__count {
+  font-size: 0.6875rem;
+  font-weight: 700;
+  letter-spacing: 0.04em;
+  color: var(--ink-subtle);
+  font-variant-numeric: tabular-nums;
+  flex: 0 0 auto;
+}
+.compose__count.over {
+  color: #b3261e;
+}
+/* reserved even when empty — see the comment in notes.tsx */
+.compose__msg {
+  margin: 0;
+  min-height: 1.1rem;
+  font-size: 0.75rem;
+  color: #b3261e;
+}
+/* off-screen honeypot: a person never sees or focuses it, a naive bot fills it in */
+.compose__hp {
+  position: absolute;
+  left: -9999px;
+  width: 1px;
+  height: 1px;
+  opacity: 0;
+}
+
+.btn {
+  font: inherit;
+  font-size: 0.75rem;
+  font-weight: 700;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+  color: var(--on-app);
+  background: var(--c);
+  border: 1.5px solid var(--border);
+  border-radius: var(--radius-chip);
+  box-shadow: 2px 2px 0 0 var(--border);
+  padding: 8px 14px;
+  flex: 0 0 auto;
+  transition:
+    transform 0.16s var(--ease-out),
+    box-shadow 0.16s var(--ease-out);
+}
+.btn:hover {
+  transform: translate(-1px, -2px);
+  box-shadow: 3px 4px 0 0 var(--border);
+}
+.btn:active {
+  transform: translate(1px, 1px);
+  box-shadow: 1px 1px 0 0 var(--border);
+}
+.btn[disabled] {
+  opacity: 0.45;
+  transform: none;
+  box-shadow: 2px 2px 0 0 var(--border);
+}
+
 /* ---------- contribution graph ---------- */
 .gh {
   display: flex;

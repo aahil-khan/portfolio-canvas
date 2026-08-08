@@ -6,6 +6,7 @@ import { ArchiveFeed } from '@/components/apps/archive-feed'
 import { Shots } from '@/components/apps/shots'
 import { ArchiveFull } from '@/components/apps/archive-full'
 import { ContributionGraph } from '@/components/apps/contributions'
+import { NotesWall } from '@/components/apps/notes'
 import { ThemePicker } from '@/components/apps/theme-picker'
 import { contributions } from '@/content/contributions'
 import { fetchContributions } from '@/lib/github'
@@ -246,6 +247,8 @@ export async function buildCards(): Promise<CardDef[]> {
   )
 
   push('contributions', <ContributionGraph data={await fetchContributions(contributions.login)} />)
+
+  push('notes', <NotesWall />)
 
   /* --- an archive entry's image, opened on its own --- */
   for (const a of archive) {
