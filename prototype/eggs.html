@@ -163,7 +163,13 @@ body * { cursor: auto !important; }
   --l3: color-mix(in srgb, var(--ink) 68%, var(--surface));
   --l4: color-mix(in srgb, var(--ink) 92%, var(--surface));
 }
-/* VARIANT B — card-colour ramp: reads as "GitHub", needs a saturated card colour. */
+/*
+ * CHOSEN. Card-colour ramp on the green Contributions card (#8FD694).
+ *
+ * The monochrome ink ramp kept above for the record read as grey static: the levels didn't
+ * separate and a five-week gap in the data was invisible. This is legible at a glance, which
+ * is the entire job of a contribution graph.
+ */
 .gh--c {
   --l0: color-mix(in srgb, var(--ink) 7%, var(--surface));
   --l1: color-mix(in srgb, var(--c) 34%, var(--surface));
