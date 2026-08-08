@@ -29,6 +29,7 @@ import { findEgg } from '@/lib/eggs'
 import { Card, type CardDef } from './card'
 import { Cursor } from './cursor'
 import { ArrangeMenu } from './arrange-menu'
+import { GotoMenu, type GotoItem } from './goto-menu'
 import { SoundMenu } from './sound-menu'
 import { Dock, type DockItem } from './dock'
 import { MeasureRig } from './measure-rig'
@@ -596,6 +597,24 @@ function CanvasDesktop({ cards, dock, externals, bootIds, hero, heroWidth }: Pro
   const dockIds = useMemo(() => dock.map((d) => d.id), [dock])
 
   /*
+   * What the "Go to" menu lists: everything on the canvas, in `cards` order rather than by
+   * z-index. A menu that reorders itself as you raise cards moves the row you were reaching for
+   * out from under the cursor, and the front-most card is the one you are already looking at.
+   *
+   * Secret cards are skipped for the same reason the palette skips them: the deep-space card is
+   * pinned, so it is on the canvas from the first paint whether or not anyone has been near it,
+   * and offering a one-click teleport to it would give away a card whose whole point is the
+   * journey out there.
+   */
+  const gotoItems = useMemo<GotoItem[]>(
+    () =>
+      cards
+        .filter((c) => openIds.has(c.id) && !c.secret)
+        .map((c) => ({ id: c.id, label: c.label, icon: c.icon, colour: c.colour })),
+    [cards, openIds],
+  )
+
+  /*
    * The palette drives the same handlers the chrome does, so there is one implementation of
    * each action. `goTo` is the exception: it centres rather than reveals. `reveal` stops as soon
    * as the card clears the padding, which leaves a card you named by name sitting against an
@@ -664,6 +683,7 @@ function CanvasDesktop({ cards, dock, externals, bootIds, hero, heroWidth }: Pro
       <div id="pill">
         <button type="button" onClick={fitAll}>Fit all</button>
         <button type="button" onClick={minimiseAll}>Minimise all</button>
+        <GotoMenu items={gotoItems} onPick={paletteActions.goTo} />
         <button type="button" onClick={randomise}>Random</button>
         <ArrangeMenu onPick={arrange} onReset={resetLayout} />
         <span className="pill__div" aria-hidden />

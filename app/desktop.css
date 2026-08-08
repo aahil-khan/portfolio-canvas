@@ -2009,6 +2009,54 @@ button.item:focus-visible .ttl::after {
   border-top: 1.5px solid color-mix(in srgb, var(--border) 16%, transparent);
 }
 
+/* ---------- "go to" menu ---------- */
+/*
+ * Shares .arrange's wrapper, menu and animation wholesale; only the row shape differs. Arrange
+ * rows are a label above a hint, so they stack; these are an icon beside a name, so they don't.
+ */
+.goto__menu {
+  min-width: 208px;
+  max-height: min(58vh, 420px);
+  overflow-y: auto;
+  overscroll-behavior: contain;
+}
+#pill .goto__menu button,
+.goto__menu button {
+  flex-direction: row;
+  align-items: center;
+  gap: 9px;
+}
+/* the card's own tile colour, so this list scans the same way the dock does */
+.goto__ico {
+  display: grid;
+  place-items: center;
+  flex: 0 0 auto;
+  width: 22px;
+  height: 22px;
+  border-radius: 6px;
+  border: 1.5px solid var(--border);
+  background: var(--c);
+  color: var(--on-app);
+}
+/*
+ * A heading, so the menu is never an empty white box — with nothing on the canvas it still says
+ * what it is and why it is empty. Wording matches the command palette's group name, because
+ * these two surfaces answer the same question and should not use two names for it.
+ */
+.goto__head {
+  padding: 6px 10px 5px;
+  font-size: 0.625rem;
+  font-weight: 700;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  color: var(--ink-subtle);
+}
+.goto__none {
+  padding: 2px 10px 8px;
+  font-size: 0.8125rem;
+  color: var(--ink-subtle);
+}
+
 /* ---------- archive ---------- */
 .arc-group + .arc-group {
   margin-top: 18px;
