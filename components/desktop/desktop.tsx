@@ -476,7 +476,14 @@ function CanvasDesktop({ cards, dock, externals, bootIds, hero, heroWidth }: Pro
             h: heights.current.get(id) ?? 0,
           })),
       ]
-      const layout = arrangement.run(items, makeRandom((Date.now() ^ 0xc2b2ae35) >>> 0))
+      /*
+       * Shape of the band the result will actually be framed in, so Tidy can pack rows to match
+       * it instead of aiming at a square. Without this, enough open cards produce a layout too
+       * tall for the camera to fit and the bottom rows clip off screen.
+       */
+      const vp = canvas.viewport()
+      const aspect = vp.width / Math.max(1, vp.height - vp.top - vp.bottom)
+      const layout = arrangement.run(items, makeRandom((Date.now() ^ 0xc2b2ae35) >>> 0), aspect)
 
       setArranging(true)
       const heroAt = layout[HERO]

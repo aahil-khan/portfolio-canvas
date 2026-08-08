@@ -26,7 +26,12 @@ export interface Arrangement {
   id: string
   label: string
   hint: string
-  run: (items: readonly Item[], rand: () => number) => Layout
+  /**
+   * `aspect` is the usable viewport's width ÷ height. Only `tidy` uses it: an arrangement that
+   * ignores the shape of the screen it's being framed on produces layouts the camera then has
+   * to zoom out of. The others are deliberately shape-agnostic.
+   */
+  run: (items: readonly Item[], rand: () => number, aspect: number) => Layout
 }
 
 const GAP = 40
@@ -54,26 +59,51 @@ function centre(layout: Layout, items: readonly Item[]): Layout {
  * Experience… as a résumé runs), and tidy preserves it. That predictability is the whole point:
  * tidy should produce the same, legible hierarchy every time.
  */
-function tidy(items: readonly Item[]): Layout {
+function tidy(items: readonly Item[], aspect = 1.7): Layout {
   const [head, ...rest] = items
-  const cols = Math.max(1, Math.round(Math.sqrt(Math.max(rest.length, 1))))
-  const targetW = rest.slice(0, cols).reduce((a, i) => a + i.w + GAP, 0) || (head?.w ?? 0)
 
-  const rows: Item[][] = []
-  // the hero gets a row of its own — it is the heading, not a peer of the cards
-  if (head) rows.push([head])
-  let row: Item[] = []
-  let w = 0
-  for (const item of rest) {
-    if (row.length && w + item.w > targetW) {
-      rows.push(row)
-      row = []
-      w = 0
-    }
-    row.push(item)
-    w += item.w + GAP
+  /*
+   * Pick the row length whose FINISHED block best matches the shape of the screen.
+   *
+   * The previous version derived a target width from `round(sqrt(n))` cards, which aims at a
+   * roughly SQUARE block. Viewports are wide letterboxes, so past about eight cards the block
+   * ran far taller than the usable band, "fit" had to zoom out past the readable floor, and the
+   * clamp there left cards hanging off screen.
+   *
+   * Estimating a target width from total area doesn't work either: shelf packing sets each row's
+   * height to its TALLEST card, so a row of mixed heights wastes vertical space the area sum
+   * knows nothing about — it under-shot by about a third in practice. So rather than estimate,
+   * measure: there are only ever a handful of candidate row lengths, so try them all and keep
+   * whichever lands closest to the target aspect. Comparing in log space treats "twice too wide"
+   * and "twice too tall" as equally wrong.
+   */
+  const rowsOf = (perRow: number) => {
+    const out: Item[][] = []
+    for (let i = 0; i < rest.length; i += perRow) out.push(rest.slice(i, i + perRow))
+    return out
   }
-  if (row.length) rows.push(row)
+  const blockOf = (rows: Item[][]) => ({
+    w: Math.max(...rows.map((r) => r.reduce((a, i) => a + i.w, 0) + GAP * (r.length - 1))),
+    h: rows.reduce((a, r) => a + Math.max(...r.map((i) => i.h)), 0) + GAP * (rows.length - 1),
+  })
+
+  let packed: Item[][] = rest.length ? [rest] : []
+  let bestErr = Infinity
+  for (let perRow = 1; perRow <= rest.length; perRow++) {
+    const candidate = rowsOf(perRow)
+    const { w, h } = blockOf(candidate)
+    // the hero occupies its own row above, so it counts toward the block being framed
+    const totalW = Math.max(w, head?.w ?? 0)
+    const totalH = h + (head ? head.h + GAP : 0)
+    const err = Math.abs(Math.log(totalW / totalH) - Math.log(Math.max(0.2, aspect)))
+    if (err < bestErr) {
+      bestErr = err
+      packed = candidate
+    }
+  }
+
+  // the hero gets a row of its own — it is the heading, not a peer of the cards
+  const rows: Item[][] = head ? [[head], ...packed] : packed
 
   const layout: Layout = {}
   let y = 0
@@ -213,7 +243,7 @@ function ring(items: readonly Item[], rand: () => number): Layout {
 }
 
 export const arrangements: readonly Arrangement[] = [
-  { id: 'tidy', label: 'Tidy', hint: 'aligned rows, nothing tilted', run: (i) => tidy(i) },
+  { id: 'tidy', label: 'Tidy', hint: 'aligned rows, nothing tilted', run: (i, _r, aspect) => tidy(i, aspect) },
   { id: 'scatter', label: 'Scatter', hint: 'random, never overlapping', run: scatter },
   { id: 'ring', label: 'Ring', hint: 'orbiting the hero', run: ring },
   { id: 'cascade', label: 'Cascade', hint: 'one fanned pile', run: cascade },

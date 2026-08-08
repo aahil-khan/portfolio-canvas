@@ -19,6 +19,16 @@ export interface Rect {
 export const MIN_SCALE = 0.35
 export const MAX_SCALE = 2.0
 
+/**
+ * Framing is allowed to zoom out past the interactive floor.
+ *
+ * `MIN_SCALE` exists to stop someone wheeling the world into uselessness. But "fit all" is an
+ * explicit request to see everything, and clamping it to 0.35 is what made large arrangements
+ * clip off screen: once a layout needed, say, 0.22 to fit, the clamp handed back 0.35 and the
+ * edges simply overflowed the viewport with no way to reach them.
+ */
+export const FIT_MIN_SCALE = 0.06
+
 /** World px of breathing room required around every card when auto-placing. */
 export const GUTTER = 30
 
@@ -194,19 +204,26 @@ export function fitCamera(rects: readonly Rect[], vp: Viewport, pad = 56): Camer
   const minY = Math.min(...rects.map((r) => r.y))
   const maxX = Math.max(...rects.map((r) => r.x + r.w))
   const maxY = Math.max(...rects.map((r) => r.y + r.h))
+  const bandH = vp.height - vp.top - vp.bottom
   const s = Math.min(
     1,
-    clampScale(
+    Math.max(
+      FIT_MIN_SCALE,
       Math.min(
-        (vp.width - pad * 2) / (maxX - minX),
-        (vp.height - pad * 2 - vp.top - vp.bottom) / (maxY - minY),
+        (vp.width - pad * 2) / Math.max(1, maxX - minX),
+        (bandH - pad * 2) / Math.max(1, maxY - minY),
       ),
     ),
   )
   return {
     s,
     x: vp.width / 2 - ((minX + maxX) / 2) * s,
-    y: vp.height / 2 - ((minY + maxY) / 2) * s,
+    /*
+     * Centre in the USABLE band, not the raw viewport. The scale above already excludes the
+     * fixed top pill and dock, so centring on `vp.height / 2` pushed the layout down by half
+     * the difference between the two bands and tucked the bottom row under the dock.
+     */
+    y: vp.top + bandH / 2 - ((minY + maxY) / 2) * s,
   }
 }
 
