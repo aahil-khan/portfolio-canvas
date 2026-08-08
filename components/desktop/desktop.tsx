@@ -41,7 +41,7 @@ import { ArrangeMenu } from './arrange-menu'
 import { GotoMenu, type GotoItem } from './goto-menu'
 import { ThemeMenu } from './theme-menu'
 import { SoundMenu } from './sound-menu'
-import { Dock, type DockItem } from './dock'
+import { Dock, type DockEntry, type DockItem } from './dock'
 import { MeasureRig } from './measure-rig'
 import { Hint } from './hint'
 import { CommandPalette, type PaletteActions } from './command-palette'
@@ -60,7 +60,10 @@ interface Placed {
 
 interface Props {
   cards: readonly CardDef[]
+  /** Flat, every dock app — used by the completionist egg, Random, and the phone shell. */
   dock: readonly DockItem[]
+  /** The same apps, grouped into folders, which is only how the dock draws itself. */
+  dockEntries: readonly DockEntry[]
   externals: readonly DockItem[]
   /** Which cards are on screen when someone arrives. */
   bootIds: readonly string[]
@@ -134,7 +137,7 @@ export function Desktop(props: Props) {
  * shell rather than in `Desktop` above: they are canvas concerns, and the mobile shell has no
  * camera to hijack or arrangement to run.
  */
-function CanvasDesktop({ cards, dock, externals, bootIds, hero, heroWidth }: Props) {
+function CanvasDesktop({ cards, dock, dockEntries, externals, bootIds, hero, heroWidth }: Props) {
   const viewportRef = useRef<HTMLDivElement>(null)
   const worldRef = useRef<HTMLDivElement>(null)
   const heroRef = useRef<HTMLDivElement>(null)
@@ -544,12 +547,14 @@ function CanvasDesktop({ cards, dock, externals, bootIds, hero, heroWidth }: Pro
        * playing in. Matching `input,textarea` alone isn't enough: a focusable div, a
        * contenteditable or a <select> all fall through it.
        */
-      if (t.matches('input,textarea') || t.closest('[data-keys]') || e.metaKey || e.ctrlKey) return
-
       /*
-       * Konami. Tracked before the shortcuts below, because B and A are otherwise inert but the
-       * arrow keys are not owned by anything here, and a partial match must not swallow a real
-       * shortcut. The buffer only ever holds as much as the code needs.
+       * Konami is tracked BEFORE the focus guard, not after it.
+       *
+       * The guard exists so bare letters cannot reach the canvas while someone is typing — but
+       * it was also silently killing the code whenever any field had focus, which on a canvas
+       * carrying a notes wall, a typing test and a name box is most of the time. Ten specific
+       * keys in one specific order are never accidental text, so this one sequence is allowed
+       * to listen everywhere. The shortcuts below stay behind the guard, where they belong.
        */
       konami.current = [...konami.current, e.key].slice(-KONAMI.length)
       if (konami.current.length === KONAMI.length && konami.current.every((k, i) => k.toLowerCase() === KONAMI[i].toLowerCase())) {
@@ -574,6 +579,8 @@ function CanvasDesktop({ cards, dock, externals, bootIds, hero, heroWidth }: Pro
           if (r) canvas.centre(r)
         }
       }
+
+      if (t.matches('input,textarea') || t.closest('[data-keys]') || e.metaKey || e.ctrlKey) return
 
       if (e.key === '=' || e.key === '+') canvas.zoomBy(1.25)
       else if (e.key === '-' || e.key === '_') canvas.zoomBy(1 / 1.25)
@@ -827,7 +834,7 @@ function CanvasDesktop({ cards, dock, externals, bootIds, hero, heroWidth }: Pro
       </div>
 
       <Dock
-        items={dock}
+        entries={dockEntries}
         externals={externals}
         openIds={openIds}
         onOpen={(id, origin) => open(id, origin, true)}

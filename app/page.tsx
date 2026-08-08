@@ -3,7 +3,7 @@ import { Desktop } from '@/components/desktop/desktop'
 import { VisitPing } from '@/components/desktop/visit-ping'
 import { MobileOffer } from '@/components/resume/mobile-offer'
 import { ResumeDoc } from '@/components/resume/resume-doc'
-import { apps, externalApps, mobile, profile } from '@/content'
+import { apps, dockLayout, externalApps, mobile, profile } from '@/content'
 import { validateContent } from '@/content/validate'
 
 /*
@@ -38,7 +38,25 @@ function Hero() {
 }
 
 export default async function Page() {
-  const dock = apps.map((a) => ({ id: a.id, label: a.label, icon: a.icon, colour: a.colour }))
+  const tile = (a: (typeof apps)[number]) => ({ id: a.id, label: a.label, icon: a.icon, colour: a.colour })
+  const byId = new Map(apps.map((a) => [a.id, a]))
+
+  /*
+   * Two shapes of the same set. `dock` stays flat because the completionist egg, Random and the
+   * phone shell all just want "every dock app"; `dockEntries` carries the folder structure,
+   * which is purely how the dock draws itself. validate.ts guarantees every id here resolves.
+   */
+  const dock = apps.map(tile)
+  const dockEntries = dockLayout.map((node) =>
+    node.kind === 'app'
+      ? ({ kind: 'app', app: tile(byId.get(node.id)!) } as const)
+      : ({
+          kind: 'folder',
+          id: node.id,
+          label: node.label,
+          apps: node.items.map((id) => tile(byId.get(id)!)),
+        } as const),
+  )
   const externals = externalApps.map((a) => ({
     id: a.id,
     label: a.label,
@@ -54,6 +72,7 @@ export default async function Page() {
       <Desktop
         cards={await buildCards()}
         dock={dock}
+        dockEntries={dockEntries}
         externals={externals}
         bootIds={['about', 'work', 'experience']}
         hero={<Hero />}

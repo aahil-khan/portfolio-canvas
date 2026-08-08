@@ -1,0 +1,218 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<title>P — dock folders</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@400;500;700&display=swap" rel="stylesheet">
+<style>
+/* THROWAWAY — proving the LOOK of dock folders before any of it is React.
+   Dock geometry copied from design/DIRECTION.md. */
+:root{
+  --surface:#FFFFFF; --ink:#161616; --ink-muted:rgba(22,22,22,.62); --ink-subtle:rgba(22,22,22,.45);
+  --border:#161616; --bw:2px; --accent:#FACC00;
+  --dock-size:54px; --dock-gap:8px; --dock-radius:23.5%; --dock-pad:12px; --dock-panel-r:22px;
+  --ease-out:cubic-bezier(.16,1,.3,1);
+}
+*{box-sizing:border-box}
+body{
+  margin:0;padding:38px 38px 300px;font-family:"Space Grotesk",system-ui,sans-serif;color:var(--ink);
+  background:
+    radial-gradient(circle at 50% 8%,rgba(255,255,255,.75),transparent 34%),
+    linear-gradient(180deg,#FBFAF6 0%,#F7F5EE 36%,#F1EFE6 100%);
+  background-attachment:fixed;
+  -webkit-font-smoothing:antialiased;
+}
+h1{font-size:.75rem;font-weight:700;letter-spacing:.09em;text-transform:uppercase;color:var(--ink-subtle);margin:0 0 6px}
+p.note{font-size:.8125rem;color:var(--ink-muted);margin:0 0 20px;max-width:62ch}
+.block{margin-bottom:64px}
+
+/* ---------- the dock, as desktop.css builds it ---------- */
+.dock__panel{
+  display:inline-flex;align-items:flex-end;gap:var(--dock-gap);padding:var(--dock-pad);
+  border-radius:var(--dock-panel-r);background:rgba(255,255,255,.55);
+  border:1.5px solid rgba(22,22,22,.14);box-shadow:0 8px 26px rgba(22,22,22,.10);
+}
+.dock__item{
+  position:relative;display:block;padding:0;border:0;background:none;cursor:pointer;
+}
+.dock__icon{
+  display:grid;place-items:center;width:var(--dock-size);height:var(--dock-size);
+  border-radius:var(--dock-radius);border:var(--bw) solid var(--border);background:var(--c);
+  color:#161616;transition:transform .18s var(--ease-out);
+}
+.dock__item:hover .dock__icon{transform:translateY(-10px)}
+.dock__sep{width:1.5px;height:34px;background:rgba(22,22,22,.18);margin:0 4px;align-self:center}
+.dock__item[data-open] .dock__icon::after{
+  content:'';position:absolute;left:50%;bottom:-7px;width:5px;height:5px;border-radius:999px;
+  background:var(--ink);transform:translateX(-50%);
+}
+svg{display:block}
+
+/* ============================================================
+   A — folder tile is a 2x2 grid of its children's colours
+   ============================================================ */
+.fold-a{
+  display:grid;grid-template-columns:1fr 1fr;grid-template-rows:1fr 1fr;gap:3px;padding:6px;
+  width:var(--dock-size);height:var(--dock-size);
+  border-radius:var(--dock-radius);border:var(--bw) solid var(--border);
+  background:rgba(255,255,255,.72);
+}
+.fold-a i{border-radius:4px;border:1.25px solid var(--border);background:var(--c)}
+
+/* ============================================================
+   B — folder tile is one tinted square with the children fanned
+   ============================================================ */
+.fold-b{
+  position:relative;width:var(--dock-size);height:var(--dock-size);
+  border-radius:var(--dock-radius);border:var(--bw) solid var(--border);
+  background:#F4F2EA;overflow:hidden;
+}
+.fold-b i{
+  position:absolute;width:22px;height:26px;border-radius:4px;border:1.5px solid var(--border);
+  background:var(--c);left:50%;top:52%;
+}
+.fold-b i:nth-child(1){transform:translate(-50%,-50%) rotate(-14deg) translateX(-9px)}
+.fold-b i:nth-child(2){transform:translate(-50%,-50%) rotate(0deg)}
+.fold-b i:nth-child(3){transform:translate(-50%,-50%) rotate(14deg) translateX(9px)}
+
+/* ============================================================
+   C — folder tile is a plain tile with a grid glyph
+   ============================================================ */
+.fold-c{
+  display:grid;place-items:center;width:var(--dock-size);height:var(--dock-size);
+  border-radius:var(--dock-radius);border:var(--bw) solid var(--border);background:var(--c);
+}
+
+/* ---------- the popover the folder opens ---------- */
+.pop{
+  position:absolute;left:50%;bottom:calc(100% + 14px);transform:translateX(-50%);
+  display:flex;gap:10px;padding:12px;border-radius:18px;
+  background:rgba(255,255,255,.92);backdrop-filter:blur(12px) saturate(150%);
+  border:1.5px solid rgba(22,22,22,.16);box-shadow:0 14px 34px rgba(22,22,22,.16);
+}
+.pop::after{
+  content:'';position:absolute;left:50%;bottom:-7px;width:13px;height:13px;
+  transform:translateX(-50%) rotate(45deg);
+  background:rgba(255,255,255,.92);border-right:1.5px solid rgba(22,22,22,.16);border-bottom:1.5px solid rgba(22,22,22,.16);
+}
+.pop__item{display:flex;flex-direction:column;align-items:center;gap:6px;width:66px;border:0;background:none;cursor:pointer;padding:0;font:inherit}
+.pop__ico{
+  display:grid;place-items:center;width:46px;height:46px;border-radius:23.5%;
+  border:var(--bw) solid var(--border);background:var(--c);transition:transform .16s var(--ease-out);
+}
+.pop__item:hover .pop__ico{transform:translateY(-4px)}
+.pop__lbl{font-size:.6875rem;font-weight:500;color:var(--ink-muted);text-align:center;line-height:1.2}
+
+/* vertical list variant */
+.pop--list{flex-direction:column;gap:2px;padding:7px;min-width:196px}
+.pop--list .pop__item{flex-direction:row;width:100%;gap:10px;padding:6px 8px;border-radius:10px;justify-content:flex-start}
+.pop--list .pop__item:hover{background:rgba(22,22,22,.07)}
+.pop--list .pop__ico{width:30px;height:30px;border-radius:8px}
+.pop--list .pop__lbl{font-size:.8125rem;color:var(--ink);text-align:left}
+
+.stage{position:relative;display:inline-block}
+</style>
+</head>
+<body>
+
+<div class="block">
+  <h1>Now — 15 tiles + 2 external</h1>
+  <p class="note">Everything loose. This is what we are trying to shrink.</p>
+  <div class="dock__panel">
+    <button class="dock__item"><span class="dock__icon" style="--c:#FACC00"></span></button>
+    <button class="dock__item"><span class="dock__icon" style="--c:#A8E6A1"></span></button>
+    <button class="dock__item"><span class="dock__icon" style="--c:#FFB4A2"></span></button>
+    <button class="dock__item"><span class="dock__icon" style="--c:#A9D6FF"></span></button>
+    <button class="dock__item"><span class="dock__icon" style="--c:#D9C2FF"></span></button>
+    <button class="dock__item"><span class="dock__icon" style="--c:#FFD9A8"></span></button>
+    <button class="dock__item"><span class="dock__icon" style="--c:#FFE0A3"></span></button>
+    <button class="dock__item"><span class="dock__icon" style="--c:#FFC2E2"></span></button>
+    <button class="dock__item"><span class="dock__icon" style="--c:#B8F2E6"></span></button>
+    <button class="dock__item"><span class="dock__icon" style="--c:#8FD694"></span></button>
+    <button class="dock__item"><span class="dock__icon" style="--c:#C9E4C5"></span></button>
+    <button class="dock__item"><span class="dock__icon" style="--c:#F7D9B0"></span></button>
+    <button class="dock__item"><span class="dock__icon" style="--c:#BCC7F5"></span></button>
+    <button class="dock__item"><span class="dock__icon" style="--c:#E6D3B3"></span></button>
+    <button class="dock__item"><span class="dock__icon" style="--c:#DCE8A0"></span></button>
+    <span class="dock__sep"></span>
+    <button class="dock__item"><span class="dock__icon" style="--c:#E8E6DE"></span></button>
+    <button class="dock__item"><span class="dock__icon" style="--c:#E8E6DE"></span></button>
+  </div>
+</div>
+
+<div class="block">
+  <h1>A — folder tile is a 2×2 of what is inside</h1>
+  <p class="note">5 loose + 3 folders + 2 external = 10 tiles. The folder previews its own contents, so it reads as a container rather than another app.</p>
+  <div class="stage">
+    <div class="dock__panel">
+      <button class="dock__item"><span class="dock__icon" style="--c:#FACC00"></span></button>
+      <button class="dock__item"><span class="dock__icon" style="--c:#A8E6A1"></span></button>
+      <button class="dock__item"><span class="dock__icon" style="--c:#FFB4A2"></span></button>
+      <button class="dock__item"><span class="dock__icon" style="--c:#A9D6FF"></span></button>
+      <button class="dock__item"><span class="dock__icon" style="--c:#B8F2E6"></span></button>
+      <span class="dock__sep"></span>
+      <button class="dock__item"><span class="fold-a"><i style="--c:#D9C2FF"></i><i style="--c:#FFD9A8"></i><i style="--c:#FFE0A3"></i><i style="--c:#F7D9B0"></i></span></button>
+      <button class="dock__item"><span class="fold-a"><i style="--c:#8FD694"></i><i style="--c:#BCC7F5"></i><i style="--c:#C9E4C5"></i><i style="--c:#E6D3B3"></i></span></button>
+      <button class="dock__item" data-open><span class="fold-a"><i style="--c:#DCE8A0"></i><i style="--c:#E6D3B3"></i><i style="--c:#FFC2E2"></i><i style="--c:#A9D6FF"></i></span></button>
+      <span class="dock__sep"></span>
+      <button class="dock__item"><span class="dock__icon" style="--c:#E8E6DE"></span></button>
+      <button class="dock__item"><span class="dock__icon" style="--c:#E8E6DE"></span></button>
+    </div>
+    <div class="pop" style="left:auto;right:104px;transform:none">
+      <button class="pop__item"><span class="pop__ico" style="--c:#DCE8A0"></span><span class="pop__lbl">Arcade</span></button>
+      <button class="pop__item"><span class="pop__ico" style="--c:#E6D3B3"></span><span class="pop__lbl">Notes</span></button>
+      <button class="pop__item"><span class="pop__ico" style="--c:#FFC2E2"></span><span class="pop__lbl">Themes</span></button>
+    </div>
+  </div>
+</div>
+
+<div class="block" style="margin-top:150px">
+  <h1>B — folder tile is a fanned stack</h1>
+  <p class="note">More obviously "a pile of things", less legible at 54px.</p>
+  <div class="dock__panel">
+    <button class="dock__item"><span class="dock__icon" style="--c:#FACC00"></span></button>
+    <button class="dock__item"><span class="dock__icon" style="--c:#A8E6A1"></span></button>
+    <button class="dock__item"><span class="dock__icon" style="--c:#FFB4A2"></span></button>
+    <button class="dock__item"><span class="dock__icon" style="--c:#A9D6FF"></span></button>
+    <button class="dock__item"><span class="dock__icon" style="--c:#B8F2E6"></span></button>
+    <span class="dock__sep"></span>
+    <button class="dock__item"><span class="fold-b"><i style="--c:#D9C2FF"></i><i style="--c:#FFD9A8"></i><i style="--c:#FFE0A3"></i></span></button>
+    <button class="dock__item"><span class="fold-b"><i style="--c:#8FD694"></i><i style="--c:#BCC7F5"></i><i style="--c:#C9E4C5"></i></span></button>
+    <button class="dock__item"><span class="fold-b"><i style="--c:#DCE8A0"></i><i style="--c:#E6D3B3"></i><i style="--c:#FFC2E2"></i></span></button>
+  </div>
+</div>
+
+<div class="block">
+  <h1>C — plain tile with a glyph, and a labelled list popover</h1>
+  <p class="note">Cheapest to read at a glance; the popover carries the meaning instead of the tile.</p>
+  <div class="stage">
+    <div class="dock__panel">
+      <button class="dock__item"><span class="dock__icon" style="--c:#FACC00"></span></button>
+      <button class="dock__item"><span class="dock__icon" style="--c:#A8E6A1"></span></button>
+      <button class="dock__item"><span class="dock__icon" style="--c:#FFB4A2"></span></button>
+      <button class="dock__item"><span class="dock__icon" style="--c:#A9D6FF"></span></button>
+      <button class="dock__item"><span class="dock__icon" style="--c:#B8F2E6"></span></button>
+      <span class="dock__sep"></span>
+      <button class="dock__item"><span class="fold-c" style="--c:#EDEAE0">
+        <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="#161616" stroke-width="2" stroke-linejoin="round"><path d="M3 7.5A1.5 1.5 0 0 1 4.5 6h4l2 2.5h7A1.5 1.5 0 0 1 19 10v7.5A1.5 1.5 0 0 1 17.5 19h-13A1.5 1.5 0 0 1 3 17.5Z"/></svg>
+      </span></button>
+      <button class="dock__item" data-open><span class="fold-c" style="--c:#EDEAE0">
+        <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="#161616" stroke-width="2" stroke-linejoin="round"><path d="M3 7.5A1.5 1.5 0 0 1 4.5 6h4l2 2.5h7A1.5 1.5 0 0 1 19 10v7.5A1.5 1.5 0 0 1 17.5 19h-13A1.5 1.5 0 0 1 3 17.5Z"/></svg>
+      </span></button>
+      <button class="dock__item"><span class="fold-c" style="--c:#EDEAE0">
+        <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="#161616" stroke-width="2" stroke-linejoin="round"><path d="M3 7.5A1.5 1.5 0 0 1 4.5 6h4l2 2.5h7A1.5 1.5 0 0 1 19 10v7.5A1.5 1.5 0 0 1 17.5 19h-13A1.5 1.5 0 0 1 3 17.5Z"/></svg>
+      </span></button>
+    </div>
+    <div class="pop pop--list" style="left:auto;right:22px;transform:none">
+      <button class="pop__item"><span class="pop__ico" style="--c:#8FD694"></span><span class="pop__lbl">Contributions</span></button>
+      <button class="pop__item"><span class="pop__ico" style="--c:#BCC7F5"></span><span class="pop__lbl">Visitors</span></button>
+      <button class="pop__item"><span class="pop__ico" style="--c:#C9E4C5"></span><span class="pop__lbl">Now</span></button>
+      <button class="pop__item"><span class="pop__ico" style="--c:#F7D9B0"></span><span class="pop__lbl">How it works</span></button>
+    </div>
+  </div>
+</div>
+
+</body>
+</html>

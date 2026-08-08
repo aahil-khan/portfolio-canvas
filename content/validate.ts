@@ -1,7 +1,7 @@
 import { existsSync } from 'node:fs'
 import path from 'node:path'
 
-import { apps, externalApps } from './apps'
+import { apps, dockLayout, externalApps } from './apps'
 import { jobs } from './experience'
 import { profile } from './profile'
 import { projects } from './projects'
@@ -77,6 +77,24 @@ export function validateContent(): void {
 
   // every dock entry needs a renderer, and ids are used as card ids so must be unique
   dupes('apps', [...apps, ...externalApps].map((a) => a.id))
+
+  /*
+   * The dock layout is a second, hand-maintained ordering of the same ids, which is exactly the
+   * kind of thing that silently loses a card. So: every id it names must be a real app, and
+   * every app must appear in it exactly once — a typo orphans a card from the dock rather than
+   * failing loudly, and nobody notices until someone asks where Notes went.
+   */
+  const laid = dockLayout.flatMap((n) => (n.kind === 'folder' ? [...n.items] : [n.id]))
+  const dockable = new Set(apps.map((a) => a.id))
+  for (const id of laid) {
+    if (!dockable.has(id)) errors.push(`dockLayout names "${id}", which is not an app in apps.ts`)
+  }
+  for (const a of apps) {
+    const n = laid.filter((id) => id === a.id).length
+    if (n === 0) errors.push(`"${a.id}" is an app but is missing from dockLayout — it would have no dock tile`)
+    if (n > 1) errors.push(`"${a.id}" appears ${n} times in dockLayout`)
+  }
+  dupes('dockLayout folders', dockLayout.filter((n) => n.kind === 'folder').map((n) => n.id))
 
   // a project link is typed as a string, so only a check catches a missing scheme
   for (const p of projects)

@@ -28,6 +28,35 @@ export const apps: readonly AppDef[] = [
   { id: 'arcade', label: 'Arcade', icon: 'arcade', colour: '#DCE8A0', tint: '#F1F6DC', width: 460, rotate: 0.4 },
 ]
 
+/**
+ * How the dock is laid out.
+ *
+ * `apps` above stays the full registry — every card that exists, with its colour and geometry.
+ * This is only about what the dock *shows*, because fifteen loose tiles plus two externals had
+ * turned it into a colour bar you had to read rather than scan.
+ *
+ * The five that stay loose are the ones a stranger came for. Everything else lives in a folder
+ * that previews its contents, so the dock is nine tiles and nothing became unreachable — the
+ * command palette and Go to still list every card by name either way.
+ *
+ * To regroup, move ids between these lists. `validate.ts` checks that every id resolves and that
+ * every dock app appears exactly once, so a card can never be orphaned by a typo here.
+ */
+export type DockNode =
+  | { kind: 'app'; id: string }
+  | { kind: 'folder'; id: string; label: string; items: readonly string[] }
+
+export const dockLayout: readonly DockNode[] = [
+  { kind: 'app', id: 'about' },
+  { kind: 'app', id: 'work' },
+  { kind: 'app', id: 'experience' },
+  { kind: 'app', id: 'stack' },
+  { kind: 'app', id: 'contact' },
+  { kind: 'folder', id: 'more', label: 'More', items: ['writing', 'archive', 'resume', 'now', 'tutorial'] },
+  { kind: 'folder', id: 'live', label: 'Live', items: ['contributions', 'visitors'] },
+  { kind: 'folder', id: 'play', label: 'Play', items: ['arcade', 'notes', 'themes'] },
+]
+
 /** Rendered after a divider at the end of the dock. These leave the site. */
 export const externalApps: readonly AppDef[] = [
   {
