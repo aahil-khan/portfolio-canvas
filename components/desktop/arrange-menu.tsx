@@ -43,8 +43,7 @@ export function ArrangeMenu({
       >
         Arrange <span aria-hidden>▾</span>
       </button>
-      {open ? (
-        <div className="arrange__menu" role="menu">
+      <div className="arrange__menu" role="menu" data-open={open || undefined}>
           {arrangements.map((a) => (
             <button
               key={a.id}
@@ -73,8 +72,7 @@ export function ArrangeMenu({
               <span className="arrange__hint">forget saved positions, deal again</span>
             </button>
           </div>
-        </div>
-      ) : null}
+      </div>
     </div>
   )
 }

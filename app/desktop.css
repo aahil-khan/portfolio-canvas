@@ -878,7 +878,22 @@ button.item:focus-visible .ttl::after {
 .arrange {
   position: relative;
 }
+/*
+ * Enter AND exit are animated in CSS. The menus stay mounted and toggle `data-open`, because a
+ * React unmount removes the node before any exit transition can run. `allow-discrete` lets
+ * `display` participate, so the closed menu is genuinely display:none — out of the layout and
+ * off the accessibility tree — rather than an invisible click target.
+ *
+ * 130ms in, 100ms out: fast enough to never sit between you and the canvas.
+ */
 .arrange__menu {
+  display: none;
+  opacity: 0;
+  transform: translateX(-50%) translateY(-6px) scale(0.97);
+  transition:
+    opacity 100ms ease,
+    transform 100ms var(--ease-out),
+    display 100ms allow-discrete;
   position: absolute;
   top: calc(100% + 10px);
   left: 50%;
@@ -891,9 +906,24 @@ button.item:focus-visible .ttl::after {
   -webkit-backdrop-filter: blur(12px) saturate(150%);
   border: 1.5px solid color-mix(in srgb, var(--border) 22%, transparent);
   box-shadow: 0 10px 30px color-mix(in srgb, var(--border) 20%, transparent);
-  display: flex;
   flex-direction: column;
   gap: 1px;
+}
+.arrange__menu[data-open] {
+  display: flex;
+  opacity: 1;
+  transform: translateX(-50%) translateY(0) scale(1);
+  transition:
+    opacity 130ms ease,
+    transform 130ms var(--ease-out),
+    display 130ms allow-discrete;
+}
+/* the state a newly-displayed menu animates FROM */
+@starting-style {
+  .arrange__menu[data-open] {
+    opacity: 0;
+    transform: translateX(-50%) translateY(-6px) scale(0.97);
+  }
 }
 #pill .arrange__menu button,
 .arrange__menu button {
@@ -1199,25 +1229,50 @@ button.item:focus-visible .ttl::after {
   gap: 8px;
 }
 .mix__toggle {
-  width: 20px !important;
-  height: 20px;
+  width: 22px !important;
+  height: 22px;
   flex: 0 0 auto;
   padding: 0 !important;
-  border-radius: 6px !important;
-  border: 1.5px solid color-mix(in srgb, var(--border) 26%, transparent) !important;
+  border-radius: 999px !important;
+  border: 0 !important;
+  background: color-mix(in srgb, var(--ink) 8%, transparent) !important;
   color: var(--ink-subtle) !important;
-  font-size: 12px;
-  line-height: 1;
   display: grid !important;
   place-items: center;
+  transition: background 120ms var(--ease-out), color 120ms var(--ease-out);
+}
+.mix__toggle svg {
+  transition: transform 160ms var(--ease-out);
+}
+.mix__toggle:hover {
+  background: color-mix(in srgb, var(--ink) 16%, transparent) !important;
+  color: var(--ink) !important;
 }
 .mix__toggle[aria-expanded='true'] {
-  background: color-mix(in srgb, var(--ink) 10%, transparent);
   color: var(--ink) !important;
+}
+.mix__toggle[aria-expanded='true'] svg {
+  transform: rotate(180deg);
 }
 .mix__detail {
   display: grid;
+  grid-template-rows: 0fr;
+  transition: grid-template-rows 160ms var(--ease-out), opacity 120ms ease;
+  opacity: 0;
+}
+.mix__detail[data-open] {
+  grid-template-rows: 1fr;
+  opacity: 1;
+}
+.mix__detail-inner {
+  display: grid;
   gap: 7px;
+  min-height: 0;
+  overflow: hidden;
+  /* reserve the toggle's width so every fader shares one track and readout column */
+  padding-right: calc(22px + 8px);
+}
+.mix__detail[data-open] .mix__detail-inner {
   margin-top: 7px;
   padding-top: 7px;
   border-top: 1.5px dashed color-mix(in srgb, var(--border) 16%, transparent);

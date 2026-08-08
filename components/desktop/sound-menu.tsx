@@ -80,8 +80,7 @@ export function SoundMenu() {
         Sound <span aria-hidden>▾</span>
       </button>
 
-      {open ? (
-        <div className="arrange__menu sound__menu" role="menu">
+      <div className="arrange__menu sound__menu" role="menu" data-open={open || undefined}>
           <button
             type="button"
             role="menuitemcheckbox"
@@ -172,14 +171,32 @@ export function SoundMenu() {
                 aria-controls="mix-detail"
                 onClick={() => setMixOpen((o) => !o)}
               >
-                <span aria-hidden>{mixOpen ? '\u2212' : '+'}</span>
+                {/* a chevron that rotates reads as "there is more below", and animates for free */}
+                <svg
+                  viewBox="0 0 24 24"
+                  width="13"
+                  height="13"
+                  fill="none"
+                  stroke="currentColor"
+                  strokeWidth={2.5}
+                  strokeLinecap="round"
+                  strokeLinejoin="round"
+                  aria-hidden
+                >
+                  <path d="m6 9 6 6 6-6" />
+                </svg>
                 <span className="sr-only">
                   {mixOpen ? 'Hide music and interface levels' : 'Show music and interface levels'}
                 </span>
               </button>
             </div>
-            {mixOpen ? (
-              <div className="mix__detail" id="mix-detail">
+            {/*
+              * Always mounted, collapsed with grid-template-rows: 0fr. That is the only way to
+              * transition to an unknown content height — max-height guessing either clips the
+              * content or eases against a wrong value and stutters.
+              */}
+            <div className="mix__detail" id="mix-detail" data-open={mixOpen || undefined}>
+              <div className="mix__detail-inner">
                 <Fader label="Music" value={amb.volume} onChange={setAmbienceVolume} />
                 <Fader
                   label="Interface"
@@ -190,12 +207,11 @@ export function SoundMenu() {
                   }}
                 />
               </div>
-            ) : null}
+            </div>
           </div>
 
-          <p className="sound__credit">Ambience is public internet radio · streams may vary</p>
-        </div>
-      ) : null}
+        <p className="sound__credit">Ambience is public internet radio · streams may vary</p>
+      </div>
     </div>
   )
 }
