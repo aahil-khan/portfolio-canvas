@@ -2184,6 +2184,35 @@ button.item:focus-visible .ttl::after {
   border-top: 1.5px solid color-mix(in srgb, var(--border) 16%, transparent);
 }
 
+/* ---------- theme menu ---------- */
+/* wider than Go to's rows: each line carries the theme name it will actually land on */
+.theme-menu__menu {
+  min-width: 244px;
+}
+/* the icon sits beside the label, above the hint — so the row keeps .arrange's two-line shape */
+.theme-menu__row {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+.theme-menu__row svg {
+  flex: 0 0 auto;
+  opacity: 0.75;
+}
+/* the side you are already on, marked without a tick column that would shift every label */
+.theme-menu__menu button[aria-checked='true'] {
+  background: color-mix(in srgb, var(--ink) 8%, transparent);
+}
+.theme-menu__menu button[aria-checked='true'] .arrange__label::after {
+  content: '·  on';
+  margin-left: 7px;
+  font-size: 0.6875rem;
+  font-weight: 700;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+  color: var(--ink-subtle);
+}
+
 /* ---------- "go to" menu ---------- */
 /*
  * Shares .arrange's wrapper, menu and animation wholesale; only the row shape differs. Arrange
