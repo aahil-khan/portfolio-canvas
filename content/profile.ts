@@ -5,16 +5,20 @@ export const profile: Profile = {
   name: 'Aahil Khan',
   initials: 'AK',
   resumePdf: '/aahil-khan-resume.pdf',
-  role: { prefix: 'Full-stack &', emphasis: 'AI engineer' },
+  role: { prefix: 'Full-stack engineer,', emphasis: 'AI retrieval & agents' },
   location: 'Patiala, India',
   availability: 'open to work',
   email: 'aahilminookhan@gmail.com',
   intro:
-    'I build production systems — scalable APIs, RAG pipelines and LLM-powered applications that actually ship.',
-  note: 'Currently finishing a B.E. at Thapar and a Diploma at IIT Madras, simultaneously.',
+    'I build AI retrieval and agent infrastructure — RAG pipelines, multi-agent systems and MCP tooling — with a soft spot for systems that can prove they got the answer right, instead of merely sounding like it.',
+  notes: [
+    'That means deterministic verdicts backed by retrieved evidence, audit trails that can show nothing was quietly edited, and evaluation harnesses that catch a regression before it ships.',
+    'Final-year Computer Engineering at Thapar, with an IIT Madras programming diploma running alongside it — two courseloads at once, which was either ambitious or a scheduling error.',
+    'Right now I split my time between two internships: production AI systems at Zariya AI, and accent-invariant speech research with Samsung PRISM.',
+  ],
   links: [
     { label: 'GitHub', href: 'https://github.com/aahil-khan' },
-    { label: 'LinkedIn', href: 'https://linkedin.com/in/aahil-khan' },
+    { label: 'LinkedIn', href: 'https://www.linkedin.com/in/aahil-khan-015671287/' },
     { label: 'Email', href: 'mailto:aahilminookhan@gmail.com' },
   ],
 }
@@ -24,7 +28,7 @@ export const profile: Profile = {
  * Keep this to three — it is a highlight reel, not a report.
  */
 export const headlineStats = [
-  { value: '1.26s', label: 'p50 latency' },
-  { value: '10,000+', label: 'students served' },
-  { value: '40%', label: 'fewer errors' },
+  { value: '44.5% → 0%', label: 'missed hazards' },
+  { value: '15,000+', label: 'students served' },
+  { value: '1.26s', label: 'p50 retrieval' },
 ] as const

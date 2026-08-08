@@ -68,6 +68,14 @@ export const archive: readonly ArchiveItem[] = [
     meta: 'Next.js · zero runtime dependencies',
   },
   {
+    id: 'portana',
+    kind: 'built',
+    title: 'Portana',
+    note: 'The version of this site before this one: a conversational portfolio you interrogated instead of scrolled, with n8n workflows auto-syncing content from GitHub and LinkedIn. Retired, fondly.',
+    when: '2025',
+    meta: 'Next.js · Fastify · Qdrant · Docker',
+  },
+  {
     id: 'example-watching',
     kind: 'watching',
     title: 'Something you are watching',
