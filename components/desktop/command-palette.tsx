@@ -53,7 +53,10 @@ export interface PaletteActions {
 
 interface Command {
   id: string
+  /** Section header in the list. */
   group: string
+  /** Which filter chip this belongs to. Several groups can share one chip. */
+  chip: Chip
   label: string
   hint?: string
   /** Extra words that should match but aren't worth showing. */
@@ -78,6 +81,16 @@ function score(cmd: Command, q: string): number {
   return -1
 }
 
+/*
+ * The chips exist because a flat list of forty rows does not tell you what the palette is FOR.
+ * Seven labels across the top answer that in one glance, and double as filters.
+ */
+const CHIPS = ['On the canvas', 'Cards', 'Canvas', 'Arrange', 'Theme', 'Sound', 'Elsewhere'] as const
+type Chip = (typeof CHIPS)[number]
+
+/** How many rows of each group to show before you have typed anything. */
+const PREVIEW_PER_GROUP = 4
+
 export function CommandPalette({
   cards,
   dockIds,
@@ -92,6 +105,7 @@ export function CommandPalette({
   const [open, setOpen] = useState(false)
   const [query, setQuery] = useState('')
   const [cursor, setCursor] = useState(0)
+  const [chip, setChip] = useState<Chip | null>(null)
   const router = useRouter()
   const inputRef = useRef<HTMLInputElement>(null)
   const listRef = useRef<HTMLDivElement>(null)
@@ -117,6 +131,7 @@ export function CommandPalette({
       out.push({
         id: `go:${id}`,
         group: 'On the canvas',
+        chip: 'On the canvas',
         label: def.label,
         hint: 'jump to it',
         keywords: 'go to find where locate reveal',
@@ -131,6 +146,7 @@ export function CommandPalette({
       out.push({
         id: `open:${def.id}`,
         group: isDetail ? 'Projects & details' : 'Cards',
+        chip: 'Cards',
         label: def.label,
         hint: isDetail ? 'open card' : undefined,
         keywords: def.id.replace(/[:_-]/g, ' '),
@@ -145,6 +161,7 @@ export function CommandPalette({
       out.push({
         id: `close:${id}`,
         group: 'Close',
+        chip: 'On the canvas',
         label: `Close ${def.label}`,
         keywords: 'dismiss hide remove',
         run: () => actions.close(id),
@@ -152,18 +169,19 @@ export function CommandPalette({
     }
 
     out.push(
-      { id: 'c:fit', group: 'Canvas', label: 'Fit all', hint: 'frame everything', keywords: 'zoom show overview', run: actions.fitAll },
-      { id: 'c:min', group: 'Canvas', label: 'Minimise all', hint: 'clear the canvas', keywords: 'close hide empty', run: actions.minimiseAll },
-      { id: 'c:rand', group: 'Canvas', label: 'Random', hint: 'deal three cards', keywords: 'shuffle surprise', run: actions.randomise },
-      { id: 'c:reset', group: 'Canvas', label: 'Reset layout', hint: 'forget saved positions', keywords: 'clear session default', run: actions.resetLayout },
-      { id: 'c:in', group: 'Canvas', label: 'Zoom in', keywords: 'closer bigger', run: () => actions.zoomBy(1.25) },
-      { id: 'c:out', group: 'Canvas', label: 'Zoom out', keywords: 'further smaller', run: () => actions.zoomBy(1 / 1.25) },
+      { id: 'c:fit', group: 'Canvas', chip: 'Canvas', label: 'Fit all', hint: 'frame everything', keywords: 'zoom show overview', run: actions.fitAll },
+      { id: 'c:min', group: 'Canvas', chip: 'Canvas', label: 'Minimise all', hint: 'clear the canvas', keywords: 'close hide empty', run: actions.minimiseAll },
+      { id: 'c:rand', group: 'Canvas', chip: 'Canvas', label: 'Random', hint: 'deal three cards', keywords: 'shuffle surprise', run: actions.randomise },
+      { id: 'c:reset', group: 'Canvas', chip: 'Canvas', label: 'Reset layout', hint: 'forget saved positions', keywords: 'clear session default', run: actions.resetLayout },
+      { id: 'c:in', group: 'Canvas', chip: 'Canvas', label: 'Zoom in', keywords: 'closer bigger', run: () => actions.zoomBy(1.25) },
+      { id: 'c:out', group: 'Canvas', chip: 'Canvas', label: 'Zoom out', keywords: 'further smaller', run: () => actions.zoomBy(1 / 1.25) },
     )
 
     for (const a of arrangements)
       out.push({
         id: `arr:${a.id}`,
         group: 'Arrange',
+        chip: 'Arrange',
         label: a.label,
         hint: a.hint,
         keywords: 'arrange layout tidy organise',
@@ -174,6 +192,7 @@ export function CommandPalette({
       out.push({
         id: `theme:${t.id}`,
         group: 'Theme',
+        chip: 'Theme',
         label: t.label,
         hint: t.id === theme ? 'current' : t.dark ? 'dark' : 'light',
         keywords: `theme colour color ${t.dark ? 'dark' : 'light'}`,
@@ -183,6 +202,7 @@ export function CommandPalette({
     out.push({
       id: 'snd:ui',
       group: 'Sound',
+      chip: 'Sound',
       label: soundOn ? 'Turn interface sounds off' : 'Turn interface sounds on',
       keywords: 'audio mute lofi clicks',
       run: () => setSoundOn(!soundOn),
@@ -190,6 +210,7 @@ export function CommandPalette({
     out.push({
       id: 'snd:amb',
       group: 'Sound',
+      chip: 'Sound',
       label: amb.playing ? 'Stop ambience' : 'Play ambience',
       hint: amb.station.label,
       keywords: 'music radio lofi beats',
@@ -199,6 +220,7 @@ export function CommandPalette({
       out.push({
         id: `st:${s.id}`,
         group: 'Station',
+        chip: 'Sound',
         label: s.label,
         hint: s.blurb,
         keywords: 'station radio music play',
@@ -206,9 +228,9 @@ export function CommandPalette({
       })
 
     out.push(
-      { id: 'go:resume', group: 'Elsewhere', label: 'Open résumé', hint: '/resume', keywords: 'cv print pdf page', run: () => router.push('/resume') },
-      { id: 'go:gh', group: 'Elsewhere', label: 'GitHub', keywords: 'code repo profile', run: () => window.open('https://github.com/aahil-khan', '_blank', 'noopener,noreferrer') },
-      { id: 'go:li', group: 'Elsewhere', label: 'LinkedIn', keywords: 'profile work', run: () => window.open('https://linkedin.com/in/aahil-khan', '_blank', 'noopener,noreferrer') },
+      { id: 'go:resume', group: 'Elsewhere', chip: 'Elsewhere', label: 'Open résumé', hint: '/resume', keywords: 'cv print pdf page', run: () => router.push('/resume') },
+      { id: 'go:gh', group: 'Elsewhere', chip: 'Elsewhere', label: 'GitHub', keywords: 'code repo profile', run: () => window.open('https://github.com/aahil-khan', '_blank', 'noopener,noreferrer') },
+      { id: 'go:li', group: 'Elsewhere', chip: 'Elsewhere', label: 'LinkedIn', keywords: 'profile work', run: () => window.open('https://linkedin.com/in/aahil-khan', '_blank', 'noopener,noreferrer') },
     )
 
     return out
@@ -216,21 +238,30 @@ export function CommandPalette({
 
   const results = useMemo(() => {
     const q = query.trim().toLowerCase()
-    if (!q) {
-      // with nothing typed, lead with what's on the canvas — that is the common case
-      const order = ['On the canvas', 'Cards', 'Canvas', 'Arrange', 'Theme', 'Sound']
-      return commands
-        .filter((c) => order.includes(c.group))
-        .sort((a, b) => order.indexOf(a.group) - order.indexOf(b.group))
+    const pool = chip ? commands.filter((c) => c.chip === chip) : commands
+
+    if (q) {
+      return pool
+        .map((c) => ({ c, s: score(c, q) }))
+        .filter((r) => r.s >= 0)
+        .sort((a, b) => b.s - a.s)
         .slice(0, 40)
+        .map((r) => r.c)
     }
-    return commands
-      .map((c) => ({ c, s: score(c, q) }))
-      .filter((r) => r.s >= 0)
-      .sort((a, b) => b.s - a.s)
-      .slice(0, 40)
-      .map((r) => r.c)
-  }, [commands, query])
+
+    /*
+     * Nothing typed: show a few of every group rather than forty rows of one. A capped preview
+     * per group is what makes the range of the palette visible instead of burying Theme and
+     * Sound under whatever happens to be open.
+     */
+    const order: Chip[] = chip ? [chip] : [...CHIPS]
+    const out: Command[] = []
+    for (const g of order) {
+      const rows = pool.filter((c) => c.chip === g && c.group !== 'Close')
+      out.push(...(chip ? rows : rows.slice(0, PREVIEW_PER_GROUP)))
+    }
+    return out
+  }, [commands, query, chip])
 
   /* --- open / close --- */
   useEffect(() => {
@@ -240,6 +271,7 @@ export function CommandPalette({
         setOpen((o) => !o)
         setQuery('')
         setCursor(0)
+        setChip(null)
       }
     }
     window.addEventListener('keydown', onKey)
@@ -306,6 +338,35 @@ export function CommandPalette({
           }}
           onKeyDown={onInputKey}
         />
+        <div className="cmdk__chips" role="tablist" aria-label="Filter commands">
+          <button
+            type="button"
+            role="tab"
+            aria-selected={chip === null}
+            className="cmdk__chip"
+            onClick={() => {
+              setChip(null)
+              setCursor(0)
+            }}
+          >
+            All
+          </button>
+          {CHIPS.map((c) => (
+            <button
+              key={c}
+              type="button"
+              role="tab"
+              aria-selected={chip === c}
+              className="cmdk__chip"
+              onClick={() => {
+                setChip((v) => (v === c ? null : c))
+                setCursor(0)
+              }}
+            >
+              {c}
+            </button>
+          ))}
+        </div>
         <div className="cmdk__list" id="cmdk-list" role="listbox" ref={listRef}>
           {results.length === 0 ? (
             <p className="cmdk__empty">Nothing matches “{query}”</p>
