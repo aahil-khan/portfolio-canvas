@@ -5,7 +5,12 @@ import { DetailRow } from '@/components/apps/interactive'
 import { ArchiveFeed } from '@/components/apps/archive-feed'
 import { Shots } from '@/components/apps/shots'
 import { ArchiveFull } from '@/components/apps/archive-full'
+import { ArcadeLauncher } from '@/components/apps/arcade'
 import { ContributionGraph } from '@/components/apps/contributions'
+import { Game2048 } from '@/components/apps/games/g2048'
+import { Minesweeper } from '@/components/apps/games/minesweeper'
+import { Snake } from '@/components/apps/games/snake'
+import { TypingTest } from '@/components/apps/games/typing'
 import { NotesWall } from '@/components/apps/notes'
 import { ThemePicker } from '@/components/apps/theme-picker'
 import { contributions } from '@/content/contributions'
@@ -249,6 +254,32 @@ export async function buildCards(): Promise<CardDef[]> {
   push('contributions', <ContributionGraph data={await fetchContributions(contributions.login)} />)
 
   push('notes', <NotesWall />)
+
+  push('arcade', <ArcadeLauncher />)
+
+  /*
+   * The games are spawned cards, opened from the Arcade launcher, exactly like a project detail.
+   * Colours are reused from cards already in the dock rather than invented: the contrast gate
+   * only audits live dock tiles, so a new pastel here would escape it entirely.
+   */
+  const GAMES: { id: string; label: string; colour: string; tint: string; width: number; rotate: number; body: ReactNode }[] = [
+    { id: 'typing', label: 'Typing Test', colour: '#DCE8A0', tint: '#F1F6DC', width: 560, rotate: 0.6, body: <TypingTest /> },
+    { id: 'mines', label: 'Minesweeper', colour: '#DCE8A0', tint: '#F1F6DC', width: 420, rotate: -0.7, body: <Minesweeper /> },
+    { id: 'snake', label: 'Snake', colour: '#A9D6FF', tint: '#E3F1FF', width: 420, rotate: 0.8, body: <Snake /> },
+    { id: '2048', label: '2048', colour: '#D9C2FF', tint: '#F0E8FF', width: 420, rotate: -0.5, body: <Game2048 /> },
+  ]
+  for (const g of GAMES) {
+    cards.push({
+      id: `game:${g.id}`,
+      label: g.label,
+      icon: 'arcade',
+      colour: g.colour,
+      tint: g.tint,
+      width: g.width,
+      rotate: g.rotate,
+      body: g.body,
+    })
+  }
 
   /* --- an archive entry's image, opened on its own --- */
   for (const a of archive) {

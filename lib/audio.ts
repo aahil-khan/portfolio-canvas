@@ -15,7 +15,19 @@
  * anyway, so "on by default" would be a fiction.
  */
 
-type Cue = 'open' | 'close' | 'hover' | 'click' | 'minimise' | 'arrange' | 'theme'
+type Cue =
+  | 'open'
+  | 'close'
+  | 'hover'
+  | 'click'
+  | 'minimise'
+  | 'arrange'
+  | 'theme'
+  // arcade
+  | 'tick'
+  | 'score'
+  | 'fail'
+  | 'unlock'
 
 const KEY = 'canvas.sound'
 const KEY_UI_VOL = 'canvas.uiVolume'
@@ -198,6 +210,32 @@ const CUES: Record<Cue, () => void> = {
   theme: () => {
     ;[P.c4, P.e4, P.g4, P.d4 * 2, P.a4].forEach((f, i) =>
       voice({ f, dur: 1.1, gain: 0.022, type: 'sine', at: i * 0.08, detune: i * 4 }),
+    )
+  },
+  /*
+   * Game cues. These fire far more often than the window ones — a `tick` can land every few
+   * hundred milliseconds while Snake is running — so they are quieter and shorter than
+   * everything above, and still drawn from the same pentatonic table so they can never clash
+   * with a card opening underneath them.
+   */
+  // eating, merging, revealing: a small bright blip
+  tick: () => voice({ f: vary(P.g4, 40), dur: 0.07, gain: 0.014, type: 'triangle' }),
+  // a run up the scale — scoring, clearing a board
+  score: () => {
+    ;[P.e4, P.g4, P.c5].forEach((f, i) =>
+      voice({ f, dur: 0.32, gain: 0.026, type: 'triangle', at: i * 0.055 }),
+    )
+  },
+  // a short fall. Deliberately not harsh: losing at minesweeper is not an error state
+  fail: () => {
+    voice({ f: P.e4, to: P.g3, dur: 0.34, gain: 0.03, type: 'sine' })
+    noise(0.12, 0.01, 800, 260)
+  },
+  // something hidden just gave way
+  unlock: () => {
+    noise(0.5, 0.012, 400, 2200)
+    ;[P.c4, P.g4, P.c5, P.e4 * 2].forEach((f, i) =>
+      voice({ f, dur: 0.9, gain: 0.026, type: 'sine', at: i * 0.09, detune: i * 3 }),
     )
   },
 }

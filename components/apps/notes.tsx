@@ -124,6 +124,7 @@ export function NotesWall() {
 
       <form className="compose" onSubmit={submit}>
         <textarea
+          name="note"
           value={text}
           onChange={(e) => setText(e.target.value.slice(0, NOTE_MAX))}
           placeholder={notesCopy.placeholder}
@@ -133,6 +134,8 @@ export function NotesWall() {
         {/* honeypot: off-screen and hidden from assistive tech, so only a bot fills it in */}
         <input
           className="compose__hp"
+          /* a plausible name is the point — bots fill fields by name, people never see it */
+          name="website"
           tabIndex={-1}
           autoComplete="off"
           aria-hidden
@@ -142,6 +145,7 @@ export function NotesWall() {
         />
         <div className="compose__foot">
           <input
+            name="author"
             value={name}
             onChange={(e) => setName(e.target.value.slice(0, NAME_MAX))}
             placeholder={notesCopy.namePlaceholder}

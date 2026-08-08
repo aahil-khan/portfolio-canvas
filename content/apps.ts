@@ -22,6 +22,7 @@ export const apps: readonly AppDef[] = [
   { id: 'contact', label: 'Contact', icon: 'contact', colour: '#B8F2E6', tint: '#E6FBF7', width: 480, rotate: 0.6 },
   { id: 'contributions', label: 'Contributions', icon: 'graph', colour: '#8FD694', tint: '#E4F4E5', width: 660, rotate: 0.5 },
   { id: 'notes', label: 'Notes', icon: 'notes', colour: '#E6D3B3', tint: '#F5EBDB', width: 520, rotate: -0.6 },
+  { id: 'arcade', label: 'Arcade', icon: 'arcade', colour: '#DCE8A0', tint: '#F1F6DC', width: 460, rotate: 0.4 },
 ]
 
 /** Rendered after a divider at the end of the dock. These leave the site. */

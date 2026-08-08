@@ -742,6 +742,257 @@ button.item:focus-visible .ttl::after {
   font-variant-numeric: tabular-nums;
 }
 
+/* ---------- arcade: shared ---------- */
+.game {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+}
+/* every board is a fixed pixel size, so the card's measured height never moves */
+.game__board {
+  align-self: center;
+  border: var(--bw) solid var(--border);
+  border-radius: var(--radius-chip);
+  background: var(--c-soft);
+  flex: 0 0 auto;
+  overflow: hidden;
+  display: grid;
+}
+.game__foot {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  min-height: 34px;
+}
+.game__foot .btn:last-child {
+  margin-left: auto;
+}
+.game__hint {
+  font-size: 0.6875rem;
+  font-weight: 700;
+  letter-spacing: 0.05em;
+  text-transform: uppercase;
+  color: var(--ink-subtle);
+}
+/*
+ * Marks a subtree that owns its keyboard outright — see the keydown guard in desktop.tsx.
+ * Without it, typing "f" in a game fits the canvas and Escape closes the card being played in.
+ */
+[data-keys]:focus {
+  outline: none;
+}
+[data-keys]:focus-visible {
+  outline: 2px solid var(--accent);
+  outline-offset: 3px;
+}
+
+/* ---------- typing test ---------- */
+.type__quote {
+  height: 104px; /* three lines at 1.75; never reflows the card */
+  overflow: hidden;
+  font-size: 1.0625rem;
+  line-height: 1.75;
+  color: var(--ink-subtle);
+  border: 1.5px solid var(--border);
+  border-radius: var(--radius-chip);
+  background: var(--c-soft);
+  padding: 10px 12px;
+  cursor: text;
+}
+.type__w {
+  transition: color 0.1s linear;
+}
+.type__w[data-s='ok'] {
+  color: var(--ink);
+}
+.type__w[data-s='bad'] {
+  color: #b3261e;
+  text-decoration: underline wavy #b3261e;
+  text-underline-offset: 3px;
+}
+.type__w[data-s='now'] {
+  color: var(--ink);
+  background: var(--c);
+  border-radius: 3px;
+  box-shadow: 0 0 0 2px var(--c);
+}
+/* the real key sink: bare letters only reach a game if the target is an input */
+.type__sink {
+  position: absolute;
+  left: -9999px;
+  width: 1px;
+  height: 1px;
+  opacity: 0;
+}
+.type__name {
+  font: inherit;
+  font-size: 0.8125rem;
+  flex: 1;
+  min-width: 0;
+  color: var(--ink);
+  background: var(--surface);
+  border: 1.5px solid var(--border);
+  border-radius: var(--radius-chip);
+  padding: 7px 9px;
+  outline: none;
+}
+.type__name:focus {
+  box-shadow: 2px 2px 0 0 var(--border);
+}
+.lead__title {
+  font-size: 0.625rem;
+  font-weight: 700;
+  letter-spacing: 0.09em;
+  text-transform: uppercase;
+  color: var(--ink-subtle);
+  margin-bottom: 4px;
+}
+.lead {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+}
+/* five rows are always rendered, empty ones included, so the height is constant */
+.lead li {
+  display: flex;
+  align-items: baseline;
+  gap: 8px;
+  font-size: 0.8125rem;
+  height: 26px;
+  border-top: 1.5px solid color-mix(in srgb, var(--ink) 15%, transparent);
+}
+.lead li:first-child {
+  border-top: 0;
+}
+.lead li[data-empty] {
+  opacity: 0.35;
+}
+.lead .rk {
+  font-size: 0.6875rem;
+  font-weight: 700;
+  color: var(--ink-subtle);
+  min-width: 18px;
+  font-variant-numeric: tabular-nums;
+}
+.lead .who {
+  font-weight: 500;
+}
+.lead .wpm {
+  margin-left: auto;
+  font-weight: 700;
+  font-variant-numeric: tabular-nums;
+}
+
+/* ---------- minesweeper ---------- */
+.ms__c {
+  width: 30px;
+  height: 30px;
+  padding: 0;
+  border: 1px solid color-mix(in srgb, var(--ink) 22%, transparent);
+  background: var(--c);
+  font: inherit;
+  font-size: 0.8125rem;
+  font-weight: 700;
+  color: var(--on-app);
+  display: grid;
+  place-items: center;
+}
+.ms__c[data-open] {
+  background: var(--surface);
+  color: var(--ink);
+}
+.ms__c[data-open][data-n='1'] {
+  color: #1a56c4;
+}
+.ms__c[data-open][data-n='2'] {
+  color: #157a3c;
+}
+.ms__c[data-open][data-n='3'] {
+  color: #b3261e;
+}
+.ms__c[data-open][data-n='4'] {
+  color: #5b2ea6;
+}
+.ms__c[data-flag] {
+  background: var(--accent);
+}
+.ms__c[data-mine] {
+  background: #b3261e;
+  color: #fff;
+}
+
+/* ---------- snake ---------- */
+.snake__c {
+  width: 20px;
+  height: 20px;
+}
+/* mixed toward ink: raw --c on --c-soft is one step apart and reads as a flat board */
+.snake__c[data-s] {
+  background: color-mix(in srgb, var(--c) 62%, var(--ink));
+  border: 1.5px solid var(--border);
+  border-radius: 3px;
+}
+.snake__c[data-s='head'] {
+  background: color-mix(in srgb, var(--c) 22%, var(--ink));
+}
+.snake__c[data-food] {
+  background: var(--accent);
+  border: 1.5px solid var(--border);
+  border-radius: 50%;
+}
+
+/* ---------- 2048 ---------- */
+.g2048 {
+  gap: 6px;
+  padding: 6px;
+}
+.g2048__t {
+  border-radius: 6px;
+  display: grid;
+  place-items: center;
+  font-weight: 700;
+  font-size: 1.25rem;
+  font-variant-numeric: tabular-nums;
+  background: color-mix(in srgb, var(--ink) 7%, var(--surface));
+  color: var(--ink);
+}
+.g2048__t[data-v] {
+  border: 1.5px solid var(--border);
+  box-shadow: 2px 2px 0 0 var(--border);
+}
+.g2048__t[data-v='2'] {
+  background: color-mix(in srgb, var(--c) 22%, var(--surface));
+}
+.g2048__t[data-v='4'] {
+  background: color-mix(in srgb, var(--c) 40%, var(--surface));
+}
+.g2048__t[data-v='8'] {
+  background: color-mix(in srgb, var(--c) 60%, var(--surface));
+}
+.g2048__t[data-v='16'] {
+  background: color-mix(in srgb, var(--c) 80%, var(--surface));
+}
+.g2048__t[data-v='32'] {
+  background: var(--c);
+}
+.g2048__t[data-v='64'] {
+  background: color-mix(in srgb, var(--c) 84%, var(--ink));
+  color: var(--surface);
+}
+.g2048__t[data-v='128'],
+.g2048__t[data-v='256'],
+.g2048__t[data-v='512'] {
+  background: var(--accent);
+  color: var(--accent-ink);
+  font-size: 1.0625rem;
+}
+.g2048__t[data-v='1024'],
+.g2048__t[data-v='2048'] {
+  background: var(--accent);
+  color: var(--accent-ink);
+  font-size: 0.9375rem;
+}
+
 /* ---------- notes wall ---------- */
 /*
  * FIXED height, deliberately. Card heights are measured once and never again, and that number

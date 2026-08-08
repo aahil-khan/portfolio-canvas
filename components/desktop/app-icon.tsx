@@ -18,6 +18,15 @@ const S = {
 }
 
 const ICONS: Record<string, ReactElement<SVGProps<SVGSVGElement>>> = {
+  // a cabinet with a joystick: the arcade
+  arcade: (
+    <svg {...S}>
+      <rect x="4" y="3" width="16" height="13" rx="2" />
+      <path d="M8 19h8M10 16v3M14 16v3" />
+      <circle cx="12" cy="8" r="1.6" />
+      <path d="M12 9.6V12" />
+    </svg>
+  ),
   // a pinned note: the notes wall
   notes: (
     <svg {...S}>
