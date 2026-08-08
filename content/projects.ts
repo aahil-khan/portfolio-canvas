@@ -32,6 +32,7 @@ export const projects: readonly Project[] = [
       'Hash-chained, **tamper-evident audit trail**: edit or reorder a recorded safety decision and the verification endpoint names the exact sequence where it happened.',
     ],
     stack: ['Python', 'TypeScript', 'FastAPI', 'LangGraph', 'PostgreSQL', 'Next.js', 'Docker'],
+    images: ['/work/sop-opera-1.webp', '/work/sop-opera-2.webp', '/work/sop-opera-3.webp'],
   },
   {
     slug: 'flowsync',
@@ -70,6 +71,7 @@ export const projects: readonly Project[] = [
       'Sessionization with context-boundary detection, so your tax admin and your holiday research never end up in the same context.',
     ],
     stack: ['React', 'TypeScript'],
+    images: ['/work/konta-1.webp', '/work/konta-2.webp', '/work/konta-3.webp'],
     links: [
       { label: 'Releases', href: 'https://github.com/konta-oss/konta/releases' },
       { label: 'Repo', href: 'https://github.com/konta-oss/konta' },
@@ -90,6 +92,7 @@ export const projects: readonly Project[] = [
       'Schema-correction retries and resilient API/SSE error handling keep the workflow reliable end to end.',
     ],
     stack: ['Next.js', 'TypeScript', 'Fastify', 'PostgreSQL'],
+    images: ['/work/gina-1.webp'],
     links: [
       { label: 'Demo', href: 'https://gina-cfp.vercel.app' },
       { label: 'Repo', href: 'https://github.com/vanshGupta18/Gina_cfp' },

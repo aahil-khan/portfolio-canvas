@@ -33,6 +33,7 @@ export const jobs: readonly Job[] = [
       'Recruiter pipeline tooling with server-side filtering and candidate workflow management.',
     ],
     stack: ['Next.js', 'React', 'TypeScript', 'Node.js', 'Prisma', 'S3', 'LiveKit', 'Gemini'],
+    images: ['/work/zariya-1.webp', '/work/zariya-2.webp'],
   },
   {
     slug: 'datesheet',
@@ -65,6 +66,7 @@ export const jobs: readonly Job[] = [
       'Used **k6 load testing** and deployment tuning to hold up under concurrent traffic on college-hosted Linux servers.',
     ],
     stack: ['Node.js', 'Express', 'PostgreSQL', 'Redis', 'Docker', 'AWS'],
+    images: ['/work/edutube-1.webp', '/work/edutube-2.webp', '/work/edutube-3.webp'],
   },
 ]
 
