@@ -52,13 +52,14 @@ catch yourself typing prose into a component, it belongs in a content file inste
 | `stack.ts` | the tool shelf and logo paths |
 | `apps.ts` | the dock order, card colours and widths |
 
-Assets: project screenshots go in `public/work/` (add `image:` to the project), the résumé PDF
-goes in `public/` (set `profile.resumePdf`). Both are optional — links and image slots only
-appear once the file exists, and the validator checks the path resolves.
+Assets: project and role screenshots go in `public/work/`, listed in `images: []` — one renders
+as a plain frame, several as a carousel. The résumé PDF goes in `public/` (set
+`profile.resumePdf`). Both are optional: links and image slots only appear once the file exists,
+and the validator checks every path resolves.
 
 Each file is a plain typed array, so excess-property checks catch a mistyped field. `content/
 validate.ts` covers what types can't — duplicate slugs, a `stack` entry with no matching tool,
-an `image` path with no file, and the two typos that shipped for months in the old backend
+an image path with no file, and the two typos that shipped for months in the old backend
 (`"Al Powered"` for `"AI Powered"`, `"non-based"` for `"n8n-based"`).
 
 It's called at module scope in `app/page.tsx`, so **bad content fails `next build`** rather than
