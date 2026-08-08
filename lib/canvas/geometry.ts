@@ -22,6 +22,13 @@ export const MAX_SCALE = 2.0
 /** World px of breathing room required around every card when auto-placing. */
 export const GUTTER = 30
 
+/**
+ * The zoom at which card text is comfortable to read. Body copy is 15px, so this is ~13.5px on
+ * screen — close enough to design size without snapping all the way to 1:1 every time a card
+ * opens. Revealing a card zooms in to at most this.
+ */
+export const READABLE_SCALE = 0.9
+
 export const clampScale = (s: number) => Math.min(MAX_SCALE, Math.max(MIN_SCALE, s))
 
 export const screenToWorld = (cam: Camera, px: number, py: number) => ({
@@ -123,17 +130,30 @@ export interface Viewport {
 }
 
 /**
- * Camera that brings `target` fully on screen: pans if that's enough, zooms OUT if it isn't.
- * Never zooms in — arriving closer than you were is disorienting.
+ * Camera that brings `target` fully on screen and readable.
+ *
+ * Pans if that's enough, zooms OUT if the card is too big for the viewport, and zooms IN if you
+ * were far enough out that the card would arrive unreadable. That last case was the original
+ * behaviour's blind spot: it only ever zoomed out, on the theory that arriving closer than you
+ * were is disorienting — true in general, useless when the thing you just asked for lands as
+ * illegible 40%-scale text.
+ *
+ * It stops at READABLE rather than going to 1:1, so it's a nudge toward the card rather than a
+ * jump, and it never zooms in past the point where the card still fits.
  */
 export function revealCamera(cam: Camera, target: Rect, vp: Viewport, pad = 44): Camera {
   const availW = vp.width - pad * 2
   const availH = vp.height - vp.top - vp.bottom - pad * 2
 
   let { s, x, y } = cam
+  // the largest scale at which the whole card still fits the usable band
   const fits = Math.min(availW / target.w, availH / target.h)
-  if (fits < s) {
-    s = clampScale(fits)
+  // where we'd like to end up: readable, but never larger than the card can fit
+  const wanted = clampScale(Math.min(fits, READABLE_SCALE))
+
+  if (fits < s || s < wanted) {
+    s = fits < s ? clampScale(fits) : wanted
+    // rescale about the viewport centre first; the pan below then frames the card
     const wx = (vp.width / 2 - cam.x) / cam.s
     const wy = (vp.height / 2 - cam.y) / cam.s
     x = vp.width / 2 - wx * s
