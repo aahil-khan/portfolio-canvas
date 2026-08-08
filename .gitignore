@@ -42,3 +42,6 @@ next-env.d.ts
 
 # screenshot output from scripts/shot.mjs
 .shots/
+
+# agent git worktrees (each carries its own node_modules and .next)
+.claude/

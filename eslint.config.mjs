@@ -12,6 +12,12 @@ const eslintConfig = defineConfig([
     "out/**",
     "build/**",
     "next-env.d.ts",
+    // Agent git worktrees live here and ship their own .next output, which otherwise gets
+    // linted as if it were source (hundreds of errors from generated bundles).
+    ".claude/**",
+    // Agent git worktrees live here and carry their own .next build output, which otherwise
+    // gets linted as if it were source.
+    ".claude/**",
   ]),
 ]);
 
