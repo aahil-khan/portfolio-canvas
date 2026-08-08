@@ -57,7 +57,7 @@ export const projects: readonly Project[] = [
   {
     slug: 'konta',
     name: 'Konta',
-    tagline: 'Local-first context-aware browsing',
+    tagline: 'Local-first context aware browsing',
     year: 2025,
     kind: 'Product',
     tag: 'Award',

@@ -29,7 +29,7 @@ export const profile: Profile = {
  * Keep this to three — it is a highlight reel, not a report.
  */
 export const headlineStats = [
-  { value: '44.5% → 0%', label: 'missed hazards' },
-  { value: '15,000+', label: 'students served' },
-  { value: '1.26s', label: 'p50 retrieval' },
+  { value: '9.16', label: 'cgpa' },
+  { value: '2', label: 'wins' },
+  { value: '3', label: 'domains' },
 ] as const
