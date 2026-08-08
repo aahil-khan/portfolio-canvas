@@ -151,18 +151,24 @@ export interface Viewport {
  * It stops at READABLE rather than going to 1:1, so it's a nudge toward the card rather than a
  * jump, and it never zooms in past the point where the card still fits.
  */
-export function revealCamera(cam: Camera, target: Rect, vp: Viewport, pad = 44): Camera {
+function arrivalScale(cam: Camera, target: Rect, vp: Viewport, pad: number): number {
   const availW = vp.width - pad * 2
   const availH = vp.height - vp.top - vp.bottom - pad * 2
-
-  let { s, x, y } = cam
   // the largest scale at which the whole card still fits the usable band
   const fits = Math.min(availW / target.w, availH / target.h)
   // where we'd like to end up: readable, but never larger than the card can fit
   const wanted = clampScale(Math.min(fits, READABLE_SCALE))
 
-  if (fits < s || s < wanted) {
-    s = fits < s ? clampScale(fits) : wanted
+  if (fits < cam.s) return clampScale(fits)
+  if (cam.s < wanted) return wanted
+  return cam.s
+}
+
+export function revealCamera(cam: Camera, target: Rect, vp: Viewport, pad = 44): Camera {
+  const s = arrivalScale(cam, target, vp, pad)
+  let { x, y } = cam
+
+  if (s !== cam.s) {
     // rescale about the viewport centre first; the pan below then frames the card
     const wx = (vp.width / 2 - cam.x) / cam.s
     const wy = (vp.height / 2 - cam.y) / cam.s
@@ -182,6 +188,26 @@ export function revealCamera(cam: Camera, target: Rect, vp: Viewport, pad = 44):
   else if (B > vp.height - vp.bottom - pad) dy = vp.height - vp.bottom - pad - B
 
   return { x: x + dx, y: y + dy, s }
+}
+
+/**
+ * Camera that puts `target` in the middle of the usable band, at the zoom `revealCamera` would
+ * have picked.
+ *
+ * `reveal` pans the minimum needed and stops the moment the card clears the padding, which
+ * answers "is it on screen" but leaves the card you asked for pinned against an edge. When you
+ * name a card — from the palette — the answer should be the card, in front of you. Jumping to
+ * `focusCamera` instead would centre it but also zoom to 1.5, which is the double-tap gesture,
+ * not this one: asking where a card went should not change how close you are standing.
+ */
+export function centreCamera(cam: Camera, target: Rect, vp: Viewport, pad = 44): Camera {
+  const s = arrivalScale(cam, target, vp, pad)
+  const bandH = vp.height - vp.top - vp.bottom
+  return {
+    s,
+    x: vp.width / 2 - (target.x + target.w / 2) * s,
+    y: vp.top + bandH / 2 - (target.y + target.h / 2) * s,
+  }
 }
 
 /** Camera that centres one rect in the usable band, capped so it never zooms past 1.5. */

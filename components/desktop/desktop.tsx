@@ -597,12 +597,18 @@ function CanvasDesktop({ cards, dock, externals, bootIds, hero, heroWidth }: Pro
 
   /*
    * The palette drives the same handlers the chrome does, so there is one implementation of
-   * each action. `goTo` is `open` on a card that is already placed, which raises it and flies
-   * the camera over — exactly what "where did that card go" needs.
+   * each action. `goTo` is the exception: it centres rather than reveals. `reveal` stops as soon
+   * as the card clears the padding, which leaves a card you named by name sitting against an
+   * edge — fine as a side effect of opening something, wrong as an answer to "where did it go".
    */
   const paletteActions = useMemo<PaletteActions>(
     () => ({
-      goTo: (id) => open(id),
+      goTo: (id) => {
+        if (!placed[id]) return open(id)
+        raise(id)
+        const r = rectOf(id)
+        if (r) canvas.centre(r)
+      },
       open: (id) => open(id),
       close,
       fitAll,
@@ -612,7 +618,7 @@ function CanvasDesktop({ cards, dock, externals, bootIds, hero, heroWidth }: Pro
       resetLayout,
       zoomBy: canvas.zoomBy,
     }),
-    [open, close, fitAll, minimiseAll, randomise, arrange, resetLayout, canvas],
+    [open, placed, raise, rectOf, close, fitAll, minimiseAll, randomise, arrange, resetLayout, canvas],
   )
 
   return (

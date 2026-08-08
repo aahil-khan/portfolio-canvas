@@ -9,6 +9,7 @@ import {
   clampScale,
   fitCamera,
   focusCamera,
+  centreCamera,
   revealCamera,
   screenToWorld as toWorld,
   wheelToScale,
@@ -115,6 +116,10 @@ export function useCanvas({ viewportRef, worldRef, onScale }: Options) {
 
   const reveal = useCallback(
     (target: Rect) => flyTo(revealCamera(cam.current, target, viewport()), 520),
+    [flyTo, viewport],
+  )
+  const centre = useCallback(
+    (target: Rect) => flyTo(centreCamera(cam.current, target, viewport()), 520),
     [flyTo, viewport],
   )
   const focus = useCallback(
@@ -304,8 +309,8 @@ export function useCanvas({ viewportRef, worldRef, onScale }: Options) {
   }, [viewportRef, set, stopAnim])
 
   return useMemo(
-    () => ({ get, set, screenToWorld, flyTo, reveal, focus, fit, zoomBy, viewport, interrupted }),
-    [get, set, screenToWorld, flyTo, reveal, focus, fit, zoomBy, viewport],
+    () => ({ get, set, screenToWorld, flyTo, reveal, centre, focus, fit, zoomBy, viewport, interrupted }),
+    [get, set, screenToWorld, flyTo, reveal, centre, focus, fit, zoomBy, viewport],
   )
 }
 
