@@ -7,7 +7,7 @@ export const profile: Profile = {
   resumePdf: '/aahil-khan-resume.pdf',
   role: { prefix: 'Full-stack engineer,', emphasis: 'AI retrieval & agents' },
   location: 'Patiala, India',
-  availability: 'open to work',
+  availability: '',
   email: 'aahilminookhan@gmail.com',
   intro:
     'I build AI retrieval and agent infrastructure — RAG pipelines, multi-agent systems and MCP tooling — with a soft spot for systems that can prove they got the answer right, instead of merely sounding like it.',

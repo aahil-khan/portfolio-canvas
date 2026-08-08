@@ -5,8 +5,8 @@
  */
 
 export const deepSpace = {
-  lede: 'You went looking.',
-  body: 'Most people never pan this far out. There is nothing useful here — that is rather the point.',
+  lede: 'You went looking!',
+  body: 'Most people never pan this far out. There\'s nothing useful here, thats the point :)',
   claim: 'I found it',
   /** `{n}` is the number of OTHER people, so these read naturally at 0, 1 and many. */
   claimedFirst: "You're the first",
