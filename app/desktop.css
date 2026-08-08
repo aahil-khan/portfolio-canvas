@@ -509,6 +509,27 @@ button.item:focus-visible .ttl::after {
   bottom: var(--dock-bottom);
   transform: translateX(-50%);
   z-index: 60;
+  /* never wider than the screen, however many folders are expanded */
+  max-width: calc(100vw - 20px);
+}
+/*
+ * The padding/negative-margin pair is what keeps this honest: a scroll container clips on BOTH
+ * axes, so without room above, every tooltip and the 10px hover lift would be sliced off. The
+ * padding makes that room inside the scrolling box; the margin takes it back out of the layout.
+ */
+.dock__scroll {
+  overflow-x: auto;
+  overflow-y: visible;
+  padding-top: 52px;
+  margin-top: -52px;
+  scrollbar-width: none;
+  overscroll-behavior-x: contain;
+}
+.dock__scroll::-webkit-scrollbar {
+  display: none;
+}
+.dock__panel {
+  width: max-content;
 }
 .dock__panel {
   display: flex;
@@ -538,6 +559,7 @@ button.item:focus-visible .ttl::after {
   transform: translateY(-10px);
 }
 .dock__icon {
+  position: relative;
   width: 100%;
   height: 100%;
   border-radius: var(--dock-radius);
@@ -590,133 +612,106 @@ button.item:focus-visible .ttl::after {
 /* ---------- dock folders ---------- */
 /*
  * Fifteen loose tiles plus two externals had turned the dock into a colour bar you read rather
- * than scanned. A folder previews the colours it holds, so it reads as a container instead of
- * another app, and nothing became unreachable — the palette and Go to still list every card.
+ * than scanned. Folders expand IN PLACE rather than into a popover, and stay expanded — an open
+ * folder is a preference, not a transient menu.
  */
 .dock__folder {
-  position: relative;
+  display: flex;
+  align-items: flex-end;
+  /* no gap here: the tray owns its own leading gap, so collapsed leaves no dead space */
   flex: 0 0 auto;
-}
-.dock__item:hover .dock__fold,
-.dock__item:focus-visible .dock__fold {
-  transform: translateY(-10px);
-  box-shadow: 3px 4px 0 0 var(--border);
-}
-.dock__fold {
-  display: grid;
-  grid-template-columns: 1fr 1fr;
-  grid-template-rows: 1fr 1fr;
-  gap: 3px;
-  padding: 6px;
-  width: 100%;
-  height: 100%;
-  border-radius: var(--dock-radius);
-  border: var(--bw) solid var(--border);
-  /* a lighter body than an app tile, so the swatches inside read as contents and not as one icon */
-  background: color-mix(in srgb, var(--surface) 82%, var(--canvas-base));
-  box-shadow: 2px 2px 0 0 var(--border);
-  pointer-events: none;
-  transition: transform 0.22s var(--ease-out), box-shadow 0.22s var(--ease-out);
-}
-.dock__fold i {
-  border-radius: 4px;
-  border: 1.25px solid var(--border);
-  background: var(--c);
 }
 /*
- * Fewer than four must still fill the square, or the empty cell reads as a tile that failed to
- * load rather than a folder that holds three things.
+ * Marking a folder as a folder.
+ *
+ * A dashed border alone did not read as "this one opens" — it just looked like a different
+ * tile. The chevron is the part that actually says it: pointing right when closed, down when
+ * open, which is the one disclosure convention nobody has to learn.
  */
-.dock__fold[data-n='1'] i {
-  grid-column: 1 / -1;
-  grid-row: 1 / -1;
+.dock__item--folder .dock__icon {
+  border-style: dashed;
 }
-.dock__fold[data-n='2'] i {
-  grid-row: 1 / -1;
-}
-.dock__fold[data-n='3'] i:nth-child(3) {
-  grid-column: 1 / -1;
-}
-
-.dock__pop {
+.dock__caret {
   position: absolute;
-  left: 50%;
-  bottom: calc(100% + 14px);
-  z-index: 2;
-  display: none;
-  opacity: 0;
-  flex-direction: column;
-  gap: 1px;
-  min-width: 190px;
-  padding: 6px;
-  border-radius: 14px;
-  background: color-mix(in srgb, var(--surface) 96%, transparent);
-  backdrop-filter: blur(12px) saturate(150%);
-  -webkit-backdrop-filter: blur(12px) saturate(150%);
-  border: 1.5px solid color-mix(in srgb, var(--border) 22%, transparent);
-  box-shadow: 0 10px 30px color-mix(in srgb, var(--border) 20%, transparent);
-  transform: translateX(-50%) translateY(6px) scale(0.97);
-  transition:
-    opacity 100ms ease,
-    transform 100ms var(--ease-out),
-    display 100ms allow-discrete;
-}
-.dock__pop[data-open] {
-  display: flex;
-  opacity: 1;
-  transform: translateX(-50%) translateY(0) scale(1);
-  transition:
-    opacity 130ms ease,
-    transform 130ms var(--ease-out),
-    display 130ms allow-discrete;
-}
-@starting-style {
-  .dock__pop[data-open] {
-    opacity: 0;
-    transform: translateX(-50%) translateY(6px) scale(0.97);
-  }
-}
-.dock__pop button {
-  display: flex;
-  align-items: center;
-  gap: 9px;
-  width: 100%;
-  padding: 6px 8px;
-  border: 0;
-  border-radius: 9px;
-  background: none;
-  font: inherit;
-  font-size: 13px;
-  color: var(--ink);
-  text-align: left;
-  white-space: nowrap;
-  cursor: pointer;
-}
-.dock__pop button:hover,
-.dock__pop button:focus-visible {
-  background: color-mix(in srgb, var(--ink) 10%, transparent);
-}
-/* same dot the dock uses, so "this one is already out" means one thing in both places */
-.dock__pop button[data-open] > span:last-child::after {
-  content: '';
-  display: inline-block;
-  width: 5px;
-  height: 5px;
-  margin-left: 7px;
-  border-radius: 999px;
-  background: var(--ink);
-  vertical-align: middle;
-}
-.dock__pop-ico {
+  right: -3px;
+  bottom: -3px;
   display: grid;
   place-items: center;
-  flex: 0 0 auto;
-  width: 26px;
-  height: 26px;
-  border-radius: 7px;
+  width: 17px;
+  height: 17px;
+  border-radius: 999px;
   border: 1.5px solid var(--border);
-  background: var(--c);
-  color: var(--on-app);
+  /* its own light chip, so the glyph stays legible on every card pastel */
+  background: var(--surface);
+  color: var(--ink);
+  transition: transform 0.28s var(--ease-out);
+}
+.dock__folder[data-open] .dock__item--folder .dock__icon {
+  border-style: solid;
+}
+.dock__folder[data-open] .dock__caret {
+  transform: rotate(90deg);
+}
+
+/*
+ * The tray. `grid-template-columns: 0fr -> 1fr` is the only way to transition to an intrinsic
+ * width without measuring it in JS, which is what this needs — the tray is however wide its
+ * contents are.
+ */
+.dock__tray {
+  --tile: calc(var(--dock-size) * 0.84);
+  flex: 0 0 auto;
+  width: 0;
+  /*
+   * The clip belongs HERE, on the box whose width animates — not on the inner row. The inner is
+   * `width: max-content`, so with the clip one level down a collapsed tray happily spilled its
+   * tiles out over the neighbouring folder.
+   */
+  overflow: hidden;
+  transition: width 0.34s var(--ease-out);
+}
+
+/*
+ * Clips while it animates, then stops. Without the switch the tiles inside would have their
+ * hover lift and their tooltips cut off by their own container; without the delay on the way in,
+ * the tray would spill its contents across the dock for the whole animation.
+ */
+.dock__tray-inner {
+  display: flex;
+  align-items: flex-end;
+  gap: var(--dock-gap);
+  padding-left: var(--dock-gap);
+  width: max-content;
+}
+/*
+ * A tinted strip behind the tray, so it is obvious where a folder's contents stop and the loose
+ * tiles start again. The size difference alone was too quiet — the tray simply read as more
+ * dock. Deliberately neutral rather than the folder's own pastel: the tiles sitting on it are
+ * already coloured, and tinting underneath them turned the whole run muddy.
+ */
+.dock__folder[data-open] .dock__tray-inner {
+  border-radius: 15px;
+  background: color-mix(in srgb, var(--ink) 13%, transparent);
+  box-shadow: inset 0 0 0 1.5px color-mix(in srgb, var(--border) 20%, transparent);
+}
+/*
+ * Stops clipping once it has finished opening, or the tiles inside would have their hover lift
+ * and their tooltips cut off by their own container. No delay on the way out, so closing clips
+ * immediately instead of spilling across the dock for a third of a second.
+ */
+/* n tiles, n gaps: one between each pair, plus the leading one this tray owns */
+.dock__folder[data-open] .dock__tray {
+  width: calc(var(--n) * (var(--tile) + var(--dock-gap)));
+  overflow: visible;
+  transition: width 0.34s var(--ease-out), overflow 0s 0.34s;
+}
+/* the tray's own tiles sit slightly smaller, so the folder still reads as the parent */
+.dock__item--in {
+  width: calc(var(--dock-size) * 0.84);
+  height: calc(var(--dock-size) * 0.84);
+}
+.dock__item--in .dock__icon {
+  box-shadow: 1.5px 1.5px 0 0 var(--border);
 }
 
 .dock__sep {

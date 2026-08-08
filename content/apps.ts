@@ -44,7 +44,15 @@ export const apps: readonly AppDef[] = [
  */
 export type DockNode =
   | { kind: 'app'; id: string }
-  | { kind: 'folder'; id: string; label: string; items: readonly string[] }
+  | {
+      kind: 'folder'
+      id: string
+      label: string
+      /** Key into the icon set, exactly like an app. It has to say what is inside. */
+      icon: string
+      colour: string
+      items: readonly string[]
+    }
 
 export const dockLayout: readonly DockNode[] = [
   { kind: 'app', id: 'about' },
@@ -52,9 +60,21 @@ export const dockLayout: readonly DockNode[] = [
   { kind: 'app', id: 'experience' },
   { kind: 'app', id: 'stack' },
   { kind: 'app', id: 'contact' },
-  { kind: 'folder', id: 'more', label: 'More', items: ['writing', 'archive', 'resume', 'now', 'tutorial'] },
-  { kind: 'folder', id: 'live', label: 'Live', items: ['contributions', 'visitors'] },
-  { kind: 'folder', id: 'play', label: 'Play', items: ['arcade', 'notes', 'themes'] },
+  /*
+   * Each folder is one idea with one icon, not a leftovers drawer — a folder whose contents you
+   * cannot guess from the tile is just a tile you have to open to understand. Colours echo the
+   * dominant card inside, so the folder hints at its contents twice.
+   */
+  { kind: 'folder', id: 'words', label: 'Words', icon: 'words', colour: '#D9C2FF', items: ['writing', 'archive', 'resume'] },
+  { kind: 'folder', id: 'live', label: 'Live', icon: 'live', colour: '#BCC7F5', items: ['contributions', 'visitors', 'now', 'notes'] },
+  /*
+   * Arcade, Themes and How it works stay loose. There is no "Play" folder any more: with Notes
+   * moved into Live, it would have held one card, and a folder of one is a click in the way of
+   * the thing it contains.
+   */
+  { kind: 'app', id: 'arcade' },
+  { kind: 'app', id: 'themes' },
+  { kind: 'app', id: 'tutorial' },
 ]
 
 /** Rendered after a divider at the end of the dock. These leave the site. */

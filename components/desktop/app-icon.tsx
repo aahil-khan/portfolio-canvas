@@ -46,6 +46,20 @@ const ICONS: Record<string, ReactElement<SVGProps<SVGSVGElement>>> = {
       <rect x="3" y="18" width="12" height="2.5" rx="1" />
     </svg>
   ),
+  // pages with a pen line: everything written down — writing, archive, résumé
+  words: (
+    <svg {...S}>
+      <path d="M7 3h7l4 4v11a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2Z" />
+      <path d="M14 3v4h4" />
+      <path d="M8.5 12h7M8.5 15.5h4.5" />
+    </svg>
+  ),
+  // a pulse: the cards that change without anyone editing them
+  live: (
+    <svg {...S}>
+      <path d="M3 12h4l2.5-6 4 12L16 12h5" />
+    </svg>
+  ),
   // a clock: what is happening at the moment
   now: (
     <svg {...S}>

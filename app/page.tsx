@@ -54,6 +54,8 @@ export default async function Page() {
           kind: 'folder',
           id: node.id,
           label: node.label,
+          icon: node.icon,
+          colour: node.colour,
           apps: node.items.map((id) => tile(byId.get(id)!)),
         } as const),
   )
