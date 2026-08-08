@@ -1,4 +1,4 @@
-import type { ReactNode } from 'react'
+import { Fragment, type ReactNode } from 'react'
 
 import type { CardDef } from '@/components/desktop/card'
 import { DetailRow } from '@/components/apps/interactive'
@@ -18,6 +18,7 @@ import { NotesWall } from '@/components/apps/notes'
 import { ThemePicker } from '@/components/apps/theme-picker'
 import { Visitors } from '@/components/apps/visitors'
 import { contributions } from '@/content/contributions'
+import { tutorial } from '@/content/tutorial'
 import { fetchContributions } from '@/lib/github'
 import { storeIsLive } from '@/lib/store'
 import {
@@ -76,6 +77,41 @@ function StackShelf() {
           </div>
         </div>
       ))}
+    </>
+  )
+}
+
+/**
+ * The tutorial card.
+ *
+ * Plain server-rendered DOM — no 'use client'. The only thing that tempted it was printing ⌘ on
+ * a Mac and Ctrl elsewhere, and the content file spells both out instead, for the reason
+ * recorded there.
+ */
+function Tutorial() {
+  return (
+    <>
+      <p className="lede">{tutorial.lede}</p>
+      {/*
+       * ONE grid for every row across every group, not a grid per row. Per-row grids size their
+       * key column independently, so `max-content` made each description start at a different x
+       * and the sheet stopped scanning as a column. Labels span both tracks.
+       */}
+      <div className="tut">
+        {tutorial.groups.map((g) => (
+          <Fragment key={g.label}>
+            <b className="tut__label">{g.label}</b>
+            {g.moves.map((m) => (
+              <Fragment key={`${g.label}-${m.keys}-${m.what}`}>
+                <kbd>{m.keys}</kbd>
+                <span>{m.what}</span>
+              </Fragment>
+            ))}
+          </Fragment>
+        ))}
+        <b className="tut__label">{tutorial.footLabel}</b>
+        <p className="tut__foot">{tutorial.foot}</p>
+      </div>
     </>
   )
 }
@@ -264,6 +300,8 @@ export async function buildCards(): Promise<CardDef[]> {
    * renders whichever of the two shapes — real card or empty state — will actually be shown,
    * so the height it measures is the height the card ends up having.
    */
+  push('tutorial', <Tutorial />)
+
   push('visitors', <Visitors configured={storeIsLive} />)
 
   push('notes', <NotesWall />)

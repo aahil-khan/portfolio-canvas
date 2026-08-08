@@ -46,6 +46,13 @@ const ICONS: Record<string, ReactElement<SVGProps<SVGSVGElement>>> = {
       <rect x="3" y="18" width="12" height="2.5" rx="1" />
     </svg>
   ),
+  // a pointer with motion trails: how to drive the thing
+  tutorial: (
+    <svg {...S}>
+      <path d="M5.5 3.5 12 20l2.2-5.8L20 12 5.5 3.5Z" />
+      <path d="M3.6 9.3 2 8.8M4.6 6.2 3.4 5M8.8 4.6 8.3 3" />
+    </svg>
+  ),
   // rising bars: the visitor chart
   visitors: (
     <svg {...S}>
