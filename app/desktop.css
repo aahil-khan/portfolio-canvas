@@ -639,6 +639,24 @@ button.item:focus-visible .ttl::after {
   background: var(--accent);
   color: var(--accent-ink);
 }
+/* an anchor styled as a pill button — same box as #pill button, minus the button reset */
+.pill__link {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  font-size: 13px;
+  font-weight: 500;
+  color: var(--ink);
+  text-decoration: none;
+  padding: 6px 12px;
+  border-radius: 999px;
+  white-space: nowrap;
+  transition: background 0.14s var(--ease-out);
+}
+.pill__link:hover {
+  background: color-mix(in srgb, var(--ink) 14%, transparent);
+}
+
 .pill__div {
   width: 1px;
   height: 18px;
@@ -1534,6 +1552,70 @@ button.item:focus-visible .ttl::after {
   letter-spacing: 0.02em;
   text-transform: none;
   font-size: 0.8125rem;
+}
+
+/* ---------- tutorial ---------- */
+.tut {
+  display: grid;
+  /*
+   * One grid for the whole sheet. `max-content` sizes the key column to the single widest chip
+   * — so every chip hugs its own text and every description still starts on the same line. A
+   * fixed gutter stretched `Esc` into a big empty box; a grid per row broke the alignment.
+   */
+  grid-template-columns: max-content 1fr;
+  gap: 4px 11px;
+  align-items: baseline;
+  margin-top: 12px;
+}
+.tut__label {
+  grid-column: 1 / -1;
+  margin-top: 8px;
+  font-size: 0.625rem;
+  font-weight: 700;
+  letter-spacing: 0.07em;
+  text-transform: uppercase;
+  color: var(--ink-subtle);
+}
+.tut__label:first-child {
+  margin-top: 0;
+}
+/*
+ * A two-column row that stays two columns: the key sits in a fixed gutter so every description
+ * starts on the same line, which is the whole reason a reference sheet is scannable.
+ */
+.tut > span {
+  color: var(--ink-muted);
+}
+.tut kbd {
+  font: inherit;
+  font-size: 0.75rem;
+  font-weight: 700;
+  text-align: center;
+  color: var(--on-app);
+  background: var(--c-soft, #f4f2ea);
+  border: 1.5px solid var(--border);
+  border-radius: 6px;
+  box-shadow: 0 1.5px 0 0 var(--border);
+  padding: 2px 7px;
+  white-space: nowrap;
+  justify-self: start;
+}
+.tut__foot {
+  grid-column: 1 / -1;
+  margin: 0 !important;
+  font-size: 0.875rem;
+  color: var(--ink-muted);
+}
+
+/* on a phone the gutter is most of the width, so the key sits above its description instead */
+@media (max-width: 560px) {
+  .tut {
+    grid-template-columns: 1fr;
+    gap: 2px;
+  }
+  .tut > span {
+    margin-bottom: 8px;
+  }
 }
 
 /* ---------- visitors ---------- */

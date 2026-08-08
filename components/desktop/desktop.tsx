@@ -752,6 +752,14 @@ function CanvasDesktop({ cards, dock, externals, bootIds, hero, heroWidth }: Pro
         <button type="button" onClick={randomise}>Random</button>
         <ArrangeMenu onPick={arrange} onReset={resetLayout} />
         <span className="pill__div" aria-hidden />
+        {/*
+         * Past the divider, with Sound: everything left of it acts on the canvas, everything
+         * right of it leaves or configures it. A plain anchor, not a router push — /resume is a
+         * separate document that renders without JavaScript, and that is the point of it.
+         */}
+        <a className="pill__link" href="/resume">
+          Résumé
+        </a>
         <SoundMenu />
       </div>
 
