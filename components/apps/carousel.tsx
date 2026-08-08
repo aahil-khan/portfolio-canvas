@@ -3,6 +3,8 @@
 import { useCallback, useEffect, useRef, useState, type RefObject } from 'react'
 import { createPortal } from 'react-dom'
 
+import { useMeasuring } from '@/components/desktop/measuring-context'
+
 const EASE = 'cubic-bezier(.16,1,.3,1)'
 
 /**
@@ -46,6 +48,7 @@ interface Props {
  * canvas, so a click on an image spawned a window you then had to find and close.
  */
 export function Carousel({ slides, alt, ratio, className }: Props) {
+  const measuring = useMeasuring()
   const [index, setIndex] = useState(0)
   const [full, setFull] = useState(false)
   const frame = useRef<HTMLDivElement>(null)
@@ -133,7 +136,17 @@ export function Carousel({ slides, alt, ratio, className }: Props) {
                 alt={`${alt} ${i + 1} of ${count}`}
                 width={s.width}
                 height={s.height}
-                loading={i === 0 ? undefined : 'lazy'}
+                /*
+                  * The first slide loads eagerly so opening a project does not flash an empty
+                  * frame — but NOT inside the measurement rig, which renders every card that
+                  * exists, off-screen, at boot. That was pulling every project's first
+                  * screenshot down on the canvas home page for cards nobody had opened: 359KB
+                  * of the 1.26MB first load. The frame is sized from build-time dimensions, so
+                  * the rig still measures exactly the same height without the bytes.
+                  */
+                loading={i === 0 && !measuring ? undefined : 'lazy'}
+                /* decode off the main thread, so a big screenshot cannot stall a pan frame */
+                decoding="async"
                 draggable={false}
               />
             </div>
