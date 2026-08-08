@@ -32,6 +32,7 @@ import { ArrangeMenu } from './arrange-menu'
 import { SoundMenu } from './sound-menu'
 import { Dock, type DockItem } from './dock'
 import { MeasureRig } from './measure-rig'
+import { Hint } from './hint'
 import { CommandPalette, type PaletteActions } from './command-palette'
 import { MobileShell } from './mobile-shell'
 import { OpenCardContext } from './open-context'
@@ -687,7 +688,7 @@ function CanvasDesktop({ cards, dock, externals, bootIds, hero, heroWidth }: Pro
           +
         </button>
       </div>
-      <p id="hint" aria-hidden>drag anything · ⌘/ctrl + scroll to zoom · ⌘K for commands</p>
+      <Hint>drag anything · ⌘/ctrl + scroll to zoom · ⌘K for commands</Hint>
       <CommandPalette
         cards={cards}
         dockIds={dockIds}

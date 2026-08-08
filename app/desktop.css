@@ -650,16 +650,49 @@ button.item:focus-visible .ttl::after {
   user-select: none;
   pointer-events: none;
 }
+/*
+ * Sits ABOVE the dock band, not beside it.
+ *
+ * The dock is centred and grows with the number of tiles; at twelve it is wide enough that on a
+ * narrower window its left edge reaches this hint and the two overlap. Clearing the whole band
+ * is width-independent, where any horizontal fudge would only hold for one dock size.
+ */
 #hint {
   position: fixed;
   left: 20px;
-  bottom: calc(var(--dock-bottom) + 6px);
+  bottom: calc(var(--overlay-bottom) + 8px);
   z-index: 60;
   margin: 0;
   font-size: 12px;
   color: var(--ink-subtle);
   user-select: none;
+  /* the text stays inert; only the dismiss button takes the pointer */
   pointer-events: none;
+  display: flex;
+  align-items: center;
+  gap: 7px;
+}
+.hint__x {
+  pointer-events: auto;
+  display: grid;
+  place-items: center;
+  width: 17px;
+  height: 17px;
+  padding: 0;
+  font: inherit;
+  font-size: 13px;
+  line-height: 1;
+  color: var(--ink-subtle);
+  background: transparent;
+  border: 1.5px solid color-mix(in srgb, var(--ink) 28%, transparent);
+  border-radius: 50%;
+  transition:
+    color 0.16s var(--ease-out),
+    border-color 0.16s var(--ease-out);
+}
+.hint__x:hover {
+  color: var(--ink);
+  border-color: var(--border);
 }
 
 /* ---------- cursor ---------- */
@@ -780,18 +813,26 @@ button.item:focus-visible .ttl::after {
   overflow: auto;
   cursor: text;
 }
-.term__l {
+/*
+ * Scoped under `.term` on purpose. These are <p> elements, so `.card__body p` (0,1,1) outranks
+ * a bare `.term__l` (0,1,0) and painted every line in `--ink-muted` — which is dark on a light
+ * theme, i.e. invisible on a black panel. Dark themes hid the bug, because there --ink-muted
+ * happens to be light.
+ */
+.term .term__l {
   white-space: pre-wrap;
   overflow-wrap: anywhere;
   margin: 0;
+  max-width: none;
+  color: #c7f0c2;
 }
-.term__l[data-k='in'] {
+.term .term__l[data-k='in'] {
   color: #ede4c8;
 }
-.term__l[data-k='dim'] {
-  color: #6e8a6b;
+.term .term__l[data-k='dim'] {
+  color: #8fae8b;
 }
-.term__l[data-k='err'] {
+.term .term__l[data-k='err'] {
   color: #f0928a;
 }
 .term__p {
@@ -838,7 +879,8 @@ button.item:focus-visible .ttl::after {
   align-self: center;
   border: var(--bw) solid var(--border);
   border-radius: var(--radius-chip);
-  background: var(--c-soft);
+  /* tinted from --surface so the board follows the theme; see the note on .note */
+  background: color-mix(in srgb, var(--c) 12%, var(--surface));
   flex: 0 0 auto;
   overflow: hidden;
   display: grid;
@@ -880,7 +922,7 @@ button.item:focus-visible .ttl::after {
   color: var(--ink-subtle);
   border: 1.5px solid var(--border);
   border-radius: var(--radius-chip);
-  background: var(--c-soft);
+  background: color-mix(in srgb, var(--c) 18%, var(--surface));
   padding: 10px 12px;
   cursor: text;
 }
@@ -895,8 +937,9 @@ button.item:focus-visible .ttl::after {
   text-decoration: underline wavy #b3261e;
   text-underline-offset: 3px;
 }
+/* the highlight really is the raw pastel, so its text must be --on-app, never --ink */
 .type__w[data-s='now'] {
-  color: var(--ink);
+  color: var(--on-app);
   background: var(--c);
   border-radius: 3px;
   box-shadow: 0 0 0 2px var(--c);
@@ -1000,6 +1043,8 @@ button.item:focus-visible .ttl::after {
 }
 .ms__c[data-flag] {
   background: var(--accent);
+  /* --accent is light in some themes and dark in others; --accent-ink flips with it */
+  color: var(--accent-ink);
 }
 .ms__c[data-mine] {
   background: #b3261e;
@@ -1011,14 +1056,18 @@ button.item:focus-visible .ttl::after {
   width: 20px;
   height: 20px;
 }
-/* mixed toward ink: raw --c on --c-soft is one step apart and reads as a flat board */
+/*
+ * Body and head are steps along the same --c → --surface ramp as the board beneath them, so the
+ * snake stays legible in every theme. Mixing toward --ink was wrong: --ink is light in a dark
+ * theme, so the snake turned pale on a pale board and effectively vanished.
+ */
 .snake__c[data-s] {
-  background: color-mix(in srgb, var(--c) 62%, var(--ink));
+  background: color-mix(in srgb, var(--c) 55%, var(--surface));
   border: 1.5px solid var(--border);
   border-radius: 3px;
 }
 .snake__c[data-s='head'] {
-  background: color-mix(in srgb, var(--c) 22%, var(--ink));
+  background: var(--c);
 }
 .snake__c[data-food] {
   background: var(--accent);
@@ -1027,54 +1076,118 @@ button.item:focus-visible .ttl::after {
 }
 
 /* ---------- 2048 ---------- */
+/* tiles inside are absolutely placed, so the board is a positioning context, not a grid */
 .g2048 {
-  gap: 6px;
-  padding: 6px;
+  position: relative;
+  display: block;
 }
+/* the empty wells behind the tiles */
+.g2048__cell {
+  position: absolute;
+  top: 0;
+  left: 0;
+  width: 68px;
+  height: 68px;
+  border-radius: 6px;
+  background: color-mix(in srgb, var(--ink) 8%, var(--surface));
+}
+/*
+ * Tiles are absolutely positioned and moved by `transform`, never by grid order, so React keeps
+ * the same node across a move and the transition can slide it. Laying them out with the grid
+ * meant every move replaced the DOM and tiles teleported.
+ */
 .g2048__t {
+  position: absolute;
+  top: 0;
+  left: 0;
+  width: 68px;
+  height: 68px;
   border-radius: 6px;
   display: grid;
   place-items: center;
   font-weight: 700;
   font-size: 1.25rem;
   font-variant-numeric: tabular-nums;
-  background: color-mix(in srgb, var(--ink) 7%, var(--surface));
-  color: var(--ink);
-}
-.g2048__t[data-v] {
   border: 1.5px solid var(--border);
   box-shadow: 2px 2px 0 0 var(--border);
+  color: var(--on-app);
+  transition:
+    transform 130ms var(--ease-out),
+    background 130ms linear;
+  will-change: transform;
 }
+/* a new tile has nowhere to slide from, so it pops instead */
+.g2048__t[data-born] {
+  animation: g2048-pop 150ms var(--ease-out);
+}
+/* and the survivor of a merge takes a beat to acknowledge it */
+.g2048__t[data-merged] {
+  animation: g2048-bump 160ms var(--ease-out);
+}
+@keyframes g2048-pop {
+  from {
+    opacity: 0;
+    scale: 0.5;
+  }
+  to {
+    opacity: 1;
+    scale: 1;
+  }
+}
+@keyframes g2048-bump {
+  0% {
+    scale: 1;
+  }
+  55% {
+    scale: 1.12;
+  }
+  100% {
+    scale: 1;
+  }
+}
+/*
+ * The ramp. Low tiles tint --surface so they follow the theme and can carry --ink; from 32 up
+ * the fill is a real pastel or the accent, which are fixed, so those carry --on-app and
+ * --accent-ink instead. The top tiles use --border on --surface, which is guaranteed to
+ * contrast in every theme.
+ */
 .g2048__t[data-v='2'] {
   background: color-mix(in srgb, var(--c) 22%, var(--surface));
+  color: var(--ink);
 }
 .g2048__t[data-v='4'] {
-  background: color-mix(in srgb, var(--c) 40%, var(--surface));
+  background: color-mix(in srgb, var(--c) 42%, var(--surface));
+  color: var(--ink);
 }
 .g2048__t[data-v='8'] {
-  background: color-mix(in srgb, var(--c) 60%, var(--surface));
+  background: color-mix(in srgb, var(--c) 64%, var(--surface));
+  color: var(--ink);
 }
 .g2048__t[data-v='16'] {
-  background: color-mix(in srgb, var(--c) 80%, var(--surface));
+  background: color-mix(in srgb, var(--c) 84%, var(--surface));
+  color: var(--on-app);
 }
 .g2048__t[data-v='32'] {
   background: var(--c);
+  color: var(--on-app);
 }
 .g2048__t[data-v='64'] {
-  background: color-mix(in srgb, var(--c) 84%, var(--ink));
-  color: var(--surface);
+  background: var(--accent);
+  color: var(--accent-ink);
 }
+/* accent pushed toward --border: darker than 64 in a light theme, lighter in a dark one */
 .g2048__t[data-v='128'],
 .g2048__t[data-v='256'],
 .g2048__t[data-v='512'] {
-  background: var(--accent);
-  color: var(--accent-ink);
+  background: color-mix(in srgb, var(--accent) 52%, var(--border));
+  color: var(--surface);
   font-size: 1.0625rem;
 }
+/* --border on --surface is the maximum contrast the theme contract guarantees */
 .g2048__t[data-v='1024'],
 .g2048__t[data-v='2048'] {
-  background: var(--accent);
-  color: var(--accent-ink);
+  background: var(--border);
+  color: var(--surface);
   font-size: 0.9375rem;
 }
 
@@ -1093,8 +1206,17 @@ button.item:focus-visible .ttl::after {
   flex-direction: column;
   gap: 10px;
 }
+/*
+ * Background is the card colour mixed INTO --surface, not the raw --c-soft pastel.
+ *
+ * The pastels in content/apps.ts are each card's fixed identity and do not follow the theme, so
+ * --ink text on one is dark-on-light in `cream` and light-on-light in every dark theme, i.e.
+ * invisible. Mixing into --surface keeps the tint while letting the base follow the theme, so
+ * --ink stays correct everywhere. Where a raw pastel really is wanted, the text must be
+ * --on-app, which is dark in every theme by design (see globals.css).
+ */
 .note {
-  background: var(--c-soft);
+  background: color-mix(in srgb, var(--c) 20%, var(--surface));
   border: 1.5px solid var(--border);
   border-radius: var(--radius-chip);
   box-shadow: 2px 2px 0 0 var(--border);
@@ -1140,7 +1262,7 @@ button.item:focus-visible .ttl::after {
   text-align: center;
   border: 2px dashed var(--border);
   border-radius: var(--radius-chip);
-  background: var(--c-soft);
+  background: color-mix(in srgb, var(--c) 20%, var(--surface));
   color: var(--ink-subtle);
   font-size: 0.75rem;
   font-weight: 700;
@@ -1341,7 +1463,7 @@ button.item:focus-visible .ttl::after {
   text-align: center;
   border: 2px dashed var(--border);
   border-radius: var(--radius-chip);
-  background: var(--c-soft);
+  background: color-mix(in srgb, var(--c) 18%, var(--surface));
   color: var(--ink-subtle);
   font-size: 0.75rem;
   font-weight: 700;
