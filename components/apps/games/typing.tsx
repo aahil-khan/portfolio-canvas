@@ -45,6 +45,22 @@ export function TypingTest() {
 
   const words = useMemo(() => quote.split(' '), [quote])
   const typedWords = typed.split(' ')
+
+  /*
+   * The quote, exploded to characters with their absolute index in the quote.
+   *
+   * Words stay grouped so a word can be `white-space: nowrap` and never break mid-word; the
+   * space that follows each one is its own cell, outside that group, so it remains a wrap
+   * opportunity and can still hold the caret.
+   */
+  const cells = useMemo(() => {
+    let i = 0
+    return words.map((w, wi) => {
+      const chars = [...w].map((ch) => ({ ch, i: i++ }))
+      const space = wi < words.length - 1 ? { ch: ' ', i: i++ } : null
+      return { chars, space }
+    })
+  }, [words])
   const finished = typed.length > 0 && typedWords.length === words.length && typedWords[words.length - 1] === words[words.length - 1]
 
   /*
@@ -78,15 +94,21 @@ export function TypingTest() {
    * would be impure and would drift between renders that happen for other reasons. */
   const elapsed = startedAt === null ? 0 : Math.max(0, now - startedAt) / 1000
 
-  /* Correct characters, counted the way every typing test does: whole words only. */
+  /*
+   * Correct characters, compared position by position against the quote.
+   *
+   * This used to count whole words only, which meant nothing on screen moved until you finished
+   * one — WPM sat still mid-word and accuracy dipped for every character of a word you were
+   * typing perfectly. Per-character is also what the display now shows, and the two disagreeing
+   * was the actual bug.
+   */
   const correctChars = useMemo(() => {
-    const tw = typed.split(' ')
     let n = 0
-    for (let i = 0; i < tw.length; i++) {
-      if (tw[i] === words[i]) n += words[i].length + (i < tw.length - 1 ? 1 : 0)
+    for (let i = 0; i < typed.length && i < quote.length; i++) {
+      if (typed[i] === quote[i]) n += 1
     }
     return n
-  }, [typed, words])
+  }, [typed, quote])
 
   const wpm = elapsed > 0.5 ? Math.round(correctChars / 5 / (elapsed / 60)) : 0
   const accuracy = typed.length ? Math.round((correctChars / typed.length) * 100) : 100
@@ -155,21 +177,29 @@ export function TypingTest() {
         */}
       <div className="type__field">
         <div className="type__quote">
-          {words.map((w, i) => {
-            const state =
-              i < typedWords.length - 1
-                ? typedWords[i] === w
-                  ? 'ok'
-                  : 'bad'
-                : i === typedWords.length - 1 && !finished
-                  ? 'now'
-                  : undefined
+          {cells.map((cell, wi) => {
+            const cellFor = ({ ch, i }: { ch: string; i: number }) => (
+              <span
+                key={i}
+                className="type__c"
+                data-s={i < typed.length ? (typed[i] === ch ? 'ok' : 'bad') : undefined}
+                /* the caret sits before the next character owed, and only while a run is live */
+                data-caret={i === typed.length && !finished ? true : undefined}
+              >
+                {ch}
+              </span>
+            )
             return (
-              <span key={i} className="type__w" data-s={state}>
-                {w}{' '}
+              <span key={wi} className="type__w">
+                <span className="type__word">{cell.chars.map(cellFor)}</span>
+                {cell.space ? cellFor(cell.space) : null}
               </span>
             )
           })}
+          {/* overtyping past the end still needs somewhere to show the caret */}
+          {typed.length >= quote.length && !finished ? (
+            <span className="type__c" data-caret />
+          ) : null}
         </div>
 
         <input

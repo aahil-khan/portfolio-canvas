@@ -958,23 +958,61 @@ button.item:focus-visible .ttl::after {
   padding: 10px 12px;
   cursor: text;
 }
+/*
+ * Per character, not per word.
+ *
+ * The word-level version only changed colour once a whole word was finished, so mid-word there
+ * was no feedback at all and no sense of position — which read as a game that was not listening.
+ */
 .type__w {
-  transition: color 0.1s linear;
+  /* the space after the word lives outside .type__word, so this still wraps between words */
+  white-space: normal;
 }
-.type__w[data-s='ok'] {
+.type__word {
+  white-space: nowrap;
+}
+.type__c {
+  position: relative;
+  transition: color 0.08s linear;
+}
+.type__c[data-s='ok'] {
   color: var(--ink);
 }
-.type__w[data-s='bad'] {
+.type__c[data-s='bad'] {
   color: #b3261e;
+  background: color-mix(in srgb, #b3261e 14%, transparent);
+  border-radius: 2px;
+}
+/* a mistyped space has no glyph to colour, so it needs a visible body of its own */
+.type__c[data-s='bad']:not(:has(*)) {
   text-decoration: underline wavy #b3261e;
   text-underline-offset: 3px;
 }
-/* the highlight really is the raw pastel, so its text must be --on-app, never --ink */
-.type__w[data-s='now'] {
-  color: var(--on-app);
-  background: var(--c);
-  border-radius: 3px;
-  box-shadow: 0 0 0 2px var(--c);
+
+/*
+ * The caret. A pseudo-element rather than a real character, so inserting it cannot reflow the
+ * quote — the box is a fixed 104px and a shifting line count would push text out of it.
+ */
+.type__c[data-caret]::before {
+  content: '';
+  position: absolute;
+  left: -1px;
+  top: 0.15em;
+  bottom: 0.1em;
+  width: 2px;
+  border-radius: 1px;
+  background: var(--ink);
+  animation: type-caret 1.1s steps(1, end) infinite;
+}
+@keyframes type-caret {
+  0%,
+  55% {
+    opacity: 1;
+  }
+  56%,
+  100% {
+    opacity: 0;
+  }
 }
 /* the real key sink: bare letters only reach a game if the target is an input */
 /*
