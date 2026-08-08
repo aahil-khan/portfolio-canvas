@@ -4,6 +4,7 @@ import { Space_Grotesk } from 'next/font/google'
 import { profile } from '@/content'
 import { DEFAULT_THEME, themeCss } from '@/content/themes'
 import { themeBootScript } from '@/lib/theme'
+import { mobileBootScript } from '@/lib/use-mobile'
 import { SITE_URL } from '@/lib/site'
 
 import './globals.css'
@@ -15,6 +16,13 @@ const spaceGrotesk = Space_Grotesk({
   variable: '--font-space-grotesk',
   display: 'swap',
 })
+
+export const viewport = {
+  width: 'device-width',
+  initialScale: 1,
+  // viewport-fit lets the dock sit above the home indicator via env(safe-area-inset-bottom)
+  viewportFit: 'cover' as const,
+}
 
 export const metadata: Metadata = {
   metadataBase: new URL(SITE_URL),
@@ -35,6 +43,7 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
         <style dangerouslySetInnerHTML={{ __html: themeCss() }} />
         {/* runs before first paint, so a remembered theme never flashes the default first */}
         <script dangerouslySetInnerHTML={{ __html: themeBootScript }} />
+        <script dangerouslySetInnerHTML={{ __html: mobileBootScript }} />
       </head>
       <body>{children}</body>
     </html>

@@ -109,13 +109,17 @@ export function SoundMenu() {
               <span className={amb.playing ? 'sw sw--on' : 'sw'} aria-hidden />
             </span>
             <span className="arrange__hint">
-              {amb.error
-                ? amb.error
-                : amb.loading
-                  ? 'connecting…'
-                  : amb.playing
-                    ? `playing · ${amb.station.label}`
-                    : 'chill beats in the background'}
+              {amb.error ? (
+                amb.error
+              ) : amb.loading ? (
+                <>
+                  <Spinner label="Connecting" inline /> connecting
+                </>
+              ) : amb.playing ? (
+                `playing · ${amb.station.label}`
+              ) : (
+                'chill beats in the background'
+              )}
             </span>
           </button>
 
@@ -149,7 +153,7 @@ export function SoundMenu() {
                         <i />
                       </span>
                     ) : selected && amb.loading ? (
-                      <span className="arrange__hint">connecting…</span>
+                      <Spinner label="Connecting" />
                     ) : null}
                   </span>
                 </button>
@@ -213,6 +217,16 @@ export function SoundMenu() {
         <p className="sound__credit">Ambience is public internet radio · streams may vary</p>
       </div>
     </div>
+  )
+}
+
+/**
+ * Connection spinner. A ring with a gap, rotated — no text that has to be re-measured, and it
+ * occupies the same slot the equaliser will, so the row doesn't jump when the stream starts.
+ */
+function Spinner({ label, inline }: { label: string; inline?: boolean }) {
+  return (
+    <span className={inline ? 'spinner spinner--inline' : 'spinner'} role="status" aria-label={label} />
   )
 }
 

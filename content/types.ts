@@ -56,8 +56,12 @@ export interface Project {
   stack: string[]
   /** Rendered as a badge at the top of the detail card. */
   award?: string
-  /** Drop a file in `public/work/` and put its path here. Omit to show a placeholder. */
-  image?: string
+  /**
+   * Screenshots, in the order they should appear. Drop files in `public/work/` and list their
+   * paths. One image is fine; more than one becomes a carousel. The first image sets the frame's
+   * shape, and the rest are letterboxed into it rather than cropped. Omit for a placeholder.
+   */
+  images?: string[]
   /** Small grey line at the top of the detail card. */
   meta?: string
   /** Demo, repo, release. Rendered as link chips at the foot of the detail card. */
@@ -75,7 +79,8 @@ export interface Job {
   lede: string
   highlights: string[]
   stack: string[]
-  image?: string
+  /** Screenshots, in order. See `Project.images`. */
+  images?: string[]
   meta?: string
 }
 

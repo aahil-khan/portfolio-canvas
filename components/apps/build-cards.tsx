@@ -1,8 +1,9 @@
 import type { ReactNode } from 'react'
 
 import type { CardDef } from '@/components/desktop/card'
-import { DetailRow, ShotFrame, ShotSlot } from '@/components/apps/interactive'
+import { DetailRow } from '@/components/apps/interactive'
 import { ArchiveFeed } from '@/components/apps/archive-feed'
+import { Shots } from '@/components/apps/shots'
 import { ArchiveFull } from '@/components/apps/archive-full'
 import { ThemePicker } from '@/components/apps/theme-picker'
 import {
@@ -265,7 +266,7 @@ export function buildCards(): CardDef[] {
           {p.meta ? <p className="detail-meta">{p.meta}</p> : null}
           {p.award ? <div className="award">🏆 {p.award}</div> : null}
           <p className="lede">{p.lede}</p>
-          <ShotSlot cardId={`shot:${p.slug}`} src={p.image} alt={`${p.name} screenshot`} />
+          <Shots images={p.images} cardId={`shot:${p.slug}`} alt={`${p.name} screenshot`} />
           <ul className="bullets">
             {p.highlights.map((h, i) => (
               <li key={i}>{rich(h)}</li>
@@ -298,7 +299,7 @@ export function buildCards(): CardDef[] {
       tint: detailPalette.project.tint,
       width: 520,
       rotate: -0.9,
-      body: <ShotFrame src={p.image} alt={`${p.name} screenshot`} />,
+      body: <Shots images={p.images} alt={`${p.name} screenshot`} full />,
     })
   }
 
@@ -317,7 +318,7 @@ export function buildCards(): CardDef[] {
         <>
           {j.meta ? <p className="detail-meta">{j.meta}</p> : null}
           <p className="lede">{rich(j.lede)}</p>
-          <ShotSlot cardId={`shot:${j.slug}`} src={j.image} alt={`${j.company} screenshot`} />
+          <Shots images={j.images} cardId={`shot:${j.slug}`} alt={`${j.company} screenshot`} />
           <ul className="bullets">
             {j.highlights.map((h, i) => (
               <li key={i}>{rich(h)}</li>
@@ -335,7 +336,7 @@ export function buildCards(): CardDef[] {
       tint: detailPalette.job.tint,
       width: 520,
       rotate: 0.9,
-      body: <ShotFrame src={j.image} alt={`${j.company} screenshot`} />,
+      body: <Shots images={j.images} alt={`${j.company} screenshot`} full />,
     })
   }
 

@@ -67,8 +67,10 @@ export function validateContent(): void {
     if (!existsSync(path.join(PUBLIC, p.replace(/^\//, ''))))
       errors.push(`${where}: file not found in public/ → ${p}`)
   }
-  for (const p of projects) if (p.image) fileMustExist(p.image, `project "${p.slug}"`)
-  for (const j of jobs) if (j.image) fileMustExist(j.image, `job "${j.slug}"`)
+  for (const p of projects)
+    for (const img of p.images ?? []) fileMustExist(img, `project "${p.slug}"`)
+  for (const j of jobs)
+    for (const img of j.images ?? []) fileMustExist(img, `job "${j.slug}"`)
   for (const a of archive) if (a.image) fileMustExist(a.image, `archive "${a.id}"`)
   for (const g of toolGroups)
     for (const t of g.tools) if (t.logo) fileMustExist(t.logo, `tool "${t.name}"`)

@@ -6,6 +6,11 @@ import type { Project } from './types'
  * To add a project: copy a block, change the fields, done. Order here doesn't matter —
  * the Work card sorts by `year` descending.
  *
+ * Screenshots: drop files in `public/work/` and list them in `images`, in order. One image
+ * renders as a plain frame; two or more become a carousel with arrows, dots and a counter. The
+ * first image sets the frame's shape and the rest are letterboxed into it, so nothing is ever
+ * cropped. Dimensions are read from the files at build time — no sizes to type.
+ *
  * `stack` entries must match a tool `name` in `stack.ts`. `npm run check` fails the build
  * if one doesn't, so a renamed tool can't silently lose its logo.
  */

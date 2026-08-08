@@ -5,6 +5,7 @@ import {
   useCallback,
   useEffect,
   useLayoutEffect,
+  useMemo,
   useRef,
   useState,
 } from 'react'
@@ -19,6 +20,7 @@ import {
 import { arrangements } from '@/lib/canvas/arrange'
 import { clearSession, loadSession, saveSession } from '@/lib/canvas/session'
 import { useCanvas } from '@/lib/canvas/use-canvas'
+import { useIsMobile } from '@/lib/use-mobile'
 import { useDragObject } from '@/lib/canvas/use-drag-object'
 import { resumeAmbienceOnFirstGesture } from '@/lib/ambience'
 import { play } from '@/lib/audio'
@@ -29,6 +31,8 @@ import { ArrangeMenu } from './arrange-menu'
 import { SoundMenu } from './sound-menu'
 import { Dock, type DockItem } from './dock'
 import { MeasureRig } from './measure-rig'
+import { CommandPalette, type PaletteActions } from './command-palette'
+import { MobileShell } from './mobile-shell'
 import { OpenCardContext } from './open-context'
 
 interface Placed {
@@ -52,7 +56,24 @@ interface Props {
 
 const HERO = '__hero'
 
-export function Desktop({ cards, dock, externals, bootIds, hero, heroWidth }: Props) {
+/**
+ * Picks a shell.
+ *
+ * Two entirely separate trees rather than one tree with breakpoints: the canvas needs a camera,
+ * pointer capture, a rAF loop and drag handlers that a phone has no use for, and none of that
+ * should be mounted — let alone listening — on a device that can't drive it. Splitting here
+ * also keeps the rules of hooks intact, since neither shell's hooks are ever conditional.
+ */
+export function Desktop(props: Props) {
+  const mobile = useIsMobile()
+  return mobile ? (
+    <MobileShell cards={props.cards} dock={props.dock} externals={props.externals} hero={props.hero} />
+  ) : (
+    <CanvasDesktop {...props} />
+  )
+}
+
+function CanvasDesktop({ cards, dock, externals, bootIds, hero, heroWidth }: Props) {
   const viewportRef = useRef<HTMLDivElement>(null)
   const worldRef = useRef<HTMLDivElement>(null)
   const heroRef = useRef<HTMLDivElement>(null)
@@ -490,7 +511,28 @@ export function Desktop({ cards, dock, externals, bootIds, hero, heroWidth }: Pr
     onDoubleTap: useCallback(() => focusInto(HERO), [focusInto]),
   })
 
-  const openIds = new Set(Object.keys(placed))
+  const openIds = useMemo(() => new Set(Object.keys(placed)), [placed])
+  const dockIds = useMemo(() => dock.map((d) => d.id), [dock])
+
+  /*
+   * The palette drives the same handlers the chrome does, so there is one implementation of
+   * each action. `goTo` is `open` on a card that is already placed, which raises it and flies
+   * the camera over — exactly what "where did that card go" needs.
+   */
+  const paletteActions = useMemo<PaletteActions>(
+    () => ({
+      goTo: (id) => open(id),
+      open: (id) => open(id),
+      close,
+      fitAll,
+      minimiseAll,
+      randomise,
+      arrange,
+      resetLayout,
+      zoomBy: canvas.zoomBy,
+    }),
+    [open, close, fitAll, minimiseAll, randomise, arrange, resetLayout, canvas],
+  )
 
   return (
     <OpenCardContext.Provider value={open}>
@@ -565,7 +607,13 @@ export function Desktop({ cards, dock, externals, bootIds, hero, heroWidth }: Pr
           +
         </button>
       </div>
-      <p id="hint" aria-hidden>drag anything · ⌘/ctrl + scroll to zoom</p>
+      <p id="hint" aria-hidden>drag anything · ⌘/ctrl + scroll to zoom · ⌘K for commands</p>
+      <CommandPalette
+        cards={cards}
+        dockIds={dockIds}
+        openIds={openIds}
+        actions={paletteActions}
+      />
       <Cursor />
     </OpenCardContext.Provider>
   )

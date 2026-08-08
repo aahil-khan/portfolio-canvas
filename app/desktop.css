@@ -1382,3 +1382,552 @@ button.item:focus-visible .ttl::after {
   height: 15px;
   margin-top: -6px;
 }
+
+/* ============================================================
+   MOBILE SHELL
+   A different shape for the same content, not a squeezed canvas. Everything here is scoped to
+   .m-* classes, so it cannot leak into the desktop tree — the two shells never render together.
+   ============================================================ */
+
+/*
+ * Pre-hydration guard. The server can't know the viewport, so a phone briefly receives the
+ * canvas markup. This hides it during that frame — an empty page beats a 717px dock crushed
+ * into a 390px screen — until React swaps shells.
+ */
+html[data-mobile] #viewport,
+html[data-mobile] #pill,
+html[data-mobile] #dock,
+html[data-mobile] #zoom-controls,
+html[data-mobile] #hint,
+html[data-mobile] #cursor {
+  display: none !important;
+}
+
+.m-shell {
+  position: fixed;
+  inset: 0;
+  display: grid;
+  grid-template-rows: auto 1fr auto;
+  /*
+   * minmax(0, 1fr), not the implicit column. A grid column sizes to its widest child's
+   * max-content, and the dock row is ~780px of icons — so every row inherited that width and
+   * the whole shell rendered twice as wide as the phone. `overflow-x: auto` on the scroller
+   * does not constrain the track on its own; the column has to be told it may shrink.
+   */
+  grid-template-columns: minmax(0, 1fr);
+  overflow: hidden;
+}
+
+/* ---------- top bar ---------- */
+.m-bar {
+  display: flex;
+  justify-content: flex-end;
+  padding: 10px 12px calc(10px + env(safe-area-inset-top));
+  z-index: 40;
+}
+/* the sound menu is shared with the desktop, so re-anchor it to this corner */
+.m-bar .arrange__menu {
+  left: auto;
+  right: 0;
+  transform: translateY(-6px) scale(0.97);
+}
+.m-bar .arrange__menu[data-open] {
+  transform: translateY(0) scale(1);
+}
+@starting-style {
+  .m-bar .arrange__menu[data-open] {
+    transform: translateY(-6px) scale(0.97);
+  }
+}
+.m-bar .sound > button {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  font: inherit;
+  font-size: 13px;
+  font-weight: 500;
+  color: var(--ink);
+  background: color-mix(in srgb, var(--surface) 90%, transparent);
+  border: 1.5px solid color-mix(in srgb, var(--border) 22%, transparent);
+  border-radius: 999px;
+  padding: 7px 13px;
+  cursor: pointer;
+}
+.m-bar .sound > button.on {
+  background: var(--accent);
+  color: var(--accent-ink);
+}
+
+/* ---------- hero ---------- */
+.m-hero {
+  min-width: 0;
+  display: grid;
+  place-items: center;
+  padding: 0 20px 8px;
+  min-height: 0;
+  text-align: center;
+}
+/* the canvas hero is sized for a 600px world object; on a phone it sets its own scale */
+.m-hero .hero__card {
+  padding: 0;
+  border: 0;
+  background: none;
+}
+.m-hero h1 {
+  font-size: clamp(2rem, 11vw, 3rem);
+  white-space: normal;
+}
+.m-hero .hero__role {
+  font-size: clamp(0.95rem, 4.4vw, 1.2rem);
+}
+.m-hero .hero__avatar {
+  width: 64px;
+  height: 64px;
+  font-size: 23px;
+  margin-bottom: 14px;
+}
+
+/* ---------- dock ---------- */
+.m-dock {
+  min-width: 0;
+  z-index: 40;
+  border-top: 1.5px solid color-mix(in srgb, var(--border) 18%, transparent);
+  background: color-mix(in srgb, var(--surface) 94%, transparent);
+  backdrop-filter: blur(10px) saturate(150%);
+  -webkit-backdrop-filter: blur(10px) saturate(150%);
+  padding-bottom: env(safe-area-inset-bottom);
+}
+.m-dock__scroll {
+  /* same reason: a flex/grid child with its own overflow must be allowed below content width */
+  min-width: 0;
+  display: flex;
+  gap: 4px;
+  overflow-x: auto;
+  overflow-y: hidden;
+  padding: 8px 10px;
+  scrollbar-width: none;
+  /* the row is wider than any phone, so let it settle on whole items */
+  scroll-snap-type: x proximity;
+  overscroll-behavior-x: contain;
+}
+.m-dock__scroll::-webkit-scrollbar {
+  display: none;
+}
+.m-dock__item {
+  flex: 0 0 auto;
+  display: grid;
+  justify-items: center;
+  gap: 4px;
+  /* 64px wide keeps every tap target above the 44px minimum with room to spare */
+  width: 64px;
+  padding: 4px 0 2px;
+  border: 0;
+  background: none;
+  cursor: pointer;
+  scroll-snap-align: center;
+  text-decoration: none;
+  color: var(--ink);
+  -webkit-tap-highlight-color: transparent;
+}
+.m-dock__item .dock__icon {
+  width: 46px;
+  height: 46px;
+  transition: transform 140ms var(--ease-out);
+}
+.m-dock__item:active .dock__icon {
+  transform: scale(0.92);
+}
+.m-dock__item[data-open] .dock__icon {
+  box-shadow: 3px 3px 0 0 var(--border);
+}
+.m-dock__label {
+  font-size: 10px;
+  font-weight: 600;
+  letter-spacing: 0.02em;
+  color: var(--ink-subtle);
+  max-width: 100%;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.m-dock__item[data-open] .m-dock__label {
+  color: var(--ink);
+}
+.m-dock__sep {
+  flex: 0 0 auto;
+  align-self: center;
+  width: 1px;
+  height: 30px;
+  margin: 0 6px;
+  background: color-mix(in srgb, var(--border) 22%, transparent);
+}
+
+/* ---------- sheet ---------- */
+.m-sheet {
+  position: fixed;
+  inset: 0;
+  z-index: 60;
+  display: flex;
+  flex-direction: column;
+  background: var(--surface);
+  transform: translateY(100%);
+  visibility: hidden;
+  transition:
+    transform 260ms var(--ease-out),
+    visibility 260ms;
+}
+.m-sheet[data-open] {
+  transform: translateY(0);
+  visibility: visible;
+}
+.m-sheet__head {
+  flex: 0 0 auto;
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: calc(12px + env(safe-area-inset-top)) 14px 12px;
+  background: var(--c, var(--surface));
+  color: var(--on-app);
+  border-bottom: var(--bw) solid var(--border);
+}
+.m-sheet__title {
+  flex: 1;
+  min-width: 0;
+  font-size: 1rem;
+  font-weight: 700;
+  letter-spacing: -0.01em;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.m-sheet__back,
+.m-sheet__ico {
+  flex: 0 0 auto;
+  display: grid;
+  place-items: center;
+  width: 30px;
+  height: 30px;
+  border-radius: 8px;
+  border: 1.5px solid var(--border);
+  background: rgba(255, 255, 255, 0.6);
+  color: var(--on-app);
+  padding: 0;
+  cursor: pointer;
+}
+.m-sheet__body {
+  flex: 1;
+  min-height: 0;
+  overflow-y: auto;
+  -webkit-overflow-scrolling: touch;
+  padding: 18px 16px calc(28px + env(safe-area-inset-bottom));
+  font-size: 0.9375rem;
+  line-height: 1.6;
+  overscroll-behavior: contain;
+}
+/* the card bodies were written for a fixed-width card; on a phone they own the full width */
+.m-sheet__body > :first-child {
+  margin-top: 0;
+}
+.m-sheet__body p {
+  max-width: none;
+}
+.m-sheet__body .themes {
+  grid-template-columns: repeat(auto-fill, minmax(140px, 1fr));
+}
+.m-sheet__body .arc-img__box {
+  --max-h: 260px;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .m-sheet {
+    transition: none;
+  }
+}
+
+/* ---------- screenshot carousel ---------- */
+.carousel {
+  margin: 0 0 14px;
+}
+/*
+ * content-box so the border cannot skew the aspect ratio. With the default border-box the
+ * ratio applies to the border box, and a 1.5px edge rendered a 2.4:1 image at 2.33:1.
+ */
+.carousel__frame {
+  box-sizing: content-box;
+  position: relative;
+  width: 100%;
+  aspect-ratio: var(--ratio);
+  overflow: hidden;
+  border: 1.5px solid var(--border);
+  border-radius: 10px;
+  background: color-mix(in srgb, var(--ink) 7%, transparent);
+}
+.carousel__frame:focus-visible {
+  outline: 2px solid var(--accent);
+  outline-offset: 2px;
+}
+.carousel__track {
+  display: flex;
+  height: 100%;
+  transition: transform 320ms var(--ease-out);
+}
+.carousel__slide {
+  flex: 0 0 100%;
+  height: 100%;
+}
+.carousel__slide img,
+.carousel__open {
+  display: block;
+  width: 100%;
+  height: 100%;
+  padding: 0;
+  border: 0;
+  background: none;
+}
+.carousel__open {
+  cursor: zoom-in;
+}
+/* `contain`, never `cover`: a set of screenshots is rarely one shape, and cropping to match
+   cuts the subject out. A letterboxed edge is the honest trade. */
+.carousel__slide img {
+  object-fit: contain;
+}
+
+.carousel__arrow {
+  position: absolute;
+  top: 50%;
+  translate: 0 -50%;
+  width: 30px;
+  height: 30px;
+  display: grid;
+  place-items: center;
+  padding: 0;
+  border: 1.5px solid var(--border);
+  border-radius: 999px;
+  background: color-mix(in srgb, var(--surface) 88%, transparent);
+  backdrop-filter: blur(6px);
+  color: var(--ink);
+  cursor: pointer;
+  opacity: 0;
+  transition: opacity 140ms var(--ease-out), background 140ms var(--ease-out);
+}
+.carousel__frame:hover .carousel__arrow,
+.carousel__frame:focus-within .carousel__arrow {
+  opacity: 1;
+}
+/* touch has no hover, so the arrows must always be reachable there */
+@media (hover: none) {
+  .carousel__arrow {
+    opacity: 1;
+  }
+}
+.carousel__arrow:hover {
+  background: var(--accent);
+  color: var(--accent-ink);
+}
+.carousel__arrow--prev {
+  left: 8px;
+}
+.carousel__arrow--next {
+  right: 8px;
+  rotate: 180deg;
+}
+.carousel__count {
+  position: absolute;
+  right: 8px;
+  bottom: 8px;
+  font-size: 10px;
+  font-weight: 700;
+  letter-spacing: 0.04em;
+  font-variant-numeric: tabular-nums;
+  padding: 2px 7px;
+  border-radius: 999px;
+  border: 1.5px solid var(--border);
+  background: color-mix(in srgb, var(--surface) 88%, transparent);
+  color: var(--ink);
+  pointer-events: none;
+}
+.carousel__dots {
+  display: flex;
+  justify-content: center;
+  gap: 6px;
+  margin-top: 8px;
+}
+.carousel__dots button {
+  width: 7px;
+  height: 7px;
+  padding: 0;
+  border-radius: 999px;
+  border: 1.5px solid var(--border);
+  background: transparent;
+  cursor: pointer;
+  transition: background 140ms var(--ease-out), width 140ms var(--ease-out);
+}
+.carousel__dots button.is-on {
+  width: 18px;
+  background: var(--accent);
+}
+.carousel--full {
+  margin: 0;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .carousel__track {
+    transition: none;
+  }
+}
+
+/* ---------- command palette ---------- */
+.cmdk {
+  position: fixed;
+  inset: 0;
+  z-index: 300;
+  display: grid;
+  /* sits high rather than centred: results grow downward without the box jumping */
+  align-content: start;
+  justify-items: center;
+  padding-top: 12vh;
+}
+.cmdk__scrim {
+  position: fixed;
+  inset: 0;
+  border: 0;
+  padding: 0;
+  cursor: default;
+  background: color-mix(in srgb, var(--canvas-base) 55%, transparent);
+  backdrop-filter: blur(3px);
+  -webkit-backdrop-filter: blur(3px);
+  animation: cmdk-fade 120ms ease both;
+}
+.cmdk__panel {
+  position: relative;
+  width: min(560px, calc(100vw - 32px));
+  display: flex;
+  flex-direction: column;
+  border: var(--bw) solid var(--border);
+  border-radius: 16px;
+  background: var(--surface);
+  box-shadow: 8px 8px 0 0 var(--border);
+  overflow: hidden;
+  animation: cmdk-in 150ms var(--ease-out) both;
+}
+@keyframes cmdk-fade {
+  from { opacity: 0 }
+}
+@keyframes cmdk-in {
+  from { opacity: 0; transform: translateY(-8px) scale(0.985) }
+}
+.cmdk__input {
+  font: inherit;
+  font-size: 1rem;
+  font-weight: 500;
+  color: var(--ink);
+  background: none;
+  border: 0;
+  border-bottom: 1.5px solid color-mix(in srgb, var(--border) 18%, transparent);
+  padding: 15px 18px;
+  outline: none;
+}
+.cmdk__input::placeholder {
+  color: var(--ink-subtle);
+  font-weight: 400;
+}
+.cmdk__list {
+  max-height: min(52vh, 420px);
+  overflow: auto;
+  padding: 6px;
+}
+.cmdk__group {
+  font-size: 0.5625rem;
+  font-weight: 700;
+  letter-spacing: 0.1em;
+  text-transform: uppercase;
+  color: var(--ink-subtle);
+  padding: 9px 10px 4px;
+}
+.cmdk__row {
+  display: flex;
+  align-items: baseline;
+  gap: 10px;
+  width: 100%;
+  text-align: left;
+  font: inherit;
+  color: var(--ink);
+  background: none;
+  border: 0;
+  border-radius: 9px;
+  padding: 8px 10px;
+  cursor: pointer;
+}
+/* highlight follows the keyboard cursor, and the mouse moves that cursor rather than
+   maintaining a second, competing hover state */
+.cmdk__row[data-active] {
+  background: color-mix(in srgb, var(--accent) 32%, transparent);
+}
+.cmdk__label {
+  font-size: 0.9375rem;
+  font-weight: 500;
+}
+.cmdk__hint {
+  margin-left: auto;
+  font-size: 0.75rem;
+  color: var(--ink-subtle);
+  white-space: nowrap;
+}
+.cmdk__empty {
+  margin: 0;
+  padding: 22px 12px;
+  text-align: center;
+  font-size: 0.875rem;
+  color: var(--ink-subtle) !important;
+}
+.cmdk__foot {
+  display: flex;
+  gap: 14px;
+  padding: 8px 14px;
+  border-top: 1.5px solid color-mix(in srgb, var(--border) 18%, transparent);
+  font-size: 0.6875rem;
+  color: var(--ink-subtle);
+}
+.cmdk__foot kbd {
+  font: inherit;
+  border: 1.5px solid color-mix(in srgb, var(--border) 24%, transparent);
+  border-radius: 5px;
+  padding: 0 4px;
+  margin-right: 3px;
+}
+@media (prefers-reduced-motion: reduce) {
+  .cmdk__panel,
+  .cmdk__scrim { animation: none }
+}
+
+/* ---------- connection spinner ---------- */
+.spinner {
+  display: inline-block;
+  flex: 0 0 auto;
+  width: 12px;
+  height: 12px;
+  border-radius: 999px;
+  /* a ring with one transparent quadrant — the gap is what makes the rotation legible */
+  border: 2px solid color-mix(in srgb, var(--ink) 22%, transparent);
+  border-top-color: var(--ink);
+  animation: spin 620ms linear infinite;
+}
+.spinner--inline {
+  width: 10px;
+  height: 10px;
+  border-width: 1.5px;
+  vertical-align: -1px;
+  margin-right: 2px;
+}
+@keyframes spin {
+  to {
+    transform: rotate(360deg);
+  }
+}
+/* a spinner that can't spin conveys nothing, so keep it turning but slower */
+@media (prefers-reduced-motion: reduce) {
+  .spinner {
+    animation-duration: 1600ms;
+  }
+}
