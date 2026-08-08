@@ -32,6 +32,8 @@
 
   --radius-card: 14px;
   --radius-chip: 8px;
+  /* DIRECTION.md has declared this since the rebuild; nothing had used it until the live pill. */
+  --radius-pill: 999px;
 
   --dock-size: 54px;
   --dock-gap: 8px;
