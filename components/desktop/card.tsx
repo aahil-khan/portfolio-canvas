@@ -30,6 +30,14 @@ export interface CardDef {
    * deep-space card doesn't retire the easter egg permanently.
    */
   at?: { x: number; y: number }
+  /**
+   * Hidden from anything that enumerates cards for discovery — currently the command palette.
+   *
+   * An easter egg you can reach by pressing ⌘K and typing its name is not an easter egg. Once
+   * the card is actually open the palette will still offer to jump to it, which is useful; what
+   * it must not do is advertise the way in.
+   */
+  secret?: boolean
 }
 
 interface Props {

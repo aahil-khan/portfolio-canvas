@@ -128,6 +128,12 @@ export function CommandPalette({
     for (const id of openIds) {
       const def = byId.get(id)
       if (!def) continue
+      /*
+       * Secret cards are skipped even when open. The deep-space card is pinned, so it is on the
+       * canvas from the first paint whether or not anyone has been near it — listing it here
+       * would offer a one-keystroke teleport to a card whose entire point is the journey.
+       */
+      if (def.secret) continue
       out.push({
         id: `go:${id}`,
         group: 'On the canvas',
@@ -142,6 +148,8 @@ export function CommandPalette({
     // 2. everything openable, detail cards included — those have no dock icon
     for (const def of cards) {
       if (openIds.has(def.id)) continue
+      // an easter egg you can reach by typing its name here is not an easter egg
+      if (def.secret) continue
       const isDetail = !dock.has(def.id)
       out.push({
         id: `open:${def.id}`,
@@ -158,6 +166,8 @@ export function CommandPalette({
     for (const id of openIds) {
       const def = byId.get(id)
       if (!def) continue
+      // naming a secret card here would give it away just as readily as offering to open it
+      if (def.secret) continue
       out.push({
         id: `close:${id}`,
         group: 'Close',

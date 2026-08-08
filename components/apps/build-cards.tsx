@@ -300,6 +300,7 @@ export async function buildCards(): Promise<CardDef[]> {
     tint: '#E6F6EA',
     width: 560,
     rotate: 0.4,
+    secret: true,
     body: <Terminal />,
   })
   cards.push({
@@ -312,6 +313,7 @@ export async function buildCards(): Promise<CardDef[]> {
     rotate: -0.6,
     pinned: true,
     at: deepSpace.at,
+    secret: true,
     body: <FoundIt />,
   })
 
