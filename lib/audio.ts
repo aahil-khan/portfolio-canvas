@@ -29,6 +29,8 @@ let bus: GainNode | null = null
 let uiVolume = 0.7
 let masterVolume = 0.8
 let volLoaded = false
+/* Cached object so useSyncExternalStore sees a stable reference until a level actually moves. */
+let volumes = { ui: uiVolume, master: masterVolume }
 /** Shared LFO output, patched into every oscillator's detune for tape warble. */
 let wobble: GainNode | null = null
 
@@ -201,35 +203,46 @@ const CUES: Record<Cue, () => void> = {
 }
 
 /** Interface-cue level, 0–1. Multiplied by master before it reaches the bus. */
-export function getUiVolume(): number {
-  loadVolumes()
-  return uiVolume
-}
-export function getMasterVolume(): number {
-  loadVolumes()
-  return masterVolume
-}
+
 
 function loadVolumes(): void {
   if (volLoaded) return
   volLoaded = true
   try {
-    const u = Number(localStorage.getItem(KEY_UI_VOL))
-    const m = Number(localStorage.getItem(KEY_MASTER))
-    if (Number.isFinite(u) && u >= 0) uiVolume = u
-    if (Number.isFinite(m) && m >= 0) masterVolume = m
+    /*
+     * Read the raw string first. `Number(null)` is 0, so parsing an ABSENT key and then checking
+     * `>= 0` accepts it — which silently set every first-time visitor's volume to zero: sound
+     * switched on, nothing audible.
+     */
+    const rawU = localStorage.getItem(KEY_UI_VOL)
+    const rawM = localStorage.getItem(KEY_MASTER)
+    if (rawU !== null && Number.isFinite(Number(rawU))) uiVolume = clamp01(Number(rawU))
+    if (rawM !== null && Number.isFinite(Number(rawM))) masterVolume = clamp01(Number(rawM))
   } catch {
     /* private mode */
   }
+  volumes = { ui: uiVolume, master: masterVolume }
 }
+
+const clamp01 = (v: number) => Math.min(1, Math.max(0, v))
+
+/** Levels as one snapshot, for useSyncExternalStore. */
+export function getVolumes(): { ui: number; master: number } {
+  loadVolumes()
+  return volumes
+}
+
+const SERVER_VOLUMES = { ui: 0.7, master: 0.8 }
+export const getVolumesServerSnapshot = () => SERVER_VOLUMES
 
 function applyGain(): void {
   if (bus) bus.gain.value = uiVolume * masterVolume
 }
 
 export function setUiVolume(v: number): void {
-  uiVolume = Math.min(1, Math.max(0, v))
+  uiVolume = clamp01(v)
   volLoaded = true
+  volumes = { ui: uiVolume, master: masterVolume }
   applyGain()
   try {
     localStorage.setItem(KEY_UI_VOL, String(uiVolume))
@@ -241,11 +254,20 @@ export function setUiVolume(v: number): void {
 let onMasterChange: ((m: number) => void) | null = null
 export function onMaster(fn: (m: number) => void): void {
   onMasterChange = fn
+  /*
+   * Apply immediately on registration. The two buses have different defaults (audio 0.8,
+   * ambience 1) and were only ever reconciled when setMasterVolume fired — so on a fresh visit
+   * the Master fader read 80% while the music actually played at 100%, and dragging it looked
+   * like the first thing that made it work.
+   */
+  loadVolumes()
+  fn(masterVolume)
 }
 
 export function setMasterVolume(v: number): void {
-  masterVolume = Math.min(1, Math.max(0, v))
+  masterVolume = clamp01(v)
   volLoaded = true
+  volumes = { ui: uiVolume, master: masterVolume }
   applyGain()
   onMasterChange?.(masterVolume)
   try {

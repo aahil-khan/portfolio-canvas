@@ -15,10 +15,10 @@ import {
   subscribeAmbience,
 } from '@/lib/ambience'
 import {
-  getMasterVolume,
   getSoundServerSnapshot,
   getSoundSnapshot,
-  getUiVolume,
+  getVolumes,
+  getVolumesServerSnapshot,
   onMaster,
   play,
   setMasterVolume,
@@ -34,6 +34,8 @@ import {
  */
 export function SoundMenu() {
   const [open, setOpen] = useState(false)
+  /** Master is enough most of the time; the other two levels stay folded away. */
+  const [mixOpen, setMixOpen] = useState(false)
   const wrap = useRef<HTMLDivElement>(null)
 
   const ui = useSyncExternalStore(subscribeSound, getSoundSnapshot, getSoundServerSnapshot)
@@ -42,6 +44,8 @@ export function SoundMenu() {
     getAmbienceSnapshot,
     getAmbienceServerSnapshot,
   )
+  // levels ride the same store as the on/off flag, so moving a fader re-renders the menu
+  const vol = useSyncExternalStore(subscribeSound, getVolumes, getVolumesServerSnapshot)
 
   useEffect(() => {
     if (!open) return
@@ -138,6 +142,7 @@ export function SoundMenu() {
                 >
                   <span className="sound__row">
                     <span className="arrange__label">{s.label}</span>
+                    <span className="arrange__hint station__blurb">{s.blurb}</span>
                     {live ? (
                       <span className="eq" aria-label="now playing">
                         <i />
@@ -148,7 +153,6 @@ export function SoundMenu() {
                       <span className="arrange__hint">connecting…</span>
                     ) : null}
                   </span>
-                  <span className="arrange__hint">{s.blurb}</span>
                 </button>
               )
             })}
@@ -159,17 +163,34 @@ export function SoundMenu() {
             * reads as the parent rather than a third peer.
             */}
           <div className="mix">
-            <Fader
-              label="Master"
-              primary
-              value={getMasterVolume()}
-              onChange={setMasterVolume}
-            />
-            <Fader label="Music" value={amb.volume} onChange={setAmbienceVolume} />
-            <Fader label="Interface" value={getUiVolume()} onChange={(v) => {
-              setUiVolume(v)
-              if (ui) play('hover')
-            }} />
+            <div className="mix__master">
+              <Fader label="Master" primary value={vol.master} onChange={setMasterVolume} />
+              <button
+                type="button"
+                className="mix__toggle"
+                aria-expanded={mixOpen}
+                aria-controls="mix-detail"
+                onClick={() => setMixOpen((o) => !o)}
+              >
+                <span aria-hidden>{mixOpen ? '\u2212' : '+'}</span>
+                <span className="sr-only">
+                  {mixOpen ? 'Hide music and interface levels' : 'Show music and interface levels'}
+                </span>
+              </button>
+            </div>
+            {mixOpen ? (
+              <div className="mix__detail" id="mix-detail">
+                <Fader label="Music" value={amb.volume} onChange={setAmbienceVolume} />
+                <Fader
+                  label="Interface"
+                  value={vol.ui}
+                  onChange={(v) => {
+                    setUiVolume(v)
+                    if (ui) play('hover')
+                  }}
+                />
+              </div>
+            ) : null}
           </div>
 
           <p className="sound__credit">Ambience is public internet radio · streams may vary</p>

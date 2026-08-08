@@ -68,6 +68,15 @@ function element(): HTMLAudioElement {
   if (el) return el
   el = new Audio()
   el.preload = 'none'
+  /*
+   * Kept in the document rather than floating as a detached object. A detached element plays
+   * fine, but nothing — devtools, the browser's media controls, or a test — can observe it,
+   * which is how a master-volume bug went unnoticed. `hidden` keeps it out of layout and off
+   * the accessibility tree.
+   */
+  el.hidden = true
+  el.setAttribute('aria-hidden', 'true')
+  document.body.appendChild(el)
   el.volume = state.volume * master
   el.addEventListener('playing', () => set({ playing: true, loading: false, error: null }))
   el.addEventListener('waiting', () => set({ loading: true }))

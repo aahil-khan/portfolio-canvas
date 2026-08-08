@@ -921,9 +921,7 @@ button.item:focus-visible .ttl::after {
 
 /* ---------- sound menu ---------- */
 .sound__menu {
-  min-width: 268px;
-  max-height: 62vh;
-  overflow: auto;
+  min-width: 292px;
 }
 .sound__row {
   display: flex;
@@ -1091,6 +1089,18 @@ button.item:focus-visible .ttl::after {
 }
 
 /* the selected station is tinted; only the one actually playing gets the meter */
+.station__blurb {
+  flex: 1;
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  text-align: right;
+}
+#pill .sound__stations button[role] {
+  padding-top: 5px;
+  padding-bottom: 5px;
+}
 .sound__stations button.is-playing {
   background: color-mix(in srgb, var(--accent) 40%, transparent);
 }
@@ -1172,6 +1182,46 @@ button.item:focus-visible .ttl::after {
 }
 
 /* ---------- volume mixer ---------- */
+.mix__master {
+  display: grid;
+  grid-template-columns: 1fr auto;
+  align-items: center;
+  gap: 8px;
+}
+.mix__toggle {
+  width: 20px !important;
+  height: 20px;
+  flex: 0 0 auto;
+  padding: 0 !important;
+  border-radius: 6px !important;
+  border: 1.5px solid color-mix(in srgb, var(--border) 26%, transparent) !important;
+  color: var(--ink-subtle) !important;
+  font-size: 12px;
+  line-height: 1;
+  display: grid !important;
+  place-items: center;
+}
+.mix__toggle[aria-expanded='true'] {
+  background: color-mix(in srgb, var(--ink) 10%, transparent);
+  color: var(--ink) !important;
+}
+.mix__detail {
+  display: grid;
+  gap: 7px;
+  margin-top: 7px;
+  padding-top: 7px;
+  border-top: 1.5px dashed color-mix(in srgb, var(--border) 16%, transparent);
+}
+.sr-only {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  padding: 0;
+  margin: -1px;
+  overflow: hidden;
+  clip-path: inset(50%);
+  white-space: nowrap;
+}
 .mix {
   margin-top: 6px;
   padding: 9px 10px 6px;
@@ -1203,11 +1253,7 @@ button.item:focus-visible .ttl::after {
 .fader--primary .fader__pct {
   color: var(--ink);
 }
-.fader--primary {
-  padding-bottom: 7px;
-  margin-bottom: 1px;
-  border-bottom: 1.5px dashed color-mix(in srgb, var(--border) 16%, transparent);
-}
+
 
 .fader input[type='range'] {
   -webkit-appearance: none;
