@@ -18,6 +18,7 @@ import {
   makeRandom,
 } from '@/lib/canvas/geometry'
 import { arrangements } from '@/lib/canvas/arrange'
+import { clearCardParam, readCardParam, writeCardParam } from '@/lib/deep-link'
 import { clearSession, loadSession, saveSession } from '@/lib/canvas/session'
 import { useCanvas } from '@/lib/canvas/use-canvas'
 import { useIsMobile } from '@/lib/use-mobile'
@@ -351,6 +352,7 @@ function CanvasDesktop({ cards, dock, externals, bootIds, hero, heroWidth }: Pro
 
   const close = useCallback((id: string) => {
     play('close')
+    clearCardParam(id)
     setClosing((c) => new Set(c).add(id))
   }, [])
 
@@ -376,12 +378,15 @@ function CanvasDesktop({ cards, dock, externals, bootIds, hero, heroWidth }: Pro
           return
         }
         raise(id)
+        if (!byId.current.get(id)?.secret) writeCardParam(id)
         const r = rectOf(id)
         if (r) canvas.reveal(r)
         return
       }
       const def = byId.current.get(id)
       if (!def) return
+      // secret cards stay out of the address bar; a shared link should not give away an egg
+      if (!def.secret) writeCardParam(id)
       const h = heights.current.get(id) ?? 320 // rig fills these in; fallback is a last resort
       const vp = canvas.viewport()
       const centre = canvas.screenToWorld(vp.width / 2, vp.height / 2)
@@ -625,6 +630,7 @@ function CanvasDesktop({ cards, dock, externals, bootIds, hero, heroWidth }: Pro
       goTo: (id) => {
         if (!placed[id]) return open(id)
         raise(id)
+        writeCardParam(id)
         const r = rectOf(id)
         if (r) canvas.centre(r)
       },
@@ -639,6 +645,65 @@ function CanvasDesktop({ cards, dock, externals, bootIds, hero, heroWidth }: Pro
     }),
     [open, placed, raise, rectOf, close, fitAll, minimiseAll, randomise, arrange, resetLayout, canvas],
   )
+
+  /*
+   * Arriving on `/?card=project:konta` — the inbound half of the deep link.
+   *
+   * Waits for `ready`, because opening a card needs its measured height and a settled camera;
+   * run any earlier and the card is placed against a viewport the boot layout is about to
+   * replace. `goTo` rather than `open` so a card the saved session already had on the canvas is
+   * centred rather than left wherever it happened to be — following a link to something should
+   * always end with that thing in front of you.
+   *
+   * The ref makes it strictly once per page load. Without it, closing the card would clear the
+   * parameter, the effect would see the change and re-open it, and the card could not be closed.
+   */
+  const linkTarget = useRef<string | null | undefined>(undefined)
+  /*
+   * useLayoutEffect, like the boot layout above and for the same reason: this places a card and
+   * moves the camera, and doing it after paint shows one frame of the canvas at the wrong
+   * position before it snaps. Phase 2 in particular would flash the card revealed-but-off-centre.
+   */
+  useLayoutEffect(() => {
+    if (!ready) return
+
+    // phase 1, once: work out what was asked for and put it on the canvas
+    if (linkTarget.current === undefined) {
+      linkTarget.current = null
+      const id = readCardParam()
+      if (!id) return
+      const def = byId.current.get(id)
+      // an unknown or secret id is treated as no id at all, rather than 404-ing the canvas
+      if (!def || def.secret) return writeCardParam(null)
+      linkTarget.current = id
+      /*
+       * eslint-disable-next-line react-hooks/set-state-in-effect --
+       * This is the case the rule's own guidance allows: a one-time read FROM an external system
+       * (the address bar) into React state. The heuristic cannot see that, and it fires the same
+       * way for a direct setPlaced here, so there is no phrasing that satisfies it. The boot
+       * layout above does the same work and escapes only because its calls sit deeper in loops.
+       * The cost is one extra commit, once per load, and only when a deep link was followed.
+       */
+      // eslint-disable-next-line react-hooks/set-state-in-effect
+      if (!placed[id]) open(id)
+      return
+    }
+
+    /*
+     * Phase 2: centre it, once it has a rect to centre.
+     *
+     * `open` reveals rather than centres — it pans the minimum needed and stops the moment the
+     * card clears the padding, which is right when a card is a side effect of clicking a dock
+     * icon and wrong when the card is the entire reason someone followed the link. Placement
+     * only lands on the next commit, so this cannot happen in the same pass as the open.
+     */
+    const id = linkTarget.current
+    if (!id || !placed[id]) return
+    linkTarget.current = null
+    raise(id)
+    const r = rectOf(id)
+    if (r) canvas.centre(r)
+  }, [ready, placed, open, raise, rectOf, canvas])
 
   return (
     <OpenCardContext.Provider value={open}>
