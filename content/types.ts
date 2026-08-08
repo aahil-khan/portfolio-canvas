@@ -30,12 +30,6 @@ export interface Profile {
   links: { label: string; href: string }[]
   /** Initials for the avatar. Two characters looks best. */
   initials: string
-  /**
-   * Shown under the hero on phones only. The canvas is the real thing here, and a thumb cannot
-   * pan, zoom or drag it — the phone shell is a readable substitute, not the whole idea. Set to
-   * '' to hide the line.
-   */
-  mobileNote: string
   /** Path under `public/` to the résumé PDF. Omit and the download links stay hidden. */
   resumePdf?: string
 }

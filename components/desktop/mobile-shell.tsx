@@ -3,6 +3,7 @@
 import { type PointerEvent as ReactPointerEvent, type ReactNode, useCallback, useEffect, useRef, useState } from 'react'
 
 import { play } from '@/lib/audio'
+import { mobile as mobileCopy } from '@/content'
 
 import { AppIcon } from './app-icon'
 import type { CardDef } from './card'
@@ -15,6 +16,8 @@ interface Props {
   dock: readonly DockItem[]
   externals: readonly DockItem[]
   hero: ReactNode
+  /** Back to the plain résumé, which is where a phone started. */
+  onLeave: () => void
 }
 
 /**
@@ -31,7 +34,7 @@ interface Props {
  * Every card body is the same server-rendered node the canvas uses, so the two shells can never
  * disagree about content.
  */
-export function MobileShell({ cards, dock, externals, hero }: Props) {
+export function MobileShell({ cards, dock, externals, hero, onLeave }: Props) {
   /** Card ids, deepest last. Empty means the hero is showing. */
   const [stack, setStack] = useState<string[]>([])
   const byId = new Map(cards.map((c) => [c.id, c]))
@@ -179,6 +182,11 @@ export function MobileShell({ cards, dock, externals, hero }: Props) {
     <OpenCardContext.Provider value={push}>
       <div className="m-shell">
         <header className="m-bar">
+          {/* the way back to what a phone opens on, since this shell replaced it wholesale */}
+          <button type="button" className="m-bar__back" onClick={onLeave}>
+            <span aria-hidden>← </span>
+            {mobileCopy.backToResume}
+          </button>
           <SoundMenu />
         </header>
 

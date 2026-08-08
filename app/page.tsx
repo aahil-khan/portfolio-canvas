@@ -1,7 +1,9 @@
 import { buildCards } from '@/components/apps/build-cards'
 import { Desktop } from '@/components/desktop/desktop'
 import { VisitPing } from '@/components/desktop/visit-ping'
-import { apps, externalApps, profile } from '@/content'
+import { MobileOffer } from '@/components/resume/mobile-offer'
+import { ResumeDoc } from '@/components/resume/resume-doc'
+import { apps, externalApps, mobile, profile } from '@/content'
 import { validateContent } from '@/content/validate'
 
 /*
@@ -30,7 +32,7 @@ function Hero() {
        * on a media query in JS. The hero is one server-rendered node shared by the canvas and
        * the phone — keeping it that way is what stops the two drifting apart.
        */}
-      {profile.mobileNote ? <p className="hero__note">{profile.mobileNote}</p> : null}
+      {mobile.heroNote ? <p className="hero__note">{mobile.heroNote}</p> : null}
     </div>
   )
 }
@@ -56,6 +58,13 @@ export default async function Page() {
         bootIds={['about', 'work', 'experience']}
         hero={<Hero />}
         heroWidth={HERO_WIDTH}
+        /*
+         * Server-rendered here and handed down, exactly like the hero and the card bodies. The
+         * canvas branch never renders it, so a desktop pays only for the element — and because
+         * it is the same `ResumeDoc` that `/resume` uses, the two can never say different things.
+         * No structured data: that belongs once, on the canonical `/resume`.
+         */
+        resume={<ResumeDoc top={<MobileOffer />} />}
       />
     </main>
   )

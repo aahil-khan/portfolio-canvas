@@ -253,3 +253,64 @@
 .resume__nav .resume__back {
   margin-bottom: 0;
 }
+
+/* ---------- the phone's offer to switch to the canvas ---------- */
+/*
+ * Only ever rendered on a phone, at the top of the résumé, and only there — so it is styled with
+ * the neobrutalist card treatment from DIRECTION.md rather than the résumé's quieter type. It is
+ * an interruption and should look like one; everything below it is the document.
+ */
+.m-offer {
+  margin: 0 0 2.75rem;
+  padding: 1.05rem 1.15rem 1.15rem;
+  border: var(--bw) solid var(--border);
+  border-radius: 14px;
+  /*
+   * Mixed from --ink, not --surface-alt. DIRECTION.md lists --surface-alt in the theme contract
+   * but no theme actually emits it, so `var(--surface-alt)` resolves to nothing and the card had
+   * no fill — invisible on the white résumé, and it would have stayed unfilled under every dark
+   * theme too. A mix of two tokens that do exist works everywhere.
+   */
+  background: color-mix(in srgb, var(--ink) 5%, var(--surface));
+  box-shadow: 4px 4px 0 0 var(--border);
+}
+.m-offer__title {
+  margin: 0 0 0.4rem;
+  font-size: 1rem;
+  font-weight: 700;
+  letter-spacing: -0.01em;
+  color: var(--ink);
+}
+.m-offer__body {
+  margin: 0 0 1rem;
+  font-size: 0.875rem;
+  line-height: 1.55;
+  color: var(--ink-muted);
+}
+.m-offer__go {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  /* 44px is the floor for a tap target; this is the only control on the screen */
+  min-height: 44px;
+  padding: 0.5rem 1.1rem;
+  font: inherit;
+  font-size: 0.875rem;
+  font-weight: 700;
+  border: var(--bw) solid var(--border);
+  border-radius: 999px;
+  background: var(--accent);
+  color: var(--accent-ink);
+  box-shadow: 3px 3px 0 0 var(--border);
+  cursor: pointer;
+  -webkit-tap-highlight-color: transparent;
+}
+.m-offer__go:active {
+  transform: translate(1px, 1px);
+  box-shadow: 2px 2px 0 0 var(--border);
+}
+@media (prefers-reduced-motion: reduce) {
+  .m-offer__go:active {
+    transform: none;
+  }
+}

@@ -2663,9 +2663,30 @@ html[data-mobile] #cursor {
 /* ---------- top bar ---------- */
 .m-bar {
   display: flex;
-  justify-content: flex-end;
+  align-items: center;
+  /* the way out on the left, sound on the right */
+  justify-content: space-between;
+  gap: 10px;
   padding: 10px 12px calc(10px + env(safe-area-inset-top));
   z-index: 40;
+}
+.m-bar__back {
+  flex: 0 1 auto;
+  min-width: 0;
+  min-height: 34px;
+  padding: 7px 13px;
+  font: inherit;
+  font-size: 13px;
+  font-weight: 500;
+  color: var(--ink);
+  background: color-mix(in srgb, var(--surface) 90%, transparent);
+  border: 1.5px solid color-mix(in srgb, var(--border) 22%, transparent);
+  border-radius: 999px;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  cursor: pointer;
+  -webkit-tap-highlight-color: transparent;
 }
 /* the sound menu is shared with the desktop, so re-anchor it to this corner */
 .m-bar .arrange__menu {

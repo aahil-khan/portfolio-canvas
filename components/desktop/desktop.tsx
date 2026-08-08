@@ -8,6 +8,7 @@ import {
   useMemo,
   useRef,
   useState,
+  useSyncExternalStore,
 } from 'react'
 
 import {
@@ -23,6 +24,12 @@ import { noteOpen } from '@/lib/opens'
 import { clearSession, loadSession, saveSession } from '@/lib/canvas/session'
 import { useCanvas } from '@/lib/canvas/use-canvas'
 import { useIsMobile } from '@/lib/use-mobile'
+import {
+  getInteractiveServerSnapshot,
+  getInteractiveSnapshot,
+  setInteractive,
+  subscribeInteractive,
+} from '@/lib/interactive-mode'
 import { useDragObject } from '@/lib/canvas/use-drag-object'
 import { resumeAmbienceOnFirstGesture } from '@/lib/ambience'
 import { play } from '@/lib/audio'
@@ -39,6 +46,7 @@ import { MeasureRig } from './measure-rig'
 import { Hint } from './hint'
 import { CommandPalette, type PaletteActions } from './command-palette'
 import { MobileShell } from './mobile-shell'
+import { EnterInteractiveContext } from './mobile-mode'
 import { OpenCardContext } from './open-context'
 
 interface Placed {
@@ -58,6 +66,11 @@ interface Props {
   bootIds: readonly string[]
   hero: ReactNode
   heroWidth: number
+  /**
+   * The plain résumé, server-rendered. What a phone sees before it asks for anything else; the
+   * canvas never renders it, so it costs a desktop nothing but the element.
+   */
+  resume: ReactNode
 }
 
 const HERO = '__hero'
@@ -79,10 +92,40 @@ const KONAMI = [
  */
 export function Desktop(props: Props) {
   const mobile = useIsMobile()
-  return mobile ? (
-    <MobileShell cards={props.cards} dock={props.dock} externals={props.externals} hero={props.hero} />
-  ) : (
-    <CanvasDesktop {...props} />
+  const interactive = useSyncExternalStore(
+    subscribeInteractive,
+    getInteractiveSnapshot,
+    getInteractiveServerSnapshot,
+  )
+
+  const enter = useCallback(() => {
+    setInteractive(true)
+    // the résumé may be scrolled halfway down, and the shell is fixed — it would open mid-page
+    window.scrollTo(0, 0)
+  }, [])
+
+  const leave = useCallback(() => setInteractive(false), [])
+
+  if (!mobile) return <CanvasDesktop {...props} />
+
+  /*
+   * A phone gets the résumé first. The canvas is the better version of this site and also the one
+   * a thumb cannot drive, so it is offered rather than imposed — and the offer says so.
+   */
+  if (!interactive) {
+    return (
+      <EnterInteractiveContext.Provider value={enter}>{props.resume}</EnterInteractiveContext.Provider>
+    )
+  }
+
+  return (
+    <MobileShell
+      cards={props.cards}
+      dock={props.dock}
+      externals={props.externals}
+      hero={props.hero}
+      onLeave={leave}
+    />
   )
 }
 
