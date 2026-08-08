@@ -2,6 +2,7 @@
 
 import { useEffect } from 'react'
 
+import { noteReferrer } from '@/lib/opens'
 import { markVisit } from '@/lib/visits'
 
 /**
@@ -21,6 +22,7 @@ export function VisitPing() {
     if (pinged) return
     pinged = true
     markVisit()
+    noteReferrer()
     // keepalive so the request survives someone bouncing straight back off the page
     fetch('/api/visitors', { method: 'POST', keepalive: true }).catch(() => {
       /* counting is the least important thing on this page */

@@ -139,6 +139,8 @@ const mem = {
     geo: new Map<string, number>(),
     since: 0,
   },
+  opens: new Map<string, number>(),
+  refs: new Map<string, number>(),
 }
 
 /* ------------------------------------------------------------------ notes */
@@ -441,6 +443,95 @@ export async function getVisitors(): Promise<Visitors> {
     since: Number(since) || null,
     live: true,
   }
+}
+
+/* ----------------------------------------------------------- card opens */
+
+/**
+ * Which cards people actually open.
+ *
+ * The Visitors card answers "how many people"; this answers "and what did they look at", which
+ * is the question that changes what goes on the site. It is deliberately not public: a project
+ * nobody opens is useful to know and embarrassing to publish.
+ *
+ * A plain hash of counters — no per-visitor rows, so this cannot be turned into a session
+ * replay even by whoever holds the token. It says a card was opened N times, and nothing about
+ * who or in what order.
+ */
+
+const C = {
+  opens: `${VNS}:opens`,
+  openDay: (d: string) => `${VNS}:opens:${d}`,
+  referrers: `${VNS}:refs`,
+} as const
+
+/** Cards opened per day are kept for a fortnight; the all-time hash never expires. */
+const OPEN_DAY_TTL_SEC = 14 * 86_400
+
+export interface CardOpens {
+  /** Card id → times opened, all time, largest first. */
+  cards: { id: string; n: number }[]
+  /** Referrer host → visits, largest first. Empty for direct traffic, which is not counted. */
+  referrers: { host: string; n: number }[]
+  total: number
+}
+
+const NO_OPENS: CardOpens = { cards: [], referrers: [], total: 0 }
+
+/**
+ * Records that a card was opened, and where the visitor came from.
+ *
+ * Both are capped by the caller — an id that is not a real card, or a host longer than a
+ * hostname can be, never reaches here.
+ */
+export async function recordOpens(ids: string[], referrer: string | null): Promise<void> {
+  if (!ids.length && !referrer) return
+  const today = utcDay()
+
+  if (!live) {
+    fallbackWarning()
+    for (const id of ids) {
+      mem.opens.set(id, (mem.opens.get(id) ?? 0) + 1)
+    }
+    if (referrer) mem.refs.set(referrer, (mem.refs.get(referrer) ?? 0) + 1)
+    return
+  }
+
+  const cmds: (string | number)[][] = []
+  for (const id of ids) {
+    cmds.push(['HINCRBY', C.opens, id, 1])
+    cmds.push(['HINCRBY', C.openDay(today), id, 1])
+  }
+  if (ids.length) cmds.push(['EXPIRE', C.openDay(today), OPEN_DAY_TTL_SEC])
+  if (referrer) cmds.push(['HINCRBY', C.referrers, referrer, 1])
+  await pipe(cmds)
+}
+
+export async function getOpens(): Promise<CardOpens> {
+  if (!live) {
+    fallbackWarning()
+    const cards = [...mem.opens.entries()].map(([id, n]) => ({ id, n })).sort((a, b) => b.n - a.n)
+    return {
+      cards,
+      referrers: [...mem.refs.entries()].map(([host, n]) => ({ host, n })).sort((a, b) => b.n - a.n),
+      total: cards.reduce((t, c) => t + c.n, 0),
+    }
+  }
+
+  const out = await pipe([
+    ['HGETALL', C.opens],
+    ['HGETALL', C.referrers],
+  ])
+  if (!out) return NO_OPENS
+
+  const cards = Object.entries(readHash(out[0]))
+    .map(([id, n]) => ({ id, n: Number(n) || 0 }))
+    .sort((a, b) => b.n - a.n)
+  const referrers = Object.entries(readHash(out[1]))
+    .map(([host, n]) => ({ host, n: Number(n) || 0 }))
+    .sort((a, b) => b.n - a.n)
+
+  return { cards, referrers, total: cards.reduce((t, c) => t + c.n, 0) }
 }
 
 /* -------------------------------------------------------------- rate limit */

@@ -19,6 +19,7 @@ import {
 } from '@/lib/canvas/geometry'
 import { arrangements } from '@/lib/canvas/arrange'
 import { clearCardParam, readCardParam, writeCardParam } from '@/lib/deep-link'
+import { noteOpen } from '@/lib/opens'
 import { clearSession, loadSession, saveSession } from '@/lib/canvas/session'
 import { useCanvas } from '@/lib/canvas/use-canvas'
 import { useIsMobile } from '@/lib/use-mobile'
@@ -387,6 +388,7 @@ function CanvasDesktop({ cards, dock, externals, bootIds, hero, heroWidth }: Pro
       if (!def) return
       // secret cards stay out of the address bar; a shared link should not give away an egg
       if (!def.secret) writeCardParam(id)
+      noteOpen(id)
       const h = heights.current.get(id) ?? 320 // rig fills these in; fallback is a last resort
       const vp = canvas.viewport()
       const centre = canvas.screenToWorld(vp.width / 2, vp.height / 2)

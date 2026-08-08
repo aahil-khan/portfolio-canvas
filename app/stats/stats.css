@@ -1,0 +1,50 @@
+/* The private stats page. Borrows resume.css and work.css; only the tables are new. */
+.stats__table {
+  width: 100%;
+  border-collapse: collapse;
+  font-size: 0.875rem;
+}
+.stats__table td {
+  padding: 5px 0;
+  border-top: 1.5px solid color-mix(in srgb, var(--ink) 12%, transparent);
+  vertical-align: baseline;
+}
+.stats__table tr:first-child td {
+  border-top: 0;
+}
+.stats__name {
+  white-space: nowrap;
+  padding-right: 12px !important;
+}
+.stats__name em {
+  font-style: normal;
+  font-size: 0.75rem;
+  color: var(--ink-subtle);
+}
+.stats__viz {
+  width: 100%;
+}
+.stats__n {
+  text-align: right;
+  font-variant-numeric: tabular-nums;
+  font-weight: 700;
+  padding-left: 12px !important;
+  white-space: nowrap;
+}
+/* a bar rather than a chart: this page is read by one person and never printed */
+.stats__bar {
+  display: block;
+  height: 8px;
+  border-radius: 4px;
+  background: color-mix(in srgb, var(--ink) 8%, transparent);
+}
+.stats__bar > span {
+  display: block;
+  height: 100%;
+  border-radius: 4px;
+  background: var(--accent);
+}
+.stats__none {
+  color: var(--ink-subtle);
+  font-size: 0.875rem;
+}
