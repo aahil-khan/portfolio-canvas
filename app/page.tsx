@@ -28,7 +28,7 @@ function Hero() {
   )
 }
 
-export default function Page() {
+export default async function Page() {
   const dock = apps.map((a) => ({ id: a.id, label: a.label, icon: a.icon, colour: a.colour }))
   const externals = externalApps.map((a) => ({
     id: a.id,
@@ -41,7 +41,7 @@ export default function Page() {
   return (
     <main>
       <Desktop
-        cards={buildCards()}
+        cards={await buildCards()}
         dock={dock}
         externals={externals}
         bootIds={['about', 'work', 'experience']}

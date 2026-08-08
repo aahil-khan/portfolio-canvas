@@ -18,6 +18,17 @@ const S = {
 }
 
 const ICONS: Record<string, ReactElement<SVGProps<SVGSVGElement>>> = {
+  // a grid of squares: the contribution calendar
+  graph: (
+    <svg {...S}>
+      <rect x="3" y="4" width="5" height="5" rx="1" />
+      <rect x="10" y="4" width="5" height="5" rx="1" />
+      <rect x="3" y="11" width="5" height="5" rx="1" />
+      <rect x="17" y="11" width="4" height="5" rx="1" />
+      <rect x="10" y="11" width="5" height="5" rx="1" />
+      <rect x="3" y="18" width="12" height="2.5" rx="1" />
+    </svg>
+  ),
   // a person: about
   about: (
     <svg {...S}>

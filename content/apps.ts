@@ -20,6 +20,7 @@ export const apps: readonly AppDef[] = [
   { id: 'resume', label: 'Résumé', icon: 'resume', colour: '#FFE0A3', tint: '#FFF3DC', width: 470, rotate: 0.9 },
   { id: 'themes', label: 'Themes', icon: 'themes', colour: '#FFC2E2', tint: '#FFE7F3', width: 600, rotate: -0.4 },
   { id: 'contact', label: 'Contact', icon: 'contact', colour: '#B8F2E6', tint: '#E6FBF7', width: 480, rotate: 0.6 },
+  { id: 'contributions', label: 'Contributions', icon: 'graph', colour: '#8FD694', tint: '#E4F4E5', width: 660, rotate: 0.5 },
 ]
 
 /** Rendered after a divider at the end of the dock. These leave the site. */

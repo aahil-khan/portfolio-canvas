@@ -5,7 +5,10 @@ import { DetailRow } from '@/components/apps/interactive'
 import { ArchiveFeed } from '@/components/apps/archive-feed'
 import { Shots } from '@/components/apps/shots'
 import { ArchiveFull } from '@/components/apps/archive-full'
+import { ContributionGraph } from '@/components/apps/contributions'
 import { ThemePicker } from '@/components/apps/theme-picker'
+import { contributions } from '@/content/contributions'
+import { fetchContributions } from '@/lib/github'
 import {
   ARCHIVE_KINDS,
   apps,
@@ -78,7 +81,14 @@ function StackChips({ names }: { names: readonly string[] }) {
   )
 }
 
-export function buildCards(): CardDef[] {
+/**
+ * Async because the contributions card is fetched, not authored.
+ *
+ * That fetch is deliberately here rather than in a client component: it keeps the calendar out
+ * of the client bundle, gives the card a height that is already correct when MeasureRig measures
+ * it, and avoids the rig firing a duplicate request at page load for a card nobody opened.
+ */
+export async function buildCards(): Promise<CardDef[]> {
   const cards: CardDef[] = []
   const push = (id: string, body: ReactNode, over?: Partial<CardDef>) => {
     const a = app(id)
@@ -234,6 +244,8 @@ export function buildCards(): CardDef[] {
       </div>
     </>,
   )
+
+  push('contributions', <ContributionGraph data={await fetchContributions(contributions.login)} />)
 
   /* --- an archive entry's image, opened on its own --- */
   for (const a of archive) {

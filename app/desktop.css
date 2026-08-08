@@ -742,6 +742,109 @@ button.item:focus-visible .ttl::after {
   font-variant-numeric: tabular-nums;
 }
 
+/* ---------- contribution graph ---------- */
+.gh {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+/*
+ * 53 columns of 9px + 2.5px gaps = 609px, which clears the 620px inner width of a 660 card.
+ * Rows are the fixed axis and the flow is by column, so each week is one column, Sunday at top.
+ */
+.gh__grid {
+  display: grid;
+  grid-auto-flow: column;
+  grid-template-rows: repeat(7, 9px);
+  gap: 2.5px;
+}
+.gh__d {
+  width: 9px;
+  height: 9px;
+  border-radius: 2px;
+  background: var(--l0);
+}
+.gh__d--pad {
+  background: transparent;
+}
+.gh__d[data-l='1'] {
+  background: var(--l1);
+}
+.gh__d[data-l='2'] {
+  background: var(--l2);
+}
+.gh__d[data-l='3'] {
+  background: var(--l3);
+}
+.gh__d[data-l='4'] {
+  background: var(--l4);
+}
+/*
+ * Ramp is mixed from the card's own colour against --surface, so it follows every theme instead
+ * of sitting on a dark canvas as a fixed slab. A monochrome ink ramp was tried first and read as
+ * grey static — the levels didn't separate and a five-week gap in the data was invisible.
+ */
+.gh {
+  --l0: color-mix(in srgb, var(--ink) 7%, var(--surface));
+  --l1: color-mix(in srgb, var(--c) 34%, var(--surface));
+  --l2: color-mix(in srgb, var(--c) 62%, var(--surface));
+  --l3: var(--c);
+  --l4: color-mix(in srgb, var(--c) 74%, var(--ink));
+}
+.gh__months {
+  display: grid;
+  gap: 2.5px;
+  font-size: 0.625rem;
+  font-weight: 700;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+  color: var(--ink-subtle);
+  height: 12px;
+}
+/* labels are wider than the 9px column they start in, and are allowed to overrun it */
+.gh__months span {
+  white-space: nowrap;
+}
+.gh__foot {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  font-size: 0.6875rem;
+  font-weight: 700;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+  color: var(--ink-subtle);
+}
+.gh__key {
+  display: flex;
+  align-items: center;
+  gap: 3px;
+  margin-left: auto;
+}
+.gh__empty {
+  height: 112px;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 4px;
+  text-align: center;
+  border: 2px dashed var(--border);
+  border-radius: var(--radius-chip);
+  background: var(--c-soft);
+  color: var(--ink-subtle);
+  font-size: 0.75rem;
+  font-weight: 700;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+}
+.gh__empty small {
+  font-weight: 400;
+  letter-spacing: 0.02em;
+  text-transform: none;
+  font-size: 0.8125rem;
+}
+
 /* ---------- theme picker ---------- */
 .theme-group + .theme-group {
   margin-top: 16px;
