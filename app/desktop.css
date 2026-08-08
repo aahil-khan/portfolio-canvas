@@ -1554,6 +1554,51 @@ button.item:focus-visible .ttl::after {
   font-size: 0.8125rem;
 }
 
+/* ---------- now ---------- */
+/* one grid, same reason as the tutorial sheet: labels in a column that actually lines up */
+.now {
+  display: grid;
+  grid-template-columns: max-content 1fr;
+  gap: 10px 14px;
+  align-items: baseline;
+  margin: 16px 0 0;
+}
+.now__label {
+  font-size: 0.625rem;
+  font-weight: 700;
+  letter-spacing: 0.07em;
+  text-transform: uppercase;
+  color: var(--ink-subtle);
+  white-space: nowrap;
+}
+.now > span {
+  color: var(--ink-muted);
+}
+.now__stamp {
+  margin: 16px 0 0 !important;
+  padding-top: 12px;
+  border-top: 1.5px solid color-mix(in srgb, var(--ink) 15%, transparent);
+  font-size: 0.6875rem !important;
+  font-weight: 700;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+  color: var(--ink-subtle) !important;
+}
+.now__foot {
+  margin: 6px 0 0 !important;
+  font-size: 0.8125rem !important;
+  color: var(--ink-subtle) !important;
+}
+@media (max-width: 560px) {
+  .now {
+    grid-template-columns: 1fr;
+    gap: 2px;
+  }
+  .now > span {
+    margin-bottom: 10px;
+  }
+}
+
 /* ---------- tutorial ---------- */
 .tut {
   display: grid;

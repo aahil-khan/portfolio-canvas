@@ -21,6 +21,7 @@ export const apps: readonly AppDef[] = [
   { id: 'themes', label: 'Themes', icon: 'themes', colour: '#FFC2E2', tint: '#FFE7F3', width: 600, rotate: -0.4 },
   { id: 'contact', label: 'Contact', icon: 'contact', colour: '#B8F2E6', tint: '#E6FBF7', width: 480, rotate: 0.6 },
   { id: 'contributions', label: 'Contributions', icon: 'graph', colour: '#8FD694', tint: '#E4F4E5', width: 660, rotate: 0.5 },
+  { id: 'now', label: 'Now', icon: 'now', colour: '#C9E4C5', tint: '#E9F5E7', width: 520, rotate: -0.9 },
   { id: 'tutorial', label: 'How it works', icon: 'tutorial', colour: '#F7D9B0', tint: '#FCEFDE', width: 540, rotate: 0.6 },
   { id: 'visitors', label: 'Visitors', icon: 'visitors', colour: '#BCC7F5', tint: '#E7EBFC', width: 560, rotate: -0.5 },
   { id: 'notes', label: 'Notes', icon: 'notes', colour: '#E6D3B3', tint: '#F5EBDB', width: 520, rotate: -0.6 },

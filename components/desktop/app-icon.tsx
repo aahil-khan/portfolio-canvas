@@ -46,6 +46,13 @@ const ICONS: Record<string, ReactElement<SVGProps<SVGSVGElement>>> = {
       <rect x="3" y="18" width="12" height="2.5" rx="1" />
     </svg>
   ),
+  // a clock: what is happening at the moment
+  now: (
+    <svg {...S}>
+      <circle cx="12" cy="12" r="8.5" />
+      <path d="M12 7.5V12l3 2" />
+    </svg>
+  ),
   // a pointer with motion trails: how to drive the thing
   tutorial: (
     <svg {...S}>

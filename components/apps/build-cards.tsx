@@ -18,6 +18,7 @@ import { NotesWall } from '@/components/apps/notes'
 import { ThemePicker } from '@/components/apps/theme-picker'
 import { Visitors } from '@/components/apps/visitors'
 import { contributions } from '@/content/contributions'
+import { now } from '@/content/now'
 import { tutorial } from '@/content/tutorial'
 import { fetchContributions } from '@/lib/github'
 import { storeIsLive } from '@/lib/store'
@@ -112,6 +113,38 @@ function Tutorial() {
         <b className="tut__label">{tutorial.footLabel}</b>
         <p className="tut__foot">{tutorial.foot}</p>
       </div>
+    </>
+  )
+}
+
+/**
+ * "Now" — what is happening at the moment.
+ *
+ * The date is formatted from a `YYYY-MM` string with an explicit UTC day, not `new Date(str)`
+ * on a bare month: that parses as UTC midnight and then prints in the server's local zone,
+ * which renders "July" for an August date anywhere west of Greenwich.
+ */
+function Now() {
+  const [y, m] = now.updated.split('-').map(Number)
+  const stamp = new Date(Date.UTC(y, m - 1, 1)).toLocaleDateString('en-GB', {
+    month: 'long',
+    year: 'numeric',
+    timeZone: 'UTC',
+  })
+
+  return (
+    <>
+      <p className="lede">{now.lede}</p>
+      <div className="now">
+        {now.items.map((i) => (
+          <Fragment key={i.label}>
+            <b className="now__label">{i.label}</b>
+            <span>{i.what}</span>
+          </Fragment>
+        ))}
+      </div>
+      <p className="now__stamp">Last updated {stamp}</p>
+      {now.foot ? <p className="now__foot">{now.foot}</p> : null}
     </>
   )
 }
@@ -300,6 +333,8 @@ export async function buildCards(): Promise<CardDef[]> {
    * renders whichever of the two shapes — real card or empty state — will actually be shown,
    * so the height it measures is the height the card ends up having.
    */
+  push('now', <Now />)
+
   push('tutorial', <Tutorial />)
 
   push('visitors', <Visitors configured={storeIsLive} />)
