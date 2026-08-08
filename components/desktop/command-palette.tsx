@@ -237,7 +237,7 @@ export function CommandPalette({
     out.push(
       { id: 'ext:resume', group: 'Elsewhere', chip: 'Elsewhere', label: 'Open résumé', hint: '/resume', keywords: 'cv print pdf page', run: () => router.push('/resume') },
       { id: 'ext:gh', group: 'Elsewhere', chip: 'Elsewhere', label: 'GitHub', keywords: 'code repo profile', run: () => window.open('https://github.com/aahil-khan', '_blank', 'noopener,noreferrer') },
-      { id: 'ext:li', group: 'Elsewhere', chip: 'Elsewhere', label: 'LinkedIn', keywords: 'profile work', run: () => window.open('https://linkedin.com/in/aahil-khan', '_blank', 'noopener,noreferrer') },
+      { id: 'ext:li', group: 'Elsewhere', chip: 'Elsewhere', label: 'LinkedIn', keywords: 'profile work', run: () => window.open('https://www.linkedin.com/in/aahil-khan77/', '_blank', 'noopener,noreferrer') },
     )
 
     return out

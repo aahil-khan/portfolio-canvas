@@ -71,7 +71,7 @@ export const projects: readonly Project[] = [
       'Sessionization with context-boundary detection, so your tax admin and your holiday research never end up in the same context.',
     ],
     stack: ['React', 'TypeScript'],
-    images: ['/work/konta-1.webp', '/work/konta-2.webp', '/work/konta-3.webp'],
+    images: ['/work/konta-3.webp', '/work/konta-2.webp', '/work/konta-1.webp'],
     links: [
       { label: 'Releases', href: 'https://github.com/konta-oss/konta/releases' },
       { label: 'Repo', href: 'https://github.com/konta-oss/konta' },

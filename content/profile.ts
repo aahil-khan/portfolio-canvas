@@ -18,7 +18,7 @@ export const profile: Profile = {
   ],
   links: [
     { label: 'GitHub', href: 'https://github.com/aahil-khan' },
-    { label: 'LinkedIn', href: 'https://www.linkedin.com/in/aahil-khan-015671287/' },
+    { label: 'LinkedIn', href: 'https://www.linkedin.com/in/aahil-khan77/' },
     { label: 'Email', href: 'mailto:aahilminookhan@gmail.com' },
   ],
 }
