@@ -66,19 +66,29 @@ interface ApiResponse {
 const MONTH = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec']
 
 /**
- * Buckets counts into the five ramp steps.
+ * Thresholds for the four active ramp steps, as quartiles of the ACTIVE days.
  *
- * Thresholds come from the busiest day rather than fixed numbers: a fixed scale makes a quiet
- * year look empty and a busy one look uniformly maxed. Any non-zero day is at least level 1, so
- * a day you did something on never renders as a blank square.
+ * Scaling off the busiest day is the obvious approach and it looks terrible on real data: one
+ * 90-commit outlier put 124 of 144 active days into the faintest shade and left the graph
+ * reading as binary. Quartiles of the distribution spread the days evenly across the four
+ * shades regardless of how lopsided the year was — which is what GitHub's own graph does.
+ *
+ * Fixed cutoffs are worse again: they make a quiet year look empty and a busy one uniformly
+ * maxed.
  */
-function levelFor(count: number, max: number): number {
+function thresholds(counts: number[]): [number, number, number] {
+  const active = counts.filter((c) => c > 0).sort((a, b) => a - b)
+  if (!active.length) return [1, 2, 3]
+  const at = (p: number) => active[Math.min(active.length - 1, Math.floor(active.length * p))]
+  return [at(0.25), at(0.5), at(0.75)]
+}
+
+/** Any non-zero day is at least level 1, so a day you did something on is never blank. */
+function levelFor(count: number, [t1, t2, t3]: [number, number, number]): number {
   if (count <= 0) return 0
-  if (max <= 1) return 1
-  const q = count / max
-  if (q > 0.75) return 4
-  if (q > 0.5) return 3
-  if (q > 0.25) return 2
+  if (count > t3) return 4
+  if (count > t2) return 3
+  if (count > t1) return 2
   return 1
 }
 
@@ -120,9 +130,9 @@ export async function fetchContributions(login: string): Promise<Contributions |
   const raw = cal.weeks.map((w) =>
     w.contributionDays.map((d) => ({ date: d.date, count: d.contributionCount })),
   )
-  const max = Math.max(1, ...raw.flat().map((d) => d.count))
+  const cuts = thresholds(raw.flat().map((d) => d.count))
   const weeks: (Day | null)[][] = raw.map((w, wi) => {
-    const days: (Day | null)[] = w.map((d) => ({ ...d, level: levelFor(d.count, max) }))
+    const days: (Day | null)[] = w.map((d) => ({ ...d, level: levelFor(d.count, cuts) }))
     if (days.length === 7 || days.length === 0) return days
     // a short first week is missing days at the START; any other short week, at the end
     if (wi === 0) {
