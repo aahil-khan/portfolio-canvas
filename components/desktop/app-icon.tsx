@@ -46,6 +46,12 @@ const ICONS: Record<string, ReactElement<SVGProps<SVGSVGElement>>> = {
       <rect x="3" y="18" width="12" height="2.5" rx="1" />
     </svg>
   ),
+  // rising bars: the visitor chart
+  visitors: (
+    <svg {...S}>
+      <path d="M4 20V13.5M9.33 20V9M14.67 20v-8M20 20V4.5" />
+    </svg>
+  ),
   // a person: about
   about: (
     <svg {...S}>

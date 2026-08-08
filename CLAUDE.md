@@ -51,6 +51,7 @@ catch yourself typing prose into a component, it belongs in a content file inste
 | `writing.ts` | posts |
 | `stack.ts` | the tool shelf and logo paths |
 | `apps.ts` | the dock order, card colours and widths |
+| `visitors.ts` | copy for the Visitors card; the numbers come from Redis, not from here |
 
 Assets: project and role screenshots go in `public/work/`, listed in `images: []` — one renders
 as a plain frame, several as a carousel. The résumé PDF goes in `public/` (set

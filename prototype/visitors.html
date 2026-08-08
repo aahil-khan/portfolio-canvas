@@ -1,0 +1,308 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>P — visitors card, round 3</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@400;500;700&display=swap" rel="stylesheet">
+<style>
+*{box-sizing:border-box}
+.pane{
+  --bw:2px; --radius-window:12px; --radius-chip:8px;
+  --ease-out:cubic-bezier(.16,1,.3,1);
+  padding:32px 36px 40px;
+}
+/* cream */
+.pane[data-t="cream"]{
+  --surface:#FFFFFF;--surface-sunken:#F4F2EA;--ink:#161616;
+  --ink-muted:rgba(22,22,22,.62);--ink-subtle:rgba(22,22,22,.45);--border:#161616;
+  background:linear-gradient(180deg,#FBFAF6 0%,#F7F5EE 36%,#F1EFE6 100%);
+}
+/* tokyo-night */
+.pane[data-t="tokyo"]{
+  --surface:#16161E;--surface-sunken:#1A1B26;--ink:#C0CAF5;
+  --ink-muted:#A9B1D6;--ink-subtle:#949EC8;--border:#C0CAF5;
+  background:#1A1B26;
+}
+/* gruvbox dark */
+.pane[data-t="gruv"]{
+  --surface:#32302F;--surface-sunken:#282828;--ink:#EBDBB2;
+  --ink-muted:#D5C4A1;--ink-subtle:#BDAE93;--border:#EBDBB2;
+  background:#282828;
+}
+body{margin:0;font-family:"Space Grotesk",system-ui,sans-serif;-webkit-font-smoothing:antialiased}
+h1{font-size:.75rem;font-weight:700;letter-spacing:.09em;text-transform:uppercase;color:var(--ink-subtle);margin:0 0 18px}
+.row{display:flex;gap:34px;align-items:flex-start;flex-wrap:wrap}
+.lab{font-size:.625rem;font-weight:700;letter-spacing:.09em;text-transform:uppercase;color:var(--ink-subtle);margin:0 0 8px}
+
+.card{width:520px;background:var(--surface);color:var(--ink);border:var(--bw) solid var(--border);border-radius:var(--radius-window);box-shadow:6px 6px 0 0 var(--border);overflow:hidden}
+.card__bar{display:flex;align-items:center;gap:8px;padding:9px 12px;background:var(--c);border-bottom:var(--bw) solid var(--border);color:var(--on-app);font-size:.9375rem;font-weight:500;letter-spacing:-.005em}
+.card__bar svg{display:block}
+.card__body{padding:18px 20px 20px;font-size:.9375rem;line-height:1.6}
+.card__body > :first-child{margin-top:0}
+.lede{font-size:1.0625rem;line-height:1.5;color:var(--ink);margin:0}
+.lede strong{font-weight:700}
+.chip{display:inline-block;font-size:.6875rem;font-weight:700;letter-spacing:.05em;text-transform:uppercase;border:1.5px solid var(--border);border-radius:var(--radius-chip);padding:3px 8px;background:var(--c-soft);color:var(--on-app)}
+.stats{display:flex;gap:20px;flex-wrap:wrap;margin-top:16px;padding-top:14px;border-top:var(--bw) dashed color-mix(in srgb,var(--ink) 22%,transparent)}
+.stat b{display:block;font-size:1.5rem;font-weight:700;letter-spacing:-.025em;line-height:1.05;font-variant-numeric:tabular-nums}
+.stat span{font-size:.625rem;font-weight:700;letter-spacing:.07em;text-transform:uppercase;color:var(--ink-subtle)}
+
+/* ============ VISITORS ============ */
+.vis{display:flex;flex-direction:column;gap:13px;min-width:0}
+.vis__head{display:flex;align-items:flex-start;gap:12px}
+.vis__head .lede{flex:1}
+
+.vis__live{
+  display:inline-flex;align-items:center;gap:7px;white-space:nowrap;
+  font-size:.6875rem;font-weight:700;letter-spacing:.06em;text-transform:uppercase;
+  border:1.5px solid var(--border);border-radius:999px;padding:4px 11px 4px 9px;
+  background:color-mix(in srgb,var(--c) 26%,var(--surface));color:var(--ink);margin-top:2px;
+}
+.vis__dot{position:relative;width:7px;height:7px;border-radius:999px;background:var(--ink);flex:0 0 auto}
+.vis__dot::after{content:'';position:absolute;inset:0;border-radius:999px;background:var(--ink);animation:ping 1.9s var(--ease-out) infinite}
+@keyframes ping{0%{transform:scale(1);opacity:.5}70%{transform:scale(3);opacity:0}100%{opacity:0}}
+@media (prefers-reduced-motion: reduce){.vis__dot::after{animation:none}}
+
+/*
+ * A bar chart, not a heatmap: height already carries the value, so a colour ramp on top of it
+ * is a second encoding of the same number. One colour, and today gets the border.
+ */
+.vis__chart{display:flex;flex-direction:column;gap:5px}
+.vis__bars{display:grid;grid-auto-flow:column;grid-auto-columns:1fr;gap:4px;height:56px;align-items:end}
+.vis__bar{border-radius:3px 3px 1px 1px;min-height:3px;background:color-mix(in srgb,var(--c) 64%,var(--surface))}
+.vis__bar--zero{background:color-mix(in srgb,var(--ink) 9%,var(--surface))}
+.vis__bar--today{background:var(--c);box-shadow:inset 0 0 0 1.5px var(--border)}
+.vis__axis{display:flex;justify-content:space-between;font-size:.625rem;font-weight:700;letter-spacing:.06em;text-transform:uppercase;color:var(--ink-subtle)}
+
+.vis__geo{display:flex;flex-wrap:wrap;gap:5px}
+.vis__geo .chip i{font-style:normal;font-variant-numeric:tabular-nums;margin-left:6px;font-weight:500;
+  /* chips sit on the fixed light --c-soft in EVERY theme, so this must key off --on-app.
+     Keyed off --ink-muted it went light-on-light and vanished in Gruvbox and Tokyo Night. */
+  color:color-mix(in srgb,var(--on-app) 62%,var(--c-soft));}
+
+.vis__you{margin:0;font-size:.8125rem;line-height:1.5;color:var(--ink-subtle);padding-top:12px;border-top:1.5px solid color-mix(in srgb,var(--ink) 15%,transparent)}
+.vis__you b{color:var(--ink-muted);font-weight:700}
+
+.dock{display:inline-flex;gap:6px;padding:12px;border-radius:22px;background:color-mix(in srgb,var(--surface) 55%,transparent);border:1.5px solid color-mix(in srgb,var(--ink) 14%,transparent)}
+.tile{width:54px;height:54px;border-radius:23.5%;border:var(--bw) solid #161616;display:grid;place-items:center;font-size:.5rem;font-weight:700;text-transform:uppercase;text-align:center;line-height:1.1;padding:2px;color:#161616}
+</style>
+</head>
+<body>
+
+<div class="pane" data-t="cream">
+<h1>Round 3 · cream — single-colour bars, periwinkle vs aqua</h1>
+<div class="row">
+
+  <div>
+    <p class="lab">periwinkle #BCC7F5</p>
+    <div class="card" style="--c:#BCC7F5;--c-soft:#E7EBFC;--on-app:#161616">
+      <div class="card__bar">
+        <svg width="21" height="21" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M3 20V13M8.5 20V8M14 20v-9M19.5 20V4"/></svg>
+        Visitors
+      </div>
+      <div class="card__body">
+        <div class="vis">
+          <div class="vis__head">
+            <p class="lede"><strong>1,284</strong> people have opened this canvas.</p>
+            <span class="vis__live"><span class="vis__dot"></span>3 now</span>
+          </div>
+          <div class="vis__chart">
+            <div class="vis__bars">
+              <i class="vis__bar" style="height:22%"></i><i class="vis__bar" style="height:41%"></i><i class="vis__bar" style="height:28%"></i><i class="vis__bar vis__bar--zero" style="height:3px"></i><i class="vis__bar" style="height:64%"></i><i class="vis__bar" style="height:47%"></i><i class="vis__bar" style="height:39%"></i><i class="vis__bar" style="height:100%"></i><i class="vis__bar" style="height:71%"></i><i class="vis__bar" style="height:25%"></i><i class="vis__bar" style="height:18%"></i><i class="vis__bar" style="height:44%"></i><i class="vis__bar" style="height:69%"></i><i class="vis__bar vis__bar--today" style="height:38%"></i>
+            </div>
+            <div class="vis__axis"><span>14 days ago</span><span>today</span></div>
+          </div>
+          <div class="vis__geo">
+            <span class="chip">India <i>612</i></span><span class="chip">US <i>284</i></span><span class="chip">UK <i>96</i></span><span class="chip">+19 more</span>
+          </div>
+        </div>
+        <div class="stats">
+          <span class="stat"><b>47</b><span>today</span></span>
+          <span class="stat"><b>3,902</b><span>views</span></span>
+          <span class="stat"><b>3.0</b><span>per visitor</span></span>
+          <span class="stat"><b>22</b><span>countries</span></span>
+        </div>
+        <p class="vis__you">Your <b>4th</b> visit — the first was <b>12 days ago</b>.</p>
+      </div>
+    </div>
+  </div>
+
+  <div>
+    <p class="lab">aqua #9FD8E8</p>
+    <div class="card" style="--c:#9FD8E8;--c-soft:#E2F2F8;--on-app:#161616">
+      <div class="card__bar">
+        <svg width="21" height="21" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M3 20V13M8.5 20V8M14 20v-9M19.5 20V4"/></svg>
+        Visitors
+      </div>
+      <div class="card__body">
+        <div class="vis">
+          <div class="vis__head">
+            <p class="lede"><strong>1,284</strong> people have opened this canvas.</p>
+            <span class="vis__live"><span class="vis__dot"></span>3 now</span>
+          </div>
+          <div class="vis__chart">
+            <div class="vis__bars">
+              <i class="vis__bar" style="height:22%"></i><i class="vis__bar" style="height:41%"></i><i class="vis__bar" style="height:28%"></i><i class="vis__bar vis__bar--zero" style="height:3px"></i><i class="vis__bar" style="height:64%"></i><i class="vis__bar" style="height:47%"></i><i class="vis__bar" style="height:39%"></i><i class="vis__bar" style="height:100%"></i><i class="vis__bar" style="height:71%"></i><i class="vis__bar" style="height:25%"></i><i class="vis__bar" style="height:18%"></i><i class="vis__bar" style="height:44%"></i><i class="vis__bar" style="height:69%"></i><i class="vis__bar vis__bar--today" style="height:38%"></i>
+            </div>
+            <div class="vis__axis"><span>14 days ago</span><span>today</span></div>
+          </div>
+          <div class="vis__geo">
+            <span class="chip">India <i>612</i></span><span class="chip">US <i>284</i></span><span class="chip">UK <i>96</i></span><span class="chip">+19 more</span>
+          </div>
+        </div>
+        <div class="stats">
+          <span class="stat"><b>47</b><span>today</span></span>
+          <span class="stat"><b>3,902</b><span>views</span></span>
+          <span class="stat"><b>3.0</b><span>per visitor</span></span>
+          <span class="stat"><b>22</b><span>countries</span></span>
+        </div>
+        <p class="vis__you">Your <b>4th</b> visit — the first was <b>12 days ago</b>.</p>
+      </div>
+    </div>
+  </div>
+
+  <div>
+    <p class="lab">empty state — no data yet / storage off</p>
+    <div class="card" style="--c:#BCC7F5;--c-soft:#E7EBFC;--on-app:#161616;width:420px">
+      <div class="card__bar">
+        <svg width="21" height="21" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M3 20V13M8.5 20V8M14 20v-9M19.5 20V4"/></svg>
+        Visitors
+      </div>
+      <div class="card__body">
+        <div class="vis">
+          <div style="height:118px;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:4px;text-align:center;border:2px dashed var(--border);border-radius:var(--radius-chip);background:color-mix(in srgb,var(--c) 18%,var(--surface));color:var(--ink-subtle);font-size:.75rem;font-weight:700;letter-spacing:.08em;text-transform:uppercase">
+            Counting is off right now
+            <small style="font-weight:400;letter-spacing:.02em;text-transform:none;font-size:.8125rem">It needs the shared store; the rest of the card works without it.</small>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+</div>
+
+<h1 style="margin-top:38px">Dock — visitors (periwinkle) after contributions</h1>
+<div class="dock">
+  <div class="tile" style="background:#FACC00">about</div>
+  <div class="tile" style="background:#A8E6A1">work</div>
+  <div class="tile" style="background:#FFB4A2">exp</div>
+  <div class="tile" style="background:#A9D6FF">stack</div>
+  <div class="tile" style="background:#D9C2FF">writing</div>
+  <div class="tile" style="background:#FFD9A8">archive</div>
+  <div class="tile" style="background:#FFE0A3">résumé</div>
+  <div class="tile" style="background:#FFC2E2">themes</div>
+  <div class="tile" style="background:#B8F2E6">contact</div>
+  <div class="tile" style="background:#8FD694">contrib</div>
+  <div class="tile" style="background:#BCC7F5;outline:3px dashed #161616;outline-offset:3px">visitors</div>
+  <div class="tile" style="background:#E6D3B3">notes</div>
+  <div class="tile" style="background:#DCE8A0">arcade</div>
+</div>
+</div>
+
+<div class="pane" data-t="tokyo">
+<h1>Tokyo Night — does it hold in the dark?</h1>
+<div class="row">
+  <div class="card" style="--c:#BCC7F5;--c-soft:#E7EBFC;--on-app:#161616">
+    <div class="card__bar">
+      <svg width="21" height="21" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M3 20V13M8.5 20V8M14 20v-9M19.5 20V4"/></svg>
+      Visitors
+    </div>
+    <div class="card__body">
+      <div class="vis">
+        <div class="vis__head">
+          <p class="lede"><strong>1,284</strong> people have opened this canvas.</p>
+          <span class="vis__live"><span class="vis__dot"></span>3 now</span>
+        </div>
+        <div class="vis__chart">
+          <div class="vis__bars">
+            <i class="vis__bar" style="height:22%"></i><i class="vis__bar" style="height:41%"></i><i class="vis__bar" style="height:28%"></i><i class="vis__bar vis__bar--zero" style="height:3px"></i><i class="vis__bar" style="height:64%"></i><i class="vis__bar" style="height:47%"></i><i class="vis__bar" style="height:39%"></i><i class="vis__bar" style="height:100%"></i><i class="vis__bar" style="height:71%"></i><i class="vis__bar" style="height:25%"></i><i class="vis__bar" style="height:18%"></i><i class="vis__bar" style="height:44%"></i><i class="vis__bar" style="height:69%"></i><i class="vis__bar vis__bar--today" style="height:38%"></i>
+          </div>
+          <div class="vis__axis"><span>14 days ago</span><span>today</span></div>
+        </div>
+        <div class="vis__geo">
+          <span class="chip">India <i>612</i></span><span class="chip">US <i>284</i></span><span class="chip">UK <i>96</i></span><span class="chip">+19 more</span>
+        </div>
+      </div>
+      <div class="stats">
+        <span class="stat"><b>47</b><span>today</span></span>
+        <span class="stat"><b>3,902</b><span>views</span></span>
+        <span class="stat"><b>3.0</b><span>per visitor</span></span>
+        <span class="stat"><b>22</b><span>countries</span></span>
+      </div>
+      <p class="vis__you">Your <b>4th</b> visit — the first was <b>12 days ago</b>.</p>
+    </div>
+  </div>
+
+  <div class="card" style="--c:#9FD8E8;--c-soft:#E2F2F8;--on-app:#161616">
+    <div class="card__bar">
+      <svg width="21" height="21" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M3 20V13M8.5 20V8M14 20v-9M19.5 20V4"/></svg>
+      Visitors
+    </div>
+    <div class="card__body">
+      <div class="vis">
+        <div class="vis__head">
+          <p class="lede"><strong>1,284</strong> people have opened this canvas.</p>
+          <span class="vis__live"><span class="vis__dot"></span>3 now</span>
+        </div>
+        <div class="vis__chart">
+          <div class="vis__bars">
+            <i class="vis__bar" style="height:22%"></i><i class="vis__bar" style="height:41%"></i><i class="vis__bar" style="height:28%"></i><i class="vis__bar vis__bar--zero" style="height:3px"></i><i class="vis__bar" style="height:64%"></i><i class="vis__bar" style="height:47%"></i><i class="vis__bar" style="height:39%"></i><i class="vis__bar" style="height:100%"></i><i class="vis__bar" style="height:71%"></i><i class="vis__bar" style="height:25%"></i><i class="vis__bar" style="height:18%"></i><i class="vis__bar" style="height:44%"></i><i class="vis__bar" style="height:69%"></i><i class="vis__bar vis__bar--today" style="height:38%"></i>
+          </div>
+          <div class="vis__axis"><span>14 days ago</span><span>today</span></div>
+        </div>
+        <div class="vis__geo">
+          <span class="chip">India <i>612</i></span><span class="chip">US <i>284</i></span><span class="chip">UK <i>96</i></span><span class="chip">+19 more</span>
+        </div>
+      </div>
+      <div class="stats">
+        <span class="stat"><b>47</b><span>today</span></span>
+        <span class="stat"><b>3,902</b><span>views</span></span>
+        <span class="stat"><b>3.0</b><span>per visitor</span></span>
+        <span class="stat"><b>22</b><span>countries</span></span>
+      </div>
+      <p class="vis__you">Your <b>4th</b> visit — the first was <b>12 days ago</b>.</p>
+    </div>
+  </div>
+</div>
+</div>
+
+<div class="pane" data-t="gruv">
+<h1>Gruvbox Dark — warm dark, the harder one</h1>
+<div class="row">
+  <div class="card" style="--c:#BCC7F5;--c-soft:#E7EBFC;--on-app:#161616">
+    <div class="card__bar">
+      <svg width="21" height="21" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M3 20V13M8.5 20V8M14 20v-9M19.5 20V4"/></svg>
+      Visitors
+    </div>
+    <div class="card__body">
+      <div class="vis">
+        <div class="vis__head">
+          <p class="lede"><strong>1,284</strong> people have opened this canvas.</p>
+          <span class="vis__live"><span class="vis__dot"></span>3 now</span>
+        </div>
+        <div class="vis__chart">
+          <div class="vis__bars">
+            <i class="vis__bar" style="height:22%"></i><i class="vis__bar" style="height:41%"></i><i class="vis__bar" style="height:28%"></i><i class="vis__bar vis__bar--zero" style="height:3px"></i><i class="vis__bar" style="height:64%"></i><i class="vis__bar" style="height:47%"></i><i class="vis__bar" style="height:39%"></i><i class="vis__bar" style="height:100%"></i><i class="vis__bar" style="height:71%"></i><i class="vis__bar" style="height:25%"></i><i class="vis__bar" style="height:18%"></i><i class="vis__bar" style="height:44%"></i><i class="vis__bar" style="height:69%"></i><i class="vis__bar vis__bar--today" style="height:38%"></i>
+          </div>
+          <div class="vis__axis"><span>14 days ago</span><span>today</span></div>
+        </div>
+        <div class="vis__geo">
+          <span class="chip">India <i>612</i></span><span class="chip">US <i>284</i></span><span class="chip">UK <i>96</i></span><span class="chip">+19 more</span>
+        </div>
+      </div>
+      <div class="stats">
+        <span class="stat"><b>47</b><span>today</span></span>
+        <span class="stat"><b>3,902</b><span>views</span></span>
+        <span class="stat"><b>3.0</b><span>per visitor</span></span>
+        <span class="stat"><b>22</b><span>countries</span></span>
+      </div>
+      <p class="vis__you">Your <b>4th</b> visit — the first was <b>12 days ago</b>.</p>
+    </div>
+  </div>
+</div>
+</div>
+
+</body>
+</html>

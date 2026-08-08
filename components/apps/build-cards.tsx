@@ -16,8 +16,10 @@ import { Snake } from '@/components/apps/games/snake'
 import { TypingTest } from '@/components/apps/games/typing'
 import { NotesWall } from '@/components/apps/notes'
 import { ThemePicker } from '@/components/apps/theme-picker'
+import { Visitors } from '@/components/apps/visitors'
 import { contributions } from '@/content/contributions'
 import { fetchContributions } from '@/lib/github'
+import { storeIsLive } from '@/lib/store'
 import {
   ARCHIVE_KINDS,
   apps,
@@ -255,6 +257,14 @@ export async function buildCards(): Promise<CardDef[]> {
   )
 
   push('contributions', <ContributionGraph data={await fetchContributions(contributions.login)} />)
+
+  /*
+   * `storeIsLive` is read here rather than inside the card because the card is a client
+   * component and lib/store.ts is server-only. Passing it down also means the measurement rig
+   * renders whichever of the two shapes — real card or empty state — will actually be shown,
+   * so the height it measures is the height the card ends up having.
+   */
+  push('visitors', <Visitors configured={storeIsLive} />)
 
   push('notes', <NotesWall />)
 

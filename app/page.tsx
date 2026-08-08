@@ -1,5 +1,6 @@
 import { buildCards } from '@/components/apps/build-cards'
 import { Desktop } from '@/components/desktop/desktop'
+import { VisitPing } from '@/components/desktop/visit-ping'
 import { apps, externalApps, profile } from '@/content'
 import { validateContent } from '@/content/validate'
 
@@ -46,6 +47,8 @@ export default async function Page() {
 
   return (
     <main>
+      {/* counts this page load — not inside the Visitors card, which most people never open */}
+      <VisitPing />
       <Desktop
         cards={await buildCards()}
         dock={dock}
