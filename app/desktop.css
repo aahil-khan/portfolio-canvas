@@ -411,54 +411,6 @@ button.item:focus-visible .ttl::after {
   margin-bottom: 12px;
 }
 
-/* Screenshot slot. Fixed 16:9, so dropping a real image in reflows nothing. */
-.shot {
-  display: block;
-  width: 100%;
-  aspect-ratio: 16 / 9;
-  margin: 0 0 14px;
-  padding: 0;
-  border: 2px dashed color-mix(in srgb, var(--on-app) 32%, transparent);
-  border-radius: 10px;
-  background: var(--c-soft);
-  font: inherit;
-  color: color-mix(in srgb, var(--on-app) 62%, transparent);
-  cursor: pointer;
-  position: relative;
-  overflow: hidden;
-  transition: border-color 0.16s var(--ease-out), background 0.16s var(--ease-out);
-}
-.shot:hover,
-.shot:focus-visible {
-  border-color: var(--on-app);
-  background: var(--c);
-}
-.shot span {
-  position: absolute;
-  inset: 0;
-  display: grid;
-  place-content: center;
-  gap: 3px;
-  font-size: 0.75rem;
-  font-weight: 700;
-  letter-spacing: 0.06em;
-  text-transform: uppercase;
-  text-align: center;
-}
-.shot span small {
-  font-size: 0.6875rem;
-  font-weight: 500;
-  letter-spacing: 0.02em;
-  text-transform: none;
-  opacity: 0.75;
-}
-.shot img {
-  width: 100%;
-  height: 100%;
-  object-fit: cover;
-  display: block;
-}
-
 /* ---------- stack shelf ---------- */
 .grp {
   margin-bottom: 13px;
@@ -730,8 +682,8 @@ button.item:focus-visible .ttl::after {
  * cursor back has to be excused here rather than fighting from the other end.
  */
 @media (hover: hover) and (pointer: fine) {
-  body:has(#viewport):not(:has(.cmdk)),
-  body:has(#viewport):not(:has(.cmdk)) * {
+  body:has(#viewport):not(:has(.cmdk)):not(:has(.lb)),
+  body:has(#viewport):not(:has(.cmdk)):not(:has(.lb)) * {
     cursor: none !important;
   }
 }
@@ -1688,8 +1640,7 @@ html[data-mobile] #cursor {
   flex: 0 0 100%;
   height: 100%;
 }
-.carousel__slide img,
-.carousel__open {
+.carousel__slide img {
   display: block;
   width: 100%;
   height: 100%;
@@ -1697,46 +1648,61 @@ html[data-mobile] #cursor {
   border: 0;
   background: none;
 }
-.carousel__open {
-  cursor: zoom-in;
-}
 /* `contain`, never `cover`: a set of screenshots is rarely one shape, and cropping to match
    cuts the subject out. A letterboxed edge is the honest trade. */
 .carousel__slide img {
   object-fit: contain;
 }
 
-.carousel__arrow {
+/*
+ * The arrows, the zoom button and a card's close button are one control wearing three icons:
+ * translucent white over a hard 1.5px border, going solid on hover. They used to fill with
+ * `--accent` on hover, which read as the primary action on a card whose primary action is the
+ * work itself — and `backdrop-filter` had no business inside the transformed world, where it
+ * repaints on every pan frame.
+ */
+.carousel__arrow,
+.carousel__zoom {
   position: absolute;
-  top: 50%;
-  translate: 0 -50%;
-  width: 30px;
-  height: 30px;
   display: grid;
   place-items: center;
   padding: 0;
   border: 1.5px solid var(--border);
   border-radius: 999px;
-  background: color-mix(in srgb, var(--surface) 88%, transparent);
-  backdrop-filter: blur(6px);
-  color: var(--ink);
+  background: rgba(255, 255, 255, 0.55);
+  color: var(--on-app);
   cursor: pointer;
   opacity: 0;
-  transition: opacity 140ms var(--ease-out), background 140ms var(--ease-out);
+  transition: opacity 140ms var(--ease-out), background 0.14s var(--ease-out);
+}
+.carousel__arrow {
+  top: 50%;
+  translate: 0 -50%;
+  width: 30px;
+  height: 30px;
+}
+.carousel__zoom {
+  top: 8px;
+  right: 8px;
+  width: 26px;
+  height: 26px;
 }
 .carousel__frame:hover .carousel__arrow,
-.carousel__frame:focus-within .carousel__arrow {
+.carousel__frame:focus-within .carousel__arrow,
+.carousel__frame:hover .carousel__zoom,
+.carousel__frame:focus-within .carousel__zoom {
   opacity: 1;
 }
-/* touch has no hover, so the arrows must always be reachable there */
+/* touch has no hover, so the controls must always be reachable there */
 @media (hover: none) {
-  .carousel__arrow {
+  .carousel__arrow,
+  .carousel__zoom {
     opacity: 1;
   }
 }
-.carousel__arrow:hover {
-  background: var(--accent);
-  color: var(--accent-ink);
+.carousel__arrow:hover,
+.carousel__zoom:hover {
+  background: #fff;
 }
 .carousel__arrow--prev {
   left: 8px;
@@ -1790,6 +1756,178 @@ html[data-mobile] #cursor {
   }
 }
 
+/* ---------- full-size shot viewer ---------- */
+/*
+ * Same bargain as the command palette: the viewer gets the REAL cursor back. The decorative dot
+ * is z-index 200 and this is 400, so `cursor: none` would leave no visible pointer at all.
+ */
+body:has(.lb) #cursor {
+  display: none;
+}
+.lb {
+  position: fixed;
+  inset: 0;
+  z-index: 400;
+  display: grid;
+  place-items: center;
+  padding: 32px;
+}
+.lb__scrim {
+  position: absolute;
+  inset: 0;
+  border: 0;
+  padding: 0;
+  cursor: default;
+  background: color-mix(in srgb, var(--canvas-base) 55%, transparent);
+  backdrop-filter: blur(3px);
+  -webkit-backdrop-filter: blur(3px);
+}
+/*
+ * The viewer is a window, because every other surface on this desktop is one — and like the
+ * others it grows out of what opened it and shrinks back into it, driven from the component
+ * with WAAPI rather than from here. Reduced motion is checked at that call site.
+ */
+.lb__win {
+  position: relative;
+  display: flex;
+  flex-direction: column;
+  max-width: min(1280px, calc(100vw - 64px));
+  max-height: calc(100vh - 64px);
+  background: var(--surface);
+  border: var(--border-width) solid var(--border);
+  border-radius: var(--radius-window);
+  box-shadow: var(--shadow-hard-lg);
+  overflow: hidden;
+}
+.lb__head {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  flex: 0 0 auto;
+  background: var(--surface-alt);
+  border-bottom: var(--border-width) solid var(--border);
+  padding: 9px 12px;
+}
+.lb__title {
+  margin-right: auto;
+  font-size: 0.9375rem;
+  font-weight: 500;
+  letter-spacing: -0.005em;
+  color: var(--ink);
+}
+.lb__count {
+  font-size: 10px;
+  font-weight: 700;
+  letter-spacing: 0.04em;
+  font-variant-numeric: tabular-nums;
+  padding: 3px 7px;
+  border-radius: 999px;
+  border: 1.5px solid var(--border);
+  background: color-mix(in srgb, var(--surface) 88%, transparent);
+  color: var(--ink);
+}
+/* the close button, verbatim from a card title bar */
+.lb__x {
+  width: 22px;
+  height: 22px;
+  flex: 0 0 auto;
+  border-radius: 999px;
+  background: rgba(255, 255, 255, 0.55);
+  border: 1.5px solid var(--border);
+  cursor: pointer;
+  padding: 0;
+  position: relative;
+  transition: background 0.14s var(--ease-out);
+}
+.lb__x::before,
+.lb__x::after {
+  content: '';
+  position: absolute;
+  left: 50%;
+  top: 50%;
+  width: 9px;
+  height: 1.5px;
+  background: #161616;
+  border-radius: 1px;
+}
+.lb__x::before {
+  transform: translate(-50%, -50%) rotate(45deg);
+}
+.lb__x::after {
+  transform: translate(-50%, -50%) rotate(-45deg);
+}
+.lb__x:hover {
+  background: #fff;
+}
+.lb__stage {
+  position: relative;
+  flex: 1;
+  min-height: 0;
+  display: grid;
+  place-items: center;
+  padding: 14px;
+  background: var(--surface-sunken);
+}
+/* `contain` here too: the viewer shows the whole shot or it isn't a viewer */
+.lb__stage img {
+  display: block;
+  max-width: 100%;
+  max-height: calc(100vh - 190px);
+  width: auto;
+  height: auto;
+  object-fit: contain;
+  border: 1.5px solid var(--border);
+  border-radius: 8px;
+}
+.lb__arrow {
+  position: absolute;
+  top: 50%;
+  translate: 0 -50%;
+  width: 36px;
+  height: 36px;
+  display: grid;
+  place-items: center;
+  padding: 0;
+  border: 1.5px solid var(--border);
+  border-radius: 999px;
+  background: rgba(255, 255, 255, 0.55);
+  color: #161616;
+  cursor: pointer;
+  transition: background 0.14s var(--ease-out);
+}
+.lb__arrow:hover {
+  background: #fff;
+}
+.lb__arrow--prev {
+  left: 14px;
+}
+.lb__arrow--next {
+  right: 14px;
+  rotate: 180deg;
+}
+.lb__dots {
+  display: flex;
+  justify-content: center;
+  gap: 6px;
+  flex: 0 0 auto;
+  padding: 10px;
+  background: var(--surface);
+  border-top: var(--border-width) solid var(--border);
+}
+.lb__dots button {
+  width: 7px;
+  height: 7px;
+  padding: 0;
+  border-radius: 999px;
+  border: 1.5px solid var(--border);
+  background: transparent;
+  cursor: pointer;
+  transition: background 140ms var(--ease-out), width 140ms var(--ease-out);
+}
+.lb__dots button.is-on {
+  width: 18px;
+  background: var(--accent);
+}
 /* ---------- command palette ---------- */
 /*
  * The palette gets the REAL cursor back. The custom dot is z-index 200 and the palette is 300,

@@ -31,44 +31,6 @@ export function DetailRow({
   )
 }
 
-/**
- * The 16:9 screenshot slot. Fixed ratio, so dropping a real image in reflows nothing.
- * Clicking it promotes the shot to its own card, so shots can sit side by side.
- */
-export function ShotSlot({ cardId, src, alt }: { cardId: string; src?: string; alt: string }) {
-  const open = useOpenCard()
-  return (
-    <button type="button" className="shot" onClick={() => open(cardId)} aria-label={`Open ${alt}`}>
-      {src ? (
-        // eslint-disable-next-line @next/next/no-img-element -- fixed-ratio slot, no layout shift
-        <img src={src} alt={alt} />
-      ) : (
-        <span>
-          Screenshot
-          <small>click to open as a card</small>
-        </span>
-      )}
-    </button>
-  )
-}
-
-/** Non-interactive large version, used inside the promoted shot card. */
-export function ShotFrame({ src, alt }: { src?: string; alt: string }) {
-  return (
-    <div className="shot" style={{ cursor: 'default', marginBottom: 0 }}>
-      {src ? (
-        // eslint-disable-next-line @next/next/no-img-element -- fixed-ratio slot, no layout shift
-        <img src={src} alt={alt} />
-      ) : (
-        <span>
-          Screenshot
-          <small>drop the image in here</small>
-        </span>
-      )}
-    </div>
-  )
-}
-
 /** Wraps arbitrary content in a button that opens another card. */
 export function OpenCardButton({
   cardId,

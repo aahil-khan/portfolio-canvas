@@ -1,8 +1,20 @@
 'use client'
 
-import { useCallback, useEffect, useRef, useState } from 'react'
+import { useCallback, useEffect, useRef, useState, type RefObject } from 'react'
+import { createPortal } from 'react-dom'
 
-import { useOpenCard } from '@/components/desktop/open-context'
+const EASE = 'cubic-bezier(.16,1,.3,1)'
+
+/**
+ * Screen-space FLIP: the transform that would put `from` exactly where `to` is. Same shape as
+ * the card's dock-icon morph, minus the canvas scale — the viewer lives outside the transformed
+ * world, so a screen pixel is a screen pixel here.
+ */
+function morph(from: DOMRect, to: DOMRect) {
+  const dx = to.left + to.width / 2 - (from.left + from.width / 2)
+  const dy = to.top + to.height / 2 - (from.top + from.height / 2)
+  return `translate(${dx}px,${dy}px) scale(${to.width / from.width},${to.height / from.height})`
+}
 
 export interface Slide {
   src: string
@@ -13,8 +25,6 @@ export interface Slide {
 interface Props {
   slides: readonly Slide[]
   alt: string
-  /** Opening a card when a slide is clicked. Omit for the full-size view itself. */
-  cardId?: string
   /** Aspect ratio of the frame, measured from the first slide at build time. */
   ratio: number
   className?: string
@@ -30,11 +40,16 @@ interface Props {
  *
  * The frame is `box-sizing: content-box` so its border can't skew the aspect ratio, and the
  * height is known before any image loads, so the card measures correctly on the first pass.
+ *
+ * Clicking a slide does nothing. Full size is an explicit button, which opens the viewer below
+ * at the slide you were already on — the old behaviour promoted the shot to another card on the
+ * canvas, so a click on an image spawned a window you then had to find and close.
  */
-export function Carousel({ slides, alt, cardId, ratio, className }: Props) {
+export function Carousel({ slides, alt, ratio, className }: Props) {
   const [index, setIndex] = useState(0)
-  const openCard = useOpenCard()
+  const [full, setFull] = useState(false)
   const frame = useRef<HTMLDivElement>(null)
+  const zoom = useRef<HTMLButtonElement>(null)
   const count = slides.length
 
   const go = useCallback(
@@ -112,37 +127,28 @@ export function Carousel({ slides, alt, cardId, ratio, className }: Props) {
         >
           {slides.map((s, i) => (
             <div className="carousel__slide" key={s.src} aria-hidden={i !== index || undefined}>
-              {cardId ? (
-                <button
-                  type="button"
-                  className="carousel__open"
-                  aria-label={`Open ${alt} full size`}
-                  onClick={() => openCard(cardId)}
-                >
-                  {/* eslint-disable-next-line @next/next/no-img-element -- dimensions known */}
-                  <img
-                    src={s.src}
-                    alt={`${alt} ${i + 1} of ${count}`}
-                    width={s.width}
-                    height={s.height}
-                    loading={i === 0 ? undefined : 'lazy'}
-                    draggable={false}
-                  />
-                </button>
-              ) : (
-                // eslint-disable-next-line @next/next/no-img-element -- dimensions known
-                <img
-                  src={s.src}
-                  alt={`${alt} ${i + 1} of ${count}`}
-                  width={s.width}
-                  height={s.height}
-                  loading={i === 0 ? undefined : 'lazy'}
-                  draggable={false}
-                />
-              )}
+              {/* eslint-disable-next-line @next/next/no-img-element -- dimensions known */}
+              <img
+                src={s.src}
+                alt={`${alt} ${i + 1} of ${count}`}
+                width={s.width}
+                height={s.height}
+                loading={i === 0 ? undefined : 'lazy'}
+                draggable={false}
+              />
             </div>
           ))}
         </div>
+
+        <button
+          ref={zoom}
+          type="button"
+          className="carousel__zoom"
+          aria-label={`View ${alt} full size`}
+          onClick={() => setFull(true)}
+        >
+          <Expand />
+        </button>
 
         {!single ? (
           <>
@@ -183,7 +189,226 @@ export function Carousel({ slides, alt, cardId, ratio, className }: Props) {
           ))}
         </div>
       ) : null}
+
+      {full ? (
+        <Lightbox
+          slides={slides}
+          alt={alt}
+          index={index}
+          count={count}
+          go={go}
+          origin={frame}
+          onClose={() => {
+            setFull(false)
+            // after the portal is gone, not during its teardown — React resets focus to the
+            // body on its way out, which beat a restore issued from the viewer's own cleanup
+            requestAnimationFrame(() => zoom.current?.focus())
+          }}
+        />
+      ) : null}
     </div>
+  )
+}
+
+/**
+ * Full-size viewer. Portalled to `document.body` on purpose: `position: fixed` inside the
+ * transformed world resolves against the world rather than the screen, and the scrim's blur
+ * would repaint on every pan frame. Out here it is a sibling of the dock, which is where the
+ * only other glass in this build lives.
+ */
+function Lightbox({
+  slides,
+  alt,
+  index,
+  count,
+  go,
+  origin,
+  onClose,
+}: {
+  slides: readonly Slide[]
+  alt: string
+  index: number
+  count: number
+  go: (next: number) => void
+  /** The carousel frame this grew out of, re-measured on the way back in case the canvas moved. */
+  origin: RefObject<HTMLDivElement | null>
+  onClose: () => void
+}) {
+  const closeBtn = useRef<HTMLButtonElement>(null)
+  const win = useRef<HTMLDivElement>(null)
+  const scrim = useRef<HTMLButtonElement>(null)
+  const [closing, setClosing] = useState(false)
+  const dismissed = useRef(false)
+
+  /* Every dismissal — the ×, the scrim, Escape — goes through here, so the exit animation can
+     never be skipped by one route or run twice by two. */
+  const requestClose = useCallback(() => {
+    if (dismissed.current) return
+    dismissed.current = true
+    setClosing(true)
+  }, [])
+
+  /* --- grow out of the thumbnail --- */
+  useEffect(() => {
+    const node = win.current
+    if (!node || matchMedia('(prefers-reduced-motion: reduce)').matches) return
+    scrim.current?.animate([{ opacity: 0 }, { opacity: 1 }], { duration: 180, easing: EASE })
+    const from = node.getBoundingClientRect()
+    const to = origin.current?.getBoundingClientRect()
+    node.animate(
+      to && to.width > 0 && from.width > 0
+        ? [
+            { transform: morph(from, to), opacity: 0 },
+            { transform: 'none', opacity: 1 },
+          ]
+        : [
+            { transform: 'scale(.96)', opacity: 0 },
+            { transform: 'none', opacity: 1 },
+          ],
+      { duration: 300, easing: EASE },
+    )
+  }, [origin])
+
+  /*
+   * Exit. The viewer can't just be dropped from state — that is what made closing feel abrupt.
+   * It shrinks back into the thumbnail and only then tells the carousel to unmount it.
+   *
+   * `fill: 'forwards'` matters: without it the element snaps back to its own styles the instant
+   * the animation ends, flashing at full opacity for a frame before React removes it.
+   */
+  useEffect(() => {
+    if (!closing) return
+    const node = win.current
+    if (!node || matchMedia('(prefers-reduced-motion: reduce)').matches) {
+      onClose()
+      return
+    }
+    const from = node.getBoundingClientRect()
+    const to = origin.current?.getBoundingClientRect()
+    const opts: KeyframeAnimationOptions = { duration: 260, easing: EASE, fill: 'forwards' }
+    scrim.current?.animate([{ opacity: 1 }, { opacity: 0 }], opts)
+    const anim = node.animate(
+      to && to.width > 0 && from.width > 0
+        ? [
+            { transform: 'none', opacity: 1 },
+            { transform: morph(from, to), opacity: 0 },
+          ]
+        : [
+            { transform: 'none', opacity: 1 },
+            { transform: 'scale(.96)', opacity: 0 },
+          ],
+      opts,
+    )
+    anim.onfinish = onClose
+    anim.oncancel = onClose
+  }, [closing, onClose, origin])
+
+  /*
+   * Escape closes, arrows page.
+   *
+   * Bound on `window` in the CAPTURE phase, which is the whole point: the desktop keeps a
+   * bubble-phase `window` listener that closes the topmost card on Escape and pans/zooms the
+   * canvas on `f`, `0` and `±`. Sharing a target means `stopPropagation` from a bubble listener
+   * would be too late — Escape dismissed the viewer AND closed the card underneath it, which
+   * took the button the viewer was supposed to hand focus back to. Capturing first and stopping
+   * there is the only end that can win.
+   */
+  useEffect(() => {
+    const CANVAS_KEYS = ['=', '+', '-', '_', '0', 'f']
+    const onKey = (e: KeyboardEvent) => {
+      if (e.key === 'Escape') {
+        e.preventDefault()
+        e.stopPropagation()
+        requestClose()
+      } else if (count > 1 && (e.key === 'ArrowRight' || e.key === 'ArrowLeft')) {
+        e.preventDefault()
+        e.stopPropagation()
+        go(index + (e.key === 'ArrowRight' ? 1 : -1))
+      } else if (!e.metaKey && !e.ctrlKey && CANVAS_KEYS.includes(e.key)) {
+        // the world must not pan or zoom behind a viewer that covers it
+        e.stopPropagation()
+      }
+    }
+    window.addEventListener('keydown', onKey, true)
+    return () => window.removeEventListener('keydown', onKey, true)
+  }, [go, index, count, requestClose])
+
+  /* Focus moves in on open so the viewer can be driven from the keyboard. Sending it back out
+     is the carousel's job — see `onClose`. */
+  useEffect(() => {
+    closeBtn.current?.focus()
+  }, [])
+
+  const single = count === 1
+  const s = slides[index]
+
+  return createPortal(
+    <div className="lb" role="dialog" aria-modal="true" aria-label={`${alt}, full size`}>
+      <button
+        ref={scrim}
+        className="lb__scrim"
+        aria-label="Close full size view"
+        onClick={requestClose}
+      />
+      <div className="lb__win" ref={win}>
+        <div className="lb__head">
+          <span className="lb__title">{alt}</span>
+          {!single ? (
+            <span className="lb__count" aria-live="polite">
+              {index + 1} / {count}
+            </span>
+          ) : null}
+          <button
+            ref={closeBtn}
+            type="button"
+            className="lb__x"
+            aria-label="Close"
+            onClick={requestClose}
+          />
+        </div>
+
+        <div className="lb__stage">
+          {/* eslint-disable-next-line @next/next/no-img-element -- dimensions known */}
+          <img src={s.src} alt={`${alt} ${index + 1} of ${count}`} width={s.width} height={s.height} />
+          {!single ? (
+            <>
+              <button
+                type="button"
+                className="lb__arrow lb__arrow--prev"
+                aria-label="Previous image"
+                onClick={() => go(index - 1)}
+              >
+                <Chevron />
+              </button>
+              <button
+                type="button"
+                className="lb__arrow lb__arrow--next"
+                aria-label="Next image"
+                onClick={() => go(index + 1)}
+              >
+                <Chevron />
+              </button>
+            </>
+          ) : null}
+        </div>
+
+        {!single ? (
+          <div className="lb__dots">
+            {slides.map((sl, i) => (
+              <button
+                key={sl.src}
+                type="button"
+                className={i === index ? 'is-on' : undefined}
+                aria-label={`Image ${i + 1}`}
+                aria-current={i === index || undefined}
+                onClick={() => go(i)}
+              />
+            ))}
+          </div>
+        ) : null}
+      </div>
+    </div>,
+    document.body,
   )
 }
 
@@ -201,6 +426,24 @@ function Chevron() {
       aria-hidden
     >
       <path d="m15 6-6 6 6 6" />
+    </svg>
+  )
+}
+
+function Expand() {
+  return (
+    <svg
+      viewBox="0 0 24 24"
+      width="14"
+      height="14"
+      fill="none"
+      stroke="currentColor"
+      strokeWidth={2.5}
+      strokeLinecap="round"
+      strokeLinejoin="round"
+      aria-hidden
+    >
+      <path d="M9 3H3v6M15 3h6v6M9 21H3v-6M15 21h6v-6" />
     </svg>
   )
 }

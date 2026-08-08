@@ -1,7 +1,6 @@
 import { imageSize } from '@/lib/image-size'
 
 import { Carousel, type Slide } from './carousel'
-import { ShotSlot } from './interactive'
 
 /**
  * Screenshots for a project or role. SERVER component.
@@ -10,35 +9,21 @@ import { ShotSlot } from './interactive'
  * carousel, so the frame is the right shape before anything loads — no layout shift, and the
  * card's measured height is correct on the first pass.
  *
- * With no images it falls back to the dashed placeholder slot, so an entry with nothing
- * attached still shows where a screenshot would go.
+ * An entry with no images renders nothing. There was a dashed "drop a screenshot here" slot
+ * here before, which is a note to the author showing on a stranger's screen — three of the
+ * eight entries carried one.
  */
 export function Shots({
   images,
-  cardId,
   alt,
   full,
 }: {
   images?: readonly string[]
-  /** Card to open when a slide is clicked. Omit inside the full-size card itself. */
-  cardId?: string
   alt: string
   full?: boolean
 }) {
   const list = images ?? []
-
-  if (list.length === 0) {
-    return full ? (
-      <div className="shot" style={{ cursor: 'default', marginBottom: 0 }}>
-        <span>
-          Screenshot
-          <small>drop the image in here</small>
-        </span>
-      </div>
-    ) : (
-      <ShotSlot cardId={cardId ?? ''} alt={alt} />
-    )
-  }
+  if (list.length === 0) return null
 
   const slides: Slide[] = list.map((src) => {
     const size = imageSize(src)
@@ -54,7 +39,6 @@ export function Shots({
     <Carousel
       slides={slides}
       alt={alt}
-      cardId={cardId}
       ratio={ratio}
       className={full ? 'carousel--full' : undefined}
     />

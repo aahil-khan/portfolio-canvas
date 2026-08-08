@@ -266,7 +266,7 @@ export function buildCards(): CardDef[] {
           {p.meta ? <p className="detail-meta">{p.meta}</p> : null}
           {p.award ? <div className="award">🏆 {p.award}</div> : null}
           <p className="lede">{p.lede}</p>
-          <Shots images={p.images} cardId={`shot:${p.slug}`} alt={`${p.name} screenshot`} />
+          <Shots images={p.images} alt={`${p.name} screenshot`} />
           <ul className="bullets">
             {p.highlights.map((h, i) => (
               <li key={i}>{rich(h)}</li>
@@ -291,16 +291,19 @@ export function buildCards(): CardDef[] {
         </>
       ),
     })
-    cards.push({
-      id: `shot:${p.slug}`,
-      label: `${p.name} — shot`,
-      icon: 'shot',
-      colour: detailPalette.project.colour,
-      tint: detailPalette.project.tint,
-      width: 520,
-      rotate: -0.9,
-      body: <Shots images={p.images} alt={`${p.name} screenshot`} full />,
-    })
+    // nothing to promote, so no card and no dead row in the command palette
+    if (p.images?.length) {
+      cards.push({
+        id: `shot:${p.slug}`,
+        label: `${p.name} — shot`,
+        icon: 'shot',
+        colour: detailPalette.project.colour,
+        tint: detailPalette.project.tint,
+        width: 520,
+        rotate: -0.9,
+        body: <Shots images={p.images} alt={`${p.name} screenshot`} full />,
+      })
+    }
   }
 
   /* --- job details, same treatment --- */
@@ -318,7 +321,7 @@ export function buildCards(): CardDef[] {
         <>
           {j.meta ? <p className="detail-meta">{j.meta}</p> : null}
           <p className="lede">{rich(j.lede)}</p>
-          <Shots images={j.images} cardId={`shot:${j.slug}`} alt={`${j.company} screenshot`} />
+          <Shots images={j.images} alt={`${j.company} screenshot`} />
           <ul className="bullets">
             {j.highlights.map((h, i) => (
               <li key={i}>{rich(h)}</li>
@@ -328,16 +331,18 @@ export function buildCards(): CardDef[] {
         </>
       ),
     })
-    cards.push({
-      id: `shot:${j.slug}`,
-      label: `${j.company} — shot`,
-      icon: 'shot',
-      colour: detailPalette.job.colour,
-      tint: detailPalette.job.tint,
-      width: 520,
-      rotate: 0.9,
-      body: <Shots images={j.images} alt={`${j.company} screenshot`} full />,
-    })
+    if (j.images?.length) {
+      cards.push({
+        id: `shot:${j.slug}`,
+        label: `${j.company} — shot`,
+        icon: 'shot',
+        colour: detailPalette.job.colour,
+        tint: detailPalette.job.tint,
+        width: 520,
+        rotate: 0.9,
+        body: <Shots images={j.images} alt={`${j.company} screenshot`} full />,
+      })
+    }
   }
 
   return cards
