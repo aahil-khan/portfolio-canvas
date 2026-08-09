@@ -7,6 +7,7 @@ import { profile } from './profile'
 import { projects } from './projects'
 import { toolGroups, toolsByName } from './stack'
 import { archive } from './archive'
+import { props } from './props'
 import { posts } from './writing'
 
 /**
@@ -71,6 +72,16 @@ export function validateContent(): void {
     for (const img of p.images ?? []) fileMustExist(img, `project "${p.slug}"`)
   for (const j of jobs)
     for (const img of j.images ?? []) fileMustExist(img, `job "${j.slug}"`)
+  // two things left in the same place read as one broken thing
+  const propSpots = new Set<string>()
+  for (const d of props) {
+    const at = `${d.x},${d.y}`
+    if (propSpots.has(at)) errors.push(`two desk props share the spot ${at}`)
+    propSpots.add(at)
+    if (d.kind === 'sticky' && !d.lines)
+      errors.push(`sticky prop "${d.id}" has nothing written on it`)
+  }
+
   for (const a of archive) {
     if (a.image) fileMustExist(a.image, `archive "${a.id}"`)
     for (const shot of a.images ?? []) {

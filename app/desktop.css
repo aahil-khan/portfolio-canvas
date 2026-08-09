@@ -149,6 +149,76 @@
   font-size: 19px;
 }
 
+/* ---------- things left on the desk ---------- */
+/*
+ * Scenery in world space: a coffee ring, a note, a pencil, a scribble, a paperclip. Parked at
+ * fixed coordinates you only reach by panning somewhere you had no reason to go.
+ *
+ * `pointer-events: none` is the load-bearing line. These sit inside the transformed world and
+ * carry no `data-obj`, so a press on one is a press on the background and the canvas keeps
+ * panning — you can drag straight through a coffee ring, which is the correct behaviour for a
+ * stain.
+ */
+.prop {
+  position: absolute;
+  pointer-events: none;
+  user-select: none;
+  transform: rotate(var(--rot, 0deg));
+}
+
+/*
+ * Marks made ON the desk follow the theme; objects lying on it do not.
+ *
+ * Same split `apps.ts` makes for the per-card pastels. A ring and a biro scribble are the desk
+ * showing wear, so they are mixed from `--ink` and read on all eighteen themes. A pencil is
+ * yellow in a dark room too.
+ */
+.prop--ring {
+  width: 92px;
+  height: 92px;
+  border-radius: 50%;
+  border: 7px solid color-mix(in srgb, var(--ink) 22%, transparent);
+}
+.prop--ring::after {
+  content: '';
+  position: absolute;
+  left: 11px;
+  top: 14px;
+  width: 74px;
+  height: 70px;
+  border-radius: 50%;
+  border: 4px solid color-mix(in srgb, var(--ink) 11%, transparent);
+}
+.prop--doodle,
+.prop--clip {
+  color: color-mix(in srgb, var(--ink) 45%, transparent);
+  line-height: 0;
+}
+.prop--pencil {
+  line-height: 0;
+}
+
+/* the one with something to say, so it is the one that looks worth zooming into */
+.prop--sticky {
+  width: 152px;
+  padding: 14px 13px;
+  background: #ffe9a8;
+  border: 1.5px solid rgba(22, 22, 22, 0.35);
+  box-shadow: 3px 4px 0 0 rgba(22, 22, 22, 0.18);
+  font-size: 0.8125rem;
+  line-height: 1.45;
+  color: #3b3320;
+}
+.prop--sticky b {
+  display: block;
+  margin-bottom: 5px;
+  font-size: 0.625rem;
+  font-weight: 700;
+  letter-spacing: 0.07em;
+  text-transform: uppercase;
+  opacity: 0.6;
+}
+
 /* ---------- cards ---------- */
 .card {
   background: var(--surface);

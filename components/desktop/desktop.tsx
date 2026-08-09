@@ -40,6 +40,7 @@ import { getThemeSnapshot, subscribeTheme } from '@/lib/theme'
 import { tutorial } from '@/content'
 
 import { Card, type CardDef } from './card'
+import { DeskProps } from './desk-props'
 import { Cursor } from './cursor'
 import { ArrangeMenu } from './arrange-menu'
 import { GotoMenu, type GotoItem } from './goto-menu'
@@ -880,6 +881,9 @@ function CanvasDesktop({ cards, dock, dockEntries, externals, bootIds, hero, her
 
         <div ref={worldRef} id="world" style={{ opacity: ready ? 1 : 0 }}>
           {!measured ? <MeasureRig cards={cards} onMeasured={onMeasured} /> : null}
+
+          {/* scenery, parked out in the world — see `content/props.ts` */}
+          <DeskProps />
 
           <div ref={heroRef} data-obj id="hero" className={arranging ? 'is-arranging' : undefined} style={{ left: heroPos.x, top: heroPos.y, width: heroWidth }}>
             {hero}
