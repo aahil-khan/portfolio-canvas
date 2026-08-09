@@ -25,15 +25,16 @@ import { clearSession, loadSession, saveSession } from '@/lib/canvas/session'
 import { useCanvas } from '@/lib/canvas/use-canvas'
 import { useIsMobile } from '@/lib/use-mobile'
 import {
-  getInteractiveServerSnapshot,
-  getInteractiveSnapshot,
-  setInteractive,
-  subscribeInteractive,
-} from '@/lib/interactive-mode'
+  getShellModeSnapshot,
+  getShellModeServerSnapshot,
+  setShellMode,
+  subscribeShellMode,
+} from '@/lib/shell-mode'
 import { useDragObject } from '@/lib/canvas/use-drag-object'
 import { resumeAmbienceOnFirstGesture } from '@/lib/ambience'
 import { play } from '@/lib/audio'
 import { findEgg } from '@/lib/eggs'
+import { mobile as mobileCopy } from '@/content'
 
 import { Card, type CardDef } from './card'
 import { Cursor } from './cursor'
@@ -67,6 +68,16 @@ interface Props {
   externals: readonly DockItem[]
   /** Which cards are on screen when someone arrives. */
   bootIds: readonly string[]
+  /**
+   * Frame everything once the opening layout has settled.
+   *
+   * Only set when a phone has asked for the canvas. The opening layout picks a scale that keeps
+   * type readable, which on a 390px screen means it can place at most a card or two and leaves
+   * the camera looking at the gaps between the rest — so the first thing a phone saw after
+   * choosing "Desktop" was an empty grid. Fitting once on arrival costs a desktop nothing,
+   * because a desktop never passes this.
+   */
+  fitOnBoot?: boolean
   hero: ReactNode
   heroWidth: number
   /**
@@ -95,27 +106,65 @@ const KONAMI = [
  */
 export function Desktop(props: Props) {
   const mobile = useIsMobile()
-  const interactive = useSyncExternalStore(
-    subscribeInteractive,
-    getInteractiveSnapshot,
-    getInteractiveServerSnapshot,
+  const mode = useSyncExternalStore(
+    subscribeShellMode,
+    getShellModeSnapshot,
+    getShellModeServerSnapshot,
   )
 
   const enter = useCallback(() => {
-    setInteractive(true)
+    setShellMode('phone')
     // the résumé may be scrolled halfway down, and the shell is fixed — it would open mid-page
     window.scrollTo(0, 0)
   }, [])
 
-  const leave = useCallback(() => setInteractive(false), [])
+  /*
+   * Tell the stylesheet that this phone chose the canvas.
+   *
+   * `data-mobile` is stamped on <html> before first paint and CSS hides all canvas chrome behind
+   * it. That is right up until someone asks for the canvas anyway, when it hides the very thing
+   * they asked for — so the choice is marked on the same element and the guard stands down. A
+   * DOM attribute on a node React does not own is exactly what an effect is for.
+   */
+  useEffect(() => {
+    if (!(mobile && mode === 'desktop')) return
+    const root = document.documentElement
+    root.dataset.shell = 'desktop'
+    return () => {
+      delete root.dataset.shell
+    }
+  }, [mobile, mode])
+
+  const leave = useCallback(() => setShellMode('resume'), [])
+  const toDesktop = useCallback(() => setShellMode('desktop'), [])
+  const toPhone = useCallback(() => setShellMode('phone'), [])
 
   if (!mobile) return <CanvasDesktop {...props} />
+
+  /*
+   * The canvas on a phone, because someone asked for it after being told it wants a pointer.
+   *
+   * It comes with a way back that the canvas itself does not provide: every other exit from this
+   * shell is a drag or a keyboard shortcut, so without a fixed escape a thumb could reach a
+   * state it has no gesture to leave.
+   */
+  if (mode === 'desktop') {
+    return (
+      <>
+        <CanvasDesktop {...props} fitOnBoot />
+        <button type="button" className="m-escape" onClick={toPhone}>
+          <span aria-hidden>← </span>
+          {mobileCopy.phoneMode}
+        </button>
+      </>
+    )
+  }
 
   /*
    * A phone gets the résumé first. The canvas is the better version of this site and also the one
    * a thumb cannot drive, so it is offered rather than imposed — and the offer says so.
    */
-  if (!interactive) {
+  if (mode !== 'phone') {
     return (
       <EnterInteractiveContext.Provider value={enter}>{props.resume}</EnterInteractiveContext.Provider>
     )
@@ -128,6 +177,7 @@ export function Desktop(props: Props) {
       externals={props.externals}
       hero={props.hero}
       onLeave={leave}
+      onDesktopMode={toDesktop}
     />
   )
 }
@@ -137,7 +187,7 @@ export function Desktop(props: Props) {
  * shell rather than in `Desktop` above: they are canvas concerns, and the mobile shell has no
  * camera to hijack or arrangement to run.
  */
-function CanvasDesktop({ cards, dock, dockEntries, externals, bootIds, hero, heroWidth }: Props) {
+function CanvasDesktop({ cards, dock, dockEntries, externals, bootIds, hero, heroWidth, fitOnBoot }: Props) {
   const viewportRef = useRef<HTMLDivElement>(null)
   const worldRef = useRef<HTMLDivElement>(null)
   const heroRef = useRef<HTMLDivElement>(null)
@@ -492,6 +542,16 @@ function CanvasDesktop({ cards, dock, dockEntries, externals, bootIds, hero, her
     const rects = takenRects()
     if (rects.length) canvas.fit(rects)
   }, [canvas, takenRects])
+
+  /* Frame the whole desktop once, for a phone that asked to see it. */
+  const fitted = useRef(false)
+  useEffect(() => {
+    if (!fitOnBoot || fitted.current || !ready || !measured) return
+    fitted.current = true
+    // one beat after the layout commits, so the rects being fitted are the ones on screen
+    const id = window.setTimeout(fitAll, 80)
+    return () => window.clearTimeout(id)
+  }, [fitOnBoot, ready, measured, fitAll])
 
   const minimiseAll = useCallback(() => {
     play('minimise')

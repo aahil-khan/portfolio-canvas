@@ -2872,12 +2872,21 @@ button.item:focus-visible .ttl::after {
  * canvas markup. This hides it during that frame — an empty page beats a 717px dock crushed
  * into a 390px screen — until React swaps shells.
  */
-html[data-mobile] #viewport,
-html[data-mobile] #pill,
-html[data-mobile] #dock,
-html[data-mobile] #zoom-controls,
-html[data-mobile] #hint,
-html[data-mobile] #cursor {
+/*
+ * Hide the canvas chrome on a phone — unless the phone asked for it.
+ *
+ * The boot script stamps `data-mobile` before first paint so a phone never flashes a 717px dock
+ * jammed into a 390px screen. Once someone taps "Desktop", though, these rules were hiding the
+ * entire thing they had just asked for: the canvas mounted and rendered a blank cream page.
+ * `data-shell="desktop"` is that choice, written to the same element, so the guard stands down
+ * for exactly the case it was never meant to cover.
+ */
+html[data-mobile]:not([data-shell='desktop']) #viewport,
+html[data-mobile]:not([data-shell='desktop']) #pill,
+html[data-mobile]:not([data-shell='desktop']) #dock,
+html[data-mobile]:not([data-shell='desktop']) #zoom-controls,
+html[data-mobile]:not([data-shell='desktop']) #hint,
+html[data-mobile]:not([data-shell='desktop']) #cursor {
   display: none !important;
 }
 
@@ -2946,6 +2955,100 @@ html[data-mobile] #cursor {
   cursor: pointer;
   -webkit-tap-highlight-color: transparent;
 }
+/*
+ * The right-hand end of the bar: the desktop switch, then sound.
+ *
+ * Both are secondary to "back to the résumé" on the left, so they share the space it leaves
+ * rather than competing for it — `min-width: 0` lets the switch ellipsize before the row wraps.
+ */
+.m-bar__end {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  min-width: 0;
+}
+.m-bar__mode {
+  flex: 0 1 auto;
+  min-width: 0;
+  min-height: 34px;
+  padding: 7px 13px;
+  font: inherit;
+  font-size: 13px;
+  font-weight: 500;
+  color: var(--ink);
+  background: color-mix(in srgb, var(--surface) 90%, transparent);
+  border: 1.5px solid color-mix(in srgb, var(--border) 22%, transparent);
+  border-radius: 999px;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  cursor: pointer;
+  -webkit-tap-highlight-color: transparent;
+}
+
+/*
+ * The way out of the canvas, when a phone has been handed it deliberately.
+ *
+ * Fixed, above everything, and clear of the dock at the bottom and the pill at the top — it is
+ * the one control on that screen guaranteed to be reachable with a thumb, and the shell it sits
+ * over offers no other exit that isn't a drag or a keyboard shortcut. It carries the accent
+ * because it is the only thing on a canvas full of content that is about leaving it.
+ */
+.m-escape {
+  position: fixed;
+  left: 12px;
+  /*
+   * Under the pill, not above the dock. Bottom-left looked like the natural home for a "back"
+   * until the canvas chrome was actually visible on a phone: the dock is 78px tall and centred
+   * with only 10px of margin, so the chip landed squarely on top of its first two icons. The
+   * band between the pill and the top of the canvas is the only strip on this screen that
+   * nothing else claims.
+   */
+  top: calc(78px + env(safe-area-inset-top));
+  z-index: 90;
+  min-height: 38px;
+  padding: 8px 15px;
+  font: inherit;
+  font-size: 13px;
+  font-weight: 700;
+  color: var(--accent-ink);
+  background: var(--accent);
+  border: var(--bw) solid var(--border);
+  border-radius: 999px;
+  box-shadow: 3px 3px 0 0 var(--border);
+  cursor: pointer;
+  -webkit-tap-highlight-color: transparent;
+}
+.m-escape:active {
+  transform: translate(1px, 1px);
+  box-shadow: 2px 2px 0 0 var(--border);
+}
+
+/*
+ * The pill, when the canvas is being shown on a phone.
+ *
+ * It is a fixed 690px of controls centred with a translate, so on a 390px screen it hung off
+ * both edges — "Fit all" and "Go to" sat at x:-150, off the left of the display, with no way to
+ * reach them. That matters more here than anywhere: a phone opening the canvas is the one case
+ * most likely to need framing. Pinned to the edges and scrolled horizontally instead, so every
+ * control is reachable even though they cannot all be seen at once.
+ */
+html[data-shell='desktop'] #pill {
+  left: 8px;
+  right: 8px;
+  transform: none;
+  justify-content: flex-start;
+  overflow-x: auto;
+  scrollbar-width: none;
+}
+html[data-shell='desktop'] #pill::-webkit-scrollbar {
+  display: none;
+}
+/* the row must not compress to fit — it scrolls instead */
+html[data-shell='desktop'] #pill > * {
+  flex: 0 0 auto;
+}
+
 /* the sound menu is shared with the desktop, so re-anchor it to this corner */
 .m-bar .arrange__menu {
   left: auto;

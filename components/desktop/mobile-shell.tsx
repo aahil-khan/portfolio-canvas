@@ -18,6 +18,8 @@ interface Props {
   hero: ReactNode
   /** Back to the plain résumé, which is where a phone started. */
   onLeave: () => void
+  /** Hand this phone the real canvas, having said what that costs. */
+  onDesktopMode: () => void
 }
 
 /**
@@ -34,11 +36,29 @@ interface Props {
  * Every card body is the same server-rendered node the canvas uses, so the two shells can never
  * disagree about content.
  */
-export function MobileShell({ cards, dock, externals, hero, onLeave }: Props) {
+export function MobileShell({ cards, dock, externals, hero, onLeave, onDesktopMode }: Props) {
   /** Card ids, deepest last. Empty means the hero is showing. */
   const [stack, setStack] = useState<string[]>([])
   const byId = new Map(cards.map((c) => [c.id, c]))
   const current = stack.length ? byId.get(stack[stack.length - 1]) : undefined
+
+  /*
+   * What the sheet paints, which is not the same as what is open.
+   *
+   * Closing empties the stack, and the sheet takes 260ms to slide away. Painting `current`
+   * directly meant that for the whole of those 260ms there was nothing to paint: the title
+   * emptied, the icon vanished, `--c` fell back so the header lost the card's colour, and the
+   * keyed body unmounted — so the thing sliding off the bottom of the screen was a blank white
+   * rectangle. Holding the last card through the exit is what makes it look like the card
+   * leaving rather than a card being erased and then leaving.
+   *
+   * Adjusted during render rather than from an effect: this is state derived from another piece
+   * of state changing, which React documents as a render-time adjustment. An effect would paint
+   * one frame of the blank sheet before correcting itself, which is the whole bug again.
+   */
+  const [painted, setPainted] = useState<CardDef | undefined>(undefined)
+  if (current && current !== painted) setPainted(current)
+  const shown = current ?? painted
 
   const push = useCallback(
     (id: string) => {
@@ -183,11 +203,33 @@ export function MobileShell({ cards, dock, externals, hero, onLeave }: Props) {
       <div className="m-shell">
         <header className="m-bar">
           {/* the way back to what a phone opens on, since this shell replaced it wholesale */}
-          <button type="button" className="m-bar__back" onClick={onLeave}>
+          <button
+            type="button"
+            className="m-bar__back"
+            onClick={onLeave}
+            aria-label={mobileCopy.backToResumeLabel}
+          >
             <span aria-hidden>← </span>
             {mobileCopy.backToResume}
           </button>
-          <SoundMenu />
+          <div className="m-bar__end">
+            {/*
+              * The way to the real canvas. Next to the exit rather than buried in the dock,
+              * because "is this the cut-down version?" is a question you have on arrival, and
+              * the answer should be reachable from where you are when you ask it.
+              */}
+            <button
+              type="button"
+              className="m-bar__mode"
+              onClick={onDesktopMode}
+              title={mobileCopy.desktopModeHint}
+              aria-label={mobileCopy.desktopModeLabel}
+            >
+              {mobileCopy.desktopMode}
+              <span aria-hidden> →</span>
+            </button>
+            <SoundMenu />
+          </div>
         </header>
 
         <div className="m-hero">{hero}</div>
@@ -211,8 +253,8 @@ export function MobileShell({ cards, dock, externals, hero, onLeave }: Props) {
           data-open={current ? true : undefined}
           aria-hidden={!current}
           style={
-            current
-              ? { ['--c' as string]: current.colour, ['--c-soft' as string]: current.tint }
+            shown
+              ? { ['--c' as string]: shown.colour, ['--c-soft' as string]: shown.tint }
               : undefined
           }
         >
@@ -234,14 +276,14 @@ export function MobileShell({ cards, dock, externals, hero, onLeave }: Props) {
               </button>
             ) : (
               <span className="m-sheet__ico">
-                {current ? <AppIcon name={current.icon} size={16} /> : null}
+                {shown ? <AppIcon name={shown.icon} size={16} /> : null}
               </span>
             )}
-            <span className="m-sheet__title">{current?.label}</span>
+            <span className="m-sheet__title">{shown?.label}</span>
             <button type="button" className="card__x" onClick={closeAll} aria-label="Close" />
           </div>
-          <div className="m-sheet__body" key={current?.id}>
-            {current?.body}
+          <div className="m-sheet__body" key={shown?.id}>
+            {shown?.body}
           </div>
         </div>
 
