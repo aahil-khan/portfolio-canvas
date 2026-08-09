@@ -2571,11 +2571,7 @@ button.item:focus-visible .ttl::after {
 .arc-img {
   display: block;
   width: 100%;
-  padding: 0;
   margin: 4px 0 0;
-  border: 0;
-  background: none;
-  cursor: pointer;
 }
 .arc-img__box {
   display: block;
@@ -2596,12 +2592,6 @@ button.item:focus-visible .ttl::after {
   border: 1.5px solid var(--border);
   border-radius: 10px;
   background: color-mix(in srgb, var(--ink) 6%, transparent);
-  transition: box-shadow 0.16s var(--ease-out), transform 0.16s var(--ease-out);
-}
-.arc-img:hover .arc-img__box,
-.arc-img:focus-visible .arc-img__box {
-  transform: translate(-1px, -2px);
-  box-shadow: 3px 4px 0 0 var(--border);
 }
 .arc-img__box img {
   display: block;

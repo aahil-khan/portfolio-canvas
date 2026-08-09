@@ -32,7 +32,7 @@ function Entry({ item }: { item: ArchiveItem }) {
       {item.meta ? <p className="arc__meta">{item.meta}</p> : null}
       {item.note ? <p className="arc__note">{item.note}</p> : null}
       {item.image ? (
-        <ArchiveImage cardId={`archive:${item.id}`} src={item.image} alt={item.title} />
+        <ArchiveImage src={item.image} alt={item.title} />
       ) : null}
     </li>
   )
