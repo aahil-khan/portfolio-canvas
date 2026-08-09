@@ -28,6 +28,45 @@ export const arcade = {
   noScore: '—',
 } as const
 
+/**
+ * The global boards — one per game, because "best" means a different number in each.
+ *
+ * `lowerWins` is Minesweeper's: its score is a completion time, so the fastest run is the
+ * smallest number. The Redis sorted set only knows how to keep the largest, so a lower-wins
+ * board is stored negated and flipped back on the way out. That is confined to the API route;
+ * nothing else in the app ever sees a negative score.
+ *
+ * `max` is a sanity ceiling, not a difficulty rating. A client can claim any number it likes, so
+ * these only exist to throw out the obviously fabricated — each is set comfortably above what
+ * the game can actually produce (snake tops out at 253 food on a 16×16, 2048 at just under 4M).
+ * Anything more would need the games server-simulated, which is a lot of machinery for a toy.
+ */
+export const boards = {
+  typing: { lowerWins: false, max: 400, kind: 'points' },
+  mines: { lowerWins: true, max: 3600, kind: 'time' },
+  snake: { lowerWins: false, max: 700, kind: 'points' },
+  '2048': { lowerWins: false, max: 4_000_000, kind: 'points' },
+} as const satisfies Record<string, { lowerWins: boolean; max: number; kind: 'points' | 'time' }>
+
+export type BoardId = keyof typeof boards
+
+/** Copy for the score strip every game carries. */
+export const scoreboard = {
+  score: 'Score',
+  run: 'This run',
+  yours: 'Your best',
+  world: 'World best',
+  /** The badge on the world column when the record on it is the visitor's own. */
+  mine: 'yours',
+  namePlaceholder: 'Name for the board',
+  submit: 'Post score',
+  posting: 'Posting…',
+  posted: 'On the board',
+  failed: 'Board unreachable',
+  /** Appended to the end-of-run hint when the run beat the visitor's own stored best. */
+  newBest: 'new personal best',
+} as const
+
 export const typing = {
   hint: 'Tap or click the text, then start typing',
   restart: 'Restart',
@@ -57,7 +96,7 @@ export const mines = {
   cols: 9,
   rows: 9,
   count: 10,
-  hint: '10 mines · click to open, right-click or hold to flag',
+  hint: '10 mines · right-click or hold to flag · click a solved number to clear round it',
   reset: 'New',
   won: 'Cleared',
   lost: 'Boom',
@@ -69,10 +108,12 @@ export const snake = {
   /** ms per step. Lower is faster; drops as the snake grows. */
   startSpeed: 170,
   minSpeed: 80,
-  hint: 'Arrow keys, WASD or swipe · space to pause',
+  /** A bonus apple every this many points, worth this much, alive for this many steps. */
+  bonusEvery: 5,
+  bonusWorth: 5,
+  bonusSteps: 34,
+  hint: 'Arrow keys, WASD or swipe · edges wrap · space to pause',
   reset: 'New',
-  score: 'Score',
-  best: 'Best',
   over: 'Ate itself',
   paused: 'Paused',
 } as const
@@ -81,8 +122,6 @@ export const g2048 = {
   size: 4,
   hint: 'Swipe, arrow keys or WASD',
   reset: 'New',
-  score: 'Score',
-  best: 'Best',
   over: 'No moves left',
   won: '2048!',
 } as const

@@ -1,9 +1,11 @@
 'use client'
 
-import { useCallback, useEffect, useRef, useState, useSyncExternalStore } from 'react'
+import { useCallback, useEffect, useRef, useState } from 'react'
+
+import { PostControls, ScoreStats, useBoard } from '@/components/apps/games/board'
 
 import { g2048 as C } from '@/content/arcade'
-import { getBestServerSnapshot, getBestSnapshot, recordBest, subscribeBest } from '@/lib/best'
+import { recordBest } from '@/lib/best'
 import { play } from '@/lib/audio'
 import { useSwipe } from '@/lib/use-swipe'
 
@@ -166,8 +168,8 @@ export function Game2048() {
   const wrap = useRef<HTMLDivElement>(null)
   const settle = useRef<number | null>(null)
 
-  const bests = useSyncExternalStore(subscribeBest, getBestSnapshot, getBestServerSnapshot)
-  const best = bests['2048'] ?? 0
+  /* Personal best and the global board. Only a finished run is offered up — see `board.tsx`. */
+  const board = useBoard('2048', over ? score : 0)
 
   useEffect(() => () => { if (settle.current) window.clearTimeout(settle.current) }, [])
 
@@ -252,12 +254,15 @@ export function Game2048() {
         ))}
       </div>
 
+      <ScoreStats game="2048" value={score} board={board} />
+
+      {/* the hint gives way to the post controls, so the row keeps its measured height */}
       <div className="game__foot">
-        <span className="game__hint">
-          {over
-            ? C.over
-            : `${C.score} ${score.toLocaleString()} · ${C.best} ${Math.max(best, score).toLocaleString()}`}
-        </span>
+        {over && score > 0 ? (
+          <PostControls board={board} />
+        ) : (
+          <span className="game__hint">{over ? C.over : C.hint}</span>
+        )}
         <button type="button" className="btn" onClick={reset}>
           {C.reset}
         </button>

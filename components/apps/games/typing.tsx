@@ -2,16 +2,12 @@
 
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 
+import { PostControls, useBoard } from '@/components/apps/games/board'
 import { useMeasuring } from '@/components/desktop/measuring-context'
-import { typing } from '@/content/arcade'
+import { scoreboard, typing } from '@/content/arcade'
 import { recordBest } from '@/lib/best'
 import { play } from '@/lib/audio'
-
-interface Score {
-  name: string
-  wpm: number
-  at: number
-}
+import { formatScore } from '@/lib/scores'
 
 /** Reserved rows on the leaderboard, so the card's height never depends on how many exist. */
 const BOARD_ROWS = 5
@@ -38,9 +34,6 @@ export function TypingTest() {
   const [typed, setTyped] = useState('')
   const [startedAt, setStartedAt] = useState<number | null>(null)
   const [now, setNow] = useState(0)
-  const [scores, setScores] = useState<Score[] | null>(null)
-  const [name, setName] = useState('')
-  const [posted, setPosted] = useState(false)
   const sink = useRef<HTMLInputElement>(null)
 
   const words = useMemo(() => quote.split(' '), [quote])
@@ -78,18 +71,6 @@ export function TypingTest() {
     return () => window.clearInterval(id)
   }, [measuring, startedAt, finished])
 
-  useEffect(() => {
-    if (measuring) return
-    let live = true
-    fetch('/api/scores?game=typing')
-      .then((r) => r.json())
-      .then((d: { scores?: Score[] }) => live && setScores(d.scores ?? []))
-      .catch(() => live && setScores([]))
-    return () => {
-      live = false
-    }
-  }, [measuring])
-
   /* `now` is advanced by the interval and by every keystroke; reading the clock during render
    * would be impure and would drift between renders that happen for other reasons. */
   const elapsed = startedAt === null ? 0 : Math.max(0, now - startedAt) / 1000
@@ -112,6 +93,9 @@ export function TypingTest() {
 
   const wpm = elapsed > 0.5 ? Math.round(correctChars / 5 / (elapsed / 60)) : 0
   const accuracy = typed.length ? Math.round((correctChars / typed.length) * 100) : 100
+
+  /* Personal best and the shared board plumbing. Only a completed run is offered up. */
+  const board = useBoard('typing', finished ? wpm : 0)
 
   const onType = useCallback(
     (value: string) => {
@@ -141,28 +125,9 @@ export function TypingTest() {
     setTyped('')
     setStartedAt(null)
     setNow(0)
-    setPosted(false)
     sink.current?.focus()
   }, [])
 
-  const post = useCallback(async () => {
-    if (posted || wpm <= 0) return
-    setPosted(true)
-    try {
-      const res = await fetch('/api/scores', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ game: 'typing', name: name.trim(), wpm }),
-      })
-      const data = (await res.json()) as { scores?: Score[] }
-      if (data.scores) setScores(data.scores)
-      play('tick')
-    } catch {
-      // the run still counted locally; the board just didn't take it
-    }
-  }, [posted, wpm, name])
-
-  const board = scores ?? []
 
   return (
     <div className="game" data-keys tabIndex={-1}>
@@ -231,23 +196,17 @@ export function TypingTest() {
           <b>{elapsed.toFixed(1)}s</b>
           <span>{typing.elapsed}</span>
         </div>
+        <div className="stat">
+          <b>{formatScore('typing', board.best)}</b>
+          <span>{scoreboard.yours}</span>
+        </div>
       </div>
 
       {/* one row, always present — swapping in the post controls must not change the height */}
       <div className="game__foot">
         {finished ? (
           <>
-            <input
-              className="type__name"
-              name="player"
-              value={name}
-              onChange={(e) => setName(e.target.value.slice(0, 24))}
-              placeholder={typing.namePlaceholder}
-              aria-label={typing.namePlaceholder}
-            />
-            <button type="button" className="btn" onClick={post} disabled={posted}>
-              {posted ? typing.posted : typing.submit}
-            </button>
+            <PostControls board={board} />
             <button type="button" className="btn" onClick={restart}>
               {typing.done}
             </button>
@@ -266,12 +225,12 @@ export function TypingTest() {
         <div className="lead__title">{typing.boardTitle}</div>
         <ol className="lead">
           {Array.from({ length: BOARD_ROWS }, (_, i) => {
-            const s = board[i]
+            const s = board.rows[i]
             return (
               <li key={i} data-empty={s ? undefined : true}>
                 <span className="rk">{i + 1}</span>
                 <span className="who">{s?.name ?? ''}</span>
-                <span className="wpm">{s ? s.wpm : ''}</span>
+                <span className="wpm">{s ? s.value : ''}</span>
               </li>
             )
           })}

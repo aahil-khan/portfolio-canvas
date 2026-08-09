@@ -446,6 +446,37 @@ button.item:focus-visible .ttl::after {
   color: var(--ink-subtle);
 }
 
+/*
+ * The world-best column. It carries a second piece of information the other two don't — who
+ * holds it — so the number and the holder share a baseline rather than stacking, which would
+ * make this one stat taller than its neighbours and break the row.
+ */
+.stat--world b {
+  display: flex;
+  align-items: baseline;
+  gap: 7px;
+}
+.stat--world .who {
+  font-size: 0.75rem;
+  font-weight: 500;
+  letter-spacing: 0;
+  color: var(--ink-subtle);
+}
+/* the payoff for posting: the record says your name back to you */
+.stat--world .crown {
+  font-size: 0.5625rem;
+  font-weight: 700;
+  letter-spacing: 0.07em;
+  text-transform: uppercase;
+  white-space: nowrap;
+  padding: 2px 7px;
+  border: 1.5px solid var(--border);
+  border-radius: 999px;
+  background: var(--accent);
+  color: var(--accent-ink);
+  box-shadow: 2px 2px 0 0 var(--border);
+}
+
 .detail-meta {
   font-size: 0.75rem;
   font-weight: 700;
@@ -1227,7 +1258,8 @@ button.item:focus-visible .ttl::after {
   opacity: 0;
   cursor: text;
 }
-.type__name {
+/* the board name field — shared by all four games, so not `type__` any more */
+.game__name {
   font: inherit;
   font-size: 0.8125rem;
   flex: 1;
@@ -1239,7 +1271,7 @@ button.item:focus-visible .ttl::after {
   padding: 7px 9px;
   outline: none;
 }
-.type__name:focus {
+.game__name:focus {
   box-shadow: 2px 2px 0 0 var(--border);
 }
 .lead__title {
@@ -1325,6 +1357,25 @@ button.item:focus-visible .ttl::after {
   background: #b3261e;
   color: #fff;
 }
+/*
+ * The end of a lost game, told in two marks.
+ *
+ * `data-boom` is the mine you actually stepped on, brightened out of the row of mines revealed
+ * with it — "you lost" and "here is where" are different sentences. `data-wrong` is a flag on a
+ * safe cell, which is the deduction that went wrong; a game made entirely of reading the board
+ * owes you that on the way out.
+ */
+.ms__c[data-boom] {
+  background: #ff3b30;
+  color: #fff;
+  box-shadow: inset 0 0 0 2px var(--border);
+}
+.ms__c[data-wrong] {
+  background: var(--surface);
+  color: #b3261e;
+  text-decoration: line-through;
+  text-decoration-thickness: 2px;
+}
 
 /* ---------- snake ---------- */
 .snake__c {
@@ -1348,6 +1399,34 @@ button.item:focus-visible .ttl::after {
   background: var(--accent);
   border: 1.5px solid var(--border);
   border-radius: 50%;
+}
+/*
+ * The bonus apple: the food colour, told apart from ordinary food by shape rather than hue.
+ *
+ * It was briefly `--c`, which is the snake's own colour — so the thing you were chasing looked
+ * like the thing you were avoiding. Keeping it on `--accent` puts it unmistakably in the food
+ * family, and the square with a ring cut out of it is what says this one is worth five.
+ */
+.snake__c[data-bonus] {
+  background: var(--accent);
+  border: 2px solid var(--border);
+  border-radius: 4px;
+  box-shadow: inset 0 0 0 2.5px var(--surface);
+}
+/* the last few steps of its life, so it is visibly leaving rather than gone */
+.snake__c[data-going] {
+  animation: bonus-going 0.6s steps(2, jump-none) infinite;
+}
+@keyframes bonus-going {
+  to {
+    opacity: 0.35;
+  }
+}
+@media (prefers-reduced-motion: reduce) {
+  .snake__c[data-going] {
+    animation: none;
+    opacity: 0.55;
+  }
 }
 
 /* ---------- 2048 ---------- */
@@ -1634,6 +1713,14 @@ button.item:focus-visible .ttl::after {
   transition:
     transform 0.16s var(--ease-out),
     box-shadow 0.16s var(--ease-out);
+}
+/*
+ * The one button in a game that does something outside it. It only exists for the moment
+ * between finishing a run and posting it, which is the whole of its claim on the accent.
+ */
+.btn--go {
+  background: var(--accent);
+  color: var(--accent-ink);
 }
 .btn:hover {
   transform: translate(-1px, -2px);

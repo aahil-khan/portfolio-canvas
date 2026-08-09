@@ -33,8 +33,14 @@ export interface Note {
 
 export interface Score {
   name: string
-  wpm: number
-  at: number
+  /**
+   * Always "bigger is better", whatever the game measures.
+   *
+   * Minesweeper's board ranks a completion time, where the smallest number wins. Rather than
+   * teach the sorted set two orderings, the API route negates a lower-wins score on the way in
+   * and flips it back on the way out, so everything below this line has exactly one rule.
+   */
+  value: number
 }
 
 /* ---------------------------------------------------------------- keys */
@@ -184,40 +190,63 @@ export async function addNote(note: Note): Promise<void> {
 export async function topScores(game: string, limit = 5): Promise<Score[]> {
   if (!live) {
     fallbackWarning()
-    return [...(mem.scores.get(game)?.values() ?? [])].sort((a, b) => b.wpm - a.wpm).slice(0, limit)
+    return [...(mem.scores.get(game)?.values() ?? [])]
+      .sort((a, b) => b.value - a.value)
+      .slice(0, limit)
   }
-  // WITHSCORES gives [member, score, member, score, ...]
-  const raw = await cmd<string[]>(['ZRANGE', K.scores(game), 0, limit - 1, 'REV', 'WITHSCORES'])
+  /*
+   * Over-fetch, then collapse to one row per player.
+   *
+   * Members used to be `{name, at}` JSON, which made every attempt its own member and quietly
+   * broke the one-row-per-player rule this board is supposed to enforce — the same person could
+   * hold three of the top five. New writes key on the name alone, but rows written under the old
+   * format are still in Redis, so the read handles both and keeps only each player's best.
+   * `ZRANGE ... REV` is already sorted, so the first row seen for a name is that name's best.
+   */
+  const raw = await cmd<string[]>(['ZRANGE', K.scores(game), 0, limit * 4 - 1, 'REV', 'WITHSCORES'])
   if (!raw) return []
   const out: Score[] = []
-  for (let i = 0; i < raw.length; i += 2) {
-    try {
-      const meta = JSON.parse(raw[i]) as { name: string; at: number }
-      out.push({ name: meta.name, at: meta.at, wpm: Number(raw[i + 1]) })
-    } catch {
-      /* skip */
-    }
+  const seen = new Set<string>()
+  for (let i = 0; i < raw.length && out.length < limit; i += 2) {
+    const name = memberName(raw[i])
+    if (!name || seen.has(name)) continue
+    seen.add(name)
+    out.push({ name, value: Number(raw[i + 1]) })
   }
   return out
+}
+
+/** A member is a bare player name now, and was `{name, at}` JSON before. Accept either. */
+function memberName(member: string): string {
+  try {
+    const meta: unknown = JSON.parse(member)
+    if (meta && typeof meta === 'object' && typeof (meta as { name?: unknown }).name === 'string') {
+      return (meta as { name: string }).name
+    }
+  } catch {
+    /* not JSON, so it is already a plain name */
+  }
+  return member
 }
 
 /**
  * One row per player, holding their best.
  *
- * The member is the player's identity, not the attempt — `GT` means a worse run never replaces a
- * better one, and the board can't be flooded by one person playing repeatedly.
+ * The member is the player's name and nothing else. It used to carry the timestamp alongside it,
+ * which made every attempt a distinct member — so `GT` had nothing to compare against, each post
+ * added a row, and one person replaying could take the whole board. The name alone is what makes
+ * `GT` mean "only if this beats what you already had".
  */
 export async function addScore(game: string, score: Score): Promise<void> {
   if (!live) {
     fallbackWarning()
     const board = mem.scores.get(game) ?? new Map<string, Score>()
     const prev = board.get(score.name)
-    if (!prev || score.wpm > prev.wpm) board.set(score.name, score)
+    if (!prev || score.value > prev.value) board.set(score.name, score)
     mem.scores.set(game, board)
     return
   }
-  const member = JSON.stringify({ name: score.name, at: score.at })
-  await cmd(['ZADD', K.scores(game), 'GT', 'CH', score.wpm, member])
+  await cmd(['ZADD', K.scores(game), 'GT', 'CH', score.value, score.name])
 }
 
 /* ------------------------------------------------------------ find counter */
