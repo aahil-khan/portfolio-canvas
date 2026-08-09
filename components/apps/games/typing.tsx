@@ -1,6 +1,6 @@
 'use client'
 
-import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
+import { useCallback, useEffect, useMemo, useRef, useState, useSyncExternalStore } from 'react'
 
 import { PostControls, useBoard } from '@/components/apps/games/board'
 import { useMeasuring } from '@/components/desktop/measuring-context'
@@ -17,6 +17,38 @@ function pickQuote(): string {
 }
 
 /**
+ * Which quote a fresh test opens on.
+ *
+ * It used to be `quotes[0]`, always, because picking at random during render makes the server and
+ * the client disagree and hydration blows up. True, but the conclusion was wrong: every visitor
+ * met the same sentence, and only Restart ever showed them another.
+ *
+ * `useSyncExternalStore` is the answer this codebase already uses for exactly this shape — see
+ * lib/theme.ts and lib/best.ts. React renders the server snapshot during hydration and swaps to
+ * the client one straight after, so there is nothing to mismatch. The index is chosen once per
+ * page load and cached, which is what keeps the snapshot stable enough to read repeatedly.
+ */
+let opensOn: number | null = null
+
+/** Nothing changes it while a test is mounted, so there is genuinely nothing to subscribe to. */
+const subscribeQuote = () => () => {}
+const openingSnapshot = (): number => {
+  if (opensOn === null) opensOn = Math.floor(Math.random() * typing.quotes.length)
+  return opensOn
+}
+const openingServerSnapshot = (): number => 0
+
+/**
+ * Move on, so closing the card and opening it again is a different sentence.
+ *
+ * Called from an unmount cleanup rather than a setState: the component doing this is on its way
+ * out and nothing needs to re-render because of it.
+ */
+function advanceQuote(): void {
+  if (opensOn !== null) opensOn = (opensOn + 1) % typing.quotes.length
+}
+
+/**
  * A typing test.
  *
  * The key sink is a real, visually hidden `<input>`. That is not a detail: the canvas binds bare
@@ -30,7 +62,19 @@ function pickQuote(): string {
 export function TypingTest() {
   const measuring = useMeasuring()
   // explicit <string>: the content file is `as const`, so this would otherwise be a literal type
+  const opening = useSyncExternalStore(subscribeQuote, openingSnapshot, openingServerSnapshot)
   const [quote, setQuote] = useState<string>(typing.quotes[0])
+
+  /*
+   * Adopt the client's pick once hydration has handed it over. Adjusted during render, which is
+   * what React documents for state derived from another value changing — an effect here would
+   * paint one frame of the server's quote before correcting itself.
+   */
+  const [adopted, setAdopted] = useState(opening)
+  if (opening !== adopted) {
+    setAdopted(opening)
+    setQuote(typing.quotes[opening])
+  }
   const [typed, setTyped] = useState('')
   const [startedAt, setStartedAt] = useState<number | null>(null)
   const [now, setNow] = useState(0)
@@ -56,13 +100,11 @@ export function TypingTest() {
   }, [words])
   const finished = typed.length > 0 && typedWords.length === words.length && typedWords[words.length - 1] === words[words.length - 1]
 
-  /*
-   * The first quote is always quotes[0], and Restart randomises.
-   *
-   * Randomising on mount would need either an impure render (server and client disagree, and
-   * hydration blows up) or a setState in an effect, which cascades a second render on every
-   * open. Deterministic first, random thereafter, costs one dull repeat and no correctness.
-   */
+  // hand the next opener a different sentence; the rig's throwaway mount does not count
+  useEffect(() => {
+    if (measuring) return
+    return () => advanceQuote()
+  }, [measuring])
 
   // ticking clock, only while a run is actually in progress
   useEffect(() => {
