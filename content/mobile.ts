@@ -25,15 +25,22 @@ export const mobile = {
   backToResume: 'Résumé',
   backToResumeLabel: 'Back to the résumé',
 
+
   /**
-   * Switching to the real canvas on a phone, and the way back.
+   * How to get the real canvas on a phone.
    *
-   * Offered rather than hidden: the touch shell is the better phone experience and the canvas is
-   * genuinely awkward with a thumb, but "this is the cut-down one" is a fair thing to suspect,
-   * and the answer to it should be a button rather than a paragraph.
+   * The answer is the browser's own setting, not a mode of ours. Serving the canvas ourselves
+   * meant overriding the very guard that keeps a 717px dock off a 390px screen, re-pinning the
+   * control pill so it could be reached at all, and adding an escape button because the canvas
+   * offers no exit a thumb can use. All of that to reproduce, badly, a switch every mobile
+   * browser already has.
+   *
+   * No browser is named: the wording differs (Chrome says "Desktop site", Safari "Request
+   * Desktop Website") and guessing wrong is worse than describing the shape of it.
    */
   desktopMode: 'Desktop',
-  desktopModeLabel: 'Switch to desktop mode',
-  desktopModeHint: 'The real canvas — drag, pan and zoom, on a screen it was not built for.',
-  phoneMode: 'Phone mode',
+  desktopModeLabel: 'How to view the desktop version',
+  desktopHelp:
+    'This is the phone version. For the full canvas, turn on desktop site in your browser’s menu and reload — it wants a pointer, so it is best on a real computer.',
+  desktopHelpDismiss: 'Got it',
 } as const

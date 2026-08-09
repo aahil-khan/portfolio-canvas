@@ -4,11 +4,9 @@
  * Which of the three shells a phone has asked for.
  *
  * `resume` is where every phone starts: the plain document, with the offer above it. `phone` is
- * the touch shell — a dock and full-height sheets. `desktop` is the real canvas, served to a
- * phone because someone explicitly asked for it despite being told it wants a pointer.
- *
- * One enum rather than two booleans. The states are mutually exclusive and the shell is picked
- * by a single `switch`, so a pair of flags could only ever encode combinations that don't exist.
+ * the touch shell — a dock and full-height sheets. There is deliberately no third mode for the
+ * canvas: a phone that wants it turns on desktop site in its own browser, which is a switch that
+ * already exists and works better than ours did.
  *
  * An external store rather than `useState` + an effect, for the reason set out in lib/best.ts
  * and lib/theme.ts: reading localStorage during render is a hydration mismatch, and setting
@@ -17,7 +15,7 @@
  * on the server, so the first paint matches and the résumé is always what a phone opens on.
  */
 
-export type ShellMode = 'resume' | 'phone' | 'desktop'
+export type ShellMode = 'resume' | 'phone'
 
 const KEY = 'canvas.shell-mode'
 /** What this setting was called when it was a boolean. Read once, so nobody is bounced out. */
@@ -31,7 +29,7 @@ function read(): ShellMode {
   if (typeof localStorage === 'undefined') return (cache = 'resume')
   try {
     const stored = localStorage.getItem(KEY)
-    if (stored === 'phone' || stored === 'desktop' || stored === 'resume') return (cache = stored)
+    if (stored === 'phone' || stored === 'resume') return (cache = stored)
     // a visitor who had already opted into the touch shell keeps it
     cache = localStorage.getItem(LEGACY_KEY) === '1' ? 'phone' : 'resume'
   } catch {

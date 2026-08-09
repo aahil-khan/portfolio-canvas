@@ -18,8 +18,6 @@ interface Props {
   hero: ReactNode
   /** Back to the plain résumé, which is where a phone started. */
   onLeave: () => void
-  /** Hand this phone the real canvas, having said what that costs. */
-  onDesktopMode: () => void
 }
 
 /**
@@ -36,9 +34,11 @@ interface Props {
  * Every card body is the same server-rendered node the canvas uses, so the two shells can never
  * disagree about content.
  */
-export function MobileShell({ cards, dock, externals, hero, onLeave, onDesktopMode }: Props) {
+export function MobileShell({ cards, dock, externals, hero, onLeave }: Props) {
   /** Card ids, deepest last. Empty means the hero is showing. */
   const [stack, setStack] = useState<string[]>([])
+  /** Whether the "how do I get the desktop version" note is showing. */
+  const [desktopHelp, setDesktopHelp] = useState(false)
   const byId = new Map(cards.map((c) => [c.id, c]))
   const current = stack.length ? byId.get(stack[stack.length - 1]) : undefined
 
@@ -221,16 +221,34 @@ export function MobileShell({ cards, dock, externals, hero, onLeave, onDesktopMo
             <button
               type="button"
               className="m-bar__mode"
-              onClick={onDesktopMode}
-              title={mobileCopy.desktopModeHint}
+              onClick={() => setDesktopHelp((v) => !v)}
               aria-label={mobileCopy.desktopModeLabel}
+              aria-expanded={desktopHelp}
             >
               {mobileCopy.desktopMode}
-              <span aria-hidden> →</span>
+              <span aria-hidden>?</span>
             </button>
             <SoundMenu />
           </div>
         </header>
+
+        {/*
+          * How to get the desktop version, which is a browser setting rather than a mode of ours.
+          *
+          * This used to hand the phone the real canvas directly, and the cost of doing that was
+          * the tell: it had to override the guard that keeps a 717px dock off a 390px screen,
+          * re-pin the control pill so "Fit all" could be reached at all, and add a fixed escape
+          * button because the canvas offers no exit a thumb can drive. Every browser already has
+          * this switch and implements it properly.
+          */}
+        {desktopHelp ? (
+          <p className="m-help" role="note">
+            {mobileCopy.desktopHelp}
+            <button type="button" className="m-help__x" onClick={() => setDesktopHelp(false)}>
+              {mobileCopy.desktopHelpDismiss}
+            </button>
+          </p>
+        ) : null}
 
         <div className="m-hero">{hero}</div>
 
