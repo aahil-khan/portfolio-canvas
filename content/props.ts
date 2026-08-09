@@ -16,8 +16,10 @@
  * may well land on top of one. That is what happens to a note.
  *
  * Scattered in different directions on purpose, so they are found one at a time rather than as a
- * pile. Mid-distance: past where the opening layout ever lands, short of the deep-space card at
- * (3800, -2400), which stays the reward for going properly far.
+ * pile, and far enough out that finding one is an accident worth having. They sat at about half
+ * this distance first and turned up too readily — a note you meet on your way somewhere is just
+ * furniture. These are all roughly 3.5k from the origin, against the deep-space card's 4.5k, so
+ * the card is still the thing at the end of the longest walk.
  */
 
 /** Pad colours. A pad does not restyle itself to match the desk, so these hold on every theme. */
@@ -45,8 +47,8 @@ export const props: readonly DeskProp[] = [
   {
     id: 'note-ship',
     tint: 'yellow',
-    x: -1480,
-    y: 1180,
+    x: -2700,
+    y: 2150,
     rotate: -3,
     lines: ['note to self', 'pls stop adding random stuff that no one will ever see'],
   },
@@ -57,14 +59,14 @@ export const props: readonly DeskProp[] = [
    * other way, and painted after so it lands on top — is what makes it obviously an answer:
    * somebody physically slapped this onto that.
    */
-  { id: 'note-shush', tint: 'pink', x: -1372, y: 1268, rotate: 9, glyph: '🤫' },
+  { id: 'note-shush', tint: 'pink', x: -2592, y: 2238, rotate: 9, glyph: '🤫' },
 
   // north-west
   {
     id: 'note-tests',
     tint: 'pink',
-    x: -2050,
-    y: -1150,
+    x: -3700,
+    y: -2050,
     rotate: 2,
     lines: ['quick question (tough)', "what's 2 + 2?"],
   },
@@ -73,8 +75,8 @@ export const props: readonly DeskProp[] = [
   {
     id: 'note-hello',
     tint: 'green',
-    x: 150,
-    y: -1900,
+    x: 280,
+    y: -3400,
     rotate: 3,
     lines: ['are you bored?', 'do you like mindlessly panning around, or is this your idea of fun?'],
   },
@@ -83,8 +85,8 @@ export const props: readonly DeskProp[] = [
   {
     id: 'note-further',
     tint: 'yellow',
-    x: 2500,
-    y: -1550,
+    x: 3050,
+    y: -1900,
     rotate: -2,
     lines: ['did you drink water today?', 'go drink some'],
   },
