@@ -19,6 +19,53 @@ export interface Move {
 export const tutorial = {
   lede: 'It behaves like a desk. Nothing here is a page.',
 
+  /**
+   * The first-run tour, above the dock.
+   *
+   * Four steps, in the order someone actually needs them: how to move, how to see everything,
+   * where cards come from, and the shortcut that replaces all of it once you know your way
+   * around. Anything past four is a manual, and the manual is this card.
+   */
+  coach: {
+    stepOf: (n: number, total: number) => `${n} of ${total}`,
+    next: 'Next',
+    done: 'Got it',
+    skip: 'Skip',
+    steps: [
+      {
+        title: 'This is a desk, not a page',
+        body: 'Drag the background to move around. Nothing scrolls here — everything is just somewhere.',
+      },
+      {
+        title: 'Zoom out to see the lot',
+        body: '⌘/Ctrl + scroll zooms, and F fits everything on screen at once when you lose your bearings.',
+      },
+      {
+        title: 'The dock opens cards',
+        body: 'Every icon down here is a card. Click to open it, click again to put it away. Drag a card by its title bar.',
+        tail: true,
+      },
+      {
+        title: 'Or just ask for it',
+        body: '⌘/Ctrl + K lists every card and action by name, which is faster than hunting once you know what you want.',
+      },
+    ],
+  },
+
+  /**
+   * Shown once the desk is genuinely crowded, and not before.
+   *
+   * Arrange is useless advice on the three cards you open with — there is nothing to tidy — and
+   * a tip that arrives before the problem does is one more thing to dismiss. It retires itself
+   * the moment any arrangement is run.
+   */
+  arrangeTip: {
+    badge: 'Tip',
+    title: 'Getting crowded',
+    body: 'Try Arrange in the top bar — five ways to tidy the desk, or deal it again.',
+    dismiss: 'Dismiss',
+  },
+
   groups: [
     {
       label: 'Moving around',

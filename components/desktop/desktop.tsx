@@ -34,6 +34,7 @@ import { useDragObject } from '@/lib/canvas/use-drag-object'
 import { resumeAmbienceOnFirstGesture } from '@/lib/ambience'
 import { play } from '@/lib/audio'
 import { findEgg } from '@/lib/eggs'
+import { tutorial } from '@/content'
 
 import { Card, type CardDef } from './card'
 import { Cursor } from './cursor'
@@ -43,7 +44,7 @@ import { ThemeMenu } from './theme-menu'
 import { SoundMenu } from './sound-menu'
 import { Dock, type DockEntry, type DockItem } from './dock'
 import { MeasureRig } from './measure-rig'
-import { Hint } from './hint'
+import { COACH_ARRANGE, COACH_TOUR, CoachTip, CoachTour, dismissCoach, useCoachDone } from './coach'
 import { CommandPalette, type PaletteActions } from './command-palette'
 import { MobileShell } from './mobile-shell'
 import { EnterInteractiveContext } from './mobile-mode'
@@ -653,6 +654,9 @@ function CanvasDesktop({ cards, dock, dockEntries, externals, bootIds, hero, her
       timers.current.push(window.setTimeout(() => setArranging(false), 620))
       play('arrange')
 
+      // the nudge has been acted on, so it has no business appearing again
+      dismissCoach(COACH_ARRANGE)
+
       // "tried every arrangement" — the set is per visitor and survives reloads
       ranArrangements.current.add(layoutId)
       if (ranArrangements.current.size >= arrangements.length) findEgg('tidy-freak')
@@ -672,6 +676,25 @@ function CanvasDesktop({ cards, dock, dockEntries, externals, bootIds, hero, her
   })
 
   const openIds = useMemo(() => new Set(Object.keys(placed)), [placed])
+
+  /**
+   * Is the desk crowded enough for tidying it to be worth suggesting?
+   *
+   * A count, not a measurement of how far the cards have spread. Spread is the better signal in
+   * principle and the worse one here: dragging one card into the distance would trip it, which
+   * is a deliberate act rather than a mess. Opening is what accumulates. Boot deals three, so
+   * six is the point where someone has clearly gone looking rather than glanced.
+   *
+   * Pinned cards are excluded for the reason they are excluded everywhere else — the deep-space
+   * card is on the canvas from the first paint and belongs to no layout.
+   */
+  /* the crowded tip waits its turn; two panels in one slot is worse than either alone */
+  const tourDone = useCoachDone(COACH_TOUR)
+
+  const crowded = useMemo(
+    () => Object.keys(placed).filter((id) => !isPinned(id)).length >= 6,
+    [placed, isPinned],
+  )
   const dockIds = useMemo(() => dock.map((d) => d.id), [dock])
 
   /*
@@ -876,7 +899,27 @@ function CanvasDesktop({ cards, dock, dockEntries, externals, bootIds, hero, her
           +
         </button>
       </div>
-      <Hint>drag anything · ⌘/ctrl + scroll to zoom · ⌘K for commands</Hint>
+      {/*
+        * One slot above the dock. The tour owns it until it is finished, then the contextual
+        * tips get their turn — two panels stacked in the same place would be worse than either.
+        */}
+      <CoachTour
+        steps={tutorial.coach.steps}
+        stepLabel={tutorial.coach.stepOf}
+        nextLabel={tutorial.coach.next}
+        doneLabel={tutorial.coach.done}
+        skipLabel={tutorial.coach.skip}
+      />
+      {tourDone && crowded ? (
+        <CoachTip
+          storageKey={COACH_ARRANGE}
+          badge={tutorial.arrangeTip.badge}
+          title={tutorial.arrangeTip.title}
+          dismissLabel={tutorial.arrangeTip.dismiss}
+        >
+          {tutorial.arrangeTip.body}
+        </CoachTip>
+      ) : null}
       <CommandPalette
         cards={cards}
         dockIds={dockIds}

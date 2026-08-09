@@ -902,48 +902,126 @@ button.item:focus-visible .ttl::after {
   pointer-events: none;
 }
 /*
- * Sits ABOVE the dock band, not beside it.
+ * The coaching panel: the first-run tour, and the one-off tips that follow it.
  *
- * The dock is centred and grows with the number of tiles; at twelve it is wide enough that on a
- * narrower window its left edge reaches this hint and the two overlap. Clearing the whole band
- * is width-independent, where any horizontal fudge would only hold for one dock size.
+ * This replaced a line of 12px muted text in the bottom-left corner, which failed twice over —
+ * quiet enough to miss, and with no surface of its own it tangled illegibly with whatever card
+ * happened to be under it. Over an infinite canvas of opaque cards, anything meant to be read
+ * has to be opaque itself, so this takes the same treatment the cards do.
+ *
+ * Centred above the dock rather than in a corner. The dock's band is the one strip already
+ * given over to chrome, so a panel there buries the least content — and clearing the whole
+ * band is width-independent, where any horizontal fudge would only hold for one dock size.
  */
-#hint {
+#coach {
   position: fixed;
-  left: 20px;
-  bottom: calc(var(--overlay-bottom) + 8px);
-  z-index: 60;
-  margin: 0;
-  font-size: 12px;
-  color: var(--ink-subtle);
-  user-select: none;
-  /* the text stays inert; only the dismiss button takes the pointer */
-  pointer-events: none;
+  left: 50%;
+  transform: translateX(-50%);
+  bottom: calc(var(--overlay-bottom) + 14px);
+  z-index: 70;
+  width: min(320px, calc(100vw - 32px));
+  padding: 13px 14px 12px;
+  background: var(--surface);
+  border: var(--bw) solid var(--border);
+  border-radius: var(--radius-card);
+  box-shadow: 5px 5px 0 0 var(--border);
+}
+/* a tail, only on the steps that are actually about the dock below it */
+#coach[data-tail]::after {
+  content: '';
+  position: absolute;
+  left: 50%;
+  bottom: -8px;
+  width: 13px;
+  height: 13px;
+  background: var(--surface);
+  border-right: var(--bw) solid var(--border);
+  border-bottom: var(--bw) solid var(--border);
+  transform: translateX(-50%) rotate(45deg);
+}
+.coach__top {
   display: flex;
   align-items: center;
-  gap: 7px;
+  gap: 8px;
+  margin-bottom: 7px;
 }
-.hint__x {
-  pointer-events: auto;
-  display: grid;
-  place-items: center;
-  width: 17px;
-  height: 17px;
-  padding: 0;
+.coach__badge {
+  font-size: 0.5625rem;
+  font-weight: 700;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  color: var(--accent-ink);
+  background: var(--accent);
+  border: 1.5px solid var(--border);
+  border-radius: 999px;
+  padding: 2px 8px;
+}
+.coach__skip {
+  margin-left: auto;
   font: inherit;
-  font-size: 13px;
-  line-height: 1;
+  font-size: 0.6875rem;
   color: var(--ink-subtle);
-  background: transparent;
-  border: 1.5px solid color-mix(in srgb, var(--ink) 28%, transparent);
-  border-radius: 50%;
-  transition:
-    color 0.16s var(--ease-out),
-    border-color 0.16s var(--ease-out);
+  background: none;
+  border: 0;
+  padding: 2px;
+  cursor: pointer;
+  text-decoration: underline;
 }
-.hint__x:hover {
+.coach__skip:hover {
   color: var(--ink);
-  border-color: var(--border);
+}
+.coach__title {
+  margin: 0 0 3px;
+  font-size: 0.875rem;
+  font-weight: 700;
+  letter-spacing: -0.01em;
+}
+.coach__body {
+  margin: 0;
+  font-size: 0.78125rem;
+  line-height: 1.5;
+  color: var(--ink-muted);
+  text-wrap: pretty;
+}
+.coach__foot {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  margin-top: 11px;
+}
+.coach__dots {
+  display: flex;
+  gap: 5px;
+  margin-right: auto;
+}
+.coach__dots i {
+  display: block;
+  width: 6px;
+  height: 6px;
+  border-radius: 999px;
+  background: color-mix(in srgb, var(--ink) 22%, transparent);
+  transition: width 0.18s var(--ease-out);
+}
+.coach__dots i.is-on {
+  width: 15px;
+  background: var(--accent);
+  border: 1px solid var(--border);
+}
+.coach__next {
+  font: inherit;
+  font-size: 0.78125rem;
+  font-weight: 700;
+  padding: 6px 14px;
+  border: var(--bw) solid var(--border);
+  border-radius: 999px;
+  background: var(--accent);
+  color: var(--accent-ink);
+  box-shadow: 2px 2px 0 0 var(--border);
+  cursor: pointer;
+}
+.coach__next:active {
+  transform: translate(1px, 1px);
+  box-shadow: 1px 1px 0 0 var(--border);
 }
 
 /* ---------- cursor ---------- */
@@ -2937,7 +3015,7 @@ html[data-mobile] #viewport,
 html[data-mobile] #pill,
 html[data-mobile] #dock,
 html[data-mobile] #zoom-controls,
-html[data-mobile] #hint,
+html[data-mobile] #coach,
 html[data-mobile] #cursor {
   display: none !important;
 }
