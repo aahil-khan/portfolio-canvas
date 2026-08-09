@@ -12,7 +12,7 @@ export const profile: Profile = {
   intro:
     'I build AI stuff and anything else I find interesting, RAG pipelines, multi agent systems, Full Stack apps, and generally anything that looks shiny at 2AM in the morning :)',
   notes: [
-    'Final year Computer Engineering at Thapar, with an IIT Madras Diploma in Programming under my belt, apparently one courseload wasn\'t enough',
+    'Final year Computer Engineering at Thapar, with an IIT Madras Diploma in Programming under my belt, because apparently one courseload wasn\'t enough',
     'Right now I split my time between two internships: building production AI systems at Oddmind Innovations, and working on accent invariant speech research with Samsung PRISM.',
     'I like building things, breaking them, and occasionally wondering why I decided to build them in the first place',
     'Almost forgot, Welcome to the site! Leave a note if you like it :D'

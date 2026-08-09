@@ -13,13 +13,16 @@
  * what you're currently watching or reading; unpin it when you move on.
  */
 
+import { turbopackCacheVersion } from "next/dist/build/swc/generated-native";
+
 export type ArchiveKind =
   | 'built'
   | 'watching'
   | 'reading'
   | 'listening'
-  | 'playing'
+  | 'tinkering'
   | 'found'
+  | 'random'
   | 'note'
 
 /**
@@ -73,8 +76,9 @@ export const ARCHIVE_KINDS: Record<ArchiveKind, { label: string; colour: string 
   watching: { label: 'Watching', colour: '#FFB4A2' },
   reading: { label: 'Reading', colour: '#A9D6FF' },
   listening: { label: 'Listening', colour: '#D9C2FF' },
-  playing: { label: 'Playing', colour: '#FFE0A3' },
+  tinkering: { label: 'tinkering', colour: '#FFE0A3' },
   found: { label: 'Found', colour: '#FFC2E2' },
+  random: { label: 'Random', colour: '#A9D6FF' }, //blue color
   note: { label: 'Note', colour: '#E8E6DE' },
 }
 
@@ -89,54 +93,87 @@ export const archive: readonly ArchiveItem[] = [
     id: 'this-site',
     kind: 'built',
     title: 'This site',
-    note: 'An infinite canvas you can drag around, with a dock, 18 themes and lofi radio. Built it because a scrolling résumé felt like everyone else’s.',
+    note: 'Built it because a scrolling résumé felt like everyone else’s.',
     when: 'Aug 2026',
     meta: 'Next.js · zero runtime dependencies',
+  },
+  {
+    id: 'sop-opera',
+    kind: 'built',
+    title: 'SOP Opera',
+    meta: 'Built for Economic Times 2.0 hackathon',
+    note: 'Genuinely the most planning I\'ve ever done for a hackathon project, I dug through existing industrial solutions of the problem statement, downloaded their demo versions to take inspo (they think I\'m a potential customer and send me emails lol), then sat with a pen and paper to think of the best way to build the architecture, used an actual steel plant floor plan in the project and built everything alone in like 3 days. Still waiting on the results so fingers crossed (>_<)',
+    when: 'July 2026'
+  },
+  {
+    id: 'cursor-search-providor',
+    kind: 'built',
+    title: 'Cursor Search Provider',
+    meta: 'My very first Gnome Extension!',
+    href:'https://extensions.gnome.org/extension/10553/cursor-search-provider',
+    note: 'nothing crazy, forked a repo called vscode-search-provider and made it compatible with cursor, it has 12 downloads yay!',
+    when: 'July 2026'
   },
   {
     id: 'portana',
     kind: 'built',
     title: 'Portana',
-    note: 'The version of this site before this one: a conversational portfolio you interrogated instead of scrolled, with n8n workflows auto-syncing content from GitHub and LinkedIn. Retired, fondly.',
+    note: 'The version of this site before this one: a conversational portfolio you interrogated instead of scrolled, with n8n workflows auto-syncing content from GitHub and LinkedIn. Had lots of issues I didn\'t wanna fix, Retired, fondly.',
     when: '2025',
     meta: 'Next.js · Fastify · Qdrant · Docker',
   },
   {
-    id: 'example-watching',
+    id: 'modern-family',
     kind: 'watching',
-    title: 'Something you are watching',
-    note: 'Pinned entries show up under “Right now”. Unpin when you finish it.',
+    title: 'Modern Family',
+    note: 'Binge watching it lately, pretty funny show, highly recommend.',
     when: 'right now',
-    meta: 'S1E3',
+    image: "/archive/modern-family.webp",
+    meta: 'S1 E20',
     pinned: true,
   },
   {
-    id: 'example-reading',
-    kind: 'reading',
-    title: 'Something you are reading',
-    when: 'right now',
-    pinned: true,
-  },
-  {
-    id: 'example-found',
+    id: 'pretext',
     kind: 'found',
-    title: 'A link you thought was funny',
-    note: 'Add `href` and the title becomes a link. No note needed if the title says it all.',
-    href: 'https://example.com',
+    title: 'Pretext',
+    note: 'This repo redefines how text is rendered on webpages, its pretty cool, been wanting to check it out and use it somewhere, haven\'t been able to yet.',
+    href: 'https://github.com/chenglou/pretext',
     when: 'Jul 2026',
   },
   {
-    id: 'example-with-image',
-    kind: 'found',
-    title: 'Anything with an image',
-    note: 'Drop a file in public/archive/ and add `image: "/archive/thing.png"`. Its real dimensions are read at build time, so it shows at its own shape — never cropped, never shifting the layout — and clicking it opens full size.',
-    when: 'Jul 2026',
+    id: 'chinese-watch',
+    kind: 'tinkering',
+    title: 'Reverse Engineering a cheap Chinese watch',
+    note: 'My dad got us these "smartwatches", they have a whole GSIM module, bluetooth connectivity, touchscreen and even a working camera. I\'m trying to reverse engineer them to dump the firmware and run my own custom software (doom ofc) on it, currently figured out which test pads are +ve, -ve and gnd, need a USB-UART adapter, USB logic analyzer, and maybe a CH341A programmer + SOIC-8 clip to continue, will pick this up when I get some free time (and the money to buy these).',
+    images: [{src: '/archive/watch/watch-front.jpeg', caption: 'front of the motherboard'}, {src:'/archive/watch/watch-back.jpeg', caption:'backside, see the round areas? they\'re the test pads'} , {src:'/archive/watch/watch-screen.jpeg', caption: 'watch developer menu'}],
+    when: 'July 2026'
   },
   {
-    id: 'example-note',
-    kind: 'note',
-    title: 'Just a thought, no link, no image',
-    note: 'The smallest possible entry is a kind, a title and a when.',
-    when: 'Jul 2026',
+    id: 'usb-camera',
+    kind: 'tinkering',
+    title: 'Turing Laptop camera into a USB Webcam',
+    note: 'Had an old Samsung N150 Plus lying around, took out the camera and connected the wires to a standard usb, worked on the first try and has a surprisingly good quality feed. Going to use it for something cool soon.',
+    image: '/archive/usb-cam/usb-camera.jpeg',
+    fullscreen: true,
+    when: 'June 2026'
   },
+  {
+    id: 'brookie',
+    kind: 'random',
+    title: 'Baked a Brookie!',
+    meta: 'Brookie = Brownie + Cookie',
+    note: 'Can you believe this was my first attempt at baking anything ever? It was crazy good, turns out baking isn\'t hard at all, you guys are just noobs.',
+    image: '/archive/brookie/brookie.jpeg',
+    fullscreen: true,
+    when: 'May 2026'
+  },
+  {
+    id: 'landscape',
+    kind: 'random',
+    title: 'A cool picture I took',
+    image: '/archive/landscape/landscape-1.jpeg',
+    caption: 'Puranpur, India',
+    fullscreen: true,
+    when: 'June 2026'
+  }
 ]
