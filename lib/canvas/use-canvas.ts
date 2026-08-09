@@ -18,6 +18,18 @@ import {
 } from './geometry'
 
 /**
+ * How far the grid overhangs the viewport on every side.
+ *
+ * It has to exceed the largest cell the grid is ever drawn at — 48 world px at MAX_SCALE 2 is
+ * 96 — because the grid is scrolled by wrapping it within one cell, and anything less would
+ * swing a bare edge into view at the wrap.
+ */
+const GRID_BLEED = 100
+
+/** Always-positive modulo. `%` keeps the sign of the dividend, which would jump the wrap. */
+const mod = (v: number, m: number) => ((v % m) + m) % m
+
+/**
  * Is anything between `target` and `card` actually able to consume a vertical scroll?
  *
  * Overflowing is not enough — `.card` itself clips with `overflow: hidden`, and so do several
@@ -188,19 +200,33 @@ export function useCanvas({ viewportRef, worldRef, gridRef, onScale }: Options) 
         const { x, y, s } = cam.current
         world.style.transform = `translate3d(${x}px,${y}px,0) scale(${s})`
         /*
-         * The grid follows the camera as a background offset rather than as a transformed child.
-         * `background-position` takes the camera's translation straight, because the world's
-         * transform-origin is 0 0 — so world (0,0) is at screen (x, y) and the lines repeat out
-         * from there on their own.
+         * The grid moves by transform, and only by a fraction of one cell.
+         *
+         * Panning it with `background-position` was correct and slow: changing that property
+         * repaints the whole element, so every pan frame repainted a full-screen layer. A
+         * transform is handled by the compositor and repaints nothing. The pattern repeats every
+         * `cell`, so translating by the offset modulo the cell is indistinguishable from
+         * translating by the whole thing — the element overhangs the viewport by GRID_BLEED on
+         * each side, which is more than the largest cell, so the wrap never exposes an edge.
+         *
+         * The `+ GRID_BLEED` cancels that overhang, which is what keeps the lines landing on the
+         * exact same pixels as `background-position: x y` did.
+         *
+         * `background-size` is written only when the zoom actually changed. It is the one part
+         * that does repaint, and panning must not pay for it.
          */
         if (grid) {
           const cell = 48 * s
           // under a few pixels a 1px line every `cell` is a flat wash, and an expensive one
           if (cell >= 6) {
-            grid.style.opacity = '1'
-            grid.style.backgroundSize = `${cell}px ${cell}px`
-            grid.style.backgroundPosition = `${x}px ${y}px`
-          } else {
+            if (s !== lastScale) {
+              grid.style.backgroundSize = `${cell}px ${cell}px`
+              grid.style.opacity = '1'
+            }
+            const gx = mod(x + GRID_BLEED, cell)
+            const gy = mod(y + GRID_BLEED, cell)
+            grid.style.transform = `translate3d(${gx}px,${gy}px,0)`
+          } else if (s !== lastScale) {
             grid.style.opacity = '0'
           }
         }

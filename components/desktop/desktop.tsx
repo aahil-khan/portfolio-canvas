@@ -142,6 +142,8 @@ function CanvasDesktop({ cards, dock, dockEntries, externals, bootIds, hero, her
   const viewportRef = useRef<HTMLDivElement>(null)
   const worldRef = useRef<HTMLDivElement>(null)
   const gridRef = useRef<HTMLDivElement>(null)
+  /** Last whole percent painted into the zoom readout, so an unchanged one is not rewritten. */
+  const shownZoom = useRef(-1)
   const heroRef = useRef<HTMLDivElement>(null)
   const zoomRef = useRef<HTMLDivElement>(null)
 
@@ -181,8 +183,18 @@ function CanvasDesktop({ cards, dock, dockEntries, externals, bootIds, hero, her
     viewportRef,
     worldRef,
     gridRef,
+    /*
+     * The readout is written only when the number on it actually changes.
+     *
+     * The eased zoom moves the scale every frame, but it crosses a whole percent far less
+     * often — and writing the same string back into a text node still dirties it, which costs a
+     * layout on a `position: fixed` element in the middle of the zoom it is reporting on.
+     */
     onScale: useCallback((s: number) => {
-      if (zoomRef.current) zoomRef.current.textContent = `${Math.round(s * 100)}%`
+      const pct = Math.round(s * 100)
+      if (pct === shownZoom.current) return
+      shownZoom.current = pct
+      if (zoomRef.current) zoomRef.current.textContent = `${pct}%`
     }, []),
   })
 

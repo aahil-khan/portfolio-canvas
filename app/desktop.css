@@ -32,7 +32,17 @@
  */
 #grid {
   position: absolute;
-  inset: 0;
+  /*
+   * Overhangs the viewport by more than the largest cell it is ever drawn at.
+   *
+   * The camera scrolls this by transform — composited, repaints nothing — wrapped within a
+   * single cell, so without the overhang the wrap would swing a bare edge into view. `use-canvas`
+   * cancels the same offset when it writes the translation, so the lines land exactly where a
+   * `background-position` of the full camera offset would have put them.
+   */
+  inset: -100px;
+  /* it is transformed every pan frame, so it gets a layer of its own and keeps it */
+  will-change: transform;
   background-image:
     linear-gradient(to right, var(--canvas-grid) 1px, transparent 1px),
     linear-gradient(to bottom, var(--canvas-grid) 1px, transparent 1px);
