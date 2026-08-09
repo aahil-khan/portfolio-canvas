@@ -149,15 +149,18 @@
   font-size: 19px;
 }
 
-/* ---------- things left on the desk ---------- */
+/* ---------- notes left on the desk ---------- */
 /*
- * Scenery in world space: a coffee ring, a note, a pencil, a scribble, a paperclip. Parked at
- * fixed coordinates you only reach by panning somewhere you had no reason to go.
+ * Scenery in world space: sticky notes, parked at fixed coordinates you only reach by panning
+ * somewhere you had no reason to go.
  *
- * `pointer-events: none` is the load-bearing line. These sit inside the transformed world and
+ * `pointer-events: none` is the load-bearing line. They sit inside the transformed world and
  * carry no `data-obj`, so a press on one is a press on the background and the canvas keeps
- * panning — you can drag straight through a coffee ring, which is the correct behaviour for a
- * stain.
+ * panning — you drag straight through a note rather than snagging on it.
+ *
+ * The pads keep their own colours on every theme, the way `apps.ts` keeps the per-card pastels:
+ * a pad of notes does not restyle itself to match the desk it is lying on. The ink is dark on
+ * all four tints, so that holds in a dark room too.
  */
 .prop {
   position: absolute;
@@ -165,24 +168,6 @@
   user-select: none;
   transform: rotate(var(--rot, 0deg));
 }
-
-/*
- * The paperclip follows the theme; the notes and the pencil do not.
- *
- * Same split `apps.ts` makes for the per-card pastels. A wire clip takes the colour of the light
- * in the room, so it is mixed from `--ink` and reads on all eighteen themes. A pad of notes does
- * not restyle itself to match the desk it is lying on, and a yellow pencil is yellow in a dark
- * room too — so those keep their own colours, with dark text that stays legible on every tint.
- */
-.prop--clip {
-  color: color-mix(in srgb, var(--ink) 45%, transparent);
-  line-height: 0;
-}
-.prop--pencil {
-  line-height: 0;
-}
-
-/* the one with something to say, so it is the one that looks worth zooming into */
 .prop--sticky {
   width: 152px;
   padding: 14px 13px;
@@ -204,6 +189,21 @@
 }
 .prop--sticky[data-tint='green'] {
   --pad: #c7efc9;
+}
+/*
+ * A reply, stuck on the note it answers. Square and small, because one glyph does not need a
+ * note's worth of paper, and a heavier lift than the note beneath it — the size difference and
+ * the shadow together are what make it read as an answer rather than as another thought.
+ */
+.prop--glyph {
+  display: grid;
+  place-items: center;
+  width: 84px;
+  height: 84px;
+  padding: 0;
+  font-size: 38px;
+  line-height: 1;
+  box-shadow: 3px 5px 7px rgba(22, 22, 22, 0.22);
 }
 .prop--sticky b {
   display: block;

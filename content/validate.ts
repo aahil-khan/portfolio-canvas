@@ -72,14 +72,14 @@ export function validateContent(): void {
     for (const img of p.images ?? []) fileMustExist(img, `project "${p.slug}"`)
   for (const j of jobs)
     for (const img of j.images ?? []) fileMustExist(img, `job "${j.slug}"`)
-  // two things left in the same place read as one broken thing
-  const propSpots = new Set<string>()
-  for (const d of props) {
-    const at = `${d.x},${d.y}`
-    if (propSpots.has(at)) errors.push(`two desk props share the spot ${at}`)
-    propSpots.add(at)
-    if (d.kind === 'sticky' && !d.lines)
-      errors.push(`sticky prop "${d.id}" has nothing written on it`)
+  // two notes in the same place read as one broken note
+  const noteSpots = new Set<string>()
+  for (const n of props) {
+    const at = `${n.x},${n.y}`
+    if (noteSpots.has(at)) errors.push(`two desk notes share the spot ${at}`)
+    noteSpots.add(at)
+    if (!n.lines && !n.glyph) errors.push(`desk note "${n.id}" has nothing written on it`)
+    if (n.lines && n.glyph) errors.push(`desk note "${n.id}" has both words and a glyph`)
   }
 
   for (const a of archive) {

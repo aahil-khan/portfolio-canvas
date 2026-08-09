@@ -882,7 +882,7 @@ function CanvasDesktop({ cards, dock, dockEntries, externals, bootIds, hero, her
         <div ref={worldRef} id="world" style={{ opacity: ready ? 1 : 0 }}>
           {!measured ? <MeasureRig cards={cards} onMeasured={onMeasured} /> : null}
 
-          {/* scenery, parked out in the world — see `content/props.ts` */}
+          {/* notes left out in the world — see `content/props.ts` */}
           <DeskProps />
 
           <div ref={heroRef} data-obj id="hero" className={arranging ? 'is-arranging' : undefined} style={{ left: heroPos.x, top: heroPos.y, width: heroWidth }}>
