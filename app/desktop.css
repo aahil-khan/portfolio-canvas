@@ -137,8 +137,56 @@
   overflow: hidden;
   transition: box-shadow 0.18s var(--ease-out);
 }
+/*
+ * The focused card — the one that has been clicked into, and therefore the one that owns the
+ * scroll wheel. It has to be unmistakable at a glance and at any zoom, because getting it wrong
+ * means scrolling the wrong thing.
+ *
+ * So the hard shadow fills with accent and keeps a border-coloured edge behind it. It reads
+ * instantly, it survives every theme (the shadow is two tokens, not two colours), and it spends
+ * the accent budget on the shadow rather than the card face — a focused card is still a card,
+ * and nothing about its content changes colour. `transform` is deliberately untouched: the tilt
+ * is written inline and the open/close FLIP animates it, so anything set here would either lose
+ * to the inline style or fight the animation.
+ */
 .card[data-focused] {
-  box-shadow: 8px 8px 0 0 var(--border);
+  box-shadow:
+    7px 7px 0 0 var(--accent),
+    7px 7px 0 2px var(--border);
+}
+
+/*
+ * The scroll mark. Hidden unless the body actually overflows — `data-scrolls` is set by a
+ * ResizeObserver in `card.tsx` — because on a card you can already read whole, "click me to
+ * scroll" is a promise of nothing.
+ */
+.card__scroll {
+  width: 21px;
+  height: 21px;
+  flex: 0 0 auto;
+  margin-right: -1px;
+  display: none;
+  place-items: center;
+  border-radius: 6px;
+  border: 1.5px solid transparent;
+  color: var(--on-app);
+  opacity: 0.45;
+  transition:
+    opacity 0.14s var(--ease-out),
+    background 0.14s var(--ease-out);
+}
+.card[data-scrolls] .card__scroll {
+  display: grid;
+}
+/* idle but scrollable: the hint brightens on approach, without claiming the card is active */
+.card[data-scrolls]:hover .card__scroll {
+  opacity: 0.72;
+}
+.card[data-scrolls][data-focused] .card__scroll {
+  opacity: 1;
+  background: var(--accent);
+  border-color: var(--border);
+  color: var(--accent-ink);
 }
 .card__head {
   flex: 0 0 auto;
@@ -216,6 +264,12 @@
 .card__body {
   flex: 1;
   overflow: auto;
+  /*
+   * A focused card keeps its scroll to itself. Without this, hitting the bottom of one hands the
+   * remainder of the gesture to an ancestor, and the world lurches at exactly the moment the
+   * card stopped moving — the one thing gating the wheel on focus was meant to prevent.
+   */
+  overscroll-behavior: contain;
   padding: 18px 20px 20px;
   font-size: 0.9375rem;
   line-height: 1.6;

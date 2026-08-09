@@ -16,6 +16,26 @@ import {
   zoomAt,
 } from './geometry'
 
+/**
+ * Is anything between `target` and `card` actually able to consume a vertical scroll?
+ *
+ * Overflowing is not enough — `.card` itself clips with `overflow: hidden`, and so do several
+ * app internals — and declaring a scrolling overflow is not enough either, since a container
+ * whose content fits has nothing to give. Both have to hold, so the computed style is only read
+ * for the handful of elements that overflow, and only while the pointer is over the one focused
+ * card. Everywhere else this costs a `closest()` and nothing more.
+ */
+const scrollerIn = (target: HTMLElement, card: HTMLElement): boolean => {
+  for (let el: HTMLElement | null = target; el; el = el.parentElement) {
+    if (el.scrollHeight > el.clientHeight + 1) {
+      const overflow = getComputedStyle(el).overflowY
+      if (overflow === 'auto' || overflow === 'scroll') return true
+    }
+    if (el === card) break
+  }
+  return false
+}
+
 interface Options {
   viewportRef: RefObject<HTMLDivElement | null>
   worldRef: RefObject<HTMLDivElement | null>
@@ -223,13 +243,26 @@ export function useCanvas({ viewportRef, worldRef, onScale }: Options) {
 
     const onWheel = (e: WheelEvent) => {
       /*
-       * The wheel belongs to whatever is under the pointer. Over a card it scrolls that card
-       * and nothing else — deliberately NOT chained to the canvas at the scroll edge, because
-       * reaching the bottom of a card and having the whole world lurch is disorienting.
-       * Zoom still works, since ctrl/⌘ + wheel is a gesture rather than a scroll.
+       * The wheel belongs to the canvas unless a card has been clicked into.
+       *
+       * It used to belong to whatever the pointer happened to be over, which meant crossing a
+       * card mid-scroll silently handed the wheel to it and the pan died under the cursor.
+       * Cards are scattered across the world, so on any real journey that is most of the way —
+       * navigation was unusable. Now hovering a card is not a claim on anything: you have to
+       * click a card to focus it, and only the focused card takes the wheel.
+       *
+       * Even then it only takes it if there is genuinely something to scroll, so a focused card
+       * whose content fits doesn't become a dead patch of screen. When it does scroll, it is
+       * still deliberately NOT chained to the canvas at the edge — reaching the bottom of a card
+       * and having the whole world lurch is disorienting.
+       *
+       * Zoom is unaffected either way: ctrl/⌘ + wheel is a gesture rather than a scroll.
        */
       const zooming = e.ctrlKey || e.metaKey
-      if (!zooming && (e.target as HTMLElement).closest('[data-card]')) return
+      if (!zooming) {
+        const card = (e.target as HTMLElement).closest<HTMLElement>('[data-card][data-focused]')
+        if (card && scrollerIn(e.target as HTMLElement, card)) return
+      }
 
       e.preventDefault()
       stopAnim()

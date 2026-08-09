@@ -405,6 +405,8 @@ function CanvasDesktop({ cards, dock, dockEntries, externals, bootIds, hero, her
   }, [])
 
   const onClosed = useCallback((id: string) => {
+    // a closed card must not keep the focus, or the wheel is owned by something no longer there
+    setFocused((f) => (f === id ? null : f))
     setPlaced((p) => {
       const next = { ...p }
       delete next[id]
@@ -776,7 +778,20 @@ function CanvasDesktop({ cards, dock, dockEntries, externals, bootIds, hero, her
 
   return (
     <OpenCardContext.Provider value={open}>
-      <div ref={viewportRef} id="viewport">
+      <div
+        ref={viewportRef}
+        id="viewport"
+        /*
+         * Clicking bare canvas drops the focus, handing the wheel back to the world.
+         *
+         * Bubble phase plus a target test, rather than a listener further down: a card body
+         * doesn't stop propagation, so an untested handler here would clear the focus that the
+         * very same click just set on the card.
+         */
+        onPointerDown={(e) => {
+          if (!(e.target as HTMLElement).closest('[data-obj]')) setFocused(null)
+        }}
+      >
         <div ref={worldRef} id="world" style={{ opacity: ready ? 1 : 0 }}>
           <div id="grid" aria-hidden />
           {!measured ? <MeasureRig cards={cards} onMeasured={onMeasured} /> : null}

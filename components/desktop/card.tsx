@@ -74,6 +74,7 @@ export function Card({
 }: Props) {
   const el = useRef<HTMLDivElement>(null)
   const head = useRef<HTMLDivElement>(null)
+  const body = useRef<HTMLDivElement>(null)
   const played = useRef(false)
   const tilt = rotate ?? def.rotate
 
@@ -83,6 +84,31 @@ export function Card({
   useLayoutEffect(() => {
     if (el.current) onMeasure(def.id, el.current.offsetHeight)
   }, [def.id, onMeasure])
+
+  /*
+   * `data-scrolls` marks a card whose body has more than it can show, which is the only card
+   * where taking focus buys you anything. It drives the scroll mark in the title bar.
+   *
+   * Written straight to the DOM rather than held in state: this is a cosmetic hint that can
+   * change on every resize, and a card re-render costs a re-measure. It is also allowed to go
+   * momentarily stale — whether the wheel is actually handed over is measured live in
+   * `use-canvas`, so nothing about the behaviour depends on this attribute being current.
+   */
+  useEffect(() => {
+    const node = el.current
+    const inner = body.current
+    if (!node || !inner) return
+    const sync = () => {
+      if (inner.scrollHeight > inner.clientHeight + 1) node.dataset.scrolls = 'true'
+      else delete node.dataset.scrolls
+    }
+    sync()
+    // the body's own box is pinned by the card's max-height, so its content is what changes size
+    const ro = new ResizeObserver(sync)
+    ro.observe(inner)
+    for (const child of inner.children) ro.observe(child)
+    return () => ro.disconnect()
+  }, [])
 
   useDragObject({
     nodeRef: el,
@@ -217,6 +243,26 @@ export function Card({
           <AppIcon name={def.icon} size={15} />
         </span>
         <span className="card__name">{def.label}</span>
+        {/*
+         * The scroll mark: dim while the card is idle, a filled accent chip once it has focus.
+         * CSS hides it entirely unless the body overflows, so it only ever appears where it
+         * means something. Drawn, not typed — ⇕ renders as a character and reads as one, the
+         * same reason `card__x` is two rules rather than an ✕.
+         */}
+        <span className="card__scroll" aria-hidden>
+          <svg
+            viewBox="0 0 24 24"
+            width={13}
+            height={13}
+            fill="none"
+            stroke="currentColor"
+            strokeWidth={2.4}
+            strokeLinecap="round"
+            strokeLinejoin="round"
+          >
+            <path d="M8 10l4-4 4 4M8 14l4 4 4-4" />
+          </svg>
+        </span>
         <button
           type="button"
           className="card__x"
@@ -227,7 +273,7 @@ export function Card({
           }}
         />
       </div>
-      <div className="card__body">{def.body}</div>
+      <div ref={body} className="card__body">{def.body}</div>
     </div>
   )
 }
