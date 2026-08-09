@@ -26,7 +26,9 @@ export const viewport = {
 
 export const metadata: Metadata = {
   metadataBase: new URL(SITE_URL),
-  title: `${profile.name} — ${profile.role.prefix} ${profile.role.emphasis}`,
+  // Tab title is the name alone. The role belongs in the OG card below, where there is room for
+  // it; in a tab strip it is truncated to noise long before the interesting half is reached.
+  title: profile.name,
   description: profile.intro,
   openGraph: {
     title: `${profile.name} — ${profile.role.prefix} ${profile.role.emphasis}`,
