@@ -377,8 +377,29 @@ function Lightbox({
     closeBtn.current?.focus()
   }, [])
 
+  /*
+   * Which way the last change went, and what is on its way out.
+   *
+   * Swapping `src` on one element is instant, and at this size instant reads as a glitch rather
+   * than a change — the picture is most of the screen, so it has to be seen to move. The
+   * outgoing frame is kept mounted for the length of the cross-fade and only then dropped.
+   *
+   * Adjusted during render rather than from an effect: it is state derived from `index`
+   * changing, and an effect would paint one frame of the new picture before the fade started.
+   */
+  const [seen, setSeen] = useState(index)
+  const [leaving, setLeaving] = useState<{ i: number; dir: number } | null>(null)
+  if (index !== seen) {
+    // paging past either end wraps, so the shorter way round is the direction it actually moved
+    const raw = index - seen
+    const dir = Math.abs(raw) > count / 2 ? -Math.sign(raw) : Math.sign(raw)
+    setLeaving({ i: seen, dir })
+    setSeen(index)
+  }
+
   const single = count === 1
   const s = slides[index]
+  const out = leaving ? slides[leaving.i] : null
 
   return createPortal(
     <div className="lb" role="dialog" aria-modal="true" aria-label={`${alt}, full size`}>
@@ -406,8 +427,37 @@ function Lightbox({
         </div>
 
         <div className="lb__stage">
+          {/*
+            * The outgoing picture is taken out of flow while it fades.
+            *
+            * Left in the grid cell it shares with the incoming one, the cell would size to
+            * whichever of the two is larger and the window would jolt mid-transition — these
+            * are screenshots and photos, so consecutive slides rarely share a shape.
+            */}
+          {out ? (
+            // eslint-disable-next-line @next/next/no-img-element -- dimensions known
+            <img
+              key={`out-${leaving?.i}`}
+              className="lb__img lb__img--out"
+              src={out.src}
+              alt=""
+              aria-hidden
+              width={out.width}
+              height={out.height}
+              style={{ ['--dx' as string]: `${(leaving?.dir ?? 1) * 34}px` }}
+              onAnimationEnd={() => setLeaving(null)}
+            />
+          ) : null}
           {/* eslint-disable-next-line @next/next/no-img-element -- dimensions known */}
-          <img src={s.src} alt={`${alt} ${index + 1} of ${count}`} width={s.width} height={s.height} />
+          <img
+            key={`in-${index}`}
+            className="lb__img"
+            src={s.src}
+            alt={`${alt} ${index + 1} of ${count}`}
+            width={s.width}
+            height={s.height}
+            style={{ ['--dx' as string]: `${(leaving?.dir ?? 1) * 34}px` }}
+          />
           {!single ? (
             <>
               <button

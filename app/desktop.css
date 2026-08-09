@@ -3663,9 +3663,62 @@ body:has(.lb) #cursor {
   flex: 1;
   min-height: 0;
   display: grid;
+  /* one cell, shared: the incoming frame sizes it, the outgoing one floats over it */
+  grid-template-areas: 'frame';
   place-items: center;
   padding: 14px;
   background: var(--surface-sunken);
+  overflow: hidden;
+}
+.lb__stage img {
+  grid-area: frame;
+}
+
+/*
+ * Paging the viewer, animated.
+ *
+ * The picture is most of the screen here, so swapping `src` on one element read as a glitch
+ * rather than a change. The two frames cross-fade and drift a little in the direction you
+ * paged, which is the same vocabulary as the inline carousel's sliding track without needing
+ * a track — every slide in here is its own size, centred, so there is nothing to slide.
+ *
+ * `--dx` is written per element by the component and carries the sign of the direction.
+ */
+.lb__img {
+  animation: lb-in 300ms var(--ease-out) both;
+}
+.lb__img--out {
+  position: absolute;
+  inset: 14px;
+  margin: auto;
+  pointer-events: none;
+  animation: lb-out 300ms var(--ease-out) both;
+}
+@keyframes lb-in {
+  from {
+    opacity: 0;
+    transform: translateX(var(--dx, 0));
+  }
+  to {
+    opacity: 1;
+    transform: none;
+  }
+}
+@keyframes lb-out {
+  from {
+    opacity: 1;
+    transform: none;
+  }
+  to {
+    opacity: 0;
+    transform: translateX(calc(var(--dx, 0) * -1));
+  }
+}
+@media (prefers-reduced-motion: reduce) {
+  .lb__img,
+  .lb__img--out {
+    animation-duration: 1ms;
+  }
 }
 /* `contain` here too: the viewer shows the whole shot or it isn't a viewer */
 .lb__stage img {
