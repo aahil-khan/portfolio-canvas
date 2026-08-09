@@ -8,9 +8,9 @@ import { type DeskProp, props } from '@/content/props'
  * the framing out when you fit everything.
  *
  * Which of them follow the theme and which do not is the same split `apps.ts` already makes for
- * the per-card pastels: marks made ON the desk — a ring, a scribble — are drawn from `--ink`, so
- * they read on all eighteen themes. Objects lying on it keep their own colours, because a yellow
- * pencil is yellow in a dark room too.
+ * the per-card pastels: the paperclip is drawn from `--ink` so it reads on all eighteen
+ * themes, while the notes and the pencil keep their own colours — a yellow pencil is yellow in a
+ * dark room too, and a pad of notes does not restyle itself to match the desk.
  */
 function Prop({ p }: { p: DeskProp }) {
   const style = {
@@ -22,16 +22,11 @@ function Prop({ p }: { p: DeskProp }) {
   if (p.kind === 'sticky') {
     const [label, body] = p.lines ?? ['', '']
     return (
-      <div className="prop prop--sticky" style={style} aria-hidden>
+      <div className="prop prop--sticky" data-tint={p.tint ?? 'yellow'} style={style} aria-hidden>
         <b>{label}</b>
         {body}
       </div>
     )
-  }
-
-  if (p.kind === 'ring') {
-    // two rings, uneven — a mug set down twice, not a drawn circle
-    return <div className="prop prop--ring" style={style} aria-hidden />
   }
 
   if (p.kind === 'pencil') {
@@ -47,22 +42,11 @@ function Prop({ p }: { p: DeskProp }) {
     )
   }
 
-  if (p.kind === 'clip') {
-    return (
-      <div className="prop prop--clip" style={style} aria-hidden>
-        <svg viewBox="0 0 34 70" width="34" height="70" fill="none" stroke="currentColor"
-          strokeWidth="3.4" strokeLinecap="round">
-          <path d="M11 56V15a6 6 0 0 1 12 0v42a10 10 0 0 1-20 0V19" />
-        </svg>
-      </div>
-    )
-  }
-
   return (
-    <div className="prop prop--doodle" style={style} aria-hidden>
-      <svg viewBox="0 0 120 70" width="120" height="70" fill="none" stroke="currentColor"
-        strokeWidth="2.2" strokeLinecap="round">
-        <path d="M6 52c14-40 26 10 38-18s20 34 32 6 16 12 16 12" />
+    <div className="prop prop--clip" style={style} aria-hidden>
+      <svg viewBox="0 0 34 70" width="34" height="70" fill="none" stroke="currentColor"
+        strokeWidth="3.4" strokeLinecap="round">
+        <path d="M11 56V15a6 6 0 0 1 12 0v42a10 10 0 0 1-20 0V19" />
       </svg>
     </div>
   )
