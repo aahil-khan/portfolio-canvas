@@ -34,6 +34,23 @@ import {
 
 type Status = 'idle' | 'posting' | 'posted' | 'failed'
 
+/**
+ * Did this keystroke come from a text field rather than from the game?
+ *
+ * Every game wrapper carries `data-keys` and claims bare letters, which is what stops the canvas
+ * treating them as its own shortcuts. Putting a name field inside that wrapper turned the two
+ * against each other: typing a name containing w, a, s or d moved the board instead, and the
+ * letter never reached the input — the game had already called `preventDefault` on it. Snake was
+ * worse, where a space paused the run mid-word.
+ *
+ * So it lives here, next to the control that caused it. Any game whose keys overlap the alphabet
+ * has to let a keystroke past when it belongs to a field.
+ */
+export function fromTextField(e: { target: EventTarget | null }): boolean {
+  const t = e.target as HTMLElement | null
+  return !!t && typeof t.closest === 'function' && !!t.closest('input, textarea, [contenteditable]')
+}
+
 export function useBoard(game: BoardId, value: number) {
   const measuring = useMeasuring()
   const bests = useSyncExternalStore(subscribeBest, getBestSnapshot, getBestServerSnapshot)

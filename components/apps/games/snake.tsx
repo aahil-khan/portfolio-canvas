@@ -2,7 +2,7 @@
 
 import { useCallback, useEffect, useRef, useState } from 'react'
 
-import { PostControls, ScoreStats, useBoard } from '@/components/apps/games/board'
+import { PostControls, ScoreStats, fromTextField, useBoard } from '@/components/apps/games/board'
 import { useMeasuring } from '@/components/desktop/measuring-context'
 import { snake as C } from '@/content/arcade'
 import { recordBest } from '@/lib/best'
@@ -177,6 +177,8 @@ export function Snake() {
 
   const onKey = useCallback(
     (e: React.KeyboardEvent) => {
+      // the name field lives inside this wrapper; while it has focus every key belongs to it
+      if (fromTextField(e)) return
       if (e.key === ' ') {
         e.preventDefault()
         setStatus((s) => (s === 'running' ? 'paused' : s === 'paused' ? 'running' : s))

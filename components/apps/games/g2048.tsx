@@ -2,7 +2,7 @@
 
 import { useCallback, useEffect, useRef, useState } from 'react'
 
-import { PostControls, ScoreStats, useBoard } from '@/components/apps/games/board'
+import { PostControls, ScoreStats, fromTextField, useBoard } from '@/components/apps/games/board'
 
 import { g2048 as C } from '@/content/arcade'
 import { recordBest } from '@/lib/best'
@@ -218,6 +218,8 @@ export function Game2048() {
 
   const onKey = useCallback(
     (e: React.KeyboardEvent) => {
+      // the name field lives inside this wrapper; w/a/s/d belong to it while it has focus
+      if (fromTextField(e)) return
       const dir = KEYS[e.key.length === 1 ? e.key.toLowerCase() : e.key]
       if (!dir) return
       e.preventDefault()
