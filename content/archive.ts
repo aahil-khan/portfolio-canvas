@@ -13,8 +13,6 @@
  * what you're currently watching or reading; unpin it when you move on.
  */
 
-import { turbopackCacheVersion } from "next/dist/build/swc/generated-native";
-
 export type ArchiveKind =
   | 'built'
   | 'watching'
