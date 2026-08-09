@@ -71,7 +71,12 @@ export function validateContent(): void {
     for (const img of p.images ?? []) fileMustExist(img, `project "${p.slug}"`)
   for (const j of jobs)
     for (const img of j.images ?? []) fileMustExist(img, `job "${j.slug}"`)
-  for (const a of archive) if (a.image) fileMustExist(a.image, `archive "${a.id}"`)
+  for (const a of archive) {
+    if (a.image) fileMustExist(a.image, `archive "${a.id}"`)
+    for (const shot of a.images ?? []) {
+      fileMustExist(typeof shot === 'string' ? shot : shot.src, `archive "${a.id}"`)
+    }
+  }
   for (const g of toolGroups)
     for (const t of g.tools) if (t.logo) fileMustExist(t.logo, `tool "${t.name}"`)
 

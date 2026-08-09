@@ -31,8 +31,13 @@ function Entry({ item }: { item: ArchiveItem }) {
 
       {item.meta ? <p className="arc__meta">{item.meta}</p> : null}
       {item.note ? <p className="arc__note">{item.note}</p> : null}
-      {item.image ? (
-        <ArchiveImage src={item.image} alt={item.title} />
+      {/* `images` wins when both are given; `image` stays for the one-picture common case */}
+      {item.images?.length || item.image ? (
+        <ArchiveImage
+          images={item.images ?? (item.image ? [{ src: item.image, caption: item.caption }] : [])}
+          alt={item.title}
+          fullscreen={item.fullscreen}
+        />
       ) : null}
     </li>
   )

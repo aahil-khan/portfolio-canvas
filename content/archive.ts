@@ -22,6 +22,15 @@ export type ArchiveKind =
   | 'found'
   | 'note'
 
+/**
+ * One picture in an archive entry: a path, or a path with a line under it.
+ *
+ * The bare string stays legal so the common case reads as a list of files. Reach for the object
+ * form only where a picture needs saying something about — a caption on every one of them turns
+ * a feed into a slideshow nobody asked for.
+ */
+export type ArchiveShot = string | { src: string; caption?: string }
+
 export interface ArchiveItem {
   /** Unique and url-safe. Used as the card id when an entry opens on its own. */
   id: string
@@ -31,8 +40,25 @@ export interface ArchiveItem {
   note?: string
   /** Makes the title a link. */
   href?: string
-  /** A file in `public/archive/`. Shown as a thumbnail that opens full size. */
+  /** A file in `public/archive/`. Shown at its own shape, never cropped. */
   image?: string
+  /** A line under `image`. For several pictures, caption them individually in `images`. */
+  caption?: string
+  /**
+   * Several files, paged with the same carousel the project cards use. Wins over `image`.
+   *
+   * The frame takes the FIRST one's shape and the rest are drawn `contain` inside it — order is
+   * yours to choose, and nothing gets cropped to match its neighbours.
+   */
+  images?: readonly ArchiveShot[]
+  /**
+   * Lets the picture be opened in the big viewer, the way a project screenshot can.
+   *
+   * Off by default, and deliberately per-entry. Most things here are an aside next to a
+   * sentence and are not worth a viewer that covers the screen; a few are the whole point of
+   * the entry. Only the second kind should offer it.
+   */
+  fullscreen?: boolean
   /** Free text, not a date type on purpose: 'Aug 2026', 'last week', 'ongoing'. */
   when: string
   /** Small grey line: 'S2E4', 'dir. Denis Villeneuve', '412 pages'. */

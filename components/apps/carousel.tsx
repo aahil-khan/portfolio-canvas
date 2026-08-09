@@ -22,6 +22,8 @@ export interface Slide {
   src: string
   width?: number
   height?: number
+  /** A line under the picture. Optional per slide — a set can caption some and not others. */
+  caption?: string
 }
 
 interface Props {
@@ -30,6 +32,14 @@ interface Props {
   /** Aspect ratio of the frame, measured from the first slide at build time. */
   ratio: number
   className?: string
+  /**
+   * Whether the full-size viewer can be opened. Default on.
+   *
+   * Project screenshots are the point of the card they sit in, so they always offer it. An
+   * archive thumbnail is an aside next to a sentence, and most of them are not worth a viewer
+   * that covers the screen — so there it is opt-in, per entry, via `fullscreen` in the content.
+   */
+  zoomable?: boolean
 }
 
 /**
@@ -47,13 +57,14 @@ interface Props {
  * at the slide you were already on — the old behaviour promoted the shot to another card on the
  * canvas, so a click on an image spawned a window you then had to find and close.
  */
-export function Carousel({ slides, alt, ratio, className }: Props) {
+export function Carousel({ slides, alt, ratio, className, zoomable = true }: Props) {
   const measuring = useMeasuring()
   const [index, setIndex] = useState(0)
   const [full, setFull] = useState(false)
   const frame = useRef<HTMLDivElement>(null)
   const zoom = useRef<HTMLButtonElement>(null)
   const count = slides.length
+  const captioned = slides.some((s) => s.caption)
 
   const go = useCallback(
     (next: number) => setIndex(((next % count) + count) % count),
@@ -153,15 +164,17 @@ export function Carousel({ slides, alt, ratio, className }: Props) {
           ))}
         </div>
 
-        <button
-          ref={zoom}
-          type="button"
-          className="carousel__zoom"
-          aria-label={`View ${alt} full size`}
-          onClick={() => setFull(true)}
-        >
-          <Expand />
-        </button>
+        {zoomable ? (
+          <button
+            ref={zoom}
+            type="button"
+            className="carousel__zoom"
+            aria-label={`View ${alt} full size`}
+            onClick={() => setFull(true)}
+          >
+            <Expand />
+          </button>
+        ) : null}
 
         {!single ? (
           <>
@@ -203,7 +216,19 @@ export function Carousel({ slides, alt, ratio, className }: Props) {
         </div>
       ) : null}
 
-      {full ? (
+      {/*
+        * Captions reserve their line whether or not the current slide has one.
+        *
+        * Without that, paging between a captioned slide and a bare one changes the height of
+        * the card underneath — and these heights are measured once at boot and reused for
+        * collision avoidance and framing, so the card would disagree with what the canvas
+        * believes about it for the rest of the session.
+        */}
+      {captioned ? (
+        <p className="carousel__cap">{slides[index]?.caption ?? '\u00a0'}</p>
+      ) : null}
+
+      {full && zoomable ? (
         <Lightbox
           slides={slides}
           alt={alt}
@@ -404,6 +429,8 @@ function Lightbox({
             </>
           ) : null}
         </div>
+
+        {s.caption ? <p className="lb__cap">{s.caption}</p> : null}
 
         {!single ? (
           <div className="lb__dots">
