@@ -71,6 +71,7 @@ export const tutorial = {
       label: 'Moving around',
       moves: [
         { keys: 'drag', what: 'the background pans the whole canvas' },
+        { keys: 'middle-drag', what: 'pans from anywhere, including straight over a card' },
         { keys: '⌘/Ctrl + scroll', what: 'zoom in and out — or pinch, on a trackpad' },
         { keys: 'scroll', what: 'pan up, down and sideways' },
         { keys: 'double-click', what: 'on the top bar of a card, flies you into it; again flies you back' },

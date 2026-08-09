@@ -236,7 +236,13 @@ export function Card({
         ['--c-soft' as string]: def.tint,
       }}
       data-focused={focused || undefined}
-      onPointerDownCapture={() => onRaise(def.id)}
+      /*
+       * Left button only. A middle press here is a pan that happens to start over this card —
+       * it should move the world, not hand this card the scroll wheel it was not asked for.
+       */
+      onPointerDownCapture={(e) => {
+        if (e.button === 0) onRaise(def.id)
+      }}
     >
       <div ref={head} className="card__head">
         <span className="card__ico">

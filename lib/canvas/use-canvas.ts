@@ -250,6 +250,9 @@ export function useCanvas({ viewportRef, worldRef, gridRef, onScale }: Options) 
     let panning = false
     let panId: number | null = null
     let last = { x: 0, y: 0, t: 0 }
+    /** Whether the pan in progress is a middle-drag, and whether it has actually moved. */
+    let middle = false
+    let middleMoved = false
 
     const glide = (vx: number, vy: number) => {
       stopAnim()
@@ -263,8 +266,20 @@ export function useCanvas({ viewportRef, worldRef, gridRef, onScale }: Options) 
     }
 
     const onDown = (e: PointerEvent) => {
-      // anything with .obj handles its own drag; only empty canvas pans
-      if (e.button !== 0 || (e.target as HTMLElement).closest('[data-obj]')) return
+      /*
+       * Left button pans the empty canvas; the middle button pans from anywhere.
+       *
+       * Left has to yield to anything carrying `data-obj`, because on a desk a press on a card
+       * is a press on that card. Middle has no such job — nothing else wants it — so it can pan
+       * straight over a card without first hunting for a gap between them, which is what makes
+       * it worth having on a canvas this crowded. Same reason every design tool binds it.
+       */
+      middle = e.button === 1
+      if (!middle && (e.button !== 0 || (e.target as HTMLElement).closest('[data-obj]'))) return
+      if (middle) {
+        middleMoved = false
+        e.preventDefault()
+      }
       panning = true
       panId = e.pointerId
       vp.setPointerCapture(panId)
@@ -282,6 +297,7 @@ export function useCanvas({ viewportRef, worldRef, gridRef, onScale }: Options) 
       const dx = e.clientX - last.x
       const dy = e.clientY - last.y
       const dt = Math.max(1, now - last.t)
+      if (middle && (Math.abs(dx) > 0 || Math.abs(dy) > 0)) middleMoved = true
       set({ ...cam.current, x: cam.current.x + dx, y: cam.current.y + dy })
       // exponential smoothing, so one noisy frame can't dominate a flick
       vel.current = { x: vel.current.x * 0.7 + (dx / dt) * 0.3, y: vel.current.y * 0.7 + (dy / dt) * 0.3 }
@@ -374,6 +390,25 @@ export function useCanvas({ viewportRef, worldRef, gridRef, onScale }: Options) 
       if (touches.size < 2) pinch = 0
     }
 
+    /*
+     * Windows pops an autoscroll widget on a middle press and X11 pastes the primary selection;
+     * both are default actions of `mousedown`, which `preventDefault` on `pointerdown` does not
+     * suppress. This is a separate listener because it is a separate event.
+     */
+    const swallowMiddleDown = (e: MouseEvent) => {
+      if (e.button === 1) e.preventDefault()
+    }
+    /*
+     * A middle click that never moved is still a middle click — on a link inside a card that
+     * means "open in a new tab", and taking that away to buy a pan gesture would be a poor
+     * trade. Only a middle drag that actually went somewhere swallows its click.
+     */
+    const swallowMiddleClick = (e: MouseEvent) => {
+      if (e.button === 1 && middleMoved) e.preventDefault()
+    }
+
+    vp.addEventListener('mousedown', swallowMiddleDown)
+    vp.addEventListener('auxclick', swallowMiddleClick)
     vp.addEventListener('pointerdown', onDown)
     vp.addEventListener('pointermove', onMove)
     vp.addEventListener('pointerup', onUp)
@@ -386,6 +421,8 @@ export function useCanvas({ viewportRef, worldRef, gridRef, onScale }: Options) 
     vp.addEventListener('wheel', onWheel, { passive: false })
 
     return () => {
+      vp.removeEventListener('mousedown', swallowMiddleDown)
+      vp.removeEventListener('auxclick', swallowMiddleClick)
       vp.removeEventListener('pointerdown', onDown)
       vp.removeEventListener('pointermove', onMove)
       vp.removeEventListener('pointerup', onUp)
