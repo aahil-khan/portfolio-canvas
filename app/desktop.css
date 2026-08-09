@@ -2655,9 +2655,19 @@ button.item:focus-visible .ttl::after {
 }
 
 /* ---------- archive images ---------- */
+/*
+ * The figure is capped at the picture's own width, and that is what makes the caption a caption.
+ *
+ * `--max-h` and `--ratio` are set on this element by `archive-image.tsx`, and the cap is spent
+ * as a max-WIDTH derived from the ratio — never a max-height, which overrides `aspect-ratio` and
+ * reshapes the box. Sizing the picture alone left the caption belonging to the column instead: a
+ * line about a 198px portrait ran the full 436px of the card and wrapped past the picture's
+ * right edge, reading as a second paragraph of note rather than as a caption.
+ */
 .arc-img {
   display: block;
   width: 100%;
+  max-width: calc(var(--max-h, 320px) * var(--ratio, 1.6));
   /* it is a <figure> now, and a figure's default 1em side margins would indent the picture */
   margin: 4px 0 0;
 }
@@ -2667,34 +2677,47 @@ button.item:focus-visible .ttl::after {
  * weight the two read as one run-on paragraph with a photo wedged in the middle.
  */
 .arc-img__cap,
-.carousel__cap,
-.lb__cap {
-  margin: 6px 0 0;
+.carousel__cap {
+  margin: 7px 0 0;
   font-size: 0.75rem;
   line-height: 1.45;
   color: var(--ink-subtle);
-  max-width: 52ch;
 }
 /* one line's worth of space is always held, so paging a set cannot resize the card */
 .carousel__cap {
   min-height: 1.45em;
 }
-/* on the scrim the caption is the only text besides the title, so it can afford to be legible */
+/*
+ * The viewer's footer: caption and dots in one centred column under the picture.
+ *
+ * They were laid out separately and against the window rather than the picture — the caption
+ * hugging the left edge, 12px out of line with the image the stage insets, above dots centred
+ * on the full width. Three alignments under one centred photograph.
+ */
+.lb__foot {
+  display: grid;
+  justify-items: center;
+  gap: 9px;
+  padding: 11px 20px 12px;
+  border-top: 1.5px solid color-mix(in srgb, var(--ink) 12%, transparent);
+}
+.lb__foot .lb__dots {
+  padding: 0;
+}
+/* the only prose on the screen besides the title, so it can afford to be read rather than glanced */
 .lb__cap {
-  margin: 10px 2px 0;
+  margin: 0;
   font-size: 0.8125rem;
+  line-height: 1.5;
+  text-align: center;
+  text-wrap: pretty;
   color: var(--ink-muted);
+  max-width: 64ch;
 }
 .arc-img__box {
   display: block;
-  /*
-   * The cap is a max-WIDTH computed from the ratio, so the box keeps the image's exact shape
-   * however it is constrained. `max-height` wins over `aspect-ratio` and reshapes the box —
-   * that is what cropped a square image into a 1.45:1 letterbox.
-   */
-  --max-h: 320px;
+  /* the cap lives on the figure above, so the caption is bound to the same width */
   width: 100%;
-  max-width: calc(var(--max-h) * var(--ratio));
   /*
    * No aspect-ratio here. With `box-sizing: border-box` the ratio applies to the BORDER box, so
    * the 1.5px border skews it — a 2.4 image rendered at 2.33. The <img> carries width/height
@@ -3536,11 +3559,6 @@ html[data-shell='desktop'] #pill > * {
  * box — so the frame lands at exactly the size the plain thumbnail would have been, and turning
  * `fullscreen` on changes whether there is a button rather than how big the picture is.
  */
-.arc-img--live {
-  display: block;
-  width: 100%;
-  max-width: calc(var(--max-h) * var(--ratio));
-}
 .carousel--arc {
   margin: 0;
 }

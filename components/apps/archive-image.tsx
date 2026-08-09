@@ -8,6 +8,23 @@ import { Carousel, type Slide } from './carousel'
 const MAX_H = 320
 
 /**
+ * The two custom properties that size a thumbnail, set on the FIGURE rather than the picture.
+ *
+ * `--max-h` is spent as a max-WIDTH derived from the ratio, never a max-height: a max-height
+ * overrides `aspect-ratio` and silently reshapes the box, which is what once cropped a square
+ * image into a 1.45:1 letterbox.
+ *
+ * On the figure, because the caption is the figure's other child. Sized on the picture alone,
+ * the caption belonged to the column instead — a line about a 198px portrait ran the full 436px
+ * of the card and wrapped past the picture's right edge, reading as another paragraph of note
+ * rather than as a caption. Capping the figure makes the picture's width the caption's measure.
+ */
+const sizing = (ratio: number) => ({
+  ['--ratio' as string]: `${ratio}`,
+  ['--max-h' as string]: `${MAX_H}px`,
+})
+
+/**
  * The picture (or pictures) on an archive entry. SERVER component.
  *
  * Dimensions are read from the files at build time, so every frame is the right shape before
@@ -52,8 +69,8 @@ export function ArchiveImage({
    */
   if (slides.length === 1 && !fullscreen) {
     return (
-      <figure className="arc-img">
-        <span className="arc-img__box" style={{ ['--ratio' as string]: `${ratio}` }}>
+      <figure className="arc-img" style={sizing(ratio)}>
+        <span className="arc-img__box">
           {/* eslint-disable-next-line @next/next/no-img-element -- dimensions known, so no shift */}
           <img src={first.src} alt={alt} width={first.width} height={first.height} loading="lazy" />
         </span>
@@ -62,17 +79,8 @@ export function ArchiveImage({
     )
   }
 
-  /*
-   * `--max-h` is spent as a max-WIDTH derived from the ratio, never a max-height. A max-height
-   * overrides `aspect-ratio` and silently reshapes the box — that bug once cropped a square
-   * image into a 1.45:1 letterbox. Capping the width keeps the frame exactly the picture's
-   * shape however it is constrained, so nothing is ever cut off.
-   */
   return (
-    <figure
-      className="arc-img arc-img--live"
-      style={{ ['--ratio' as string]: `${ratio}`, ['--max-h' as string]: `${MAX_H}px` }}
-    >
+    <figure className="arc-img arc-img--live" style={sizing(ratio)}>
       <Carousel
         slides={slides}
         alt={alt}

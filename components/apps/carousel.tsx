@@ -398,6 +398,7 @@ function Lightbox({
   }
 
   const single = count === 1
+  const captioned = slides.some((sl) => sl.caption)
   const s = slides[index]
   const out = leaving ? slides[leaving.i] : null
 
@@ -480,20 +481,34 @@ function Lightbox({
           ) : null}
         </div>
 
-        {s.caption ? <p className="lb__cap">{s.caption}</p> : null}
-
-        {!single ? (
-          <div className="lb__dots">
-            {slides.map((sl, i) => (
-              <button
-                key={sl.src}
-                type="button"
-                className={i === index ? 'is-on' : undefined}
-                aria-label={`Image ${i + 1}`}
-                aria-current={i === index || undefined}
-                onClick={() => go(i)}
-              />
-            ))}
+        {/*
+          * Caption and dots share one centred column under the picture.
+          *
+          * They used to be laid out separately, and against the window rather than the picture:
+          * the caption hugged the left edge 12px out of line with the image the stage insets,
+          * while the dots were centred — three alignments stacked under one centred photograph.
+          *
+          * The caption holds its line even on a slide without one, for the same reason the
+          * inline carousel does: the viewer is centred in the screen, so a footer that changed
+          * height as you paged would shift the whole window under the cursor.
+          */}
+        {captioned || !single ? (
+          <div className="lb__foot">
+            {captioned ? <p className="lb__cap">{s.caption ?? '\u00a0'}</p> : null}
+            {!single ? (
+              <div className="lb__dots">
+                {slides.map((sl, i) => (
+                  <button
+                    key={sl.src}
+                    type="button"
+                    className={i === index ? 'is-on' : undefined}
+                    aria-label={`Image ${i + 1}`}
+                    aria-current={i === index || undefined}
+                    onClick={() => go(i)}
+                  />
+                ))}
+              </div>
+            ) : null}
           </div>
         ) : null}
       </div>
