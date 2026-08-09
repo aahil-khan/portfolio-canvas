@@ -39,7 +39,18 @@ export const GUTTER = 30
  */
 export const READABLE_SCALE = 0.9
 
-export const clampScale = (s: number) => Math.min(MAX_SCALE, Math.max(MIN_SCALE, s))
+/**
+ * `floor` exists because "fit all" is allowed below the interactive minimum and hand zooming is
+ * not — see `FIT_MIN_SCALE`. Without it the two disagreed: fitting a wide scatter parks the
+ * camera at, say, 0.09, and then the very next wheel notch clamped straight back to 0.35, so the
+ * world leapt four times larger from one notch. Passing `min(MIN_SCALE, cam.s)` says "you may
+ * stay as far out as the fit put you, you just may not wheel yourself out any further".
+ */
+export const clampScale = (s: number, floor = MIN_SCALE) =>
+  Math.min(MAX_SCALE, Math.max(floor, s))
+
+/** The floor a hand gesture must respect, given where a fit may already have left the camera. */
+export const zoomFloor = (current: number) => Math.min(MIN_SCALE, current)
 
 export const screenToWorld = (cam: Camera, px: number, py: number) => ({
   x: (px - cam.x) / cam.s,
@@ -50,8 +61,14 @@ export const screenToWorld = (cam: Camera, px: number, py: number) => ({
  * Zoom about a screen point so the world pixel under the cursor stays exactly put.
  * Getting this wrong is the classic canvas bug — the content drifts away from the pointer.
  */
-export function zoomAt(cam: Camera, px: number, py: number, nextScale: number): Camera {
-  const s = clampScale(nextScale)
+export function zoomAt(
+  cam: Camera,
+  px: number,
+  py: number,
+  nextScale: number,
+  floor = MIN_SCALE,
+): Camera {
+  const s = clampScale(nextScale, floor)
   if (s === cam.s) return cam
   const wx = (px - cam.x) / cam.s
   const wy = (py - cam.y) / cam.s

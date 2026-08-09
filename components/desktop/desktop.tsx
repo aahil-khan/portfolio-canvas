@@ -140,6 +140,7 @@ export function Desktop(props: Props) {
 function CanvasDesktop({ cards, dock, dockEntries, externals, bootIds, hero, heroWidth }: Props) {
   const viewportRef = useRef<HTMLDivElement>(null)
   const worldRef = useRef<HTMLDivElement>(null)
+  const gridRef = useRef<HTMLDivElement>(null)
   const heroRef = useRef<HTMLDivElement>(null)
   const zoomRef = useRef<HTMLDivElement>(null)
 
@@ -178,6 +179,7 @@ function CanvasDesktop({ cards, dock, dockEntries, externals, bootIds, hero, her
   const canvas = useCanvas({
     viewportRef,
     worldRef,
+    gridRef,
     onScale: useCallback((s: number) => {
       if (zoomRef.current) zoomRef.current.textContent = `${Math.round(s * 100)}%`
     }, []),
@@ -792,8 +794,10 @@ function CanvasDesktop({ cards, dock, dockEntries, externals, bootIds, hero, her
           if (!(e.target as HTMLElement).closest('[data-obj]')) setFocused(null)
         }}
       >
+        {/* a sibling of the world, not a child: see `#grid` in desktop.css */}
+        <div ref={gridRef} id="grid" aria-hidden />
+
         <div ref={worldRef} id="world" style={{ opacity: ready ? 1 : 0 }}>
-          <div id="grid" aria-hidden />
           {!measured ? <MeasureRig cards={cards} onMeasured={onMeasured} /> : null}
 
           <div ref={heroRef} data-obj id="hero" className={arranging ? 'is-arranging' : undefined} style={{ left: heroPos.x, top: heroPos.y, width: heroWidth }}>

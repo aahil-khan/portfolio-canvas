@@ -14,6 +14,7 @@ import {
   screenToWorld as toWorld,
   wheelToScale,
   zoomAt,
+  zoomFloor,
 } from './geometry'
 
 /**
@@ -39,6 +40,8 @@ const scrollerIn = (target: HTMLElement, card: HTMLElement): boolean => {
 interface Options {
   viewportRef: RefObject<HTMLDivElement | null>
   worldRef: RefObject<HTMLDivElement | null>
+  /** The backdrop grid, which lives on the viewport and is moved by the camera. Optional. */
+  gridRef?: RefObject<HTMLDivElement | null>
   /** Called when the scale changes, for the zoom readout. Debounced to animation frames. */
   onScale?: (scale: number) => void
   /** True while a card is being dragged, so the canvas doesn't pan underneath it. */
@@ -53,7 +56,7 @@ interface Options {
  * opens, closes, or takes focus. Routing 60fps pointer moves through `useState` is the single
  * most reliable way to make this class of UI janky, and it can't be retrofitted later.
  */
-export function useCanvas({ viewportRef, worldRef, onScale }: Options) {
+export function useCanvas({ viewportRef, worldRef, gridRef, onScale }: Options) {
   const cam = useRef<Camera>({ x: 0, y: 0, s: 1 })
   const dirty = useRef(true)
   const anim = useRef<number | null>(null)
@@ -125,7 +128,7 @@ export function useCanvas({ viewportRef, worldRef, onScale }: Options) {
       stopAnim()
       const base = zoomTo.current?.s ?? cam.current.s
       zoomTo.current = {
-        s: clampScale(base * factor),
+        s: clampScale(base * factor, zoomFloor(cam.current.s)),
         px: vp.width / 2,
         py: vp.top + (vp.height - vp.top - vp.bottom) / 2,
       }
@@ -159,21 +162,48 @@ export function useCanvas({ viewportRef, worldRef, onScale }: Options) {
     let raf = 0
     let lastScale = -1
     const world = worldRef.current
+    const grid = gridRef?.current
     const frame = () => {
       const target = zoomTo.current
       if (target) {
+        /*
+         * The floor is taken from the target, not from the live scale.
+         *
+         * Taken from the live scale it moves as the easing runs, so a step that should have been
+         * allowed gets clamped away mid-converge and `zoomAt` returns the camera untouched —
+         * the loop then re-runs the same frame forever, holding `dirty` high and starving
+         * everything else that wants to paint.
+         */
+        const floor = Math.min(zoomFloor(cam.current.s), target.s)
         const next = cam.current.s + (target.s - cam.current.s) * 0.2
         if (Math.abs(target.s - next) < 0.002) {
-          cam.current = zoomAt(cam.current, target.px, target.py, target.s)
+          cam.current = zoomAt(cam.current, target.px, target.py, target.s, floor)
           zoomTo.current = null
         } else {
-          cam.current = zoomAt(cam.current, target.px, target.py, next)
+          cam.current = zoomAt(cam.current, target.px, target.py, next, floor)
         }
         dirty.current = true
       }
       if (dirty.current && world) {
         const { x, y, s } = cam.current
         world.style.transform = `translate3d(${x}px,${y}px,0) scale(${s})`
+        /*
+         * The grid follows the camera as a background offset rather than as a transformed child.
+         * `background-position` takes the camera's translation straight, because the world's
+         * transform-origin is 0 0 — so world (0,0) is at screen (x, y) and the lines repeat out
+         * from there on their own.
+         */
+        if (grid) {
+          const cell = 48 * s
+          // under a few pixels a 1px line every `cell` is a flat wash, and an expensive one
+          if (cell >= 6) {
+            grid.style.opacity = '1'
+            grid.style.backgroundSize = `${cell}px ${cell}px`
+            grid.style.backgroundPosition = `${x}px ${y}px`
+          } else {
+            grid.style.opacity = '0'
+          }
+        }
         if (s !== lastScale) {
           lastScale = s
           onScale?.(s)
@@ -184,7 +214,7 @@ export function useCanvas({ viewportRef, worldRef, onScale }: Options) {
     }
     raf = requestAnimationFrame(frame)
     return () => cancelAnimationFrame(raf)
-  }, [worldRef, onScale])
+  }, [worldRef, gridRef, onScale])
 
   /* --- pan, momentum, zoom --- */
   useEffect(() => {
@@ -270,7 +300,7 @@ export function useCanvas({ viewportRef, worldRef, onScale }: Options) {
       if (zooming) {
         const base = zoomTo.current?.s ?? cam.current.s
         zoomTo.current = {
-          s: clampScale(wheelToScale(base, e.deltaY)),
+          s: clampScale(wheelToScale(base, e.deltaY), zoomFloor(cam.current.s)),
           px: e.clientX,
           py: e.clientY,
         }
@@ -306,6 +336,7 @@ export function useCanvas({ viewportRef, worldRef, onScale }: Options) {
               (a.clientX + b.clientX) / 2,
               (a.clientY + b.clientY) / 2,
               cam.current.s * (d / pinch),
+              zoomFloor(cam.current.s),
             ),
           )
         }

@@ -14,12 +14,25 @@
   will-change: transform;
   transition: opacity 0.25s ease;
 }
+/*
+ * The grid is drawn on the viewport, not inside the world.
+ *
+ * It used to be a 50000x50000 div parked inside `#world`, which has `will-change: transform` and
+ * is therefore its own composited layer. At rest that is survivable, because only the visible
+ * tiles are rasterised. It stops being survivable the moment the scale changes a lot at once:
+ * "Fit all" over a wide Chaos scatter animates from ~0.9 down to ~0.1 in half a second, and
+ * every frame of that invalidates the raster of a layer fifty thousand pixels across. The
+ * compositor spends the whole animation re-tiling, the canvas judders, and other layers — the
+ * pill and dock, which carry `backdrop-filter` and are expensive to recomposite — miss their
+ * paint and come back blank.
+ *
+ * Two 1px repeating gradients on a viewport-sized box cost the same at every zoom, and the
+ * camera moves them by writing `background-position` in the same rAF pass that writes the
+ * world's transform. An infinite grid that is never larger than the screen.
+ */
 #grid {
   position: absolute;
-  left: -25000px;
-  top: -25000px;
-  width: 50000px;
-  height: 50000px;
+  inset: 0;
   background-image:
     linear-gradient(to right, var(--canvas-grid) 1px, transparent 1px),
     linear-gradient(to bottom, var(--canvas-grid) 1px, transparent 1px);
