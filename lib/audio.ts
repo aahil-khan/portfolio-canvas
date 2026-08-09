@@ -40,6 +40,22 @@ let ctx: AudioContext | null = null
 let bus: GainNode | null = null
 let uiVolume = 0.7
 let masterVolume = 0.8
+
+/**
+ * Make-up gain for the interface bus, because the two halves of the mixer were never level
+ * matched against each other.
+ *
+ * The music is an `<audio>` element playing a mastered track at `0.5 * master`, so around 0.4 of
+ * full scale, continuous and full band. A cue is a synthesised transient peaking near 0.08,
+ * rolled off at 1.8kHz, lasting a tenth of a second. Set the two sliders to the same place and
+ * the numbers say they match while your ears put roughly 25dB between them — so the interface
+ * was inaudible under its own soundtrack at every setting anyone would actually choose.
+ *
+ * This closes about 8dB of that. Not all of it: a click is meant to sit under the music, just
+ * not beneath the floor. Tune here rather than in the cue table — the per-cue gains encode the
+ * balance BETWEEN cues, which is already right and should not be disturbed to fix the mix.
+ */
+const UI_MAKEUP = 2.5
 let volLoaded = false
 /* Cached object so useSyncExternalStore sees a stable reference until a level actually moves. */
 let volumes = { ui: uiVolume, master: masterVolume }
@@ -52,7 +68,7 @@ function audio(): { ctx: AudioContext; bus: GainNode } {
   ctx = new AudioContext()
 
   const master = ctx.createGain()
-  master.gain.value = uiVolume * masterVolume
+  master.gain.value = uiVolume * masterVolume * UI_MAKEUP
 
   /*
    * Lofi is mostly subtraction. Rolling the top off at ~1.8kHz is what turns a clean synth
@@ -274,7 +290,7 @@ const SERVER_VOLUMES = { ui: 0.7, master: 0.8 }
 export const getVolumesServerSnapshot = () => SERVER_VOLUMES
 
 function applyGain(): void {
-  if (bus) bus.gain.value = uiVolume * masterVolume
+  if (bus) bus.gain.value = uiVolume * masterVolume * UI_MAKEUP
 }
 
 export function setUiVolume(v: number): void {

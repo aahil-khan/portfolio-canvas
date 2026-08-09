@@ -125,7 +125,15 @@ Native `:focus-visible` rings are untouched — the dot is decoration, not a rep
 ## Sound
 
 Synthesised via Web Audio. **Zero audio files.** Muted on arrival. One `AudioContext`, unlocked
-on first gesture. Gain stays low (peak ≈ 0.08); this must never be startling.
+on first gesture. This must never be startling.
+
+Cue gains stay low — the loudest, `theme`, peaks near 0.08 where its five voices overlap — and
+those numbers encode the balance *between* cues. The interface bus then applies a make-up gain of
+2.5, so the peak that actually reaches the output is ≈ 0.2. That exists because the mixer's two
+halves are different beasts: the music is a mastered track through an `<audio>` element at ~0.4
+of full scale, continuous and full band, while a cue is a 1.8kHz-rolled transient lasting a tenth
+of a second. Matched by the numbers, they are ~25dB apart to a listener. Change the make-up gain
+in `lib/audio.ts`, never the cue table, or the cues drift out of balance with each other.
 
 ## Non-negotiables
 
