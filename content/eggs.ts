@@ -41,4 +41,10 @@ export const terminal = {
   openUnknown: (id: string) => `no card called ${id}`,
   opened: (id: string) => `opening ${id}`,
   eggsNone: 'nothing found yet. keep poking.',
+  /*
+   * The magic word from Colossal Cave, 1977, which teleported you between two points and is the
+   * oldest easter egg in software. It does nothing here either — that is the joke, and the
+   * response is the same one the original gives when you say it in the wrong place.
+   */
+  xyzzy: 'nothing happens.',
 } as const

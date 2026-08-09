@@ -122,6 +122,11 @@ export function Terminal() {
           )
           break
         }
+        // the oldest easter egg in software, and it does exactly as much here as it did there
+        case 'xyzzy':
+          findEgg('xyzzy')
+          out.push(line('out', T.xyzzy))
+          break
         case 'sudo':
           out.push(line('err', T.sudo))
           break

@@ -18,6 +18,10 @@ export const EGGS = [
   { id: 'deepspace', label: 'Went looking', hint: 'Pan much further than anyone should' },
   { id: 'completionist', label: 'Opened everything', hint: 'Every card in the dock, at once' },
   { id: 'tidy-freak', label: 'Tried every arrangement', hint: 'All five of them' },
+  { id: 'nose-to-glass', label: 'Nose against the glass', hint: 'Zoom all the way in' },
+  { id: 'chameleon', label: 'Wore every theme', hint: 'All eighteen of them' },
+  { id: 'still-here', label: 'Still here?', hint: 'Stop touching it for a while' },
+  { id: 'xyzzy', label: 'xyzzy', hint: 'A magic word, somewhere you can type' },
 ] as const
 
 export type EggId = (typeof EGGS)[number]['id']

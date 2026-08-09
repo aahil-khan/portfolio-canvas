@@ -14,6 +14,7 @@ import {
 import {
   type Camera,
   type Rect,
+  MAX_SCALE,
   findFreeSpot,
   findFreeSpotInRect,
   makeRandom,
@@ -34,6 +35,8 @@ import { useDragObject } from '@/lib/canvas/use-drag-object'
 import { resumeAmbienceOnFirstGesture } from '@/lib/ambience'
 import { play } from '@/lib/audio'
 import { findEgg } from '@/lib/eggs'
+import { seeTheme } from '@/lib/themes-seen'
+import { getThemeSnapshot, subscribeTheme } from '@/lib/theme'
 import { tutorial } from '@/content'
 
 import { Card, type CardDef } from './card'
@@ -138,6 +141,9 @@ export function Desktop(props: Props) {
  * shell rather than in `Desktop` above: they are canvas concerns, and the mobile shell has no
  * camera to hijack or arrangement to run.
  */
+/** How long the canvas has to sit untouched before it notices. Three minutes, not a nap. */
+const IDLE_MS = 180_000
+
 function CanvasDesktop({ cards, dock, dockEntries, externals, bootIds, hero, heroWidth }: Props) {
   const viewportRef = useRef<HTMLDivElement>(null)
   const worldRef = useRef<HTMLDivElement>(null)
@@ -179,6 +185,37 @@ function CanvasDesktop({ cards, dock, dockEntries, externals, bootIds, hero, her
   // if ambience was playing last visit, start it again at the first gesture
   useEffect(() => resumeAmbienceOnFirstGesture(), [])
 
+  /*
+   * The theme tally, subscribed once rather than wired into each of the four places that can
+   * set one — the menu, the palette, the Themes card and the terminal. Subscribing catches all
+   * of them, and anything added later, for free.
+   */
+  useEffect(() => {
+    if (seeTheme(getThemeSnapshot())) findEgg('chameleon')
+    return subscribeTheme(() => {
+      if (seeTheme(getThemeSnapshot())) findEgg('chameleon')
+    })
+  }, [])
+
+  /*
+   * Left alone long enough to notice. Every real input restarts the clock, so this only fires
+   * for someone who genuinely wandered off with the tab open — which is the joke.
+   */
+  useEffect(() => {
+    let timer = 0
+    const arm = () => {
+      window.clearTimeout(timer)
+      timer = window.setTimeout(() => findEgg('still-here'), IDLE_MS)
+    }
+    const events = ['pointerdown', 'pointermove', 'wheel', 'keydown'] as const
+    for (const e of events) window.addEventListener(e, arm, { passive: true })
+    arm()
+    return () => {
+      window.clearTimeout(timer)
+      for (const e of events) window.removeEventListener(e, arm)
+    }
+  }, [])
+
   const canvas = useCanvas({
     viewportRef,
     worldRef,
@@ -191,6 +228,15 @@ function CanvasDesktop({ cards, dock, dockEntries, externals, bootIds, hero, her
      * layout on a `position: fixed` element in the middle of the zoom it is reporting on.
      */
     onScale: useCallback((s: number) => {
+      /*
+       * The ceiling is tested before the readout's early return, not after.
+       *
+       * The readout skips frames where the rounded percent has not moved, and the last stretch
+       * of an eased zoom lives entirely inside one of those: 1.996 already reads "200%", so the
+       * frame that actually lands on 2.0 would have returned before ever reaching this. Nobody
+       * presses right up against the glass by accident, so it is worth noticing when they do.
+       */
+      if (s >= MAX_SCALE) findEgg('nose-to-glass')
       const pct = Math.round(s * 100)
       if (pct === shownZoom.current) return
       shownZoom.current = pct
