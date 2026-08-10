@@ -161,14 +161,15 @@ export function CoachTour({
   const [i, setI] = useState(0)
   const finish = useCallback(() => dismissCoach(COACH_TOUR), [])
   const next = useCallback(() => {
-    setI((n) => {
-      if (n + 1 >= steps.length) {
-        finish()
-        return n
-      }
-      return n + 1
-    })
-  }, [steps.length, finish])
+    // `finish` fires a listener synchronously (dismissCoach → useSyncExternalStore), so it can't
+    // run inside the setI updater — React calls updaters during render, and a side effect there
+    // is what produced "Cannot update a component while rendering a different component".
+    if (i + 1 >= steps.length) {
+      finish()
+      return
+    }
+    setI(i + 1)
+  }, [i, steps.length, finish])
 
   if (done || !steps.length) return null
   const step = steps[Math.min(i, steps.length - 1)]
