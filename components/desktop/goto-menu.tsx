@@ -25,9 +25,11 @@ export interface GotoItem {
 export function GotoMenu({
   items,
   onPick,
+  tip,
 }: {
   items: readonly GotoItem[]
   onPick: (id: string) => void
+  tip?: string
 }) {
   const [open, setOpen] = useState(false)
   const wrap = useRef<HTMLDivElement>(null)
@@ -58,11 +60,13 @@ export function GotoMenu({
         type="button"
         aria-expanded={open}
         aria-haspopup="menu"
+        aria-label="Go to"
         className={open ? 'on' : undefined}
         onClick={() => setOpen((o) => !o)}
       >
         Go to <span aria-hidden>▾</span>
       </button>
+      {tip ? <span className="pill__tip">{tip}</span> : null}
       <div className="arrange__menu goto__menu" role="menu" data-open={open || undefined}>
         {/*
          * Always present, so an empty canvas gets a menu that explains itself rather than a bare

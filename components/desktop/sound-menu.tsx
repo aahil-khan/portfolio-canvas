@@ -32,7 +32,7 @@ import {
  * separate switches. Ambience is a live radio stream, hence the loading and error states —
  * a station can be down, and silently doing nothing would look like a broken button.
  */
-export function SoundMenu() {
+export function SoundMenu({ tip }: { tip?: string }) {
   const [open, setOpen] = useState(false)
   /** Master is enough most of the time; the other two levels stay folded away. */
   const [mixOpen, setMixOpen] = useState(false)
@@ -73,12 +73,14 @@ export function SoundMenu() {
         type="button"
         aria-expanded={open}
         aria-haspopup="menu"
+        aria-label="Sound"
         className={active ? 'on' : undefined}
         onClick={() => setOpen((o) => !o)}
       >
         <SpeakerIcon on={active} />
         Sound <span aria-hidden>▾</span>
       </button>
+      {tip ? <span className="pill__tip">{tip}</span> : null}
 
       <div className="arrange__menu sound__menu" role="menu" data-open={open || undefined}>
           <button

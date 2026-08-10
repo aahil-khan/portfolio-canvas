@@ -42,14 +42,25 @@ export const tutorial = {
       },
       {
         title: 'The dock opens cards',
-        body: 'Every icon down here is a card. Click to open it, click again to put it away. Drag a card by its title bar.',
+        body: 'Every icon down here is a card. Click to open it, click again to put it away. Drag a card by its title bar, or double-click it to fly in and back out.',
         tail: true,
       },
       {
         title: 'Or just ask for it',
-        body: '⌘/Ctrl + K lists every card and action by name, which is faster than hunting once you know what you want.',
+        body: '⌘/Ctrl + K lists every card and action by name, which is faster than hunting once you know what you want. Everything else lives in How it works, last icon in the dock.',
       },
     ],
+  },
+
+  /** Tooltips on the top pill's buttons — the same job `.dock__tip` does for the dock. */
+  pill: {
+    fitAll: 'Zoom to fit every open card',
+    minimiseAll: 'Put every open card away',
+    goTo: 'Jump to an open card',
+    random: 'Close up, deal three at random',
+    arrange: 'Five ways to tidy the desk',
+    theme: 'Light, dark, or every theme',
+    sound: 'Interface cues and background music',
   },
 
   /**

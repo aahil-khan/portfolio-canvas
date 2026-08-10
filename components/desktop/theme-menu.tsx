@@ -58,7 +58,7 @@ const SWATCHES = (
   </svg>
 )
 
-export function ThemeMenu({ onOpenThemes }: { onOpenThemes: () => void }) {
+export function ThemeMenu({ onOpenThemes, tip }: { onOpenThemes: () => void; tip?: string }) {
   const active = useSyncExternalStore(subscribeTheme, getThemeSnapshot, getThemeServerSnapshot)
   const [open, setOpen] = useState(false)
   const wrap = useRef<HTMLDivElement>(null)
@@ -117,11 +117,13 @@ export function ThemeMenu({ onOpenThemes }: { onOpenThemes: () => void }) {
         type="button"
         aria-expanded={open}
         aria-haspopup="menu"
+        aria-label="Theme"
         className={open ? 'on' : undefined}
         onClick={() => setOpen((o) => !o)}
       >
         {dark ? MOON : SUN} Theme <span aria-hidden>▾</span>
       </button>
+      {tip ? <span className="pill__tip">{tip}</span> : null}
 
       <div className="arrange__menu theme-menu__menu" role="menu" data-open={open || undefined}>
         {/* radios, not plain items: these two are one either/or choice and a reader should hear that */}

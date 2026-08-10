@@ -958,6 +958,42 @@ button.item:focus-visible .ttl::after {
   background: color-mix(in srgb, var(--ink) 14%, transparent);
 }
 
+#pill > button {
+  position: relative;
+}
+/*
+ * The pill's own tooltip, matching `.dock__tip` — real span, not `content: attr()`, so it stays
+ * in the accessibility tree. Drops downward instead of up: the pill sits at the top of the
+ * viewport, the dock at the bottom.
+ */
+.pill__tip {
+  position: absolute;
+  top: calc(100% + 6px);
+  left: 50%;
+  transform: translateX(-50%) translateY(-4px);
+  background: var(--ink);
+  color: var(--canvas-base);
+  font-size: 12px;
+  font-weight: 600;
+  padding: 5px 9px;
+  border-radius: 7px;
+  white-space: nowrap;
+  pointer-events: none;
+  opacity: 0;
+  transition: opacity 0.18s var(--ease-out), transform 0.18s var(--ease-out);
+}
+#pill > button:hover > .pill__tip,
+#pill > button:focus-visible > .pill__tip,
+.arrange:hover > .pill__tip,
+.arrange > button:focus-visible ~ .pill__tip {
+  opacity: 1;
+  transform: translateX(-50%) translateY(0);
+}
+/* the open dropdown sits right where the tip would, so don't show both at once */
+.arrange:has(> button.on) > .pill__tip {
+  opacity: 0;
+}
+
 .pill__div {
   width: 1px;
   height: 18px;

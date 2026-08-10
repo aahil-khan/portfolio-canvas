@@ -8,9 +8,11 @@ import { arrangements } from '@/lib/canvas/arrange'
 export function ArrangeMenu({
   onPick,
   onReset,
+  tip,
 }: {
   onPick: (id: string) => void
   onReset: () => void
+  tip?: string
 }) {
   const [open, setOpen] = useState(false)
   const wrap = useRef<HTMLDivElement>(null)
@@ -38,11 +40,13 @@ export function ArrangeMenu({
         type="button"
         aria-expanded={open}
         aria-haspopup="menu"
+        aria-label="Arrange"
         className={open ? 'on' : undefined}
         onClick={() => setOpen((o) => !o)}
       >
         Arrange <span aria-hidden>▾</span>
       </button>
+      {tip ? <span className="pill__tip">{tip}</span> : null}
       <div className="arrange__menu" role="menu" data-open={open || undefined}>
           {arrangements.map((a) => (
             <button

@@ -919,13 +919,22 @@ function CanvasDesktop({ cards, dock, dockEntries, externals, bootIds, hero, her
       </div>
 
       <div id="pill">
-        <button type="button" onClick={fitAll}>Fit all</button>
-        <button type="button" onClick={minimiseAll}>Minimise all</button>
-        <GotoMenu items={gotoItems} onPick={paletteActions.goTo} />
-        <button type="button" onClick={randomise}>Random</button>
-        <ArrangeMenu onPick={arrange} onReset={resetLayout} />
+        <button type="button" aria-label="Fit all" onClick={fitAll}>
+          Fit all
+          <span className="pill__tip">{tutorial.pill.fitAll}</span>
+        </button>
+        <button type="button" aria-label="Minimise all" onClick={minimiseAll}>
+          Minimise all
+          <span className="pill__tip">{tutorial.pill.minimiseAll}</span>
+        </button>
+        <GotoMenu items={gotoItems} onPick={paletteActions.goTo} tip={tutorial.pill.goTo} />
+        <button type="button" aria-label="Random" onClick={randomise}>
+          Random
+          <span className="pill__tip">{tutorial.pill.random}</span>
+        </button>
+        <ArrangeMenu onPick={arrange} onReset={resetLayout} tip={tutorial.pill.arrange} />
         <span className="pill__div" aria-hidden />
-        <ThemeMenu onOpenThemes={() => paletteActions.goTo('themes')} />
+        <ThemeMenu onOpenThemes={() => paletteActions.goTo('themes')} tip={tutorial.pill.theme} />
         {/*
          * Past the divider, with Sound: everything left of it acts on the canvas, everything
          * right of it leaves or configures it. A plain anchor, not a router push — /resume is a
@@ -934,7 +943,7 @@ function CanvasDesktop({ cards, dock, dockEntries, externals, bootIds, hero, her
         <a className="pill__link" href="/resume">
           Résumé
         </a>
-        <SoundMenu />
+        <SoundMenu tip={tutorial.pill.sound} />
       </div>
 
       <Dock
