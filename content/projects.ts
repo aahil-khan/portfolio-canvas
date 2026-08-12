@@ -53,6 +53,7 @@ export const projects: readonly Project[] = [
       'Branch-aware RAG with DynamoDB caching: **1.26s** median push-to-search latency, **1.60s** p95.',
     ],
     stack: ['TypeScript', 'Python', 'AWS', 'DynamoDB', 'S3'],
+    images: ['/work/flowsync-1.png', '/work/flowsync-2.png'],
     links: [
       { label: 'Demo', href: 'https://flowsync.aahil-khan.xyz/' },
       { label: 'Repo', href: 'https://github.com/anoushkawasthi/flowsync' },
