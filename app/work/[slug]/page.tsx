@@ -1,25 +1,27 @@
 import type { Metadata } from 'next'
-import Link from 'next/link'
 import { notFound } from 'next/navigation'
 
-import { profile, projects, toolsByName } from '@/content'
-import { imageSize } from '@/lib/image-size'
+import { DocBar, DocFoot } from '@/components/site/doc'
+import { Shots } from '@/components/site/shots'
+import { rich } from '@/lib/rich'
+import { profile, projects, site } from '@/content'
 import { SITE_URL } from '@/lib/site'
 
-import '../../resume/resume.css'
-import '../work.css'
+import '../../site.css'
 
 /*
- * One project, as a plain page.
+ * One project, as its own page.
  *
- * The canvas is the site, but it is one URL: every project lived inside it, which meant a
- * project could not be linked to, could not carry its own social preview, and could not be
- * indexed separately. A recruiter asking "what's the safety thing you built" had to be sent to
- * the front door and told where to pan.
+ * The canvas is one URL, so a project inside it could not be linked to, could not carry its own
+ * social preview, and could not be indexed. This is the flat, linkable version — no JavaScript
+ * required to read it.
  *
- * So this is the same bargain `/resume` makes — one column, top to bottom, no JavaScript
- * required — applied per project. It borrows resume.css wholesale rather than growing a second
- * plain-document look, and links back into the canvas with `?card=`.
+ * It used to borrow `resume.css`, which made it look like the plain résumé rather than part of
+ * the site, and it carried an "Open it on the canvas →" link built on `/?card=<slug>`. That
+ * deep link died when the canvas moved to `/canvas` — `/` is the front page now, so it dropped
+ * people onto a scrolling page with a query string nothing reads. Removed rather than repointed:
+ * the canvas is reachable from the front page, and a project page's job is to explain the
+ * project.
  */
 
 export const dynamicParams = false
@@ -54,20 +56,13 @@ export async function generateMetadata({
   }
 }
 
-/** Renders `**bold**` / `*italic*` from content strings, same as the résumé does. */
-function rich(text: string) {
-  return text.split(/(\*\*[^*]+\*\*|\*[^*]+\*)/g).map((part, i) => {
-    if (part.startsWith('**') && part.endsWith('**')) return <strong key={i}>{part.slice(2, -2)}</strong>
-    if (part.startsWith('*') && part.endsWith('*')) return <em key={i}>{part.slice(1, -1)}</em>
-    return part
-  })
-}
-
 export default async function ProjectPage({ params }: { params: Promise<{ slug: string }> }) {
   const { slug } = await params
   const project = find(slug)
   // dynamicParams is false, so this is only reachable in dev — but a 404 beats a crash
   if (!project) notFound()
+
+  const back = { href: '/work', label: site.workPage.allWork }
 
   const jsonLd = {
     '@context': 'https://schema.org',
@@ -83,92 +78,62 @@ export default async function ProjectPage({ params }: { params: Promise<{ slug: 
   }
 
   return (
-    <main data-scroll-page className="resume work">
+    <main data-scroll-page className="site">
       {/* static, generated from content — no user input reaches this */}
       <script
         type="application/ld+json"
         dangerouslySetInnerHTML={{ __html: JSON.stringify(jsonLd) }}
       />
 
-      <nav className="resume__nav">
-        <Link className="resume__back" href="/work">
-          ← all work
-        </Link>
-      </nav>
+      <DocBar back={back} />
 
-      <header className="resume__head">
-        {project.meta ? <p className="work__meta">{project.meta}</p> : null}
+      <article className="doc">
+        <p className="doc__meta">
+          {project.year} · {project.kind}
+        </p>
         <h1>{project.name}</h1>
-        <p className="resume__role">{project.tagline}</p>
-        {project.award ? <p className="entry__award">🏆 {project.award}</p> : null}
-        <p className="resume__intro">{project.lede}</p>
+        <p className="doc__tag">{project.tagline}</p>
+        {project.award ? <p className="case__award">🏆 {project.award}</p> : null}
+        <p className="doc__lede">{project.lede}</p>
 
-        {/*
-         * The whole point of these pages: a link that drops you into the canvas with this exact
-         * card already open and centred, rather than at the front door.
-         */}
-        <p className="work__open">
-          <Link href={`/?card=project:${project.slug}`}>Open it on the canvas →</Link>
-        </p>
-      </header>
-
-      {project.images?.length ? (
-        <div className="work__shots">
-          {project.images.map((src) => {
-            const size = imageSize(src)
-            return (
-              // eslint-disable-next-line @next/next/no-img-element -- static asset, sized at build
-              <img
-                key={src}
-                src={src}
-                alt={`${project.name} screenshot`}
-                width={size?.width}
-                height={size?.height}
-                loading="lazy"
-                decoding="async"
-              />
-            )
-          })}
-        </div>
-      ) : null}
-
-      <section className="entry">
-        <h2>What it does</h2>
-        <ul>
-          {project.highlights.map((h, i) => (
-            <li key={i}>{rich(h)}</li>
-          ))}
-        </ul>
-
-        <p className="entry__stack">
-          {project.stack.map((n) => toolsByName.get(n)?.name ?? n).join(' · ')}
-        </p>
-
-        {/* separated exactly as the résumé does it — one convention for both plain pages */}
-        {project.links?.length ? (
-          <p className="entry__links">
-            {project.links.map((l, i) => (
-              <span key={l.label}>
-                {i ? <span aria-hidden> · </span> : null}
-                <a href={l.href} target="_blank" rel="noopener noreferrer">
-                  {l.label}
-                </a>
-              </span>
-            ))}
-          </p>
+        {project.images?.length ? (
+          <Shots images={project.images} alt={`${project.name} screenshot`} />
         ) : null}
-      </section>
 
-      <footer className="resume__foot work__foot">
-        <p>
-          <Link className="resume__back" href="/">
-            ← the interactive version
-          </Link>
-        </p>
-        <p>
-          <a href={`mailto:${profile.email}`}>{profile.email}</a>
-        </p>
-      </footer>
+        <div className="doc__body">
+          <section>
+            <h2>{site.workPage.whatItDoes}</h2>
+            <ul className="doc__points">
+              {project.highlights.map((h, i) => (
+                <li key={i}>{rich(h)}</li>
+              ))}
+            </ul>
+          </section>
+
+          <aside className="doc__side">
+            <h2>{site.workPage.builtWith}</h2>
+            <div className="s-chips">
+              {project.stack.map((n) => (
+                <span className="s-chip" key={n}>
+                  {n}
+                </span>
+              ))}
+            </div>
+
+            {project.links?.length ? (
+              <div className="doc__links">
+                {project.links.map((l) => (
+                  <a key={l.label} href={l.href} target="_blank" rel="noopener noreferrer">
+                    {l.label} <span aria-hidden>↗</span>
+                  </a>
+                ))}
+              </div>
+            ) : null}
+          </aside>
+        </div>
+
+        <DocFoot back={{ href: '/work', label: site.workPage.backToWork }} />
+      </article>
     </main>
   )
 }

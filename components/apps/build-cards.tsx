@@ -192,6 +192,8 @@ export async function buildCards(): Promise<CardDef[]> {
     <>
       <p className="lede">{profile.intro}</p>
       {profile.notes?.map((n, i) => <p key={i}>{n}</p>)}
+      {/* canvas-only: it invites you to the Notes card, which the other surfaces do not have */}
+      {profile.deskWelcome ? <p>{profile.deskWelcome}</p> : null}
       <p>
         <a className="link" href={`mailto:${profile.email}`}>
           {profile.email}
@@ -284,10 +286,16 @@ export async function buildCards(): Promise<CardDef[]> {
   push(
     'resume',
     <>
-      <p className="lede">The whole thing, as a page you can scroll and print.</p>
+      <p className="lede">The whole thing, as a page you can scroll.</p>
       <p>
-        <a className="link" href="/resume">
-          Open résumé →
+        {/*
+          A plain anchor, not <Link>: the canvas and the scrolling site are two very different
+          documents sharing one layout — one suppresses scrolling and runs a rAF camera, the other
+          runs Lenis and ScrollTrigger. A full load guarantees neither inherits the other's state.
+        */}
+        {/* eslint-disable-next-line @next/next/no-html-link-for-pages -- deliberate full load */}
+        <a className="link" href="/">
+          Open the site →
         </a>
         {profile.resumePdf ? (
           <>

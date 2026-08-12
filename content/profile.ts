@@ -5,6 +5,8 @@ export const profile: Profile = {
   name: 'Aahil Khan',
   initials: 'AK',
   resumePdf: '/aahil-khan-resume.pdf',
+  portrait: '/pfp/main.jpeg',
+  portraitHidden: '/pfp/hidden.jpeg',
   role: { prefix: 'Full-stack engineer,', emphasis: 'AI retrieval & agents' },
   location: 'Bareilly, India',
   availability: '',
@@ -13,10 +15,19 @@ export const profile: Profile = {
     'I build AI stuff and anything else I find interesting, RAG pipelines, multi agent systems, Full Stack apps, and generally anything that looks shiny at 2AM in the morning :)',
   notes: [
     'Final year Computer Engineering at Thapar, with an IIT Madras Diploma in Programming under my belt, because apparently one courseload wasn\'t enough',
-    'Right now I split my time between two internships: building production AI systems at Oddmind Innovations, and working on accent invariant speech research with Samsung PRISM.',
+    'Right now I split my time between two internships: building production AI systems at Oddmind Innovations, and working on accent invariant speech research with Samsung PRISM',
     'I like building things, breaking them, and occasionally wondering why I decided to build them in the first place',
-    'Almost forgot, Welcome to the site! Leave a note if you like it :D'
   ],
+
+  /**
+   * The About card's closing line, on the canvas only.
+   *
+   * `notes` above is biography, and all three surfaces render it — the canvas card, `/resume`
+   * and the front page. This line is not biography: it invites you to use the Notes card, which
+   * only exists on the canvas. On the other two it was asking people to leave a note on a page
+   * with nowhere to leave one.
+   */
+  deskWelcome: 'Almost forgot, Welcome to the site! Leave a note if you like it :D',
   links: [
     { label: 'GitHub', href: 'https://github.com/aahil-khan' },
     { label: 'LinkedIn', href: 'https://www.linkedin.com/in/aahil-khan77/' },

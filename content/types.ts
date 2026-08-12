@@ -27,9 +27,25 @@ export interface Profile {
   intro: string
   /** Further paragraphs of the About card, one string each. Omit to hide. */
   notes?: string[]
+  /**
+   * Closing line for the canvas's About card. Not rendered by `/` or `/resume` — it points at
+   * the Notes card, which only the canvas has.
+   */
+  deskWelcome?: string
   links: { label: string; href: string }[]
   /** Initials for the avatar. Two characters looks best. */
   initials: string
+  /**
+   * Portrait for the front page's About section, as a path under `public/`. Optional: omit it
+   * and the 4:5 frame renders a placeholder rather than collapsing, so the layout does not
+   * change shape when the photo arrives.
+   */
+  portrait?: string
+  /**
+   * The other one. Revealed by the portrait's easter egg; optional, and the egg simply does not
+   * arm itself when it is absent.
+   */
+  portraitHidden?: string
   /** Path under `public/` to the résumé PDF. Omit and the download links stay hidden. */
   resumePdf?: string
 }

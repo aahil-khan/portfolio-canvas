@@ -5,9 +5,10 @@ import { SITE_URL } from '@/lib/site'
 
 export default function sitemap(): MetadataRoute.Sitemap {
   return [
+    // `/` is now the scrolling front page — the primary surface for readers and crawlers alike
     { url: SITE_URL, changeFrequency: 'monthly', priority: 1 },
-    // the résumé is the crawlable surface, so it is worth as much as the canvas
-    { url: `${SITE_URL}/resume`, changeFrequency: 'monthly', priority: 0.9 },
+    // the canvas, now a deliberate side alley rather than the landing page
+    { url: `${SITE_URL}/canvas`, changeFrequency: 'monthly', priority: 0.7 },
     { url: `${SITE_URL}/work`, changeFrequency: 'monthly', priority: 0.8 },
     /*
      * One entry per project. Before these existed the whole site was two URLs and every project
