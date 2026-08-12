@@ -33,6 +33,19 @@ which are `position:fixed` and never inside the transformed world.
 Body measure caps at **64ch**. Windows are not wide enough to need more, and text that runs the
 full window width is the fastest way to make this look like a wireframe.
 
+### The front page scale
+
+`/` is full-bleed, so the table above — sized for a 560px window — does not reach far enough for
+it. These are declared on `.site` in `app/site.css` and apply to that surface only. Both ends of
+each clamp are tuned, not just the maximum:
+
+| Token | Value | Why the floor matters |
+|---|---|---|
+| `--fs-mega` — hero name | `clamp(4rem, 15vw, 10.5rem)` | At 390px the name must still out-weigh the headline, which runs four lines there. A 3.25rem floor lost that fight. |
+| `--fs-display` — hero headline | `clamp(1.625rem, 4.2vw, 3.75rem)` | Its first floor (2.25rem) made a five-line paragraph heavier than the name on a phone. |
+| `--fs-heading` — section h2 | `clamp(1.375rem, 2.6vw, 2.25rem)` | Matches the in-window heading at its floor, so the two surfaces agree where they meet. |
+| `--fs-body` | `1.0625rem` | A step up from the résumé's 1rem. Part of this page's brief is readers who are not squinting at interfaces all day. |
+
 ## Colour — the `cream` theme (default)
 
 ```css
