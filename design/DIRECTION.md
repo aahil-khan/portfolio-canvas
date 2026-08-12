@@ -155,4 +155,8 @@ in `lib/audio.ts`, never the cue table, or the cues drift out of balance with ea
 2. `--accent` ≤ ~5% of pixels.
 3. No `backdrop-filter` inside the transformed world.
 4. Every dock item is a real `<button>`. Every window is real, server-rendered DOM.
-5. `/resume` renders completely with JavaScript disabled.
+5. **`/` renders completely with JavaScript disabled.** The guarantee moved here when `/resume`
+   was removed — the front page is the plain, readable surface now, and it 308s from the old URL.
+   What keeps this true: `.reveal` is visible in CSS and hidden at runtime, and the Experience
+   collapse is gated on `@media (scripting: enabled)`, so nothing is ever hidden behind a control
+   that cannot work.
