@@ -245,7 +245,7 @@ export function CommandPalette({
      * whenever that card was open, which React reports as a duplicate key.
      */
     out.push(
-      { id: 'ext:resume', group: 'Elsewhere', chip: 'Elsewhere', label: 'Open résumé', hint: '/resume', keywords: 'cv print pdf page', run: () => router.push('/resume') },
+      { id: 'ext:site', group: 'Elsewhere', chip: 'Elsewhere', label: 'Open the site', hint: '/', keywords: 'cv resume print pdf page scrolling', run: () => router.push('/') },
       { id: 'ext:gh', group: 'Elsewhere', chip: 'Elsewhere', label: 'GitHub', keywords: 'code repo profile', run: () => window.open('https://github.com/aahil-khan', '_blank', 'noopener,noreferrer') },
       { id: 'ext:li', group: 'Elsewhere', chip: 'Elsewhere', label: 'LinkedIn', keywords: 'profile work', run: () => window.open('https://www.linkedin.com/in/aahil-khan77/', '_blank', 'noopener,noreferrer') },
     )

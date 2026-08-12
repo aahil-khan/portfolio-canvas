@@ -1,0 +1,62 @@
+/*
+ * `/canvas` on a phone.
+ *
+ * Its own stylesheet, deliberately. The component first borrowed `.site`, which meant nothing at
+ * all on this route — `app/site.css` is imported by the front page, not the canvas, so the notice
+ * shipped completely unstyled. Importing site.css here instead would drag the whole front page's
+ * CSS onto the canvas route to style six elements.
+ *
+ * Everything below is self-contained and reads only from the theme tokens in globals.css.
+ */
+.deskonly {
+  min-height: 100svh;
+  display: flex;
+  flex-direction: column;
+  justify-content: center;
+  align-items: flex-start;
+  gap: 1rem;
+  padding: clamp(1.5rem, 7vw, 3rem);
+  max-width: 34rem;
+  margin-inline: auto;
+  font-size: 1.0625rem;
+  line-height: 1.55;
+  color: var(--ink);
+}
+.deskonly__eyebrow {
+  font-size: 0.75rem;
+  font-weight: 500;
+  letter-spacing: 0.14em;
+  text-transform: uppercase;
+  color: var(--ink-subtle);
+  margin: 0;
+}
+.deskonly h1 {
+  margin: 0;
+  font-size: clamp(2rem, 9vw, 3rem);
+  line-height: 1.05;
+  letter-spacing: -0.03em;
+  font-weight: 700;
+}
+.deskonly p { margin: 0; }
+.deskonly__body { color: var(--ink-muted); }
+.deskonly__try {
+  border: var(--bw) solid var(--border);
+  border-radius: var(--radius-card);
+  background: var(--surface);
+  box-shadow: 4px 4px 0 0 var(--border);
+  padding: 1rem 1.1rem;
+}
+.deskonly__back {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.5rem;
+  min-height: 48px;
+  padding-inline: 1.15rem;
+  border: var(--bw) solid var(--border);
+  border-radius: var(--radius-pill);
+  background: var(--accent);
+  color: var(--accent-ink);
+  font-weight: 500;
+  text-decoration: none;
+  box-shadow: 4px 4px 0 0 var(--border);
+}

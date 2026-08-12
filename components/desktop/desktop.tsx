@@ -8,7 +8,6 @@ import {
   useMemo,
   useRef,
   useState,
-  useSyncExternalStore,
 } from 'react'
 
 import {
@@ -25,21 +24,16 @@ import { noteOpen } from '@/lib/opens'
 import { clearSession, loadSession, saveSession } from '@/lib/canvas/session'
 import { useCanvas } from '@/lib/canvas/use-canvas'
 import { useIsMobile } from '@/lib/use-mobile'
-import {
-  getShellModeSnapshot,
-  getShellModeServerSnapshot,
-  setShellMode,
-  subscribeShellMode,
-} from '@/lib/shell-mode'
 import { useDragObject } from '@/lib/canvas/use-drag-object'
 import { resumeAmbienceOnFirstGesture } from '@/lib/ambience'
 import { play } from '@/lib/audio'
 import { findEgg } from '@/lib/eggs'
 import { seeTheme } from '@/lib/themes-seen'
 import { getThemeSnapshot, subscribeTheme } from '@/lib/theme'
-import { tutorial } from '@/content'
+import { site, tutorial } from '@/content'
 
 import { Card, type CardDef } from './card'
+import { DeskOnly } from './desk-only'
 import { DeskProps } from './desk-props'
 import { Cursor } from './cursor'
 import { ArrangeMenu } from './arrange-menu'
@@ -50,8 +44,6 @@ import { Dock, type DockEntry, type DockItem } from './dock'
 import { MeasureRig } from './measure-rig'
 import { COACH_ARRANGE, COACH_TOUR, CoachTip, CoachTour, dismissCoach, useCoachDone } from './coach'
 import { CommandPalette, type PaletteActions } from './command-palette'
-import { MobileShell } from './mobile-shell'
-import { EnterInteractiveContext } from './mobile-mode'
 import { OpenCardContext } from './open-context'
 
 interface Placed {
@@ -74,11 +66,6 @@ interface Props {
   bootIds: readonly string[]
   hero: ReactNode
   heroWidth: number
-  /**
-   * The plain résumé, server-rendered. What a phone sees before it asks for anything else; the
-   * canvas never renders it, so it costs a desktop nothing but the element.
-   */
-  resume: ReactNode
 }
 
 const HERO = '__hero'
@@ -100,41 +87,14 @@ const KONAMI = [
  */
 export function Desktop(props: Props) {
   const mobile = useIsMobile()
-  const mode = useSyncExternalStore(
-    subscribeShellMode,
-    getShellModeSnapshot,
-    getShellModeServerSnapshot,
-  )
-
-  const enter = useCallback(() => {
-    setShellMode('phone')
-    // the résumé may be scrolled halfway down, and the shell is fixed — it would open mid-page
-    window.scrollTo(0, 0)
-  }, [])
-
-  const leave = useCallback(() => setShellMode('resume'), [])
-
-  if (!mobile) return <CanvasDesktop {...props} />
 
   /*
-   * A phone gets the résumé first. The canvas is the better version of this site and also the one
-   * a thumb cannot drive, so it is offered rather than imposed — and the offer says so.
+   * A phone gets a notice and nothing else — see components/desktop/desk-only.tsx for why the
+   * résumé-first landing and the cut-down touch shell both went away.
    */
-  if (mode !== 'phone') {
-    return (
-      <EnterInteractiveContext.Provider value={enter}>{props.resume}</EnterInteractiveContext.Provider>
-    )
-  }
+  if (mobile) return <DeskOnly />
 
-  return (
-    <MobileShell
-      cards={props.cards}
-      dock={props.dock}
-      externals={props.externals}
-      hero={props.hero}
-      onLeave={leave}
-    />
-  )
+  return <CanvasDesktop {...props} />
 }
 
 /*
@@ -928,11 +888,13 @@ function CanvasDesktop({ cards, dock, dockEntries, externals, bootIds, hero, her
         <ThemeMenu onOpenThemes={() => paletteActions.goTo('themes')} />
         {/*
          * Past the divider, with Sound: everything left of it acts on the canvas, everything
-         * right of it leaves or configures it. A plain anchor, not a router push — /resume is a
-         * separate document that renders without JavaScript, and that is the point of it.
+         * right of it leaves or configures it. A plain anchor, not a router push — `/` is a
+         * different document with its own scroll behaviour, and a client-side transition into it
+         * would carry the canvas's suppressed scrolling across.
          */}
-        <a className="pill__link" href="/resume">
-          Résumé
+        {/* eslint-disable-next-line @next/next/no-html-link-for-pages -- deliberate full load; see above */}
+        <a className="pill__link" href="/">
+          {site.desk.exit}
         </a>
         <SoundMenu />
       </div>

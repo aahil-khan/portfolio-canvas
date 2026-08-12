@@ -1,9 +1,8 @@
+import type { Metadata } from 'next'
+
 import { buildCards } from '@/components/apps/build-cards'
 import { Desktop } from '@/components/desktop/desktop'
-import { VisitPing } from '@/components/desktop/visit-ping'
-import { MobileOffer } from '@/components/resume/mobile-offer'
-import { ResumeDoc } from '@/components/resume/resume-doc'
-import { apps, dockLayout, externalApps, mobile, profile } from '@/content'
+import { apps, dockLayout, externalApps, mobile, profile, site } from '@/content'
 import { validateContent } from '@/content/validate'
 
 /*
@@ -12,6 +11,12 @@ import { validateContent } from '@/content/validate'
  * it re-runs on every recompile, so you find out the moment you save.
  */
 validateContent()
+
+export const metadata: Metadata = {
+  title: `${profile.name} — ${site.desk.tabSuffix}`,
+  description: mobile.onlyDesktopBody,
+  alternates: { canonical: '/canvas' },
+}
 
 const HERO_WIDTH = 600
 
@@ -69,8 +74,6 @@ export default async function Page() {
 
   return (
     <main>
-      {/* counts this page load — not inside the Visitors card, which most people never open */}
-      <VisitPing />
       <Desktop
         cards={await buildCards()}
         dock={dock}
@@ -79,13 +82,6 @@ export default async function Page() {
         bootIds={['about', 'work', 'experience']}
         hero={<Hero />}
         heroWidth={HERO_WIDTH}
-        /*
-         * Server-rendered here and handed down, exactly like the hero and the card bodies. The
-         * canvas branch never renders it, so a desktop pays only for the element — and because
-         * it is the same `ResumeDoc` that `/resume` uses, the two can never say different things.
-         * No structured data: that belongs once, on the canonical `/resume`.
-         */
-        resume={<ResumeDoc top={<MobileOffer />} />}
       />
     </main>
   )

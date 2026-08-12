@@ -67,7 +67,8 @@ export default async function StatsPage({
   return (
     <main data-scroll-page className="resume work stats">
       <nav className="resume__nav">
-        <Link className="resume__back" href="/">
+        {/* `/` is the front page now; the canvas moved to its own route */}
+        <Link className="resume__back" href="/canvas">
           ← the canvas
         </Link>
       </nav>
