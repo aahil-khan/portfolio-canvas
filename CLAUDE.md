@@ -71,10 +71,33 @@ Card heights are never declared — they're measured from real content at runtim
 
 ## Dependencies
 
-Runtime dependencies: **none beyond Next and React.** The prototype proved WAAPI (`el.animate`)
-plus rAF covers every animation here, so there's no motion library, and pointer/wheel/pinch are
-hand-rolled. Keep it that way unless something genuinely can't be done — this is a canvas app
-where main-thread budget matters.
+**The canvas has none beyond Next and React, and that has not changed.** WAAPI (`el.animate`)
+plus rAF covers every animation there, so there is no motion library, and pointer/wheel/pinch
+are hand-rolled. This is a canvas app where main-thread budget matters — keep it that way.
+
+**`/` is the one exception.** The scrolling front page uses `gsap`, `gsap/ScrollTrigger`,
+`@gsap/react` and `lenis`, because scroll-linked scrub, velocity-reactive motion and smooth
+scrolling are genuinely not worth hand-rolling a second time. The rule that replaces "no
+dependencies" is narrower and testable:
+
+> Those four packages may only be imported from `components/site/*` and `lib/site-motion.ts`.
+> **`/canvas` must not load a byte of them.**
+
+That is a real constraint, not an intention — they are all reached through one client component,
+`components/site/motion.tsx`, so the code splitter keeps them in a chunk `/canvas` never
+references. Verify after any change to the site's imports:
+
+```bash
+npm run build
+# then confirm the gsap chunk is referenced by /'s HTML and not by /canvas's
+node -e "const fs=require('fs'),p=require('path');const d='.next/static/chunks';
+const w=x=>fs.readdirSync(x,{withFileTypes:true}).flatMap(e=>e.isDirectory()?w(p.join(x,e.name)):[p.join(x,e.name)]);
+const g=w(d).filter(f=>f.endsWith('.js')&&/ScrollTrigger|lenis|gsap/i.test(fs.readFileSync(f,'utf8')));
+for(const[n,f]of[['/','.next/server/app/index.html'],['/canvas','.next/server/app/canvas.html']])
+  console.log(n, g.some(c=>fs.readFileSync(f,'utf8').includes(p.basename(c)))?'LOADS GSAP':'clean')"
+```
+
+Expected: `/ LOADS GSAP`, `/canvas clean`.
 
 ## Workflow
 
