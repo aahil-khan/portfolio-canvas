@@ -112,14 +112,14 @@
 .site .mark {
   display: grid;
   place-items: center;
-  width: 40px;
-  height: 40px;
+  width: 46px;
+  height: 46px;
   border: var(--bw) solid var(--border);
   border-radius: var(--radius-chip);
   background: var(--accent);
   color: var(--accent-ink);
   font-weight: 700;
-  font-size: 0.9375rem;
+  font-size: 1.0625rem;
   text-decoration: none;
   flex: none;
 }
@@ -173,7 +173,7 @@
   .site .bar nav { display: none; }
   .site .bar__cta .long { display: none; }
   .site .bar__cta { height: 36px; padding-inline: 0.85rem; font-size: 0.875rem; margin-left: auto; }
-  .site .mark { width: 34px; height: 34px; font-size: 0.8125rem; }
+  .site .mark { width: 38px; height: 38px; font-size: 0.9375rem; }
 
   /* ---- drawer ---- */
   .site .burger {
@@ -942,16 +942,22 @@
 }
 
 /* the side alley, stated plainly rather than sold */
+/*
+ * A grid, not `flex` + `space-between`.
+ *
+ * With space-between the copy kept its 52ch cap and the button column absorbed everything left
+ * over — 472px of text against a 428px column holding one button, with a canyon between them.
+ * `1fr auto` lets the copy use the room and sizes the CTA to its content.
+ */
 .site .door {
   margin-top: clamp(3rem, 8vh, 5rem);
   border: var(--bw) dashed color-mix(in srgb, var(--ink) 38%, transparent);
   border-radius: var(--radius-card);
-  padding: clamp(1.25rem, 3vw, 1.75rem);
-  display: flex;
-  flex-wrap: wrap;
-  gap: 1rem 1.5rem;
+  padding: clamp(1.5rem, 3vw, 2rem);
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto;
+  gap: 1.25rem clamp(1.5rem, 4vw, 3rem);
   align-items: center;
-  justify-content: space-between;
 }
 .site .door p { margin: 0; font-size: 1rem; max-width: 46ch; }
 .site .door b { color: var(--ink); }
@@ -1415,14 +1421,25 @@
   text-align: center;
 }
 
+/*
+ * The question sits ON the portrait, not under it.
+ *
+ * Below the frame it stretched the About row by its own height and hung off the bottom of the
+ * picture column while the prose beside it stayed put — the section visibly grew when you found
+ * a secret, which rather gives the game away. Overlaid, nothing on the page moves.
+ */
 .site .portrait__ask {
-  margin-top: 1rem;
+  position: absolute;
+  inset: 0;
+  z-index: 2;
   border: var(--bw) solid var(--border);
   border-radius: var(--radius-card);
-  background: var(--surface);
+  background: color-mix(in srgb, var(--surface) 94%, transparent);
+  backdrop-filter: blur(8px);
   box-shadow: var(--shadow-hard);
-  padding: 1rem;
+  padding: clamp(1rem, 3vw, 1.5rem);
   display: grid;
+  align-content: center;
   gap: 0.6rem;
 }
 .site .portrait__ask label { font-weight: 500; }
@@ -1491,10 +1508,15 @@
   white-space: nowrap;
 }
 
-.site .door { align-items: center; scroll-margin-top: calc(var(--bar-h) + 2rem); }
-.site .door__copy { display: grid; gap: 0.6rem; max-width: 52ch; }
+.site .door { scroll-margin-top: calc(var(--bar-h) + 2rem); }
+.site .door__copy { display: grid; gap: 0.6rem; max-width: 62ch; }
 .site .door__title { font-weight: 700; color: var(--ink); font-size: 1.125rem; }
-.site .door__go { display: grid; gap: 0.6rem; justify-items: center; flex: none; }
+/*
+ * Capped, because the column is `auto` and the note under the button is a full sentence — left
+ * to size itself it claimed 428px, pushing the button into the middle of the box and leaving a
+ * canyon between it and the copy. Constrained, the note wraps under the button where it belongs.
+ */
+.site .door__go { display: grid; gap: 0.6rem; justify-items: center; max-width: 15rem; }
 .site .door__note {
   font-size: 0.8125rem;
   color: var(--ink-subtle);
@@ -1502,8 +1524,14 @@
 }
 
 @media (max-width: 700px) {
-  .site .door__go { justify-items: start; width: 100%; }
+  /*
+   * One column. The door was `flex` with `wrap` and collapsed on its own; as a grid it holds two
+   * tracks at every width unless told otherwise, which squeezed the copy to 69px on a phone.
+   */
+  .site .door { grid-template-columns: 1fr; }
+  .site .door__go { justify-items: start; width: 100%; max-width: none; }
   .site .door__go a { width: 100%; justify-content: center; }
+  .site .door__note { text-align: left; }
 }
 
 
