@@ -277,14 +277,14 @@
 .site .hero {
   position: relative;
   min-height: 100svh;
-  padding-top: calc(var(--bar-h) + clamp(2rem, 6vh, 5rem));
+  padding-top: calc(var(--bar-h) + clamp(1rem, 3vh, 2.5rem));
   padding-bottom: clamp(2rem, 6vh, 4rem);
   display: flex;
   flex-direction: column;
   justify-content: center;
   overflow: hidden;
 }
-@media (max-width: 820px) { .site .hero { padding-top: calc(var(--bar-h) + 2rem); } }
+@media (max-width: 820px) { .site .hero { padding-top: calc(var(--bar-h) + 1.25rem); } }
 
 /*
  * The hero floor, in two layers.
