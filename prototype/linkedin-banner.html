@@ -1,0 +1,318 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<title>LinkedIn banner — 4 variants</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@400;500;700&display=swap" rel="stylesheet">
+<style>
+/* ============================================================
+   LinkedIn banner prototype — throwaway, screenshot each 1584x396
+   box exactly at its outline. Tokens pulled from design/DIRECTION.md
+   (cream theme) and prototype/index.html (dock chrome, card chrome).
+   ============================================================ */
+
+:root{
+  --canvas-base:#F7F5EE;
+  --canvas-grid:rgba(22,22,22,.055);
+  --surface:#FFFFFF;
+  --surface-alt:#FDF7C4;
+  --surface-sunken:#F4F2EA;
+
+  --ink:#161616;
+  --ink-muted:rgba(22,22,22,.62);
+  --ink-subtle:rgba(22,22,22,.45);
+
+  --accent:#FACC00;
+  --accent-ink:#161616;
+  --border:#161616;
+  --bw:2px;
+
+  --radius-window:12px;
+  --radius-chip:8px;
+
+  --dock-size:54px;
+  --dock-gap:8px;
+  --dock-radius:23.5%;
+  --dock-panel-r:22px;
+
+  --ease-out:cubic-bezier(.16,1,.3,1);
+}
+
+*{box-sizing:border-box}
+body{
+  margin:0;padding:48px 0 120px;
+  background:#DEDCD3;
+  font-family:"Space Grotesk",system-ui,sans-serif;
+  color:var(--ink);
+  display:flex;flex-direction:column;align-items:center;gap:56px;
+}
+
+.label{
+  width:1584px;max-width:calc(100vw - 32px);
+  font-size:13px;font-weight:700;letter-spacing:.04em;text-transform:uppercase;
+  color:#68665c;margin:0 0 10px;display:flex;align-items:baseline;gap:10px;
+}
+.label span{font-weight:500;text-transform:none;letter-spacing:0;color:#8b8879}
+
+/* the banner itself — exactly LinkedIn's 1584x396, screenshot inside this outline */
+.banner{
+  position:relative;width:1584px;height:396px;overflow:hidden;
+  outline:1px dashed #b8b6a8;outline-offset:0;
+  flex:0 0 auto;
+}
+.canvas-bg{
+  position:absolute;inset:0;
+  background:
+    radial-gradient(circle at 50% 8%, rgba(255,255,255,.75), transparent 34%),
+    radial-gradient(circle at 20% 18%, rgba(255,255,255,.35), transparent 28%),
+    linear-gradient(180deg,#FBFAF6 0%,#F7F5EE 36%,#F1EFE6 100%);
+}
+.grid-bg{
+  position:absolute;inset:0;
+  background-image:
+    linear-gradient(to right,var(--canvas-grid) 1px,transparent 1px),
+    linear-gradient(to bottom,var(--canvas-grid) 1px,transparent 1px);
+  background-size:40px 40px;
+}
+
+/* LinkedIn overlays your circular profile photo on the banner's bottom-left corner
+   (desktop: roughly this size, aligned to the page's content column) and crops the
+   sides further on mobile. Toggle this on to check nothing important sits under it. */
+.safe-zone{
+  position:absolute;left:0;bottom:0;width:340px;height:190px;
+  display:none;pointer-events:none;
+  background:repeating-linear-gradient(45deg,rgba(220,38,38,.12) 0 8px,rgba(220,38,38,.05) 8px 16px);
+  border-top:2px dashed rgba(220,38,38,.55);border-right:2px dashed rgba(220,38,38,.55);
+}
+.safe-zone::after{
+  content:"profile photo overlaps here (desktop, approx)";
+  position:absolute;left:10px;bottom:10px;max-width:230px;
+  font-size:11px;font-weight:700;letter-spacing:.02em;color:#B91C1C;
+}
+body.show-safe .safe-zone{display:block}
+#safeToggle{
+  position:fixed;top:14px;right:16px;z-index:9;
+  font-family:"Space Grotesk",system-ui,sans-serif;font-size:13px;font-weight:700;
+  padding:8px 14px;border-radius:8px;border:2px solid var(--border);background:#fff;cursor:pointer;
+}
+#safeToggle.on{background:var(--accent)}
+
+/* ---------- shared text block: name + email/website ---------- */
+.id-block{position:relative}
+.id-name{
+  font-size:64px;line-height:.95;font-weight:700;letter-spacing:-.02em;margin:0 0 14px;
+  white-space:nowrap;
+}
+.id-meta{
+  display:flex;align-items:center;gap:10px;
+  font-size:16px;font-weight:500;color:var(--ink-muted);
+}
+.id-meta .dot{width:4px;height:4px;border-radius:999px;background:var(--ink-subtle);flex:0 0 auto}
+
+/* ---------- variant 1: neobrutalist window ---------- */
+.b1 .window{
+  position:absolute;left:700px;top:44px;width:740px;
+  background:var(--surface);border:var(--bw) solid var(--border);border-radius:var(--radius-window);
+  box-shadow:8px 8px 0 0 var(--border);
+  transform:rotate(-0.6deg);
+}
+.b1 .win-head{
+  display:flex;align-items:center;gap:10px;padding:13px 16px;
+  border-bottom:var(--bw) solid var(--border);background:var(--accent);
+  border-radius:calc(var(--radius-window) - 2px) calc(var(--radius-window) - 2px) 0 0;
+}
+.b1 .win-ico{
+  width:26px;height:26px;border-radius:7px;background:rgba(255,255,255,.72);
+  border:1.5px solid var(--border);display:grid;place-items:center;font-size:14px;
+}
+.b1 .win-title{font-size:15px;font-weight:500;letter-spacing:-.005em;flex:1}
+.b1 .win-x{
+  width:20px;height:20px;flex:0 0 auto;border-radius:999px;background:rgba(255,255,255,.55);
+  border:1.5px solid var(--border);position:relative;
+}
+.b1 .win-x::before,.b1 .win-x::after{
+  content:"";position:absolute;left:50%;top:50%;width:8px;height:1.5px;background:var(--ink);border-radius:1px;
+}
+.b1 .win-x::before{transform:translate(-50%,-50%) rotate(45deg)}
+.b1 .win-x::after{transform:translate(-50%,-50%) rotate(-45deg)}
+.b1 .win-body{padding:36px 40px 40px}
+.b1 .id-name{font-size:58px;margin-bottom:12px}
+.b1 .role{font-size:18px;font-weight:500;color:var(--ink-muted);margin:0 0 20px}
+.b1 .divider{border-top:1.5px dashed rgba(22,22,22,.22);margin:0 0 18px}
+
+/* ---------- variant 2: dock strip ---------- */
+.b2 .id-block{position:absolute;left:80px;top:96px}
+.b2 .id-name{font-size:66px}
+.b2 .dock{
+  position:absolute;left:50%;bottom:40px;transform:translateX(-50%);
+  display:flex;align-items:flex-end;gap:var(--dock-gap);
+  padding:12px;border-radius:var(--dock-panel-r);
+  background:color-mix(in srgb,#bbbbbc 15%,rgba(255,255,255,.35));
+  box-shadow:
+    inset 0 0 0 1px rgba(255,255,255,.5),
+    inset 1.6px 2.4px 0 -1.6px rgba(255,255,255,.85),
+    inset -1.4px -1.8px 0 -1.4px rgba(255,255,255,.7),
+    0 8px 24px rgba(22,22,22,.14);
+}
+.b2 .dock-item{
+  width:var(--dock-size);height:var(--dock-size);border-radius:var(--dock-radius);
+  border:var(--bw) solid var(--border);display:grid;place-items:center;font-size:22px;
+  box-shadow:2px 2px 0 0 var(--border);
+}
+
+/* ---------- variant 3: canvas + grid only ---------- */
+.b3 .id-block{position:absolute;right:160px;top:50%;transform:translateY(-50%)}
+.b3 .id-name{font-size:92px}
+.b3 .id-name::after{
+  content:"";display:block;width:120px;height:6px;background:var(--accent);
+  border:2px solid var(--border);border-radius:3px;margin-top:20px;
+}
+.b3 .id-meta{margin-top:28px;font-size:22px}
+
+/* ---------- variant 4: window + dock combo ---------- */
+.b4 .window{
+  position:absolute;left:400px;top:40px;width:640px;
+  background:var(--surface);border:var(--bw) solid var(--border);border-radius:var(--radius-window);
+  box-shadow:7px 7px 0 0 var(--border);
+  transform:rotate(-0.8deg);
+}
+.b4 .win-head{
+  display:flex;align-items:center;gap:9px;padding:11px 14px;
+  border-bottom:var(--bw) solid var(--border);background:var(--surface-alt);
+  border-radius:calc(var(--radius-window) - 2px) calc(var(--radius-window) - 2px) 0 0;
+}
+.b4 .win-ico{
+  width:23px;height:23px;border-radius:6px;background:rgba(255,255,255,.72);
+  border:1.5px solid var(--border);display:grid;place-items:center;font-size:12px;
+}
+.b4 .win-title{font-size:13px;font-weight:500;flex:1}
+.b4 .win-x{
+  width:18px;height:18px;flex:0 0 auto;border-radius:999px;background:rgba(255,255,255,.55);
+  border:1.5px solid var(--border);position:relative;
+}
+.b4 .win-x::before,.b4 .win-x::after{
+  content:"";position:absolute;left:50%;top:50%;width:7px;height:1.5px;background:var(--ink);border-radius:1px;
+}
+.b4 .win-x::before{transform:translate(-50%,-50%) rotate(45deg)}
+.b4 .win-x::after{transform:translate(-50%,-50%) rotate(-45deg)}
+.b4 .win-body{padding:26px 28px 30px}
+.b4 .id-name{font-size:42px;margin-bottom:10px}
+.b4 .role{font-size:14px;font-weight:500;color:var(--ink-muted);margin:0 0 16px}
+.b4 .divider{border-top:1.5px dashed rgba(22,22,22,.22);margin:0 0 14px}
+.b4 .id-meta{font-size:13px;gap:8px}
+.b4 .dock{
+  position:absolute;right:64px;bottom:44px;
+  display:flex;align-items:flex-end;gap:6px;
+  padding:10px;border-radius:18px;
+  background:color-mix(in srgb,#bbbbbc 15%,rgba(255,255,255,.35));
+  box-shadow:
+    inset 0 0 0 1px rgba(255,255,255,.5),
+    inset 1.4px 2px 0 -1.4px rgba(255,255,255,.85),
+    inset -1.2px -1.6px 0 -1.2px rgba(255,255,255,.7),
+    0 8px 24px rgba(22,22,22,.14);
+}
+.b4 .dock-item{
+  width:46px;height:46px;border-radius:23.5%;
+  border:var(--bw) solid var(--border);display:grid;place-items:center;font-size:18px;
+  box-shadow:2px 2px 0 0 var(--border);
+}
+</style>
+</head>
+<body>
+
+<div class="label">1 — Neobrutalist window <span>(your pick, refined)</span></div>
+<div class="banner b1">
+  <div class="canvas-bg"></div><div class="grid-bg"></div><div class="safe-zone"></div>
+  <div class="window">
+    <div class="win-head">
+      <span class="win-ico">👋</span>
+      <span class="win-title">aahil-khan.xyz — about.tsx</span>
+      <span class="win-x"></span>
+    </div>
+    <div class="win-body">
+      <p class="id-name">Aahil Khan</p>
+      <p class="role">Full-stack engineer, AI retrieval &amp; agents</p>
+      <div class="divider"></div>
+      <div class="id-meta">
+        <span>aahilminookhan@gmail.com</span>
+        <span class="dot"></span>
+        <span>aahil-khan.xyz</span>
+      </div>
+    </div>
+  </div>
+</div>
+
+<div class="label">2 — Dock strip</div>
+<div class="banner b2">
+  <div class="canvas-bg"></div><div class="grid-bg"></div><div class="safe-zone"></div>
+  <div class="id-block">
+    <p class="id-name">Aahil Khan</p>
+    <div class="id-meta">
+      <span>aahilminookhan@gmail.com</span>
+      <span class="dot"></span>
+      <span>aahil-khan.xyz</span>
+    </div>
+  </div>
+  <div class="dock">
+    <div class="dock-item" style="background:#FACC00">👋</div>
+    <div class="dock-item" style="background:#A8E6A1">◆</div>
+    <div class="dock-item" style="background:#FFB4A2">▦</div>
+    <div class="dock-item" style="background:#A9D6FF">⚙</div>
+    <div class="dock-item" style="background:#B8F2E6">✉</div>
+  </div>
+</div>
+
+<div class="label">3 — Canvas + grid only <span>(quietest)</span></div>
+<div class="banner b3">
+  <div class="canvas-bg"></div><div class="grid-bg"></div><div class="safe-zone"></div>
+  <div class="id-block">
+    <p class="id-name">Aahil Khan</p>
+    <div class="id-meta">
+      <span>aahilminookhan@gmail.com</span>
+      <span class="dot"></span>
+      <span>aahil-khan.xyz</span>
+    </div>
+  </div>
+</div>
+
+<div class="label">4 — Window + dock combo</div>
+<div class="banner b4">
+  <div class="canvas-bg"></div><div class="grid-bg"></div><div class="safe-zone"></div>
+  <div class="window">
+    <div class="win-head">
+      <span class="win-ico">👋</span>
+      <span class="win-title">about.tsx</span>
+      <span class="win-x"></span>
+    </div>
+    <div class="win-body">
+      <p class="id-name">Aahil Khan</p>
+      <p class="role">Full-stack engineer, AI retrieval &amp; agents</p>
+      <div class="divider"></div>
+      <div class="id-meta">
+        <span>aahilminookhan@gmail.com</span>
+        <span class="dot"></span>
+        <span>aahil-khan.xyz</span>
+      </div>
+    </div>
+  </div>
+  <div class="dock">
+    <div class="dock-item" style="background:#FACC00">👋</div>
+    <div class="dock-item" style="background:#A8E6A1">◆</div>
+    <div class="dock-item" style="background:#FFB4A2">▦</div>
+    <div class="dock-item" style="background:#D9C2FF">✎</div>
+  </div>
+</div>
+
+
+<button id="safeToggle" type="button">Show profile-photo safe zone</button>
+<script>
+document.getElementById('safeToggle').addEventListener('click', (e) => {
+  const on = document.body.classList.toggle('show-safe')
+  e.target.classList.toggle('on', on)
+  e.target.textContent = on ? 'Hide profile-photo safe zone' : 'Show profile-photo safe zone'
+})
+</script>
+</body>
+</html>
