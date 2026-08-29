@@ -97,6 +97,7 @@ export const education: readonly Education[] = [
 
 /** Standalone awards. Project-specific ones live on the project itself. */
 export const awards = [
+  { title: 'Winner', event: 'Economic Times 2.0 Hackathon' },
   { title: 'Winner', event: 'Samsung PRISM Web Agent Hackathon' },
   { title: 'Innovation Award', event: 'Agentic AI Hackathon, Ulster University (UK)' },
 ] as const

@@ -99,9 +99,9 @@ export const archive: readonly ArchiveItem[] = [
     id: 'sop-opera',
     kind: 'built',
     title: 'SOP Opera',
-    meta: 'Built for Economic Times 2.0 hackathon',
-    note: 'Genuinely the most planning I\'ve ever done for a hackathon project, I dug through existing industrial solutions of the problem statement, downloaded their demo versions to take inspo (they think I\'m a potential customer and send me emails lol), then sat with a pen and paper to think of the best way to build the architecture, used an actual steel plant floor plan in the project and built everything alone in like 3 days. Still waiting on the results so fingers crossed (>_<)',
-    when: 'July 2026'
+    meta: 'Winner — Economic Times 2.0 hackathon',
+    note: 'Genuinely the most planning I\'ve ever done for a hackathon project, I dug through existing industrial solutions of the problem statement, downloaded their demo versions to take inspo (they think I\'m a potential customer and send me emails lol), then sat with a pen and paper to think of the best way to build the architecture, used an actual steel plant floor plan in the project and built everything alone in like 3 days. Went into finals not knowing what to expect and came out with the win (>_<)',
+    when: 'Aug 2026'
   },
   {
     id: 'cursor-search-providor',

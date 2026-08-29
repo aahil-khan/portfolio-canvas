@@ -22,6 +22,7 @@ export const projects: readonly Project[] = [
     year: 2026,
     kind: 'System',
     meta: '2026 · System · NextJS, FastAPI, LangGraph, pgvector',
+    award: 'Winner — Economic Times 2.0 Hackathon',
     lede: 'A compound risk engine that catches the hazard no single sensor is looking for.',
     highlights: [
       'Fuses gas readings, work permits, isolation state and worker location into **hazard pathways** — the danger that only exists when four boring facts line up.',

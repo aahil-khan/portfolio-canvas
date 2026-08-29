@@ -41,6 +41,6 @@ export const profile: Profile = {
  */
 export const headlineStats = [
   { value: '9.16', label: 'cgpa' },
-  { value: '2', label: 'wins' },
+  { value: '3', label: 'wins' },
   { value: '3', label: 'domains' },
 ] as const
