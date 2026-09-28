@@ -47,10 +47,10 @@ export function validateSet(set: ContentSet, fileExists: (publicPath: string) =>
   const groups = arr(set.stack)
 
   const dupes = (file: string, items: Obj[], key: string) => {
-    const seen = new Set<unknown>()
+    const count = new Map<unknown, number>()
+    for (const it of items) count.set(it[key], (count.get(it[key]) ?? 0) + 1)
     items.forEach((it, i) => {
-      if (seen.has(it[key])) out.push({ path: `${file}[${i}].${key}`, message: `duplicate slug "${it[key]}"` })
-      seen.add(it[key])
+      if ((count.get(it[key]) ?? 0) > 1) out.push({ path: `${file}[${i}].${key}`, message: `duplicate slug "${it[key]}"` })
     })
   }
   dupes('projects', projects, 'slug')

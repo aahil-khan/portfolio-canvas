@@ -12,7 +12,8 @@
     "check": "npm run typecheck && npm run lint && npm test && npm run content:check && node scripts/check-logos.mjs && npm run check:contrast",
     "check:contrast": "node scripts/check-contrast.mjs",
     "test": "node --test 'lib/**/*.test.ts' 'content/**/*.test.ts'",
-    "content:check": "node --no-warnings scripts/check-content.ts"
+    "content:check": "node --no-warnings scripts/check-content.ts",
+    "check:bundles": "node scripts/check-bundles.mjs"
   },
   "dependencies": {
     "@gsap/react": "^2.1.2",

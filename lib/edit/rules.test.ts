@@ -21,6 +21,14 @@ test('a duplicate project slug is reported', () => {
   assert.match(messages(s), /duplicate slug "p1"/)
 })
 
+test('every item sharing a slug is flagged, so the one you just edited shows it too', () => {
+  const s = fixture()
+  const p = (s.projects as object[])[0]
+  s.projects = [p, { ...p }]
+  const paths = run(s).filter((i) => /duplicate/.test(i.message)).map((i) => i.path)
+  assert.deepEqual(paths, ['projects[0].slug', 'projects[1].slug'])
+})
+
 test('a stack entry with no tool on the shelf names the project', () => {
   const s = fixture()
   ;(s.projects as { stack: string[] }[])[0].stack = ['Nope']

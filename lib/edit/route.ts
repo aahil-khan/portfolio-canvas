@@ -1,3 +1,5 @@
+import { devFake } from './config.ts'
+import { devGit } from './dev-git.ts'
 import { GitHubError, githubGit, type Git } from './github.ts'
 import { guard } from './guard.ts'
 import { json } from './respond.ts'
@@ -15,7 +17,8 @@ export function editRoute<C = unknown>(
     const g = await guard(req, { mutate })
     if (!g.ok) return g.res
     try {
-      return await handler(githubGit(g.session.token), req, g.session, ctx)
+      const git = devFake() ? devGit() : githubGit(g.session.token)
+      return await handler(git, req, g.session, ctx)
     } catch (e) {
       if (e instanceof GitHubError && e.status === 401) return json({ message: 'GitHub signed you out — sign in again.' }, 401)
       if (e instanceof GitHubError && (e.status === 403 || e.status === 404))

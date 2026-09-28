@@ -146,6 +146,9 @@ export type RevertResult = { ok: true; commit: string } | { ok: false; status: 4
 
 export async function revert(git: Git, sha: string): Promise<RevertResult> {
   const d = await git.diff(sha)
+  // the editor only ever undoes content; a commit that also touched code is the laptop's to undo
+  if (d.files.some((f) => !f.path.startsWith('content/data/') && !f.path.startsWith('public/')))
+    return { ok: false, status: 409, message: 'This change also touched code, so it can only be undone from the repo, not here.' }
   const { head, byPath, publicFiles } = await snapshot(git)
   const changes: { path: string; content: Uint8Array | null }[] = []
 

@@ -1,4 +1,4 @@
-import { editConfig, type EditConfig } from './config.ts'
+import { devFake, editConfig, type EditConfig } from './config.ts'
 import { json, notFound } from './respond.ts'
 import { COOKIE, unseal, type Session } from './session.ts'
 
@@ -30,6 +30,12 @@ export async function guard(
   env: Record<string, string | undefined> = process.env,
   now = Date.now(),
 ): Promise<Guarded> {
+  if (devFake(env)) {
+    const origin = env.EDIT_ORIGIN?.replace(/\/+$/, '') || new URL(req.url).origin
+    if (opts.mutate && req.headers.get('origin') !== origin) return { ok: false, res: json({ message: 'Forbidden' }, 403) }
+    const cfg = { clientId: '', clientSecret: '', secret: '', allowedUserId: 0, origin }
+    return { ok: true, cfg, session: { token: 'dev-fake', userId: 0, login: 'dev', exp: now + 3600_000 } }
+  }
   const cfg = editConfig(env)
   if (!cfg) return { ok: false, res: notFound() }
   if (opts.mutate && req.headers.get('origin') !== cfg.origin)

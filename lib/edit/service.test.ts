@@ -177,3 +177,23 @@ test('revert that would leave content invalid is refused', async () => {
   const r = await revert(git, added.ok ? added.commit : '')
   assert.equal(!r.ok && r.status, 422)
 })
+
+test('revert refuses a commit that also changed code', async () => {
+  const git = seeded()
+  const head = await git.head()
+  const data = fixture().projects as { name: string }[]
+  data[0].name = 'With code'
+  const sha = await git.commit(
+    head.commit,
+    head.tree,
+    [
+      { path: 'content/data/projects.json', content: enc.encode(JSON.stringify(data, null, 2) + '\n') },
+      { path: 'components/x.tsx', content: enc.encode('export {}') },
+    ],
+    'laptop change',
+  )
+  const r = await revert(git, sha)
+  assert.equal(!r.ok && r.status, 409)
+  assert.match(!r.ok ? r.message : '', /code/)
+  assert.ok(git.has('components/x.tsx'))
+})

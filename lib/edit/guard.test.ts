@@ -69,3 +69,21 @@ test('refusals are never cached', async () => {
   const r = await guard(await req({ cookie: false }), { mutate: false }, ENV, NOW)
   assert.equal(!r.ok && r.res.headers.get('cache-control'), 'no-store')
 })
+
+test('EDIT_DEV_FAKE is ignored in production', async () => {
+  const env = { EDIT_DEV_FAKE: '1', NODE_ENV: 'production' }
+  assert.equal(await status(guard(await req({ cookie: false }), { mutate: false }, env, NOW)), 404)
+})
+
+test('EDIT_DEV_FAKE signs you in as a dev user outside production', async () => {
+  const env = { EDIT_DEV_FAKE: '1', NODE_ENV: 'development' }
+  const r = await guard(await req({ cookie: false }), { mutate: false }, env, NOW)
+  assert.ok(r.ok)
+  assert.equal(r.ok && r.session.token, 'dev-fake')
+})
+
+test('EDIT_DEV_FAKE still refuses a foreign-origin mutation', async () => {
+  const env = { EDIT_DEV_FAKE: '1', NODE_ENV: 'development' }
+  const r = await req({ method: 'PUT', origin: 'https://evil.example', cookie: false })
+  assert.equal(await status(guard(r, { mutate: true }, env, NOW)), 403)
+})

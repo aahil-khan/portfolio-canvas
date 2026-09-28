@@ -35,3 +35,12 @@ export function editConfig(env: Record<string, string | undefined> = process.env
   if (!/^https:\/\/[^/]+$/.test(origin) && !/^http:\/\/localhost(:\d+)?$/.test(origin)) return null
   return { clientId, clientSecret, secret, allowedUserId: Number(id), origin }
 }
+
+/**
+ * Local development without a GitHub App: `EDIT_DEV_FAKE=1 npm run dev` signs you in as a dev
+ * user and commits to an in-memory copy of the working tree. Refused outright in production, so
+ * a stray variable on the server can never open the editor.
+ */
+export function devFake(env: Record<string, string | undefined> = process.env): boolean {
+  return env.EDIT_DEV_FAKE === '1' && env.NODE_ENV !== 'production'
+}
