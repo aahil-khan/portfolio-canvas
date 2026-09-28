@@ -1,3 +1,11 @@
+## Updating the site
+
+- **Content** (projects, jobs, awards, bio, archive, now, writing, tools, front-page copy,
+  screenshots, résumé): open **`/edit`** on the live site and sign in with GitHub. Each save is one
+  commit to `main` and is live in about three minutes. From a Claude session, ask for the change —
+  the `update-content` skill edits the same files the same way.
+- **Code:** push to `main`. The server deploys `main` on its own — see `deploy/README.md`.
+
 ## Getting Started
 
 First, run the development server:

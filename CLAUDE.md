@@ -16,6 +16,8 @@ npm run build        # must stay green; TS strict, no ignoreBuildErrors
 npm run lint
 node scripts/shot.mjs <url> [--w 1440] [--h 900]   # screenshots to .shots/
 node scripts/contrast.mjs                          # WCAG check, all themes — must exit 0
+npm test                                           # editor + content rules (node --test)
+npm run content:check                              # validate content/data/*.json in a second
 ```
 
 `scripts/shot.mjs` drives Chrome through the puppeteer-core bundled with the chrome-devtools-mcp
@@ -43,28 +45,34 @@ plugin. There is no local puppeteer dependency, and that is deliberate.
 **All copy lives in `content/`. Nothing in `components/` should contain a sentence.** If you
 catch yourself typing prose into a component, it belongs in a content file instead.
 
-| File | Holds |
+**The facts are data, edited in the browser.** `content/data/*.json` holds everything that changes
+when life does — profile, projects, experience, archive, now, writing, the tool shelf, the front
+page's copy. The owner edits them at **`/edit`** on the live site (GitHub sign-in, one commit per
+save). Agents edit the same files through the **`update-content` skill**
+(`.claude/skills/update-content/SKILL.md`) — use it for any content change, never the `.ts`
+wrappers.
+
+| Path | Holds |
 |---|---|
-| `profile.ts` | name, role, location, email, links, intro, headline stats |
-| `projects.ts` | selected work — add a project by copying one block |
-| `experience.ts` | jobs, education, awards |
-| `writing.ts` | posts |
-| `stack.ts` | the tool shelf and logo paths |
-| `apps.ts` | the dock order, card colours and widths |
-| `visitors.ts` | copy for the Visitors card; the numbers come from Redis, not from here |
+| `data/*.json` | the editable content — `profile`, `projects`, `experience`, `archive`, `now`, `writing`, `stack`, `site` |
+| `schema/index.ts` | what each field is and means; drives validation and the `/edit` forms |
+| `profile.ts`, `projects.ts`, … | thin wrappers that type the JSON; components import from `@/content` as before |
+| `apps.ts`, `themes.ts`, `tutorial.ts`, `eggs.ts`, `props.ts`, … | still code — not editable in `/edit` |
+| `edit.ts` | the editor's own copy |
+
+The "wins" headline number is computed from `awards` (`{"derived":"wins"}` in `profile.json`).
 
 Assets: project and role screenshots go in `public/work/`, listed in `images: []` — one renders
 as a plain frame, several as a carousel. The résumé PDF goes in `public/` (set
-`profile.resumePdf`). Both are optional: links and image slots only appear once the file exists,
-and the validator checks every path resolves.
+`profile.resumePdf`). `/edit` uploads them for you (PNG/JPEG/WebP/PDF only, checked by content,
+never SVG).
 
-Each file is a plain typed array, so excess-property checks catch a mistyped field. `content/
-validate.ts` covers what types can't — duplicate slugs, a `stack` entry with no matching tool,
-an image path with no file, and the two typos that shipped for months in the old backend
-(`"Al Powered"` for `"AI Powered"`, `"non-based"` for `"n8n-based"`).
-
-It's called at module scope in `app/page.tsx`, so **bad content fails `next build`** rather than
-rendering a blank card, and in dev it re-runs on every save.
+**One set of rules, three places.** `lib/edit/rules.ts` (`validateSet`) runs at `next build` (via
+`content/validate.ts`, called at module scope in `app/page.tsx`), on every `/edit` save before it
+commits, and in `npm run content:check`. It covers the schema plus what types can't — duplicate
+slugs, a `stack` entry with no matching tool, an image path with no file, and the two typos that
+shipped for months in the old backend (`"Al Powered"`, `"non-based"`). So **bad content fails
+the build**, and a save that would fail it is refused instead.
 
 Card heights are never declared — they're measured from real content at runtime. Widths are in
 `apps.ts`.
@@ -97,7 +105,20 @@ for(const[n,f]of[['/','.next/server/app/index.html'],['/canvas','.next/server/ap
   console.log(n, g.some(c=>fs.readFileSync(f,'utf8').includes(p.basename(c)))?'LOADS GSAP':'clean')"
 ```
 
-Expected: `/ LOADS GSAP`, `/canvas clean`.
+Expected: `/ LOADS GSAP`, `/canvas clean`. `npm run check:bundles` runs the same check and also
+proves neither page loads any of the editor's code.
+
+## The editor and deploys
+
+- **`/edit`** — `app/edit`, `components/edit`, `lib/edit`, `app/api/edit/*`. Off (404) unless all
+  five `EDIT_*` variables are set (`.env.example`). Security-sensitive: a GitHub App token sealed
+  in an AES-GCM `__Host-` cookie, an allowlisted numeric user id, an Origin check on every write,
+  a nonce CSP from `proxy.ts` scoped to `/edit` only. Tests: `npm test` (node --test, no deps).
+- Local: `EDIT_DEV_FAKE=1 npm run dev` gives a signed-in editor over an in-memory repo. Ignored
+  when `NODE_ENV=production`.
+- **Deploys come from `main`.** A timer on aahil-server pulls and rebuilds within a minute of a
+  push (`deploy/`). **Never `stage deploy portfolio-redesign` from the laptop** — it would clobber
+  the server's git checkout.
 
 ## Workflow
 

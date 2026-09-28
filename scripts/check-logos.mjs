@@ -3,7 +3,7 @@
  * Logo luminance audit.
  *
  * Some vendor logos ship white-on-transparent for dark UIs. This site is light, so those
- * are invisible unless `invert: true` is set in content/stack.ts. That is exactly how
+ * are invisible unless `invert: true` is set in content/data/stack.json. That is exactly how
  * `qdrant.png` (measured luminance 255.0) shipped invisible in the prototype.
  *
  * The old repo's tech-logo table carried a hand-maintained `invert` flag calibrated for a
@@ -26,15 +26,14 @@ const CHROME = ['/opt/google/chrome/chrome', '/usr/bin/google-chrome-stable', '/
 /** Above this, a logo is too light to read on our white cards and needs `invert: true`. */
 const TOO_LIGHT = 200
 
-const stack = await readFile('content/stack.ts', 'utf8')
-// deliberately a regex over the source rather than importing: this script stays dependency-free
-// and doesn't need a TypeScript loader just to read a list of paths.
-const entries = [...stack.matchAll(/\{\s*name:\s*'([^']+)'(?:,\s*logo:\s*'([^']+)')?(?:,\s*invert:\s*(true))?/g)]
-  .filter(([, , logo]) => logo)
-  .map(([, name, logo, invert]) => ({ name, logo, invert: invert === 'true' }))
+const stack = JSON.parse(await readFile('content/data/stack.json', 'utf8'))
+const entries = stack
+  .flatMap((g) => g.tools)
+  .filter((t) => t.logo)
+  .map((t) => ({ name: t.name, logo: t.logo, invert: t.invert === true }))
 
 if (!entries.length) {
-  console.error('check-logos: found no logo entries in content/stack.ts — has the format changed?')
+  console.error('check-logos: found no logo entries in content/data/stack.json — has the format changed?')
   process.exit(1)
 }
 
