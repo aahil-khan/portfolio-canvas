@@ -1,0 +1,10 @@
+[Unit]
+Description=Deploy the portfolio when main moves on GitHub
+After=network-online.target docker.service
+
+[Service]
+Type=oneshot
+ExecStart=%h/staging/apps/portfolio-redesign/deploy/watch.sh
+# a build takes a few minutes; anything past this is stuck
+TimeoutStartSec=20min
+Nice=10
