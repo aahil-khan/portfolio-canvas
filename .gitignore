@@ -47,3 +47,4 @@ next-env.d.ts
 
 # agent git worktrees (each carries its own node_modules and .next)
 .claude/
+.build-sha
