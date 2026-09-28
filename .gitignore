@@ -46,4 +46,8 @@ next-env.d.ts
 .shots/
 
 # agent git worktrees (each carries its own node_modules and .next)
-.claude/
+.claude/*
+!.claude/skills/
+.build-sha
+.watch.lock
+.watch-failed

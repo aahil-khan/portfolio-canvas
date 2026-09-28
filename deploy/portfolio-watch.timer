@@ -1,0 +1,10 @@
+[Unit]
+Description=Check GitHub for portfolio changes every minute
+
+[Timer]
+OnBootSec=2min
+OnUnitInactiveSec=60s
+Unit=portfolio-watch.service
+
+[Install]
+WantedBy=timers.target

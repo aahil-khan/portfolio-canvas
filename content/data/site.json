@@ -1,0 +1,109 @@
+{
+  "openTo": "",
+  "headline": {
+    "lead": "Full-stack engineer building",
+    "emphasis": "AI retrieval and agent systems",
+    "tail": "that hold up in production."
+  },
+  "seeWork": "See the work",
+  "toDesk": "There’s a far more fun version of this",
+  "toDeskBadge": "highly recommended",
+  "nav": {
+    "about": "About",
+    "skills": "Skills",
+    "experience": "Experience",
+    "work": "Work",
+    "contact": "Contact",
+    "desk": "The desk",
+    "sectionsLabel": "Sections",
+    "topLabel": "Top of page",
+    "openMenu": "Open menu",
+    "closeMenu": "Close menu",
+    "backToTop": "Back to top"
+  },
+  "resume": {
+    "short": "Résumé",
+    "long": " PDF ↓"
+  },
+  "theme": {
+    "toDark": "Switch to dark",
+    "toLight": "Switch to light"
+  },
+  "about": {
+    "eyebrow": "About",
+    "title": "Hi there!",
+    "portraitPending": "Portrait goes here",
+    "portraitAlt": "Aahil Khan"
+  },
+  "portraitEgg": {
+    "taps": 10,
+    "question": "What's 2 + 2?",
+    "inputLabel": "Your answer",
+    "submit": "Answer",
+    "wrong": "Nope. Try again.",
+    "dismiss": "Never mind",
+    "answers": [
+      "aloo",
+      "aalu"
+    ],
+    "caption": "sher bacha",
+    "hiddenAlt": "Aahil Khan, off duty",
+    "flipBack": "Flip back"
+  },
+  "skills": {
+    "eyebrow": "Toolbox",
+    "title": "What I build with"
+  },
+  "experience": {
+    "eyebrow": "Experience",
+    "title": "Where I've been",
+    "indexLabel": "Roles",
+    "expand": "Show details",
+    "collapse": "Hide details"
+  },
+  "work": {
+    "eyebrow": "Selected work",
+    "title": "Four things worth opening",
+    "lede": "Each of these has a full write-up — highlights, stack, screenshots and links.",
+    "readMore": "Read the write-up",
+    "shotPending": "No screenshot yet"
+  },
+  "credentials": {
+    "eyebrow": "The rest of it",
+    "title": "Education, awards, writing",
+    "education": "Education",
+    "awards": "Awards",
+    "writing": "Writing"
+  },
+  "closer": {
+    "eyebrow": "Contact",
+    "title": "Let's build\nsomething.",
+    "body": "Open for cool builds and interesting problems. The fastest way to reach me is email, I answer all of them.",
+    "plainVersion": "Plain text version"
+  },
+  "door": {
+    "title": "Oh, and this page is the boring half.",
+    "body": "The main portfolio is finished. This one is a little less serious. There's a canvas, beautiful cards, a few games, lofi, and probably more than there needs to be.",
+    "scores": "Some of it keeps score. Try not to take that personally.",
+    "hidden": "There are things here that aren't meant to be obvious. If you find one, you find one.",
+    "action": "Open the canvas",
+    "note": "Only Desktops supported. This place has a lot going on."
+  },
+  "footer": {
+    "note": "Thanks for scrolling all the way down :)"
+  },
+  "desk": {
+    "exit": "The site",
+    "tabSuffix": "the canvas"
+  },
+  "workPage": {
+    "allWork": "All work",
+    "home": "Home",
+    "indexTitle": "Work",
+    "indexLede": "Every project, as its own page — linkable, indexable, and readable without JavaScript.",
+    "whatItDoes": "What it does",
+    "builtWith": "Built with",
+    "shots": "Screenshots",
+    "backToWork": "Back to all work"
+  }
+}

@@ -1,0 +1,19 @@
+{
+  "updated": "2026-08",
+  "lede": "A snapshot, short and sweet.",
+  "items": [
+    {
+      "label": "Building",
+      "what": "This canvas. It is the third attempt at a portfolio and the first one I have not deleted."
+    },
+    {
+      "label": "Also Looking into",
+      "what": "Gnome extensions, love 'em to death, going to publish some of my own too"
+    },
+    {
+      "label": "Thinking about",
+      "what": "Increasing OSS contributions, boy is it getting competetive"
+    }
+  ],
+  "foot": "Borrowed from Derek Sivers, who has been telling people to keep one of these for years."
+}

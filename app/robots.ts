@@ -6,9 +6,10 @@ export default function robots(): MetadataRoute.Robots {
   return {
     /*
      * /stats is token-gated and 404s without one, but it should not be crawled at all — a
-     * disallowed path is also a hint not to try, and it keeps the URL out of any index.
+     * disallowed path is also a hint not to try, and it keeps the URL out of any index. The same
+     * goes for the content editor, which 404s unless it is configured.
      */
-    rules: { userAgent: '*', allow: '/', disallow: '/stats' },
+    rules: { userAgent: '*', allow: '/', disallow: ['/stats', '/edit', '/api/edit'] },
     sitemap: `${SITE_URL}/sitemap.xml`,
   }
 }

@@ -19,6 +19,9 @@ COPY . .
 # leaves a real, rsynced one (with secrets) untouched and only fills in a placeholder when
 # building somewhere that doesn't have one.
 RUN touch .env.local
+# The deploy watcher writes the commit being built here; /api/version reports it so the editor
+# can tell when a save is live. Placeholder when building by hand.
+RUN [ -s .build-sha ] || echo dev > .build-sha
 RUN npm run build
 
 # `output: 'standalone'` in next.config.ts makes this runner image small: only the traced
@@ -36,6 +39,7 @@ COPY --from=builder --chown=nextjs:nodejs /app/.next/static ./.next/static
 # Standalone output does not carry env files itself -- server.js reads process.env at request
 # time (Upstash Redis, the GitHub token, STATS_TOKEN), so they have to land next to it.
 COPY --from=builder --chown=nextjs:nodejs /app/.env.local ./.env.local
+COPY --from=builder --chown=nextjs:nodejs /app/.build-sha ./.build-sha
 
 USER nextjs
 EXPOSE 3000
