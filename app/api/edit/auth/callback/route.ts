@@ -1,5 +1,6 @@
 import { cookies } from 'next/headers'
 
+import { editCopy } from '@/content/edit'
 import { editConfig } from '@/lib/edit/config'
 import { loginAllowed, NO_STORE, notFound } from '@/lib/edit/http'
 import { finishLogin, sameString } from '@/lib/edit/oauth'
@@ -31,6 +32,17 @@ export async function GET(req: Request) {
     return refuse(400, 'Sign-in expired or was not started here. Go back to /edit and try again.')
 
   const result = await finishLogin(cfg, code, flow.verifier)
+  if (!result.ok && result.status === 403) {
+    const { title, body, home } = editCopy.denied
+    const headers = new Headers({ ...NO_STORE, 'Content-Type': 'text/html; charset=utf-8' })
+    headers.append('Set-Cookie', clearFlow)
+    return new Response(
+      `<!doctype html><meta name="viewport" content="width=device-width"><title>Go away</title>` +
+        `<body style="font:16px/1.6 system-ui;max-width:32rem;margin:20vh auto;padding:0 16px;background:#F7F5EE;color:#161616">` +
+        `<h1 style="font-size:1.75rem;line-height:1.15">${title}</h1><p>${body}</p><p><a href="/" style="color:inherit">${home}</a></p>`,
+      { status: 403, headers },
+    )
+  }
   if (!result.ok) return refuse(result.status, result.reason)
 
   const { session } = result
