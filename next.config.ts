@@ -1,8 +1,12 @@
 import type { NextConfig } from "next";
 
 const nextConfig: NextConfig = {
-  /** Standalone server output for the Docker deploy on aahil-server (`stage deploy`). */
-  output: 'standalone',
+  /*
+   * Standalone server output, for the Docker image only. Vercel runs its own packaging and its
+   * build fails outright with standalone on (`ENOENT .next/next-server.js.nft.json`) — every
+   * Vercel deploy from 1aeff73 to the fix failed that way. `VERCEL` is set in Vercel's builds.
+   */
+  output: process.env.VERCEL ? undefined : 'standalone',
 
   /*
    * `/resume` was the plain, printable surface back when `/` was the canvas. The front page is
