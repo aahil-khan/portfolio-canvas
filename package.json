@@ -10,7 +10,8 @@
     "typecheck": "tsc --noEmit",
     "shot": "node scripts/shot.mjs",
     "check": "npm run typecheck && npm run lint && node scripts/check-logos.mjs && npm run check:contrast",
-    "check:contrast": "node scripts/check-contrast.mjs"
+    "check:contrast": "node scripts/check-contrast.mjs",
+    "test": "node --test 'lib/**/*.test.ts' 'content/**/*.test.ts'"
   },
   "dependencies": {
     "@gsap/react": "^2.1.2",
