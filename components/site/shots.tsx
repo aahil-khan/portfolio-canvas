@@ -14,7 +14,7 @@ import { prefersReducedMotion } from '@/lib/site-motion'
  * JavaScript runs: with scripting off the track is still a swipeable, snapping strip of images.
  * The buttons and counter are progressive enhancement over a scroller that already functions.
  *
- * Every slide sits in the same fixed 16:10 frame and crops to fill it. Taking the shape from the
+ * Every slide sits in the same fixed 16:9 frame and is fitted inside it, never cropped. Taking the shape from the
  * first image instead meant a set mixing a full-page capture with a viewport one produced a frame
  * that fitted one and stranded the other, and made the carousel a different height per project.
  */
@@ -45,7 +45,7 @@ export function Shots({ images, alt }: { images: readonly string[]; alt: string 
       <div className="shots__track" ref={track} onScroll={onScroll}>
         {images.map((src, i) => (
           <div className="shots__slide" key={src}>
-            {/* eslint-disable-next-line @next/next/no-img-element -- static asset, cropped into a fixed frame */}
+            {/* eslint-disable-next-line @next/next/no-img-element -- static asset, fitted into a fixed frame */}
             <img
               src={src}
               alt={many ? `${alt} — ${i + 1} of ${images.length}` : alt}
