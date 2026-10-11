@@ -95,8 +95,15 @@ export function Portrait() {
 
         {profile.portraitHidden ? (
           <div className="portrait__face portrait__face--back">
-            {/* eslint-disable-next-line @next/next/no-img-element -- static asset, fixed 4:5 frame */}
-            <img src={profile.portraitHidden} alt={egg.hiddenAlt} />
+            {/*
+              Not in the server HTML at all: the src only exists once the question is on screen
+              (ten taps in), so crawlers never see the photo or its alt text. Starting the load at
+              the question rather than the right answer means it is there before the card flips.
+            */}
+            {asking || flipped ? (
+              // eslint-disable-next-line @next/next/no-img-element -- static asset, fixed 4:5 frame
+              <img src={profile.portraitHidden} alt={egg.hiddenAlt} />
+            ) : null}
             <p className="portrait__caption">{egg.caption}</p>
           </div>
         ) : null}
