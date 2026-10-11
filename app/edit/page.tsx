@@ -1,4 +1,7 @@
 import type { Metadata } from 'next'
+import { readFileSync } from 'node:fs'
+import path from 'node:path'
+
 import { cookies } from 'next/headers'
 import Link from 'next/link'
 import { notFound } from 'next/navigation'
@@ -29,8 +32,11 @@ export const metadata: Metadata = {
   robots: { index: false, follow: false, nocache: true },
 }
 
+/** The update-content skill, read from the repo so the copy on the page can never drift from it. */
+const skillText = () => readFileSync(path.join(process.cwd(), '.claude', 'skills', 'update-content', 'SKILL.md'), 'utf8')
+
 export default async function EditPage() {
-  if (devFake()) return <Editor login="dev" dev />
+  if (devFake()) return <Editor login="dev" dev skill={skillText()} />
 
   const cfg = editConfig()
   if (!cfg) notFound()
@@ -63,5 +69,5 @@ export default async function EditPage() {
       </div>
     )
 
-  return <Editor login={session.login} dev={false} />
+  return <Editor login={session.login} dev={false} skill={skillText()} />
 }

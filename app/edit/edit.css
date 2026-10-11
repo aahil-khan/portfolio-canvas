@@ -655,3 +655,37 @@ textarea.ed-input {
 .ed-spacer {
   flex: 1;
 }
+
+/* ---------------------------------------------------------------- claude skill */
+
+.ed-skill {
+  border: var(--ed-bw) solid var(--ed-border);
+  border-radius: 12px;
+  background: var(--ed-surface);
+  box-shadow: 4px 4px 0 0 var(--ed-border);
+  overflow: hidden;
+}
+.ed-skill__bar {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  padding: 8px 12px 8px 16px;
+  background: var(--ed-alt);
+  border-bottom: var(--ed-bw) solid var(--ed-border);
+}
+.ed-skill .ed-error {
+  margin: 0;
+  padding: 8px 16px 0;
+}
+.ed-pre {
+  margin: 0;
+  padding: 16px;
+  max-height: 60vh;
+  overflow: auto;
+  font-family: ui-monospace, SFMono-Regular, Menlo, monospace;
+  font-size: 0.8125rem;
+  line-height: 1.55;
+  white-space: pre-wrap;
+  word-break: break-word;
+}

@@ -74,6 +74,15 @@ export const editCopy = {
     dev: 'Saved (dev mode, nothing deploys)',
   },
 
+  skillPage: {
+    nav: 'Claude skill',
+    title: 'Claude skill',
+    lede: 'The same edits, done by Claude. Copy this and save it as .claude/skills/update-content/SKILL.md in a checkout of the repo (it is already there in this one), or paste it into any Claude chat that can see the repo, then just say what changed.',
+    copy: 'Copy',
+    copied: 'Copied ✓',
+    failed: 'Could not copy — select the text and copy it by hand.',
+  },
+
   historyPage: {
     title: 'History',
     lede: 'The last 20 changes to content and uploads. Revert undoes one change with a new commit.',
