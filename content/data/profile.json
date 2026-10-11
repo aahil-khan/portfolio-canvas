@@ -34,18 +34,5 @@
       }
     ]
   },
-  "headlineStats": [
-    {
-      "value": "9.16",
-      "label": "cgpa"
-    },
-    {
-      "derived": "wins",
-      "label": "wins"
-    },
-    {
-      "value": "3",
-      "label": "domains"
-    }
-  ]
+  "headlineStats": []
 }
