@@ -769,22 +769,21 @@
   background: var(--surface);
   box-shadow: var(--shadow-hard-lg);
   overflow: hidden;
-  aspect-ratio: 16 / 10;
+  aspect-ratio: 16 / 9;
   padding: clamp(0.5rem, 1.5vw, 0.875rem);
   transition: transform 260ms var(--ease-out), box-shadow 260ms var(--ease-out);
 }
 /*
- * Matches the carousel: one frame shape, cropped from the top — see the note there.
+ * Matches the carousel: one frame shape, the whole screenshot fitted inside it — see the note
+ * there.
  *
- * Headroom for the scroll parallax comes from a scale in the tween (components/site/motion.tsx),
- * not from sizing here: absolutely positioning a taller image would swallow the frame's inset
- * padding, which is what gives the screenshot its white matte.
+ * No scroll parallax on the image: it needed a 1.16 scale for headroom, which cropped every edge.
+ * The frame's inset padding is the white matte an odd-shaped screenshot letterboxes into.
  */
 .site .case__shot img {
   width: 100%;
   height: 100%;
-  object-fit: cover;
-  object-position: top center;
+  object-fit: contain;
   border-radius: calc(var(--radius-card) - 6px);
   will-change: transform;
 }
@@ -1161,9 +1160,10 @@
    * The frame used to take its ratio from the first screenshot, which meant a full-page capture
    * (tall) and a viewport capture (wide) in the same set produced a frame that suited one and
    * stranded the other in letterbox bars — and the frame's height changed from project to
-   * project. 16:10 for all of them, and the images crop to fill.
+   * project. One ratio for all of them: 16:9, because that is what nearly every screenshot here
+   * is (1.78–1.83 wide). The images fit inside it and are never cropped.
    */
-  aspect-ratio: 16 / 10;
+  aspect-ratio: 16 / 9;
 }
 .site .shots__track::-webkit-scrollbar { display: none; }
 
@@ -1176,18 +1176,17 @@
   min-width: 0;
 }
 /*
- * `cover` from the top, not `contain`.
+ * `contain`, never `cover`.
  *
- * Cropping a UI screenshot does lose the bottom of it — CLAUDE.md prefers letterboxing on the
- * canvas for exactly that reason — but these are full-page captures where the meaningful part is
- * the top, and mixed ratios were breaking the carousel. `object-position: top` means the crop
- * takes from the end nobody reads first.
+ * This used to crop to fill a 16:10 frame, which silently cut ~10% off the sides of every
+ * screenshot here — they are all wider than 16:10. A screenshot is evidence; losing its edges
+ * (a nav, a badge, half a word) reads as a mistake. The frame is now the shape the screenshots
+ * are, and an odd one out letterboxes into the matte instead of losing anything.
  */
 .site .shots__slide img {
   width: 100%;
   height: 100%;
-  object-fit: cover;
-  object-position: top center;
+  object-fit: contain;
   border-radius: calc(var(--radius-card) - 6px);
 }
 

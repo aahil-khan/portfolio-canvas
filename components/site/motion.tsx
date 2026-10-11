@@ -342,26 +342,10 @@ export function SiteMotion({ children }: { children: ReactNode }) {
         })
 
         /*
-         * Work: screenshots drift inside their frames.
-         *
-         * The scale is what makes the drift safe. `object-fit: cover` only leaves spare material
-         * when the source is a different shape from the frame — and gina-1 is exactly 1.60, the
-         * same as the 16:10 frame, so it had none. Translating it ±6% pulled the picture off its
-         * own frame and exposed a band of surface at the top or bottom. 1.16 guarantees 8% of
-         * headroom at each end whatever the source shape.
+         * Work screenshots no longer drift inside their frames. The drift needed the image scaled
+         * to 1.16 for headroom, which cropped ~8% off every edge of every screenshot — and the
+         * whole screenshot is the point. They sit still, fitted, never cropped.
          */
-        gsap.utils.toArray<HTMLElement>('[data-case-shot] img').forEach((img) => {
-          gsap.fromTo(
-            img,
-            { yPercent: -6, scale: 1.16 },
-            {
-              yPercent: 6,
-              scale: 1.16,
-              ease: 'none',
-              scrollTrigger: { trigger: img, start: 'top bottom', end: 'bottom top', scrub: true },
-            },
-          )
-        })
 
         /* closer parallax */
         gsap.to('[data-closer-field]', {
