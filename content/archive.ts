@@ -3,6 +3,10 @@ import data from './data/archive.json' with { type: 'json' }
 /*
  * The data lives in `content/data/archive.json` — edit it at /edit, or by hand. Field help is in
  * `content/schema/index.ts`. This file only gives it a type.
+ *
+ * The cast goes through `unknown` on purpose: the type is declared here, never inferred from
+ * the JSON's current contents — or a valid edit (emptying a list) would change the type and fail
+ * the build. `validateSet` checks the data against the schema at build time instead.
  */
 
 /**
@@ -86,4 +90,4 @@ export const ARCHIVE_KINDS: Record<ArchiveKind, { label: string; colour: string 
   note: { label: 'Note', colour: '#E8E6DE' },
 }
 
-export const archive: readonly ArchiveItem[] = data as ArchiveItem[]
+export const archive = data as unknown as readonly ArchiveItem[]

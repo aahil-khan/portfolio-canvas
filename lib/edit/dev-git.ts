@@ -22,10 +22,12 @@ function walk(dir: string, out: string[] = []): string[] {
 
 export function devGit(): FakeGit {
   if (git) return git
+  // turbopackIgnore: this only runs under EDIT_DEV_FAKE in `next dev`; without it the production
+  // build traces the whole repo into the server bundle
   const root = process.cwd()
   const files: Record<string, Uint8Array> = {}
-  for (const f of FILES) files[f.path] = readFileSync(path.join(root, f.path))
-  for (const abs of walk(path.join(root, 'public'))) files[path.relative(root, abs).split(path.sep).join('/')] = readFileSync(abs)
+  for (const f of FILES) files[f.path] = readFileSync(path.join(/*turbopackIgnore: true*/ root, f.path))
+  for (const abs of walk(path.join(/*turbopackIgnore: true*/ root, 'public'))) files[path.relative(root, abs).split(path.sep).join('/')] = readFileSync(abs)
   git = fakeGit(files)
   return git
 }

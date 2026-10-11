@@ -80,7 +80,7 @@ const profile: Field = {
           },
         },
         location: { kind: 'str', label: 'Location' },
-        availability: { kind: 'str', label: 'Availability', optional: true, help: 'Small line under the role, e.g. "open to work". Empty hides it.' },
+        availability: { kind: 'str', label: 'Availability', empty: true, help: 'Small line under the role, e.g. "open to work". Empty hides it.' },
         email: { kind: 'email', label: 'Email' },
         intro: { kind: 'rich', label: 'Intro', help: 'One or two sentences — the lede of the About card.' },
         notes: {
@@ -255,7 +255,7 @@ const now: Field = {
         },
       },
     },
-    foot: { kind: 'text', label: 'Footnote', optional: true, help: 'Empty hides the line.' },
+    foot: { kind: 'text', label: 'Footnote', empty: true, help: 'Empty hides the line.' },
   },
 }
 

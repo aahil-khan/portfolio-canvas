@@ -5,7 +5,8 @@ import { site } from '../site.ts'
  * The front page's copy is ~80 short strings in a nested object. Hand-writing a field for each
  * would be a second copy of `site.json` that drifts, so the schema is read off the current shape
  * instead: the editor can change any string, but not add or remove keys, which is what a
- * component reading `site.work.title` needs.
+ * component reading `site.work.title` needs. Its TypeScript type is inferred from the JSON, so
+ * that rule is what keeps a valid edit from changing the type and failing the build.
  */
 
 const HELP: Record<string, string> = {
@@ -28,7 +29,8 @@ export function copyTree(label: string, value: unknown, path = ''): Field {
   const help = HELP[path]
   if (typeof value === 'number') return { kind: 'num', label, help }
   if (Array.isArray(value))
-    return { kind: 'list', label, help, of: { kind: 'str', label: 'Entry' } }
+    // at least one, so the inferred type of site.json can never become never[]
+    return { kind: 'list', label, help, min: 1, of: { kind: 'str', label: 'Entry' } }
   if (value && typeof value === 'object')
     return {
       kind: 'obj',
@@ -38,8 +40,8 @@ export function copyTree(label: string, value: unknown, path = ''): Field {
         Object.entries(value).map(([k, v]) => [k, copyTree(humanise(k), v, path ? `${path}.${k}` : k)]),
       ),
     }
-  // an empty string today is a deliberate "hidden", so it stays allowed
-  return { kind: 'text', label, help, optional: value === '' }
+  // a blank string today is a deliberate "hidden": it may stay blank, but the key never goes
+  return { kind: 'text', label, help, empty: value === '' }
 }
 
 export const siteSchema: Field = copyTree('Front page', site)
