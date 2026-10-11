@@ -1,5 +1,43 @@
 [
   {
+    "slug": "holt",
+    "name": "Holt",
+    "tagline": "Will this repo merge your PR?",
+    "year": 2026,
+    "kind": "Product",
+    "lede": "Find open source projects that will actually merge your first PR",
+    "highlights": [
+      "Built an open source tool that analyses GitHub PR history to predict whether repositories welcome outside contributors.",
+      "Achieved an MCC of **0.61–0.63**, outperforming a single prompt LLM baseline (0.32) custom benchmark.",
+      "Analysed **10,000+** repositories and generated **12,600+** reports in production.",
+      "Shipped a Next.js web app, FastAPI backend, browser extension, and Python CLI/TUI."
+    ],
+    "stack": [
+      "Python",
+      "FastAPI",
+      "Next.js",
+      "TypeScript",
+      "PostgreSQL",
+      "Redis"
+    ],
+    "award": "Most Useful Real World Workflow Award",
+    "links": [
+      {
+        "label": "Site",
+        "href": "https://githolt.com"
+      },
+      {
+        "label": "Github",
+        "href": "https://github.com/holt-oss/holt"
+      }
+    ],
+    "images": [
+      "/work/screenshot-from-2026-10-12-01-15-50-1.png",
+      "/work/screenshot-from-2026-10-12-01-16-37-1.png",
+      "/work/screenshot-from-2026-10-12-01-16-57-1.png"
+    ]
+  },
+  {
     "slug": "sop-opera",
     "name": "SOP Opera",
     "tagline": "Agentic industrial safety intelligence",
@@ -110,39 +148,6 @@
       {
         "label": "Repo",
         "href": "https://github.com/konta-oss/konta"
-      }
-    ]
-  },
-  {
-    "slug": "gina",
-    "name": "GINA",
-    "tagline": "Natural language → SQL analytics",
-    "year": 2025,
-    "kind": "System",
-    "meta": "2025 · Research · NL → SQL",
-    "lede": "Grounded insights from natural-language analytics — ask in English, get a real query.",
-    "highlights": [
-      "Multi-model **NL→SQL** pipeline for conversational data analytics with structured outputs.",
-      "**SSE streaming** with fast-path routing (snapshot + cache restore), which buys both latency and transparency.",
-      "Context-aware multi-turn handling using structured conversation state, so \"and for last quarter?\" still knows what you meant.",
-      "Schema-correction retries and resilient API/SSE error handling keep the workflow reliable end to end."
-    ],
-    "stack": [
-      "Next.js",
-      "TypeScript",
-      "PostgreSQL"
-    ],
-    "images": [
-      "/work/gina-1.webp"
-    ],
-    "links": [
-      {
-        "label": "Demo",
-        "href": "https://gina-cfp.vercel.app"
-      },
-      {
-        "label": "Repo",
-        "href": "https://github.com/vanshGupta18/Gina_cfp"
       }
     ]
   }
