@@ -125,21 +125,20 @@ export function Hero() {
           </a>
         </div>
 
-        <ul className="s-stats" data-intro="stats">
-          {headlineStats.map((s) => (
-            <li key={s.label}>
-              {/* data-count drives the count-up; the literal is what renders without JS */}
-              <b data-count={s.value} data-dec={s.value.includes('.') ? '2' : '0'}>
-                {s.value}
-              </b>
-              <span>{s.label}</span>
-            </li>
-          ))}
-          <li>
-            <b data-count="2">2</b>
-            <span>internships</span>
-          </li>
-        </ul>
+        {/* the numbers come from /edit; with none set, the strip and its rule go entirely */}
+        {headlineStats.length > 0 && (
+          <ul className="s-stats" data-intro="stats">
+            {headlineStats.map((s) => (
+              <li key={s.label}>
+                {/* data-count drives the count-up; the literal is what renders without JS */}
+                <b data-count={s.value} data-dec={s.value.includes('.') ? '2' : '0'}>
+                  {s.value}
+                </b>
+                <span>{s.label}</span>
+              </li>
+            ))}
+          </ul>
+        )}
       </div>
     </section>
   )
