@@ -243,7 +243,9 @@ export function SiteMotion({ children }: { children: ReactNode }) {
           .from('.name__line > span', { yPercent: 108, duration: 0.95, stagger: 0.08 }, 0.15)
           .from('.word > span', { yPercent: 105, duration: 0.7, stagger: 0.035 }, 0.5)
           .from('[data-intro="actions"]', { y: 18, autoAlpha: 0, duration: 0.6 }, 0.95)
-          .from('[data-intro="stats"]', { y: 18, autoAlpha: 0, duration: 0.6 }, 1.05)
+        // the stat strip only renders when /edit has numbers in it
+        if (document.querySelector('[data-intro="stats"]'))
+          intro.from('[data-intro="stats"]', { y: 18, autoAlpha: 0, duration: 0.6 }, 1.05)
 
         gsap.utils.toArray<HTMLElement>('[data-count]').forEach((el) => {
           const end = parseFloat(el.dataset.count!)
