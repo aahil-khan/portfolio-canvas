@@ -93,3 +93,20 @@ test('blank of a list is empty, of a required enum is its first option', () => {
   assert.deepEqual(blank({ kind: 'list', label: 'L', of: person }), [])
   assert.equal(blank({ kind: 'enum', label: 'K', options: ['a', 'b'] }), 'a')
 })
+
+test('an "empty" string may be blank but must be present', () => {
+  const s: Field = { kind: 'obj', label: 'O', fields: { foot: { kind: 'text', label: 'Foot', empty: true } } }
+  assert.deepEqual(check(s, { foot: '' }), [])
+  assert.deepEqual(paths(s, {}), ['foot'])
+})
+
+test('blank gives an "empty" string its key', () => {
+  const s: Field = { kind: 'obj', label: 'O', fields: { foot: { kind: 'text', label: 'Foot', empty: true } } }
+  assert.deepEqual(blank(s), { foot: '' })
+})
+
+test('a list with min needs that many entries', () => {
+  const l: Field = { kind: 'list', label: 'L', min: 1, of: { kind: 'str', label: 'E' } }
+  assert.equal(check(l, []).length, 1)
+  assert.deepEqual(check(l, ['a']), [])
+})

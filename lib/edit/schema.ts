@@ -18,14 +18,18 @@ interface Base {
 }
 
 export type Field =
-  | (Base & { kind: 'str' | 'text' | 'rich' | 'url' | 'email'; max?: number })
+  /*
+   * `empty`: the key must be there but may be "". For text the code reads as an always-present
+   * string, where blank means "hide this" — unlike `optional`, which lets the key go entirely.
+   */
+  | (Base & { kind: 'str' | 'text' | 'rich' | 'url' | 'email'; max?: number; empty?: boolean })
   | (Base & { kind: 'num'; int?: boolean; min?: number; max?: number })
   | (Base & { kind: 'bool' })
   | (Base & { kind: 'enum'; options: readonly string[] })
   | (Base & { kind: 'ref'; to: 'tool' })
   | (Base & { kind: 'file'; accept: 'image' | 'pdf'; dir: 'work' | 'archive' | 'pfp' | 'logos' | '' })
   | (Base & { kind: 'shot'; dir: 'archive' })
-  | (Base & { kind: 'list'; of: Field; itemLabel?: string; titleKey?: string })
+  | (Base & { kind: 'list'; of: Field; min?: number; itemLabel?: string; titleKey?: string })
   | (Base & { kind: 'obj'; fields: Record<string, Field> })
 
 export interface Issue {
@@ -41,10 +45,10 @@ const isObj = (v: unknown): v is Record<string, unknown> =>
 /** A path under `public/`, written as the site references it: leading slash, no climbing. */
 const isPublicPath = (v: string) => /^\/\S+$/.test(v) && !v.split('/').includes('..')
 
-function checkString(field: Field & { max?: number }, v: unknown, path: string, out: Issue[]) {
+function checkString(field: Field & { max?: number; empty?: boolean }, v: unknown, path: string, out: Issue[]) {
   if (typeof v !== 'string') return void out.push({ path, message: `${field.label} must be text` })
   if (!v.trim()) {
-    if (!field.optional) out.push({ path, message: `${field.label} is required` })
+    if (!field.optional && !field.empty) out.push({ path, message: `${field.label} is required` })
     return
   }
   if (field.max !== undefined && v.length > field.max)
@@ -111,6 +115,8 @@ function walk(field: Field, v: unknown, path: string, out: Issue[]): void {
     }
     case 'list':
       if (!Array.isArray(v)) return void out.push({ path, message: `${field.label} must be a list` })
+      if (field.min !== undefined && v.length < field.min)
+        out.push({ path, message: `${field.label} needs at least ${field.min} ${field.min === 1 ? 'entry' : 'entries'}` })
       v.forEach((item, i) => walk(field.of, item, `${path}[${i}]`, out))
       return
     case 'obj':

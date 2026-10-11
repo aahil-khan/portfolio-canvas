@@ -224,14 +224,16 @@ export async function buildCards(): Promise<CardDef[]> {
             tag={p.tag ?? p.kind}
           />
         ))}
-      <div className="stats">
-        {headlineStats.map((s) => (
-          <span className="stat" key={s.label}>
-            <b>{s.value}</b>
-            <span>{s.label}</span>
-          </span>
-        ))}
-      </div>
+      {headlineStats.length > 0 && (
+        <div className="stats">
+          {headlineStats.map((s) => (
+            <span className="stat" key={s.label}>
+              <b>{s.value}</b>
+              <span>{s.label}</span>
+            </span>
+          ))}
+        </div>
+      )}
     </>,
   )
 

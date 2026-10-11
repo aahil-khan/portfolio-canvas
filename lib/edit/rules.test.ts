@@ -82,3 +82,44 @@ test('a relative project link is rejected', () => {
   ;(s.projects as { links: { label: string; href: string }[] }[])[0].links = [{ label: 'Demo', href: 'example.com' }]
   assert.notEqual(run(s).length, 0)
 })
+
+/*
+ * The code reads these as always-present strings. Clearing one in /edit must keep the key, or
+ * TypeScript fails the build on a perfectly valid edit — which is how 5e66428 broke deploys.
+ */
+test('profile availability may be cleared but not removed', () => {
+  const s = fixture()
+  const p = (s.profile as { profile: Record<string, unknown> }).profile
+  p.availability = ''
+  assert.deepEqual(run(s), [])
+  delete p.availability
+  assert.match(messages(s), /availability/)
+})
+
+test('the now footnote may be cleared but not removed', () => {
+  const s = fixture()
+  const now = s.now as Record<string, unknown>
+  delete now.foot
+  assert.match(messages(s), /^now\.foot:/m)
+})
+
+test('front-page copy keeps every key, even blank ones', () => {
+  const s = fixture()
+  const site = s.site as Record<string, unknown>
+  site.openTo = ''
+  assert.deepEqual(run(s), [])
+  delete site.openTo
+  assert.match(messages(s), /^site\.openTo:/m)
+})
+
+test('front-page lists keep at least one entry', () => {
+  const s = fixture()
+  ;(s.site as { portraitEgg: { answers: string[] } }).portraitEgg.answers = []
+  assert.match(messages(s), /^site\.portraitEgg\.answers:/m)
+})
+
+test('no headline numbers at all is valid', () => {
+  const s = fixture()
+  ;(s.profile as { headlineStats: unknown[] }).headlineStats = []
+  assert.deepEqual(run(s), [])
+})
