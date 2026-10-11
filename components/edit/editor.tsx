@@ -10,6 +10,7 @@ import type { Issue } from '@/lib/edit/schema'
 import { Help, ObjFields, type Ctx } from './field'
 import { History } from './history'
 import { ItemList } from './list'
+import { Skill } from './skill'
 
 const E = editCopy
 
@@ -27,11 +28,11 @@ type Status =
   | { kind: 'failed' }
   | { kind: 'dev' }
 
-type View = FileId | 'history'
+type View = FileId | 'history' | 'skill'
 
 const same = (a: unknown, b: unknown) => JSON.stringify(a) === JSON.stringify(b)
 
-export function Editor({ login, dev }: { login: string; dev: boolean }) {
+export function Editor({ login, dev, skill }: { login: string; dev: boolean; skill: string }) {
   const [sections, setSections] = useState<Record<FileId, Section> | null>(null)
   const [publicFiles, setPublicFiles] = useState<string[]>([])
   const [live, setLive] = useState<Set<string>>(() => new Set())
@@ -155,7 +156,7 @@ export function Editor({ login, dev }: { login: string; dev: boolean }) {
     )
   if (!sections) return <p className="ed-center">{E.loading}</p>
 
-  const file = view === 'history' ? null : FILES.find((f) => f.id === view)!
+  const file = view === 'history' || view === 'skill' ? null : FILES.find((f) => f.id === view)!
   const schema = file ? SCHEMAS[file.id] : null
   const sectionIssues = file ? all.filter((i) => i.path === file.id || i.path.startsWith(`${file.id}.`) || i.path.startsWith(`${file.id}[`)) : []
   const setData = (id: FileId, data: unknown) => {
@@ -232,6 +233,9 @@ export function Editor({ login, dev }: { login: string; dev: boolean }) {
           <button type="button" aria-current={view === 'history' ? 'page' : undefined} onClick={() => setView('history')}>
             {E.history}
           </button>
+          <button type="button" aria-current={view === 'skill' ? 'page' : undefined} onClick={() => setView('skill')}>
+            {E.skillPage.nav}
+          </button>
         </nav>
 
         <main>
@@ -243,9 +247,12 @@ export function Editor({ login, dev }: { login: string; dev: boolean }) {
               </option>
             ))}
             <option value="history">{E.history}</option>
+            <option value="skill">{E.skillPage.nav}</option>
           </select>
 
-          {view === 'history' ? (
+          {view === 'skill' ? (
+            <Skill text={skill} />
+          ) : view === 'history' ? (
             <History
               onReverted={(commit) => {
                 track(commit)

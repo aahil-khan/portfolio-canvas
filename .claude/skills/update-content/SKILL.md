@@ -7,7 +7,7 @@ description: Change what the portfolio site says — projects, jobs, awards, pro
 
 The site's content is data in `content/data/*.json`, described field by field in
 `content/schema/index.ts`. The `/edit` page on the live site edits these same files, validates
-them with the same rules (`lib/edit/rules.ts`), and commits to `main`; the server deploys `main`
+them with the same rules (`lib/edit/rules.ts`), and commits to `main`; Vercel deploys `main`
 within a few minutes. This skill is that path, done from the repo.
 
 ## Where things live
@@ -42,10 +42,9 @@ Never edit the `content/*.ts` wrappers to change content — they only type the 
    trailer line `Edited-via: claude` (after a blank line, before Co-Authored-By).
 6. **Publish only when the user asked to.** Publishing = the commit reaching `main` on GitHub
    (push, or merge the PR). Then tell them: live in ~3 minutes, and `curl -s <site>/api/version`
-   shows the live commit. Never run `stage deploy` — the server deploys from `main` itself.
+   shows the live commit (the site is https://www.aahil-khan.xyz). Vercel deploys `main` by itself.
 
 ## Don't
 
-- Don't hand-edit files on the server; its checkout refuses to deploy with local changes.
 - Don't add keys the schema doesn't know — `content:check` rejects them, and so does `/edit`.
 - Don't write copy into `components/` — it belongs in content (see CLAUDE.md).
