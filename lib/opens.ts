@@ -62,7 +62,10 @@ export function noteOpen(id: string): void {
   timer = setTimeout(() => send(false), 4000)
 }
 
-/** The referring site, once per visit. Same-origin and direct traffic are not referrers. */
+/**
+ * The referring site, once per visit. Same-origin and direct traffic are not referrers.
+ * Sent by `<VisitPing/>` alongside the visit itself, so the two tallies count the same people.
+ */
 export function noteReferrer(): void {
   if (typeof window === 'undefined') return
   try {

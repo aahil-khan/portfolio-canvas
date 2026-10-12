@@ -5,7 +5,8 @@ import { allow, getVisitors, recordVisit, visitorId } from '@/lib/store'
 /**
  * Visitor stats for the Visitors card.
  *
- * GET reads; POST records one page load and is fired once per load by `<VisitPing/>`.
+ * GET reads; POST records one visit. `<VisitPing/>` sends it once per page load, and only after
+ * the first physical input, so a browser that loads the page and never touches it is not counted.
  *
  * This is analytics with nothing to opt out of: no cookie is set, no address is stored, and the
  * only per-person value that ever reaches Redis is a truncated hash that goes straight into a

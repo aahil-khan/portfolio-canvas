@@ -47,7 +47,7 @@ export default function Page() {
   return (
     /* id="top" is the mark's target in the bar; without it the anchor resolves to nothing */
     <main id="top">
-      {/* counts this page load — it moved here with the landing page */}
+      {/* counts the visit, on first input — it moved here with the landing page */}
       <VisitPing />
       {/*
        * The same dot the canvas uses, from components/desktop/cursor.tsx. One pointer across
