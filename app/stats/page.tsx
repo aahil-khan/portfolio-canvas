@@ -4,7 +4,7 @@ import { notFound } from 'next/navigation'
 
 import { apps, externalApps } from '@/content/apps'
 import { projects } from '@/content'
-import { getOpens, getVisitors, storeIsLive } from '@/lib/store'
+import { getOpens, getPingDiag, getVisitors, storeIsLive, type PingDiag } from '@/lib/store'
 
 import '../resume/resume.css'
 import '../work/work.css'
@@ -51,6 +51,33 @@ function Bar({ n, peak }: { n: number; peak: number }) {
   )
 }
 
+/** One of the gate's bucket tables: label, bar, count. */
+function Counts({ title, rows }: { title: string; rows: PingDiag[keyof PingDiag] }) {
+  const peak = Math.max(1, ...rows.map((r) => r.n))
+  return (
+    <div>
+      <h3>{title}</h3>
+      {rows.length ? (
+        <table className="stats__table">
+          <tbody>
+            {rows.map((r) => (
+              <tr key={r.k}>
+                <td className="stats__name">{r.k}</td>
+                <td className="stats__viz">
+                  <Bar n={r.n} peak={peak} />
+                </td>
+                <td className="stats__n">{r.n.toLocaleString()}</td>
+              </tr>
+            ))}
+          </tbody>
+        </table>
+      ) : (
+        <p className="stats__none">Nothing yet.</p>
+      )}
+    </div>
+  )
+}
+
 export default async function StatsPage({
   searchParams,
 }: {
@@ -61,7 +88,7 @@ export default async function StatsPage({
   // no token configured means no way in, rather than a page that is open by default
   if (!expected || t !== expected) notFound()
 
-  const [visitors, opens] = await Promise.all([getVisitors(), getOpens()])
+  const [visitors, opens, gate] = await Promise.all([getVisitors(), getOpens(), getPingDiag()])
   const peak = Math.max(1, ...opens.cards.map((c) => c.n))
 
   return (
@@ -151,6 +178,22 @@ export default async function StatsPage({
             No referrers yet. Direct traffic and same-origin links are not counted.
           </p>
         )}
+      </section>
+
+      <section className="entry">
+        <h2>The gate</h2>
+        <p className="stats__note">
+          What the visit ping turned away, and what the counted visits looked like, since the
+          ping started reporting it. A visit counts after trusted input from a browser that does
+          not say it is automated, and only if it is still open eight seconds after loading.
+        </p>
+        <div className="stats__grid">
+          <Counts title="Turned away" rows={gate.rejected} />
+          <Counts title="First input" rows={gate.via} />
+          <Counts title="Time to first input" rows={gate.input} />
+          <Counts title="Had focus" rows={gate.focus} />
+          <Counts title="Viewport width" rows={gate.width} />
+        </div>
       </section>
 
       <section className="entry">

@@ -19,6 +19,8 @@
  * from a repo that has none checked in.
  */
 
+import type { Rejection } from './ping'
+
 const URL_ = process.env.UPSTASH_REDIS_REST_URL
 const TOKEN = process.env.UPSTASH_REDIS_REST_TOKEN
 const live = Boolean(URL_ && TOKEN)
@@ -144,6 +146,7 @@ const mem = {
     online: new Map<string, number>(),
     geo: new Map<string, number>(),
     since: 0,
+    diag: new Map<string, number>(),
   },
   opens: new Map<string, number>(),
   refs: new Map<string, number>(),
@@ -306,6 +309,7 @@ const V = {
   online: `${VNS}:online`,
   geo: `${VNS}:geo`,
   since: `${VNS}:since`,
+  diag: `${VNS}:diag`,
 } as const
 
 export interface Visitors {
@@ -366,12 +370,17 @@ export async function visitorId(ip: string, ua: string): Promise<string> {
     .join('')
 }
 
-export async function recordVisit(id: string, country: string | null): Promise<void> {
+/**
+ * Counts one visit. `buckets` are the aggregate counters this ping bumps (see `pingBuckets`);
+ * they ride in the same pipeline so the diagnostics cost no extra round trip.
+ */
+export async function recordVisit(id: string, country: string | null, buckets: string[] = []): Promise<void> {
   const now = Date.now()
   const today = utcDay()
 
   if (!live) {
     fallbackWarning()
+    for (const b of buckets) mem.vis.diag.set(b, (mem.vis.diag.get(b) ?? 0) + 1)
     const fresh = !mem.vis.ids.has(id)
     mem.vis.ids.add(id)
     let day = mem.vis.day.get(today)
@@ -397,6 +406,7 @@ export async function recordVisit(id: string, country: string | null): Promise<v
     ['ZREMRANGEBYSCORE', V.online, '-inf', now - ONLINE_SEC * 1000],
     ['EXPIRE', V.online, ONLINE_SEC * 3],
     ['SET', V.since, now, 'NX'],
+    ...buckets.map((b) => ['HINCRBY', V.diag, b, 1]),
   ])
 
   /*
@@ -472,6 +482,71 @@ export async function getVisitors(): Promise<Visitors> {
     since: Number(since) || null,
     live: true,
   }
+}
+
+/* ------------------------------------------------------------ ping diag */
+
+/**
+ * What the visit gate is seeing: how pings were rejected, and what the counted ones looked
+ * like. Plain counters keyed by bucket name — nothing in here describes one session.
+ *
+ * This exists because the gate has been wrong twice, both times on a plausible theory about
+ * what scrapers do. The next change should be made from these numbers, not a third theory.
+ */
+
+export interface PingDiag {
+  /** Rejection reason → pings turned away. */
+  rejected: { k: string; n: number }[]
+  /** Input type that unlocked the count → pings. */
+  via: { k: string; n: number }[]
+  /** Time-to-first-input band → pings. In band order, not by size. */
+  input: { k: string; n: number }[]
+  /** Viewport width, rounded to 100px → pings. */
+  width: { k: string; n: number }[]
+  /** Whether the document had focus → pings. */
+  focus: { k: string; n: number }[]
+}
+
+const NO_DIAG: PingDiag = { rejected: [], via: [], input: [], width: [], focus: [] }
+
+/** Why a ping was not counted. Bumps `rej:<reason>` and nothing else. */
+export async function noteRejected(reason: Rejection): Promise<void> {
+  const field = `rej:${reason}`
+  if (!live) {
+    fallbackWarning()
+    mem.vis.diag.set(field, (mem.vis.diag.get(field) ?? 0) + 1)
+    return
+  }
+  await cmd(['HINCRBY', V.diag, field, 1])
+}
+
+const INPUT_BANDS = ['<1s', '1-3s', '3-10s', '10s+']
+
+function groupDiag(counts: Record<string, number>): PingDiag {
+  const pick = (prefix: string) =>
+    Object.entries(counts)
+      .filter(([k, n]) => k.startsWith(prefix) && n > 0)
+      .map(([k, n]) => ({ k: k.slice(prefix.length), n }))
+  const bySize = (rows: { k: string; n: number }[]) => rows.sort((a, b) => b.n - a.n || a.k.localeCompare(b.k))
+  return {
+    rejected: bySize(pick('rej:')),
+    via: bySize(pick('via:')),
+    input: pick('input:').sort((a, b) => INPUT_BANDS.indexOf(a.k) - INPUT_BANDS.indexOf(b.k)),
+    width: pick('width:').sort((a, b) => Number(a.k) - Number(b.k)),
+    focus: bySize(pick('focus:')),
+  }
+}
+
+export async function getPingDiag(): Promise<PingDiag> {
+  if (!live) {
+    fallbackWarning()
+    return groupDiag(Object.fromEntries(mem.vis.diag))
+  }
+  const raw = await cmd(['HGETALL', V.diag])
+  if (!raw) return NO_DIAG
+  const counts: Record<string, number> = {}
+  for (const [k, n] of Object.entries(readHash(raw))) counts[k] = Number(n) || 0
+  return groupDiag(counts)
 }
 
 /* ----------------------------------------------------------- card opens */

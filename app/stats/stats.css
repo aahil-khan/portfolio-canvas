@@ -48,3 +48,25 @@
   color: var(--ink-subtle);
   font-size: 0.875rem;
 }
+
+/* the gate's five small tables, side by side where there is room */
+.stats__note {
+  color: var(--ink-muted);
+  font-size: 0.875rem;
+  max-width: 64ch;
+  margin: 0 0 16px;
+}
+.stats__grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(220px, 1fr));
+  gap: 20px 32px;
+}
+.stats__grid h3 {
+  margin: 0 0 6px;
+  font-size: 0.75rem;
+  font-weight: 500;
+  line-height: 1.3;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+  color: var(--ink-subtle);
+}
