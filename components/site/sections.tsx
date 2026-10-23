@@ -462,7 +462,7 @@ export function Foot() {
           <a href={site.footer.inspiredSurfaceUrl} target="_blank" rel="noopener noreferrer">
             {site.footer.inspiredSurface}
           </a>{' '}
-          {site.footer.inspiredSurfaceFor}.
+          {site.footer.inspiredSurfaceFor}. {site.footer.inspiredRest}
         </span>
       </div>
       </footer>

@@ -91,14 +91,15 @@
   },
   "footer": {
     "note": "Thanks for scrolling all the way down :)",
-    "inspiredLead": "Design inspired by",
+    "inspiredLead": "Inspired by",
     "inspiredShell": "yevtam.com",
     "inspiredShellUrl": "https://yevtam.com",
-    "inspiredShellFor": "for the dock, cursor and desktop shell",
+    "inspiredShellFor": "(dock, cursor)",
     "inspiredJoin": "and",
     "inspiredSurface": "ajvadlaseen.com",
     "inspiredSurfaceUrl": "https://ajvadlaseen.com",
-    "inspiredSurfaceFor": "for the type, warm palette and hard-shadow borders"
+    "inspiredSurfaceFor": "(type, borders, shadows)",
+    "inspiredRest": "Everything else is mine."
   },
   "desk": {
     "exit": "The site",
