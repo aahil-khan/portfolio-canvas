@@ -90,7 +90,15 @@
     "note": "Only Desktops supported. This place has a lot going on."
   },
   "footer": {
-    "note": "Thanks for scrolling all the way down :)"
+    "note": "Thanks for scrolling all the way down :)",
+    "inspiredLead": "Design inspired by",
+    "inspiredShell": "yevtam.com",
+    "inspiredShellUrl": "https://yevtam.com",
+    "inspiredShellFor": "for the dock, cursor and desktop shell",
+    "inspiredJoin": "and",
+    "inspiredSurface": "ajvadlaseen.com",
+    "inspiredSurfaceUrl": "https://ajvadlaseen.com",
+    "inspiredSurfaceFor": "for the type, warm palette and hard-shadow borders"
   },
   "desk": {
     "exit": "The site",

@@ -453,6 +453,17 @@ export function Foot() {
           {profile.name} · {profile.location}
         </span>
         <span>{site.footer.note}</span>
+        <span className="foot__credit">
+          {site.footer.inspiredLead}{' '}
+          <a href={site.footer.inspiredShellUrl} target="_blank" rel="noopener noreferrer">
+            {site.footer.inspiredShell}
+          </a>{' '}
+          {site.footer.inspiredShellFor} {site.footer.inspiredJoin}{' '}
+          <a href={site.footer.inspiredSurfaceUrl} target="_blank" rel="noopener noreferrer">
+            {site.footer.inspiredSurface}
+          </a>{' '}
+          {site.footer.inspiredSurfaceFor}.
+        </span>
       </div>
       </footer>
     </>

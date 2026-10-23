@@ -992,6 +992,9 @@
   justify-content: space-between;
 }
 
+.site .foot__credit { flex-basis: 100%; font-size: 0.8125rem; }
+.site .foot__credit a { color: var(--ink); text-decoration: underline; text-underline-offset: 3px; }
+
 /* Visible by default — the motion layer hides these at runtime, so no JS means no blank page. */
 .site .reveal { opacity: 1; }
 
