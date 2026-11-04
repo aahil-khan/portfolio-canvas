@@ -91,6 +91,33 @@
         "/work/edutube-2.webp",
         "/work/edutube-3.webp"
       ]
+    },
+    {
+      "slug": "thapar-exams",
+      "role": "Full-Stack Developer",
+      "company": "Thapar Examinations",
+      "period": "Sept - Oct 2026",
+      "year": 2026,
+      "lede": "Built and maintain exams.thapar.edu, the university's examination management portal, serving students, faculty, HoDs, the examination office and administrators.",
+      "highlights": [
+        "**Student experience:** Personalised datesheets, seat allocation, countdowns, printable views and calendar sync via .ics.",
+        "**Examination workflows:** End-to-end invigilation availability, departmental reviews, duty allocation, approvals and Excel reporting.",
+        "**Security & access control:** Five role RBAC with server enforced permissions, Google sign-in, session management, rate limiting and security audit logs.",
+        "**Release management:** Built a staged datesheet publishing pipeline with conflict detection, anomaly checks, room validation and change aware notifications.",
+        "**Administration & infrastructure:** Developed role management, audit and performance dashboards, plus a Python CLI for controlled, auditable operations."
+      ],
+      "stack": [
+        "Next.js",
+        "React",
+        "TypeScript",
+        "Python",
+        "MySQL"
+      ],
+      "meta": "Thapar Examinations · Thapar University · Sept - Oct 2026",
+      "images": [
+        "/work/screenshot-from-2026-11-04-14-27-00-2.png",
+        "/work/screenshot-from-2026-11-04-14-27-26-1.png"
+      ]
     }
   ],
   "education": [
