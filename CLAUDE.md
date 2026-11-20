@@ -124,13 +124,15 @@ proves neither page loads any of the editor's code.
 
 ## Deploy
 
-Deploy command: systemctl --user start portfolio-watch.service
+Deploy command: node scripts/wait-live.mjs
 Orchestrator may deploy after a merge: yes
 
-Merging to `main` already deploys: `portfolio-watch.timer` on aahil-server pulls `main` every
-minute and rebuilds (`deploy/README.md`), so the command only makes the watcher check now instead
-of within the minute. **Never `stage deploy portfolio-redesign` from the laptop** — it would
-clobber the server's git checkout.
+Vercel deploys `main` by itself, on every merge and on every `/edit` save (each save is a commit
+to `main`). There is nothing to trigger: the command waits until `/api/version` on the live site
+reports the commit (`git rev-parse HEAD`, or a sha passed as an argument), then smoke-checks
+`/`, `/canvas`, `/edit` and `/api/version` with GET requests only. It exits non-zero after 10
+minutes without the commit, or if any page fails — including `/edit` 404ing, which means its
+`EDIT_*` variables are missing on Vercel. `LIVE_URL` points it elsewhere.
 
 ## Workflow
 

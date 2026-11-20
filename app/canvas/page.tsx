@@ -4,6 +4,7 @@ import { buildCards } from '@/components/apps/build-cards'
 import { Desktop } from '@/components/desktop/desktop'
 import { apps, dockLayout, externalApps, mobile, profile, site } from '@/content'
 import { validateContent } from '@/content/validate'
+import { consoleHelloScript } from '@/lib/console-hello'
 
 /*
  * Content is checked here, at module scope. This runs while `next build` prerenders the page,
@@ -74,6 +75,8 @@ export default async function Page() {
 
   return (
     <main>
+      {/* a hello for whoever opens devtools; the copy is content/console.ts */}
+      <script dangerouslySetInnerHTML={{ __html: consoleHelloScript }} />
       <Desktop
         cards={await buildCards()}
         dock={dock}

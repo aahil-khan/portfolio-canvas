@@ -16,6 +16,7 @@ import { Cursor } from '@/components/desktop/cursor'
 import { VisitPing } from '@/components/desktop/visit-ping'
 import { profile } from '@/content'
 import { validateContent } from '@/content/validate'
+import { consoleHelloScript } from '@/lib/console-hello'
 
 import './site.css'
 
@@ -47,6 +48,8 @@ export default function Page() {
   return (
     /* id="top" is the mark's target in the bar; without it the anchor resolves to nothing */
     <main id="top">
+      {/* a hello for whoever opens devtools; the copy is content/console.ts */}
+      <script dangerouslySetInnerHTML={{ __html: consoleHelloScript }} />
       {/* counts the visit, on first input — it moved here with the landing page */}
       <VisitPing />
       {/*
