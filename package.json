@@ -3,6 +3,9 @@
   "version": "0.1.0",
   "private": true,
   "license": "MIT",
+  "engines": {
+    "node": ">=22.6"
+  },
   "scripts": {
     "dev": "next dev",
     "build": "next build",
@@ -12,8 +15,8 @@
     "shot": "node scripts/shot.mjs",
     "check": "npm run typecheck && npm run lint && npm test && npm run content:check && node scripts/check-logos.mjs && npm run check:contrast",
     "check:contrast": "node scripts/check-contrast.mjs",
-    "test": "node --test 'lib/**/*.test.ts' 'content/**/*.test.ts'",
-    "content:check": "node --no-warnings scripts/check-content.ts",
+    "test": "node --experimental-strip-types --no-warnings --test 'lib/**/*.test.ts' 'content/**/*.test.ts'",
+    "content:check": "node --experimental-strip-types --no-warnings scripts/check-content.ts",
     "check:bundles": "node scripts/check-bundles.mjs"
   },
   "dependencies": {
