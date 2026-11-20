@@ -20,6 +20,10 @@ npm test                                           # editor + content rules (nod
 npm run content:check                              # validate content/data/*.json in a second
 ```
 
+Check command: npm run check
+
+Needs Node ≥ 22.6: the tests and `content:check` run `.ts` directly via `--experimental-strip-types`.
+
 `scripts/shot.mjs` drives Chrome through the puppeteer-core bundled with the chrome-devtools-mcp
 plugin. There is no local puppeteer dependency, and that is deliberate.
 
@@ -116,9 +120,17 @@ proves neither page loads any of the editor's code.
   a nonce CSP from `proxy.ts` scoped to `/edit` only. Tests: `npm test` (node --test, no deps).
 - Local: `EDIT_DEV_FAKE=1 npm run dev` gives a signed-in editor over an in-memory repo. Ignored
   when `NODE_ENV=production`.
-- **Deploys come from `main`.** A timer on aahil-server pulls and rebuilds within a minute of a
-  push (`deploy/`). **Never `stage deploy portfolio-redesign` from the laptop** — it would clobber
-  the server's git checkout.
+- **Deploys come from `main`** — see [Deploy](#deploy).
+
+## Deploy
+
+Deploy command: systemctl --user start portfolio-watch.service
+Orchestrator may deploy after a merge: yes
+
+Merging to `main` already deploys: `portfolio-watch.timer` on aahil-server pulls `main` every
+minute and rebuilds (`deploy/README.md`), so the command only makes the watcher check now instead
+of within the minute. **Never `stage deploy portfolio-redesign` from the laptop** — it would
+clobber the server's git checkout.
 
 ## Workflow
 
