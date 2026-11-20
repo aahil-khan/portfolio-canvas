@@ -3,17 +3,29 @@
 Aahil Khan's portfolio: a scrolling front page and an infinite-canvas desktop.
 Live at [aahil-khan.xyz](https://aahil-khan.xyz).
 
-## Using this code
+## Building on this
 
-The code is [MIT licensed](LICENSE). You're welcome to learn from it, borrow pieces, or fork it.
+The code is [MIT licensed](LICENSE), and I'd love for you to build on it. As inspiration, though,
+not as a template: twice now, someone has cloned the whole site, swapped in their own content and
+shipped it with the design unchanged. Credit is welcome, but it doesn't turn a 1:1 copy into
+something else.
 
-If you reskin or build on the site, **please credit it**: a line in your footer or README such as
-"Design inspired by [aahil-khan.xyz](https://aahil-khan.xyz)" is all I ask. Please don't lift the
-layout, hero and README wholesale and ship it as your own. That's the one thing I'd rather you
-didn't do, and it's what the credit is for.
+**Welcome:**
 
-What is not part of the licence: my name, photos, résumé, project write-ups and all the copy in
-`content/data/`. Those are mine. Swap in your own.
+- Reading the code to learn how something works.
+- Lifting the canvas engine, the pan/zoom, the dock, the window system, the `/edit` editor or the
+  scripts into your own project.
+- Taking the idea of a desktop-style portfolio and making it yours.
+
+**Please don't:** clone the site, swap in your own content and ship it with the same layout, hero,
+themes and copy structure. Even with credit, that's still a copy of my site.
+
+**If you start from a fork,** make the visual identity your own (the colours, the type, the front
+page's layout) and keep a credit line in your footer or README, such as "Design inspired by
+[aahil-khan.xyz](https://aahil-khan.xyz)".
+
+My name, photos, résumé, project write-ups, the copy in `content/data/` and my images in `public/`
+aren't covered by the MIT licence at all. [NOTICE](NOTICE) has the details.
 
 ## Updating the site
 
@@ -23,37 +35,14 @@ What is not part of the licence: my name, photos, résumé, project write-ups an
   the `update-content` skill edits the same files the same way.
 - **Code:** push to `main`. The server deploys `main` on its own — see `deploy/README.md`.
 
-## Getting Started
+## Running it locally
 
-First, run the development server:
+Needs Node 22.18 or newer (`npm test` relies on its built-in TypeScript support).
 
 ```bash
-npm run dev
-# or
-yarn dev
-# or
-pnpm dev
-# or
-bun dev
+npm ci
+npm run dev                     # http://localhost:3000
+EDIT_DEV_FAKE=1 npm run dev     # the same, with a signed-in /edit over an in-memory repo
 ```
 
-Open [http://localhost:3000](http://localhost:3000) with your browser to see the result.
-
-You can start editing the page by modifying `app/page.tsx`. The page auto-updates as you edit the file.
-
-This project uses [`next/font`](https://nextjs.org/docs/app/building-your-application/optimizing/fonts) to automatically optimize and load [Geist](https://vercel.com/font), a new font family for Vercel.
-
-## Learn More
-
-To learn more about Next.js, take a look at the following resources:
-
-- [Next.js Documentation](https://nextjs.org/docs) - learn about Next.js features and API.
-- [Learn Next.js](https://nextjs.org/learn) - an interactive Next.js tutorial.
-
-You can check out [the Next.js GitHub repository](https://github.com/vercel/next.js) - your feedback and contributions are welcome!
-
-## Deploy on Vercel
-
-The easiest way to deploy your Next.js app is to use the [Vercel Platform](https://vercel.com/new?utm_medium=default-template&filter=next.js&utm_source=create-next-app&utm_campaign=create-next-app-readme) from the creators of Next.js.
-
-Check out our [Next.js deployment documentation](https://nextjs.org/docs/app/building-your-application/deploying) for more details.
+Build, lint, tests and the other checks are listed under [Commands in CLAUDE.md](CLAUDE.md#commands).
