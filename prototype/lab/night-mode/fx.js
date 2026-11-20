@@ -1,30 +1,28 @@
 /*
- * prototype/lab/night-mode/fx.js: the Lab's intro effects. Every visit plays one, picked at random.
+ * prototype/lab/night-mode/fx.js: the Lab's toys, as pure renderers. toy.js owns the state, the
+ * input and the clock; everything here is a function of its arguments, so check.mjs can run every
+ * toy in Node and ?fx=<id> draws the same frame every time.
  *
- *   NIGHT.fx.list                      [{ id, name, credit }], the pool (six)
- *   NIGHT.fx.frame(id, t, cols, rows, o)  → string: `rows` lines of `cols` characters, joined by \n
- *                                      t is seconds since the effect began. PURE of its arguments
- *                                      (o.seed, o.phase), so ?fx=<id>&hold=<ms> holds any frame
- *                                      and check.mjs can test every one in Node.
- *   NIGHT.fx.alpha(t)                  the fade envelope the intro applies on top (0 → 1 → 0)
- *   NIGHT.fx.pick(last, rnd)           a random id, never the one shown last
- *   NIGHT.fx.DURATION, .STILL          how long one plays (s); the frame reduced motion shows
+ *   NIGHT.fx.list                         [{ id, name, credit, hint }], the pool (five)
+ *   NIGHT.fx.ids                          ['donut', 'warp', 'life', 'nebula', 'moon']
+ *   NIGHT.fx.init(id, cols, rows, seed)   → a fresh state for that toy
+ *   NIGHT.fx.step(id, s, dt, input)       → the next state, dt in seconds (input: what the pointer
+ *                                         or keys did since the last step, toy.js's shape)
+ *   NIGHT.fx.draw(id, s, cols, rows)      → string: `rows` lines of `cols` characters, joined by \n
+ *   NIGHT.fx.pick(last, rnd)              a random id, never the one shown last
  *
- * Calm on purpose: nothing strobes, nothing fills the screen with full-ink cells at once, every
- * effect enters and leaves on the same slow envelope. check.mjs measures each one's ink frame to
- * frame (the "nothing flashing" check) at 30 fps.
+ * Calm on purpose: nothing strobes, nothing fills the box with full-ink cells, and every toy left
+ * alone settles into slow drift (the donut coasts down to an idle spin, the warp to a cruise).
+ * check.mjs measures each one's ink frame to frame at 30 fps, idle and under input.
  *
- * Ideas, all reimplemented here from the technique (no code copied), credited per effect below.
- * The list of candidates came from ~/projects/scratch/lab-finds (finds.md and gallery.html).
+ * Ideas, all reimplemented here from the technique (no code copied), credited per toy below.
  */
 ;(() => {
   const root_ = typeof window !== 'undefined' ? window : globalThis
   const NIGHT = (root_.NIGHT = root_.NIGHT || {})
-  const DURATION = 2.8, STILL = 1.3
   // a cell is about half as wide as it is tall in a mono face at this line height
   const ASPECT = 0.5
 
-  // small integer hash (the same family as decode.js), and a [0, 1) float from it
   const hash = (a, b, c) => {
     let h = (a * 374761393 + b * 668265263 + c * 2147483647) | 0
     h = Math.imul(h ^ (h >>> 13), 1274126177)
@@ -35,15 +33,18 @@
   const out = (g, cols) => { let s = ''; for (let i = 0; i < g.length; i += cols) s += (i ? '\n' : '') + g.slice(i, i + cols).join(''); return s }
   const clamp = (v, a = 0, b = 1) => (v < a ? a : v > b ? b : v)
   const smooth = (e0, e1, x) => { const k = clamp((x - e0) / (e1 - e0)); return k * k * (3 - 2 * k) }
+  const decay = (v, rate, dt) => v * Math.exp(-rate * dt)
 
-  // ── 1. torus: donut.c ───────────────────────────────────────────────────────────────────
+  // ── donut: drag to spin it, and it coasts ───────────────────────────────────────────────
   // Idea: Andy Sloane's donut.c and "Donut math" (https://www.a1k0n.net/2011/07/20/donut-math.html):
-  // a torus swept by two angles, z-buffered, lit by a fixed light and drawn with a 12-step ramp.
+  // a torus swept by two angles, z-buffered, lit by a fixed light, drawn with a 12-step ramp.
+  // The two angles are the state; a drag sets their velocity, friction brings it back to idle.
   const RAMP_T = '.,-~:;=!*#$@'
-  function torus(t, cols, rows) {
+  const IDLE = { a: 0.5, b: 0.22 } // rad/s, left alone
+  function torus(A, B, cols, rows) {
     const g = grid(cols, rows), z = new Float32Array(cols * rows)
-    const A = 0.7 + t * 0.85, B = 0.25 + t * 0.42, cA = Math.cos(A), sA = Math.sin(A), cB = Math.cos(B), sB = Math.sin(B)
-    const R1 = 1, R2 = 2, K2 = 5, K1y = (rows * K2 * 0.34) / (R1 + R2), K1x = K1y / ASPECT
+    const cA = Math.cos(A), sA = Math.sin(A), cB = Math.cos(B), sB = Math.sin(B)
+    const R1 = 1, R2 = 2, K2 = 5, K1y = Math.min(rows * K2 * 0.34, cols * ASPECT * K2 * 0.34) / (R1 + R2), K1x = K1y / ASPECT
     const dth = Math.min(0.07, 2.4 / rows), dph = dth / 2.6
     for (let th = 0; th < 6.2832; th += dth) {
       const ct = Math.cos(th), st = Math.sin(th)
@@ -62,38 +63,121 @@
     }
     return out(g, cols)
   }
-
-  // ── 2. warp: a starfield you fly into, slowing to a stop ────────────────────────────────
-  // Idea: the classic 3D starfield (The Coding Train, "Starfield", challenge #1, credits it as a
-  // classic). Here it only ever decelerates: it ends as still as the Lab's own ASCII sky.
-  function warp(t, cols, rows, o) {
-    const g = grid(cols, rows), n = Math.round((cols * rows) / 16), seed = o.seed | 0
-    const V0 = 0.85, TAU = 0.8
-    const d = V0 * TAU * (1 - Math.exp(-t / TAU)), v = V0 * Math.exp(-t / TAU)
-    const put = (c, r, ch) => { if (c >= 0 && c < cols && r >= 0 && r < rows && g[r * cols + c] === ' ') g[r * cols + c] = ch }
-    for (let k = 0; k < n; k++) {
-      const x = rnd(seed, k, 1) * 2 - 1, y = rnd(seed, k, 2) * 2 - 1
-      let z = rnd(seed, k, 3) - d
-      z = z - Math.floor(z) // recycle: a star you pass comes back from the far end
-      z = 0.06 + z * 0.94
-      const px = cols / 2 + (x / z) * cols * 0.13, py = rows / 2 + (y / z) * rows * 0.13
-      const c = Math.round(px), r = Math.round(py)
-      if (c < 0 || c >= cols || r < 0 || r >= rows) continue
-      // a short trail behind it while there is speed, pointing back at the centre
-      const len = Math.min(3, Math.floor((v / z) * 0.9))
-      if (len > 0) {
-        const dx = px - cols / 2, dy = (py - rows / 2) / ASPECT, m = Math.hypot(dx, dy) || 1
-        const ch = Math.abs(dx / m) > 0.92 ? '-' : Math.abs(dy / m) > 0.92 ? '|' : (dx > 0) === (dy > 0) ? '\\' : '/'
-        for (let j = 1; j <= len; j++) put(Math.round(px - (dx / m) * j * 1.2), Math.round(py - ((dy / m) * j * 1.2) * ASPECT), ch)
+  const donut = {
+    init: () => ({ A: 0.9, B: 0.4, va: IDLE.a, vb: IDLE.b }),
+    // a drag is cells moved since the last step; while held, the angles follow the pointer exactly
+    step: (s, dt, i = {}) => {
+      if (i.held) {
+        const da = (i.dy || 0) * 0.09, db = (i.dx || 0) * 0.045
+        const k = dt > 0 ? 1 / Math.max(dt, 1 / 60) : 0
+        return { A: s.A + da, B: s.B + db, va: da * k * 0.6 + s.va * 0.4, vb: db * k * 0.6 + s.vb * 0.4 }
       }
-      g[r * cols + c] = z < 0.22 ? '*' : z < 0.45 ? '+' : z < 0.7 ? ':' : '.'
-    }
-    return out(g, cols)
+      // inertia: velocity relaxes towards the idle spin; capped so a flick never blurs into noise
+      const cap = (v) => clamp(v, -6, 6)
+      const va = cap(IDLE.a + decay(s.va - IDLE.a, 1.6, dt)), vb = cap(IDLE.b + decay(s.vb - IDLE.b, 1.6, dt))
+      return { A: s.A + va * dt, B: s.B + vb * dt, va, vb }
+    },
+    draw: (s, cols, rows) => torus(s.A, s.B, cols, rows),
   }
 
-  // ── 3. nebula: domain-warped noise, drifting ────────────────────────────────────────────
+  // ── warp: a starfield you steer ─────────────────────────────────────────────────────────
+  // Idea: the classic 3D starfield (The Coding Train, "Starfield", challenge #1, credits it as a
+  // classic). The pointer's offset from the middle of the box is where you are heading: the stars
+  // stream away from that point instead of from the centre.
+  const warp = {
+    init: (cols, rows, seed = 3) => {
+      const n = Math.max(24, Math.round((cols * rows) / 10)), stars = []
+      for (let k = 0; k < n; k++) stars.push({ x: rnd(seed, k, 1) * 2 - 1, y: rnd(seed, k, 2) * 2 - 1, z: 0.06 + rnd(seed, k, 3) * 0.94 })
+      return { stars, hx: 0, hy: 0, v: 0.3, seed, k: n }
+    },
+    // input.aim: { x, y } in −1…1 (the pointer over the box), or null; it eases there
+    step: (s, dt, i = {}) => {
+      const aim = i.aim || { x: 0, y: 0 }, f = 1 - Math.exp(-3 * dt)
+      const hx = s.hx + (aim.x - s.hx) * f, hy = s.hy + (aim.y - s.hy) * f
+      const vt = i.aim ? 0.55 : 0.3, v = s.v + (vt - s.v) * f
+      let k = s.k
+      const stars = s.stars.map((p) => {
+        // flying towards (hx, hy): everything drifts the other way, more the nearer it is
+        let z = p.z - v * dt, x = p.x - hx * v * dt * 1.6, y = p.y - hy * v * dt * 1.6
+        if (z < 0.06 || Math.abs(x / z) > 9 || Math.abs(y / z) > 9) { k++; return { x: rnd(s.seed, k, 1) * 2 - 1, y: rnd(s.seed, k, 2) * 2 - 1, z: 0.7 + rnd(s.seed, k, 3) * 0.3 } }
+        return { x, y, z }
+      })
+      return { stars, hx, hy, v, seed: s.seed, k }
+    },
+    draw: (s, cols, rows) => {
+      const g = grid(cols, rows)
+      const cx = cols / 2 + s.hx * cols * 0.3, cy = rows / 2 + s.hy * rows * 0.3
+      const put = (c, r, ch) => { if (c >= 0 && c < cols && r >= 0 && r < rows && g[r * cols + c] === ' ') g[r * cols + c] = ch }
+      for (const p of s.stars) {
+        const px = cx + (p.x / p.z) * cols * 0.16, py = cy + (p.y / p.z) * rows * 0.16
+        const c = Math.round(px), r = Math.round(py)
+        if (c < 0 || c >= cols || r < 0 || r >= rows) continue
+        // a short trail, pointing back at the vanishing point, while there is speed
+        const len = Math.min(2, Math.floor((s.v / p.z) * 0.9))
+        if (len > 0) {
+          const dx = px - cx, dy = (py - cy) / ASPECT, m = Math.hypot(dx, dy) || 1
+          const ch = Math.abs(dx / m) > 0.92 ? '-' : Math.abs(dy / m) > 0.92 ? '|' : (dx > 0) === (dy > 0) ? '\\' : '/'
+          for (let j = 1; j <= len; j++) put(Math.round(px - (dx / m) * j * 1.2), Math.round(py - (dy / m) * j * 1.2 * ASPECT), ch)
+        }
+        g[r * cols + c] = p.z < 0.3 ? '*' : p.z < 0.55 ? '+' : p.z < 0.8 ? ':' : '.'
+      }
+      return out(g, cols)
+    },
+  }
+
+  // ── life: Conway's Game of Life; click a cell to flip it, r to reseed ───────────────────
+  // Idea: John Conway's 1970 rules (https://conwaylife.com/wiki/), on a torus; the afterglow where
+  // cells die ("stars going out") is finds.md #15. Six generations a second.
+  const GEN = 1 / 6
+  const soup = (cols, rows, seed) => {
+    const a = new Uint8Array(cols * rows)
+    for (let r = 0; r < rows; r++) for (let c = 0; c < cols; c++) {
+      const dx = (c / cols - 0.5) * 2, dy = (r / rows - 0.5) * 2
+      if (Math.hypot(dx * 1.1, dy) < 0.8 && rnd(seed, c, r) < 0.2) a[r * cols + c] = 1
+    }
+    return a
+  }
+  const gen = (a, cols, rows) => {
+    const b = new Uint8Array(cols * rows)
+    for (let r = 0; r < rows; r++) for (let c = 0; c < cols; c++) {
+      let n = 0
+      for (let dr = -1; dr <= 1; dr++) for (let dc = -1; dc <= 1; dc++) {
+        if (!dr && !dc) continue
+        n += a[((r + dr + rows) % rows) * cols + ((c + dc + cols) % cols)]
+      }
+      const i = r * cols + c
+      b[i] = n === 3 || (n === 2 && a[i]) ? 1 : 0
+    }
+    return b
+  }
+  const life = {
+    init: (cols, rows, seed = 9) => { const a = soup(cols, rows, seed); return { a, p1: null, p2: null, acc: 0, n: 0, seed, cols, rows } },
+    // input.flip: [[col, row], ...] cells to toggle; input.reseed: true; input.paused: no generations
+    step: (s, dt, i = {}) => {
+      let { a, p1, p2, acc, n, seed } = s
+      const { cols, rows } = s
+      if (i.reseed) { seed = (seed * 31 + 7) % 100003; a = soup(cols, rows, seed); p1 = p2 = null; acc = 0 }
+      if (i.flip && i.flip.length) { a = a.slice(); for (const [c, r] of i.flip) if (c >= 0 && c < cols && r >= 0 && r < rows) a[r * cols + c] ^= 1 }
+      if (!i.paused) {
+        acc += dt
+        while (acc >= GEN) { acc -= GEN; p2 = p1; p1 = a; a = gen(a, cols, rows); n++ }
+        // a soup that has died out reseeds itself after a beat, so the box is never empty for long
+        if (n > 0 && !a.some(Boolean) && !(p1 && p1.some(Boolean))) { seed = (seed * 31 + 7) % 100003; a = soup(cols, rows, seed) }
+      }
+      return { a, p1, p2, acc, n, seed, cols, rows }
+    },
+    draw: (s, cols, rows) => {
+      const g = grid(cols, rows)
+      if (s.cols !== cols || s.rows !== rows) return out(g, cols)
+      for (let k = 0; k < g.length; k++) g[k] = s.a[k] ? 'o' : s.p1 && s.p1[k] ? '·' : s.p2 && s.p2[k] ? '.' : ' '
+      return out(g, cols)
+    },
+  }
+
+  // ── nebula: domain-warped noise; the pointer stirs it ───────────────────────────────────
   // Idea: Inigo Quilez, "Domain warping" (https://iquilezles.org/articles/warp/): fbm whose input
-  // is pushed around by more fbm, f(p + f(p + f(p))). Our own value noise and code.
+  // is pushed around by more fbm, f(p + f(p + f(p))). Our own value noise and code. The stir is a
+  // swirl around the pointer that fades out by itself.
   function vnoise(x, y, seed) {
     const xi = Math.floor(x), yi = Math.floor(y), xf = x - xi, yf = y - yi
     const u = xf * xf * (3 - 2 * xf), v = yf * yf * (3 - 2 * yf)
@@ -102,137 +186,72 @@
   }
   const fbm = (x, y, seed) => { let s = 0, a = 0.5; for (let k = 0; k < 4; k++) { s += a * vnoise(x, y, seed + k * 17); x = x * 2.03 + 3.1; y = y * 2.01 + 1.7; a *= 0.5 } return s / 0.9375 }
   const RAMP_N = ' .:-=+*#%'
-  function nebula(t, cols, rows, o) {
-    const g = grid(cols, rows), seed = (o.seed | 0) + 5
-    for (let r = 0; r < rows; r++) for (let c = 0; c < cols; c++) {
-      const x = (c / cols) * 2.3 * (cols * ASPECT / rows), y = (r / rows) * 2.3
-      const qx = fbm(x + t * 0.11, y, seed), qy = fbm(x + 5.2, y + 1.3 - t * 0.07, seed)
-      const f = fbm(x + 3.2 * qx, y + 3.2 * qy, seed + 3)
-      // a soft oval vignette, so the cloud sits in the middle and never touches the frame
-      const dx = (c / cols - 0.5) * 2, dy = (r / rows - 0.5) * 2, vig = clamp(1.25 - Math.hypot(dx, dy * 0.9))
-      const v = smooth(0.3, 0.95, f) * vig
-      const k = Math.floor(v * (RAMP_N.length - 0.001))
-      g[r * cols + c] = RAMP_N[k]
-    }
-    return out(g, cols)
-  }
-
-  // ── 4. life: Conway's Game of Life, with an afterglow where cells die ────────────────────
-  // Idea: John Conway's 1970 rules (https://conwaylife.com/wiki/); the afterglow ("stars going
-  // out") is finds.md #15. Small glyphs, 7 generations a second, a soup in the middle only.
-  const lifeCache = new Map()
-  function lifeGens(cols, rows, seed, upto) {
-    const key = cols + 'x' + rows + ':' + seed
-    let gens = lifeCache.get(key)
-    if (!gens) {
-      const g0 = new Uint8Array(cols * rows)
+  const nebula = {
+    init: (cols, rows, seed = 3) => ({ t: 0, sx: 0.5, sy: 0.5, sa: 0, seed: seed + 5 }),
+    // input.stir: { x, y } in 0…1 over the box, and how far it moved (m, in box widths)
+    step: (s, dt, i = {}) => {
+      const st = i.stir
+      const sa = clamp(decay(s.sa, 0.9, dt) + (st ? Math.min(0.5, (st.m || 0) * 3) : 0), 0, 1.6)
+      return { t: s.t + dt, sx: st ? st.x : s.sx, sy: st ? st.y : s.sy, sa, seed: s.seed }
+    },
+    draw: (s, cols, rows) => {
+      const g = grid(cols, rows), wide = cols * ASPECT / rows
       for (let r = 0; r < rows; r++) for (let c = 0; c < cols; c++) {
-        const dx = (c / cols - 0.5) * 2, dy = (r / rows - 0.5) * 2
-        if (Math.hypot(dx * 1.1, dy) < 0.72 && rnd(seed, c, r) < 0.22) g0[r * cols + c] = 1
+        const u = c / cols, w = r / rows
+        let x = u * 2.3 * wide, y = w * 2.3
+        // the stir: rotate the sample point around the pointer, strongest at it
+        const ddx = (u - s.sx) * wide, ddy = w - s.sy, d2 = ddx * ddx + ddy * ddy
+        if (s.sa > 0.001) { const ang = s.sa * 2.2 * Math.exp(-d2 * 9), ca = Math.cos(ang), sn = Math.sin(ang); x = s.sx * 2.3 * wide + (ddx * ca - ddy * sn) * 2.3; y = s.sy * 2.3 + (ddx * sn + ddy * ca) * 2.3 }
+        const qx = fbm(x + s.t * 0.11, y, s.seed), qy = fbm(x + 5.2, y + 1.3 - s.t * 0.07, s.seed)
+        const f = fbm(x + 3.2 * qx, y + 3.2 * qy, s.seed + 3)
+        const dx = (u - 0.5) * 2, dy = (w - 0.5) * 2, vig = clamp(1.25 - Math.hypot(dx, dy * 0.9))
+        g[r * cols + c] = RAMP_N[Math.floor(smooth(0.24, 0.88, f) * vig * (RAMP_N.length - 0.001))]
       }
-      gens = [g0]
-      if (lifeCache.size > 8) lifeCache.clear()
-      lifeCache.set(key, gens)
-    }
-    while (gens.length <= upto) {
-      const a = gens[gens.length - 1], b = new Uint8Array(cols * rows)
-      for (let r = 0; r < rows; r++) for (let c = 0; c < cols; c++) {
-        let n = 0
-        for (let dr = -1; dr <= 1; dr++) for (let dc = -1; dc <= 1; dc++) {
-          if (!dr && !dc) continue
-          const rr = (r + dr + rows) % rows, cc = (c + dc + cols) % cols
-          n += a[rr * cols + cc]
-        }
-        const i = r * cols + c
-        b[i] = n === 3 || (n === 2 && a[i]) ? 1 : 0
-      }
-      gens.push(b)
-    }
-    return gens
-  }
-  function life(t, cols, rows, o) {
-    const gen = Math.floor(t * 7), gens = lifeGens(cols, rows, (o.seed | 0) + 9, gen)
-    const g = grid(cols, rows), now = gens[gen], p1 = gens[gen - 1], p2 = gens[gen - 2]
-    for (let i = 0; i < g.length; i++) g[i] = now[i] ? 'o' : p1 && p1[i] ? '·' : p2 && p2[i] ? '.' : ' '
-    return out(g, cols)
+      return out(g, cols)
+    },
   }
 
-  // ── 5. resolve: noise that settles into the word ────────────────────────────────────────
-  // The same decode as decode.js, at the size of the screen: random glyphs thin out, and the ones
-  // inside the letters resolve, each at its own moment. The 5×5 letters are our own.
-  const FONT = {
-    l: ['#    ', '#    ', '#    ', '#    ', '#####'],
-    a: [' ### ', '#   #', '#####', '#   #', '#   #'],
-    b: ['#### ', '#   #', '#### ', '#   #', '#### '],
-  }
-  const NOISE = '01#%&*+=<>?/|[]{}~^:;$'
-  function resolve(t, cols, rows, o) {
-    const g = grid(cols, rows), seed = (o.seed | 0) + 13, word = 'lab'
-    const pw = word.length * 5 + (word.length - 1) * 2
-    const sy = Math.max(1, Math.floor(Math.min((rows * 0.46) / 5, (cols * 0.62 * ASPECT) / pw))), sx = Math.max(1, Math.round(sy / ASPECT))
-    const W = pw * sx, H = 5 * sy, x0 = Math.floor((cols - W) / 2), y0 = Math.floor((rows - H) / 2)
-    const inLetter = (c, r) => {
-      const px = Math.floor((c - x0) / sx), py = Math.floor((r - y0) / sy)
-      if (c < x0 || r < y0 || px >= pw || py >= 5) return false
-      const li = Math.floor(px / 7), lx = px % 7
-      return lx < 5 && FONT[word[li]][py][lx] === '#'
-    }
-    const tick = Math.floor(t * 8), density = 0.3 * clamp(1 - t / 1.9)
-    for (let r = 0; r < rows; r++) for (let c = 0; c < cols; c++) {
-      const i = r * cols + c, at = 0.35 + rnd(seed, c, r) * 1.3
-      if (inLetter(c, r)) g[i] = t >= at ? '#' : t >= at - 0.5 ? NOISE[hash(seed, i, tick) % NOISE.length] : ' '
-      else if (rnd(seed + 1, c, r) < density) g[i] = NOISE[hash(seed, i, tick) % NOISE.length]
-    }
-    return out(g, cols)
-  }
-
-  // ── 6. moonrise: tonight's moon, dithered, coming up over a dotted horizon ───────────────
-  // The moon is moon.js (Floyd–Steinberg, after Surma's "Ditherpunk"), packed two pixels to a
-  // cell with half blocks (▀ ▄ █), so its pixels stay square in a 1:2 cell.
+  // ── moon: drag sideways to change the phase ─────────────────────────────────────────────
+  // The moon is moon.js (Floyd–Steinberg, after Surma's "Ditherpunk"), packed two pixels to a cell
+  // with half blocks (▀ ▄ █), so its pixels stay square in a 1:2 cell. It starts on tonight's phase.
   const moonCache = new Map()
-  function moonrise(t, cols, rows, o) {
-    const g = grid(cols, rows)
-    const n = Math.max(8, Math.floor(rows * 0.56) * 2) // pixels across = cells across
-    // a moon too thin to see would be an empty screen: then it rises full
-    const lit = (ph) => (1 - Math.cos(ph * 2 * Math.PI)) / 2
-    const phase = o.phase != null && lit(o.phase) > 0.3 ? o.phase : 0.5
-    const key = n + ':' + phase.toFixed(3)
-    let bits = moonCache.get(key)
-    if (!bits) { bits = NIGHT.moonBits ? NIGHT.moonBits(n, phase) : new Uint8Array(n * n); if (moonCache.size > 4) moonCache.clear(); moonCache.set(key, bits) }
-    const horizon = Math.floor(rows * 0.8), k = 1 - Math.pow(1 - clamp(t / 2.5), 3)
-    const top = Math.round(horizon + 1 - k * (horizon - Math.floor(rows * 0.08)) ), left = Math.floor((cols - n) / 2)
-    for (let r = 0; r < horizon; r++) {
-      const py = (r - top) * 2
-      if (py < -1 || py >= n) continue
-      for (let c = 0; c < n; c++) {
-        const a = py >= 0 && py < n ? bits[py * n + c] : 0, b = py + 1 >= 0 && py + 1 < n ? bits[(py + 1) * n + c] : 0
-        const cc = left + c
-        if (cc >= 0 && cc < cols) g[r * cols + cc] = a && b ? '█' : a ? '▀' : b ? '▄' : ' '
+  const moon = {
+    init: (cols, rows, seed, phase = 0.5) => ({ phase: ((phase % 1) + 1) % 1 }),
+    // input.dx: cells dragged; a box width is one lunar month
+    step: (s, dt, i = {}) => ({ phase: (((s.phase + (i.dx || 0) / 56) % 1) + 1) % 1 }),
+    draw: (s, cols, rows) => {
+      const g = grid(cols, rows), n = Math.max(8, Math.min(cols - 2, (rows - 2) * 2) & ~1)
+      const key = n + ':' + s.phase.toFixed(3)
+      let bits = moonCache.get(key)
+      if (!bits) { bits = NIGHT.moonBits ? NIGHT.moonBits(n, s.phase) : new Uint8Array(n * n); if (moonCache.size > 64) moonCache.clear(); moonCache.set(key, bits) }
+      const top = Math.floor((rows - n / 2) / 2), left = Math.floor((cols - n) / 2)
+      for (let r = 0; r < n / 2; r++) for (let c = 0; c < n; c++) {
+        const a = bits[2 * r * n + c], b = bits[(2 * r + 1) * n + c], rr = top + r, cc = left + c
+        if (rr >= 0 && rr < rows && cc >= 0 && cc < cols) g[rr * cols + cc] = a && b ? '█' : a ? '▀' : b ? '▄' : ' '
       }
-    }
-    for (let c = 0; c < cols; c += 2) g[horizon * cols + c] = '.'
-    // its light on the water: a few dashes under it, more as it climbs
-    for (let r = horizon + 2; r < rows; r += 2) for (let c = left; c < left + n; c++) {
-      if (c >= 0 && c < cols && rnd(31, c, r) < 0.18 * k * (1 - (r - horizon) / (rows - horizon + 1))) g[r * cols + c] = '-'
-    }
-    return out(g, cols)
+      // the dark limb, faintly, so a new moon is still a moon: a dotted circle where the disc is
+      for (let k = 0; k < 64; k++) {
+        const ang = (k / 64) * Math.PI * 2, c = Math.round(left + n / 2 - 0.5 + Math.cos(ang) * (n / 2)), r = Math.round(top + n / 4 - 0.5 + Math.sin(ang) * (n / 4))
+        if (r >= 0 && r < rows && c >= 0 && c < cols && g[r * cols + c] === ' ') g[r * cols + c] = '·'
+      }
+      return out(g, cols)
+    },
   }
 
   const FX = {
-    torus: { name: 'torus', credit: 'after Andy Sloane, donut.c', run: torus },
+    donut: { name: 'donut', credit: 'after Andy Sloane, donut.c', run: donut },
     warp: { name: 'warp', credit: 'the classic starfield', run: warp },
-    nebula: { name: 'nebula', credit: 'after Inigo Quilez, domain warping', run: nebula },
     life: { name: 'life', credit: "Conway's Game of Life", run: life },
-    resolve: { name: 'resolve', credit: 'decode.js, full screen', run: resolve },
-    moonrise: { name: 'moonrise', credit: "moon.js, after Surma's Ditherpunk", run: moonrise },
+    nebula: { name: 'nebula', credit: 'after Inigo Quilez, domain warping', run: nebula },
+    moon: { name: 'moon', credit: "moon.js, after Surma's Ditherpunk", run: moon },
   }
   const ids = Object.keys(FX)
   NIGHT.fx = {
-    DURATION, STILL, ids,
+    ids, GEN,
     list: ids.map((id) => ({ id, name: FX[id].name, credit: FX[id].credit })),
-    frame: (id, t, cols, rows, o = {}) => (FX[id] ? FX[id].run(Math.max(0, t), Math.max(1, cols | 0), Math.max(1, rows | 0), o) : ''),
-    // in 0.35 s, out over the last 0.6 s: one slow breath, never a cut
-    alpha: (t) => smooth(0, 0.35, t) * (1 - smooth(DURATION - 0.6, DURATION, t)),
+    init: (id, cols, rows, seed, extra) => FX[id].run.init(Math.max(1, cols | 0), Math.max(1, rows | 0), seed, extra),
+    step: (id, s, dt, input) => FX[id].run.step(s, Math.max(0, Math.min(0.1, dt)), input || {}),
+    draw: (id, s, cols, rows) => FX[id].run.draw(s, Math.max(1, cols | 0), Math.max(1, rows | 0)),
     pick: (last, r = Math.random) => { const pool = ids.filter((id) => id !== last); return pool[Math.floor(r() * pool.length) % pool.length] },
   }
 })()

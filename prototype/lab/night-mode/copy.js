@@ -12,46 +12,62 @@
   const root_ = typeof window !== 'undefined' ? window : globalThis
   const NIGHT = (root_.NIGHT = root_.NIGHT || {})
   NIGHT.copy = {
-    // ── the welcome (PROPOSAL) ──
+    // ── the welcome (PROPOSAL), short enough to sit beside the toy ──
     welcome: [
       'welcome to the lab.',
-      "this is the serious end of the desk: the things i've shipped, the experiments still on the bench, and the write-ups about both.",
-      'pick something on the left, or press ~ to go back to the canvas :)',
+      "the serious end of the desk: things i've shipped, experiments still on the bench, and the write-ups about both.",
+      'press ~ to go back to the canvas :)',
     ],
-    // on a phone there is no "left" and no ~ key: the last line says so
-    welcomeTouch: 'tap anything below, or ← canvas at the top to go back :)',
-    skip: 'press any key to skip',
-    skipTouch: 'tap to skip',
+    // on a phone there is no ~ key: the last line says so
+    welcomeTouch: '← canvas, top left, goes back :)',
+    welcomeTouchDock: '← canvas, in the dock, goes back :)',
 
-    // ── the top bar ──
-    user: 'aahil@lab',
+    // ── the corner: the one way back, and the mockup's switches ──
     root: '~/lab',
     entries: (n) => `${n} entries`,
     canvas: 'canvas',
     canvasKey: '~',
     canvasLabel: 'Back to the canvas',
-    barLabel: 'The Lab',
-    palette: 'Palette (mockup)',
+    labLabel: 'The Lab',
+    palette: 'palette',
+    paletteLabel: 'Palette (mockup)',
     palettes: { white: 'white', green: 'green', amber: 'amber' },
     palShort: { white: 'w', green: 'g', amber: 'a' },
+    layout: 'layout',
+    layoutLabel: 'Layout (mockup)',
+    layouts: { index: 'index', dock: 'dock', page: 'page' },
+
+    // ── the toy ──
+    toy: {
+      next: 'next',
+      nextLabel: 'Next toy',
+      label: (name, keys) => `${name}, an ASCII toy. ${keys}`,
+      hints: {
+        donut: { mouse: 'drag to spin', touch: 'drag to spin', keys: 'Drag it, or use the arrow keys, to spin it.' },
+        warp: { mouse: 'point to steer', touch: 'drag to steer', keys: 'Point at it, or use the arrow keys, to steer.' },
+        life: { mouse: 'click cells · r reseeds', touch: 'tap cells to flip', keys: 'Click a cell, or move with the arrow keys and press space, to flip it; r reseeds.' },
+        nebula: { mouse: 'move to stir', touch: 'drag to stir', keys: 'Move over it, or use the arrow keys, to stir it.' },
+        moon: { mouse: 'drag for the phase', touch: 'drag for the phase', keys: 'Drag sideways, or use the left and right keys, to change the phase.' },
+      },
+    },
 
     // ── the dock ──
     dockLabel: 'Lab dock',
     dock: { work: 'work', experiments: 'experiments', writing: 'writing' },
     dockShort: { work: 'work', experiments: 'exp', writing: 'writing' },
 
-    // ── the menu ──
+    // ── the layouts ──
     treeLabel: 'Lab contents',
+    jumpLabel: 'Sections',
+    expand: 'Show more',
     preview: 'preview',
     back: 'back',
     backLabel: 'Back to the list',
-    keys: [['↑↓', 'move'], ['↵', 'open'], ['esc', 'back'], ['~', 'canvas']],
-    keysMore: [['1 2 3', 'sections']],
-    keysTouch: [['tap', 'open'], ['← back', 'list']],
+    keys: [['↑↓', 'move'], ['↵', 'open'], ['1 2 3', 'sections'], ['~', 'canvas']],
     sections: {
       work: { blurb: 'things i built, start to finish. each one has the stack, how it went, and where to see it.', unit: (n) => `${n} projects` },
       experiments: { blurb: 'the bench: hardware, hacks and half-finished ideas, in the order i started them.', unit: (n) => `${n} logs` },
-      writing: { blurb: 'write-ups about the projects, and a couple of essays that live on medium.', unit: (n) => `${n} posts` },
+      writing: { blurb: 'write-ups about the projects, and a couple of longer essays, first posted on medium.', unit: (n) => `${n} posts` },
     },
     enter: 'go in',
     open: 'open',
@@ -62,6 +78,7 @@
     minsRead: (n) => `${n} min read`,
     out: (host) => `${host} ↗`,
     noPreview: 'nothing more to show yet.',
+    home: 'home',
 
     // ── the reader ──
     close: 'close',
@@ -83,6 +100,6 @@
     eof: 'EOF',
 
     // ── the throwaway proof readouts ──
-    proof: { back: 'Back on the desk', round: 'Round trip, About dragged' },
+    proof: { back: 'Back on the desk', round: 'Round trip, About dragged', trip: (a, b) => `desk → lab ${a} ms · lab → desk ${b} ms` },
   }
 })()

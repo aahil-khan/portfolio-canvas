@@ -8,6 +8,7 @@
  *   NIGHT.reader.sync({ instant })          makes the reader match location.hash
  *   NIGHT.reader.dismiss()                  [x] close and Escape: the same as Back
  *   NIGHT.reader.isOpen(), .slug(), .body(piece, section)  (the page's markup, from LAB data only)
+ *   NIGHT.reader.onchange = fn()            called when a post opens or has closed (the toy pauses)
  *
  * THE TRANSITION is #17's, unchanged. Opening grows the page out of what was clicked: a clip-path
  * from that rect to the whole viewport, while the title flies from the row's title to the post's
@@ -15,7 +16,7 @@
  * fades up after it. Closing plays the same keyframes backwards, into the row of the post that is
  * open now. Reduced motion (LAB.sky.reduced, the one owner): a crossfade.
  *
- * THE PAGE (new): a header block framed like the Lab's panes, with the title in mono and file-style
+ * THE PAGE: a header block framed in a 1px line (one of the two frames the Lab keeps, with figures), with the title in mono and file-style
  * metadata (file, date, read, project, tags); a table of contents beside the body on a wide
  * screen when the post has sections; figures as framed thumbnails with captions that enlarge in
  * place (a lightbox, Esc or ← → inside it), never full-bleed slabs; prev / next at the end.
@@ -300,7 +301,7 @@
     st.from = from || null
     el.hidden = false
     progress() // measured once it has a layout
-    document.documentElement.classList.add('is-reading')
+    document.documentElement.classList.add('is-reading'); if (R.onchange) R.onchange()
     setInert(true)
     page.querySelector('.rd__title').focus({ preventScroll: true })
     if (instant) return Promise.resolve()
@@ -327,7 +328,7 @@
       if (st.slug) return // reopened meanwhile
       stop()
       el.hidden = true
-      document.documentElement.classList.remove('is-reading')
+      document.documentElement.classList.remove('is-reading'); if (R.onchange) R.onchange()
       if (to && to.isConnected) to.focus({ preventScroll: true })
     }
     return morph(to, false).then(done, done)
@@ -369,7 +370,7 @@
     stop()
     setInert(false)
     el.hidden = true
-    document.documentElement.classList.remove('is-reading')
+    document.documentElement.classList.remove('is-reading'); if (R.onchange) R.onchange()
     try { history.replaceState(null, '', location.pathname + location.search) } catch { /* file:// */ }
   }
 })()

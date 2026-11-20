@@ -12,16 +12,17 @@
  *
  *   NIGHT.model.SECTIONS             the three sections, in order
  *   NIGHT.model.build(pieces)        [{ id, count, entries: [...] }]
- *   NIGHT.model.treeHtml(sections)   the menu's left column: one <li> per section and per entry
- *   NIGHT.model.rowHtml(e, s)        one entry's row (what the 20th-piece proof compares)
- *   NIGHT.model.previewHtml(row)     the right column for a section or an entry
+ *   NIGHT.model.rowHtml(e, s, layout)  one entry's row in the index, dock or page layout (what the
+ *                                    20th-piece proof compares, per layout)
+ *   NIGHT.model.previewHtml(secs, row, { bare })  an entry's preview (index: the reading area;
+ *                                    dock: expanded in place, bare)
  *   NIGHT.model.readable(pieces)     what opens in the reader, per section, in menu order
  *   NIGHT.model.parts(body)          a write-up's body split into its sections (the reader's TOC)
  *   NIGHT.model.minutes(body), .when(piece)
  *
- * A NEW PIECE IS ONE NEW ROW. Nothing here reads a position, a height or a count of rows to place
- * anything: the menu is a CSS grid and the tree's guides (├── └──) are CSS, so the row before a
- * new one keeps its markup byte for byte.
+ * A NEW PIECE IS ONE NEW ROW, in every layout. Nothing here reads a position, a height or a count
+ * of rows to place anything: the layouts are CSS grids and lists, so the row before a new one keeps
+ * its markup byte for byte.
  */
 ;(() => {
   const root_ = typeof window !== 'undefined' ? window : globalThis
@@ -86,6 +87,7 @@
     writing: (own) => own.sort(newest).map((p) => ({
       slug: p.slug, when: when(p), title: p.title, sub: p.blurb || '', lines: firstLines(bodyOf(p), 300),
       mins: imp(p) && imp(p).mins ? imp(p).mins : bodyOf(p) ? minutes(bodyOf(p)) : 0, href: bodyOf(p) ? '' : p.href || '', read: !!bodyOf(p),
+      images: imagesOf(p).slice(0, 1),
     })),
   }
   const build = (pieces) => SECTIONS.map((s) => {
@@ -119,22 +121,33 @@
     return out
   }
 
-  // ── markup: the tree ─────────────────────────────────────────────────────────────────────
-  // Row ids are section/slug: a write-up is a row in work and another in writing.
+  // ── markup: rows, one pure function per layout ───────────────────────────────────────────
+  // Row ids are section/slug: a write-up is a row in work and another in writing. A row's markup
+  // depends on its own entry only, never on its neighbours or on a count, so a new piece is one new
+  // row and every other row keeps its markup byte for byte (the 20th-piece proof).
   const META = {
     work: (e) => [e.kind, e.year].filter(Boolean).join(' · '),
     // the date, not exp-NN: a back-dated experiment renumbers the later ones, and its row must be
     // the only one that changes (the number is in the preview and the reader)
     experiments: (e) => e.when,
+    // an imported essay has a body, so it reads in the Lab and shows its time like any post
     writing: (e) => (e.href ? C().out(host(e.href)) : C().mins(e.mins)),
   }
-  const rowHtml = (e, s) => `<li class="ti" role="treeitem" id="r-${s}-${esc(e.slug)}" data-row="${s}/${esc(e.slug)}" data-sec="${s}" data-entry="${esc(e.slug)}" tabindex="-1">` +
-    `<span class="row"><span class="row__in"><span class="row__ttl">${esc(e.title)}</span><span class="row__m">${esc(META[s](e))}</span></span></span></li>`
-  const secHtml = (s) => `<span class="row row--sec" id="r-${s.id}"><span class="row__in"><span class="row__ttl">${esc(s.id)}/</span>` +
-    `<span class="row__m" aria-label="${esc(C().entries(s.count))}">${String(s.count).padStart(2, '0')}</span></span></span>`
-  const treeHtml = (secs) => `<li class="ti-root" role="none"><span class="row row--root"><span class="row__in"><span class="row__ttl">${esc(C().root)}</span></span></span></li>` +
-    secs.map((s) => `<li class="sec" role="treeitem" aria-expanded="true" aria-labelledby="r-${s.id}" data-row="${s.id}" data-sec="${s.id}" tabindex="-1">` +
-      secHtml(s) + `<ul class="sec__items" role="group">${s.entries.map((e) => rowHtml(e, s.id)).join('')}</ul></li>`).join('')
+  const id = (s, e) => `${s}-${esc(e.slug)}`
+  const ROW = {
+    // index: a thin text column; one option per entry (a listbox with a roving tabindex)
+    index: (e, s) => `<li class="ix" role="option" id="ix-${id(s, e)}" data-row="${s}/${esc(e.slug)}" data-sec="${s}" tabindex="-1" aria-selected="false">` +
+      `<span class="ix__t">${esc(e.title)}</span><span class="ix__m">${esc(META[s](e))}</span></li>`,
+    // dock: a full-width list; the row is a button that expands its preview in place
+    dock: (e, s) => `<li class="dl" data-row="${s}/${esc(e.slug)}" data-sec="${s}">` +
+      `<button type="button" class="dl__row" id="dl-${id(s, e)}" aria-expanded="false" aria-controls="dlx-${id(s, e)}">` +
+      `<span class="dl__t">${esc(e.title)}</span><span class="dl__s">${esc(e.tagline || e.sub || e.result || e.topic || '')}</span><span class="dl__m">${esc(META[s](e))}</span></button>` +
+      `<div class="dl__x" id="dlx-${id(s, e)}" role="region" aria-labelledby="dl-${id(s, e)}" hidden></div></li>`,
+    // page: an editorial entry, everything visible
+    page: (e, s) => `<li class="pg" data-row="${s}/${esc(e.slug)}" data-sec="${s}">${PAGE[s](e)}</li>`,
+  }
+  const rowHtml = (e, s, layout = 'index') => ROW[layout](e, s)
+  const sectionsOf = (secs) => secs.map((s) => ({ id: s.id, key: s.key, count: s.count, unit: C().sections[s.id].unit(s.count), blurb: C().sections[s.id].blurb }))
 
   // ── markup: the preview ──────────────────────────────────────────────────────────────────
   const asset = (src) => (L().asset ? L().asset(src) : src)
@@ -171,19 +184,40 @@
       `<h3 class="pv__title" data-pv-title>${esc(e.title)}</h3>` +
       (e.sub ? `<p class="pv__lede">${esc(e.sub)}</p>` : '') +
       (e.lines ? `<p class="pv__lines pv__lines--fade">${esc(e.lines)}</p>` : '') +
-      `<p class="pv__act">${e.read ? act(C().read, `data-read="${esc(e.slug)}" data-in="writing"`, true) : `<a class="act act--go" href="${esc(e.href)}" rel="noopener"><span class="act__k" aria-hidden="true">↵ </span>${esc(C().readOn(host(e.href)))}</a>`}</p>`,
+      `<p class="pv__act">${e.read ? act(C().read, `data-read="${esc(e.slug)}" data-in="writing"`, true) : `<a class="act act--go" href="${esc(e.href)}" rel="noopener"><span class="act__k" aria-hidden="true">↵ </span>${esc(C().readOn(host(e.href)))}</a>`}</p>` +
+      thumbs(e.images, 1),
   }
   // row: { sec, entry? } → the right column
-  const previewHtml = (secs, rowId) => {
+  // bare: without the path, title and tagline (the dock expands under a row that already shows them)
+  const previewHtml = (secs, rowId, { bare = false } = {}) => {
     const [sid, slug] = String(rowId).split('/')
     const s = secs.find((x) => x.id === sid)
     if (!s) return ''
     if (!slug) return PREVIEW.section(s)
     const e = s.entries.find((x) => x.slug === slug)
-    return e ? PREVIEW[sid](e) : ''
+    if (!e) return ''
+    const html = PREVIEW[sid](e)
+    return bare ? html.replace(/<p class="pv__path">[\s\S]*?<\/p>/, '').replace(/<h3 class="pv__title"[\s\S]*?<\/h3>/, '').replace(/<p class="pv__sub">[\s\S]*?<\/p>/, '').replace(/<p class="pv__lede">[\s\S]*?<\/p>/, '') : html
   }
-  // the order ↑↓ walks: each section, then its entries
-  const order = (secs) => secs.flatMap((s) => [s.id, ...s.entries.map((e) => s.id + '/' + e.slug)])
+  // the page layout's entries: the preview's facts, laid out to be read down a page
+  const PAGE = {
+    work: (e) => `<div class="pg__txt"><h3 class="pg__t"><span class="pg__tt" data-pv-title>${esc(e.title)}</span> <span class="pg__m">${esc(META.work(e))}</span></h3>` +
+      (e.tagline ? `<p class="pg__lede">${esc(e.tagline)}</p>` : '') +
+      kv([[C().kv.stack, e.stack.join(' · ')], [C().kv.status, e.status], [C().kv.award, e.award]]) +
+      ((e.read || e.links.length) ? `<p class="pv__act">${e.read ? act(C().read, `data-read="${esc(e.slug)}" data-in="writing"`, true) : ''}${e.links.map(link).join('')}</p>` : '') + `</div>` +
+      (e.images.length ? `<figure class="pg__fig"><img src="${esc(asset(e.images[0].src))}" alt="${esc(e.images[0].caption || e.title)}" loading="lazy"></figure>` : ''),
+    // the month, not exp-NN, as in the index: a back-dated experiment must not change other rows
+    experiments: (e) => `<div class="pg__txt"><p class="pg__log">${esc([e.when, e.topic].filter(Boolean).join(' · '))}${e.status ? ` <span class="pv__st">${esc(e.status)}</span>` : ''}</p>` +
+      `<h3 class="pg__t"><span class="pg__tt" data-pv-title>${esc(e.title)}</span></h3>` +
+      (e.lines ? `<p class="pg__lede pg__lede--dim">${esc(e.lines)}</p>` : '') +
+      `<p class="pv__act">${e.read ? act(C().open, `data-read="${esc(e.slug)}" data-in="experiments"`, true) : ''}${e.href ? link({ label: C().out(host(e.href)), href: e.href }) : ''}</p></div>`,
+    writing: (e) => `<div class="pg__txt"><p class="pg__log">${esc([e.when, e.href ? C().out(host(e.href)) : C().minsRead(e.mins)].filter(Boolean).join(' · '))}</p>` +
+      `<h3 class="pg__t"><span class="pg__tt" data-pv-title>${esc(e.title)}</span></h3>` +
+      (e.sub ? `<p class="pg__lede pg__lede--dim">${esc(e.sub)}</p>` : '') +
+      `<p class="pv__act">${e.read ? act(C().read, `data-read="${esc(e.slug)}" data-in="writing"`, true) : `<a class="act act--go" href="${esc(e.href)}" rel="noopener">${esc(C().readOn(host(e.href)))}</a>`}</p></div>`,
+  }
+  // the order ↑↓ walks: every entry, section by section
+  const order = (secs) => secs.flatMap((s) => s.entries.map((e) => s.id + '/' + e.slug))
 
-  NIGHT.model = { imp, bodyOf, imagesOf, SECTIONS, inLab, build, readable, parts, treeHtml, rowHtml, secHtml, previewHtml, order, minutes, when, host, firstLines }
+  NIGHT.model = { imp, bodyOf, imagesOf, SECTIONS, inLab, build, readable, parts, rowHtml, sectionsOf, previewHtml, order, minutes, when, host, firstLines, META }
 })()

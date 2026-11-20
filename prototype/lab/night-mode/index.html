@@ -3,41 +3,41 @@
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
-<title>Lab: its own screen</title>
+<title>Lab: three layouts</title>
 <!--
-  DESIGN GATE: prototype/lab/night-mode/index.html (Direction 2, "Night mode", third round: the
-  Lab as its own screen). Supersedes #17.
+  DESIGN GATE: prototype/lab/night-mode/index.html (Direction 2, "Night mode", fourth round: the
+  layout rethought). Supersedes #18.
 
-  The Lab tile in the dock turns the desk to night, as before. Then the desk is gone: the Lab is
-  a fixed screen of its own, with nothing to pan, zoom or drag. A status bar (aahil@lab, where
-  you are, the time, and [← canvas ~]); a random ASCII effect on every visit, the welcome typing
-  on, and then the Lab's home: a TUI split, a tree of ~/lab on the left and a live preview of the
-  highlighted row on the right. The dock holds only the Lab: [← canvas], work, experiments,
-  writing, gh, in. A post or a log opens in the reader, which grows out of the row (#17's motion).
+  The Lab tile turns the desk to night, now in 0.7 s, and the Lab is a fixed screen of its own,
+  with nothing to pan, zoom or drag. No status bar and no boxed panels: one small ← canvas (top
+  left), the welcome beside a small ASCII toy (top right: a random one each visit, [next] cycles,
+  drag or point at it), and the work, in one of three layouts to compare by eye:
+    index  a thin text index on the left, the highlighted entry read to its right (the default)
+    dock   the dock is the only navigation; one section as a full-width list, entries expand
+    page   one editorial page that scrolls, with a tiny sticky jump line
+  A post or a log opens in the reader, which grows out of the row (#17's motion, #18's page).
 
   What is being judged:
-    - does the Lab read as somewhere else, built for the serious work, while the desk is as it was?
-    - the intro: six effects, one per visit, ~2.8 s, any key or click skips it
-    - the menu: keyboard (↑↓ ↵ esc 1 2 3 ~) and mouse; on a phone, a list and a detail
-    - the reader: the framed header, the contents, the figures, prev / next
-    - the three palettes, by eye (the switch in the status bar is throwaway)
-  Throwaway: the ✓ readout, the palette switch, and the URL switches that make screenshots
-  repeatable:
-    ?mode=night (or ?lab=1)   land in the Lab, as /lab would (the intro still plays)
-    &fx=<id>                  torus | warp | nebula | life | resolve | moonrise
-    &hold=<ms>                hold the intro at that moment       &intro=0   no intro
-    &sel=<section/slug>       highlight a row                     &view=detail  phone: its detail
-    &palette=green|amber
+    - the three layouts, side by side (the layout switch, bottom right, flips them live)
+    - the trip: about 0.7 s in, 0.6 s back, decode included
+    - the toy: donut, warp, life, nebula, moon; does it earn its corner?
+    - the reader, as in #18
+  Throwaway: the ✓ readout, the layout and palette switches, and the URL switches that make
+  screenshots repeatable:
+    ?mode=night (or ?lab=1)   land in the Lab, as /lab would
+    &layout=index|dock|page   which layout                     &palette=green|amber
+    &fx=<id>                  donut | warp | life | nebula | moon (else a random one)
+    &sel=<section/slug>       highlight (index) or expand (dock) an entry, or scroll to it (page)
+    &view=detail              phone, index layout: that entry's detail
     #/writing/<slug>, #/experiments/<slug>   a post or a log, deep-linked, open over the Lab
     &toc=<section>  scroll the post to a section    &fig=<n>  enlarge figure n
     &then=desk                land in the Lab, go back, measure every day card
     ?freeze=<0..1>            hold the transition there          ?enter=1  play it once on load
-    ?roundtrip=1              drag a card, pan, Lab and back, then measure every card
-    #/writing/old-laptop-cloud the long post: the essay's real headings and figures (essay.js)
+    ?roundtrip=1              drag a card, pan, Lab and back, measure every card and both trips
     &add=1                    the 20th-piece proof. By hand: LAB.pieces.push({...}); renderLab()
-  Content comes only from ../shared/pieces.js (filtered: no kit edit) and work.js (projects.json,
-  transcribed and checked); every UI word is in copy.js. desk.js is the canvas engine, sky.js the
-  reduced-motion owner.
+  Content comes only from ../shared/pieces.js (filtered: no kit edit), work.js (projects.json,
+  transcribed and checked) and essay.js (the two Medium essays, imported); every UI word is in
+  copy.js. desk.js is the canvas engine, sky.js the reduced-motion owner.
 -->
 <link rel="stylesheet" href="../shared/jet.css">
 <link rel="stylesheet" href="../shared/desk.css">
@@ -55,8 +55,8 @@
 <script src="fx.js"></script>
 <script src="essay.js"></script>
 <script src="model.js"></script>
-<script src="menu.js"></script>
-<script src="intro.js"></script>
+<script src="toy.js"></script>
+<script src="home.js"></script>
 <script src="reader.js"></script>
 <script src="night.js"></script>
 <script>
