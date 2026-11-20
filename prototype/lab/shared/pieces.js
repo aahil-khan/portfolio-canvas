@@ -14,23 +14,31 @@
  *   blurb          projects.tagline · writing.blurb · archive.meta (absent where meta is)
  *   body           archive.note. Projects: lede, then highlights as a `- ` list. SOP Opera's
  *                  archive story is its first paragraph: the archive entry joins its project,
- *                  which is how 16 source items become 15 pieces.
+ *                  which is how 16 source items become 15 pieces;
+ *                  the four Arcade games make 19.
  *   when           archive.when, or the source's `year`, as the display date
  *   href, images, fullscreen, pinned    as in the source (`image` + `caption` → `images[0]`)
+ *   Arcade games   content/arcade.ts games: id → slug, label → title, sub → blurb
  *   project        projects.slug, so /work/<slug> stays the project's page
  *
  * PROPOSALS, for the user to correct (research.md §4, plan.md open question 8):
  *   shelf          notes | playground. Cursor Search Provider and Pretext are on the Playground.
- *   kind           write-up | essay | experiment | scrap | found
+ *   kind           write-up | essay | experiment | scrap | found | game (`game` is new, for the Arcade)
  *   status         ongoing | shelved | done, only where the source text says so
  *   constellation  one per piece, from `constellations`; brookie, landscape and Modern Family
  *                  are deliberately loose stars
  *   links          one direction only (backlinks are computed); four, each with a plain reason
  *   constellations the five named groups and their order (order = slot order in the sky)
  *   isProject      mockup flag for the ?work=a|b switch: under (a) these four live in /work
+ *   card           NEW optional ref → a canvas card id in content/apps.ts. The piece opens that
+ *                  card instead of a piece page: the four games open `arcade`, the real card
+ *                  that already plays them. Validation must resolve it, like `project`.
+ *   the Arcade     the Playground becomes the one home for the canvas's fun stuff, so the four
+ *                  games join it as stars in an "Arcade" constellation (appended last, slot 5)
  *   date           YYYY-MM sort key. Where the source gives only a year, the month is a
  *                  placeholder (-01) and `when` keeps the year, so no view shows the guess.
- *                  Modern Family's "right now" is dated by the commit that added it (2026-08).
+ *                  Modern Family's "right now" and the four games (no date at all) are dated by
+ *                  the commit that added them (2026-08).
  *
  * A plain script, not a module, so it works over file:// and loads in Node (`global.window={}`).
  */
@@ -48,7 +56,8 @@ window.LAB = {
     { "id": "agent-memory", "name": "Agent memory" },
     { "id": "self-hosting", "name": "Self-hosting" },
     { "id": "hardware", "name": "Hardware" },
-    { "id": "the-web", "name": "The web" }
+    { "id": "the-web", "name": "The web" },
+    { "id": "arcade", "name": "Arcade" }
   ],
   "pieces": [
     {
@@ -265,6 +274,46 @@ window.LAB = {
         { "src": "/archive/landscape/landscape-1.jpeg", "caption": "Puranpur, India" }
       ],
       "fullscreen": true
+    },
+    {
+      "slug": "typing",
+      "title": "Typing Test",
+      "shelf": "playground",
+      "kind": "game",
+      "date": "2026-08",
+      "blurb": "Words per minute, on a global board",
+      "constellation": "arcade",
+      "card": "arcade"
+    },
+    {
+      "slug": "mines",
+      "title": "Minesweeper",
+      "shelf": "playground",
+      "kind": "game",
+      "date": "2026-08",
+      "blurb": "9×9, ten mines, right-click or hold to flag",
+      "constellation": "arcade",
+      "card": "arcade"
+    },
+    {
+      "slug": "snake",
+      "title": "Snake",
+      "shelf": "playground",
+      "kind": "game",
+      "date": "2026-08",
+      "blurb": "Arrow keys, WASD or swipe",
+      "constellation": "arcade",
+      "card": "arcade"
+    },
+    {
+      "slug": "2048",
+      "title": "2048",
+      "shelf": "playground",
+      "kind": "game",
+      "date": "2026-08",
+      "blurb": "Swipe or arrow keys. You will not get 2048.",
+      "constellation": "arcade",
+      "card": "arcade"
     }
   ]
 }

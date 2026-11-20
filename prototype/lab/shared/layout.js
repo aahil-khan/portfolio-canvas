@@ -1,11 +1,13 @@
 /*
  * prototype/lab/shared/layout.js: where every star goes, computed, never typed.
  *
- *   LAB.layout(pieces, { shape: 'horizon' | 'islands' | 'disc' })
+ *   LAB.layout(pieces, { shape: 'horizon' | 'islands' | 'disc', centre: { x, y }, extent })
  *     → { stars: { [slug]: { x, y, r } }, lines: [{ from, to, kind: 'link' | 'figure' }],
- *         anchors: [{ constellation, shelf, x, y }], frame, bounds: { x, y, w, h } }
+ *         anchors: [{ constellation, shelf, x, y }], frame, scale, bounds: { x, y, w, h } }
  *
- * World units are arbitrary; a view scales `bounds` to fit. In order:
+ * `centre` + `extent` map the shape's native centre and half-size onto world space (around the
+ * deep-space point, or across night mode's viewport). The map is fixed, never fitted to the
+ * data, so it cannot break stability. Without them a view scales `bounds` to fit. In order:
  *   1. Each shelf has a region. `horizon`: notes above a line, playground below. `islands`:
  *      notes left, playground right. `disc`: one circle that both shelves share.
  *   2. Constellation k (its index in LAB.constellations) owns slot k in every region. A slot
@@ -18,10 +20,10 @@
  *   5. Size comes from data: project, then kind, then link count.
  *   Lines: explicit `links`, plus faint `figure` lines chaining each constellation by date.
  *
- * Append-stable: adding a piece dated on or after its neighbours moves no existing star, in any
- * shape. Two edits can move stars, both deliberate and local: back-dating a piece shifts the
- * later members of its own constellation, and adding a constellation may nudge loose stars.
- * No physics, no library, deterministic: the React build ports this as lib/lab/layout.ts.
+ * Append-stable: adding a piece dated on or after its neighbours moves no existing star. Only
+ * two edits move stars, both local: back-dating a piece shifts later members of its own
+ * constellation; adding a constellation may nudge loose stars. No physics, no library,
+ * deterministic: the React build ports this as lib/lab/layout.ts.
  */
 ;(() => {
   const LAB = (window.LAB = window.LAB || {})
@@ -33,7 +35,7 @@
 
   const SHAPES = {
     horizon: {
-      frame: { horizonY: 720 },
+      frame: { horizonY: 720 }, native: { x: 0, y: 640, size: 1100 },
       regions: {
         notes: { cx: 0, cy: 340, spread: [760, 220], inside: (x, y) => y >= 0 && y <= 640 },
         playground: { cx: 0, cy: 960, spread: [720, 150], inside: (x, y) => y >= 800 && y <= 1200 },
@@ -46,7 +48,7 @@
       spiral: [88, 1, 0.8], reserve: 150,
     },
     islands: {
-      frame: { divideX: 0 },
+      frame: { divideX: 0 }, native: { x: 0, y: 0, size: 1300 },
       regions: {
         notes: { cx: -800, cy: 0, spread: [340, 480], inside: (x) => x <= -130 },
         playground: { cx: 800, cy: 0, spread: [340, 480], inside: (x) => x >= 130 },
@@ -54,13 +56,13 @@
       slot: sunflower(260, 0.8, 1), spiral: [88, 1, 1], reserve: 170,
     },
     disc: {
-      frame: { cx: 0, cy: 0 },
+      frame: { cx: 0, cy: 0 }, native: { x: 0, y: 0, size: 800 },
       shared: true, // one sky for both shelves: shape and hue tell them apart, not position
       regions: { all: { cx: 0, cy: 0, spread: [560, 560], inside: () => true } },
       slot: sunflower(290, 1, 1), spiral: [88, 1, 1], reserve: 170,
     },
   }
-  const SIZE = { 'write-up': 7, essay: 7, experiment: 6, found: 5.5, scrap: 5 }
+  const SIZE = { 'write-up': 7, essay: 7, experiment: 6, found: 5.5, game: 5.5, scrap: 5 }
 
   const hash = (s) => [...s].reduce((h, c) => Math.imul(h ^ c.charCodeAt(0), 16777619), 2166136261) >>> 0
   // lib/canvas/geometry.ts makeRandom, verbatim
@@ -88,7 +90,7 @@
     for (const p of pieces) for (const s of p.links || []) for (const e of [p.slug, s]) degree[e] = (degree[e] || 0) + 1
     const size = (p) => (p.isProject ? 10 : SIZE[p.kind] || 5) + Math.min(degree[p.slug] || 0, 4) * 0.75
 
-    const stars = {}, groups = {}, anchors = [], loose = []
+    const stars = {}, groups = {}, anchors = [], loose = [] // stars and anchors: native units until the end
     for (const p of order) {
       const k = K[p.constellation]
       if (k === undefined) { loose.push(p); continue }
@@ -118,12 +120,10 @@
           if (clear(reg, x, y)) break search
         }
       }
-      placed.push({ x, y })
-      stars[p.slug] = { x, y, r: size(p) }
+      placed.push({ x, y }); stars[p.slug] = { x, y, r: size(p) }
     }
 
-    const lines = [], seen = new Set()
-    const add = (from, to, kind) => {
+    const lines = [], seen = new Set(), add = (from, to, kind) => {
       const id = [from, to].sort().join('|')
       if (seen.has(id) || !stars[from] || !stars[to] || from === to) return
       seen.add(id)
@@ -135,11 +135,16 @@
       for (let i = 1; i < m.length; i++) add(m[i - 1].slug, m[i].slug, 'figure')
     }
 
-    const all = Object.values(stars), pad = 90
-    const xs = all.map((s) => s.x), ys = all.map((s) => s.y)
-    const x0 = Math.min(...xs) - pad, y0 = Math.min(...ys) - pad, frame = { shape, ...S.frame }
-    if (shape === 'disc') frame.r = Math.max(...all.map((s) => Math.hypot(s.x, s.y))) + pad
-    return { stars, lines, anchors, frame, bounds: { x: x0, y: y0, w: Math.max(...xs) + pad - x0, h: Math.max(...ys) + pad - y0 } }
+    const N = S.native, k = opts.extent ? opts.extent / N.size : 1, c = opts.centre || N
+    const X = (x) => c.x + (x - N.x) * k, Y = (y) => c.y + (y - N.y) * k
+    const frame = { shape, ...S.frame }; if (shape === 'disc') frame.r = Math.max(...Object.values(stars).map((s) => Math.hypot(s.x, s.y))) + 90
+    if ('horizonY' in frame) frame.horizonY = Y(frame.horizonY)
+    if ('divideX' in frame) frame.divideX = X(frame.divideX)
+    if ('cx' in frame) Object.assign(frame, { cx: X(frame.cx), cy: Y(frame.cy), r: frame.r * k })
+    for (const s of [...Object.values(stars), ...anchors]) Object.assign(s, { x: X(s.x), y: Y(s.y) }, s.r ? { r: s.r * k } : {})
+    const all = Object.values(stars), pad = 90 * k, xs = all.map((s) => s.x), ys = all.map((s) => s.y)
+    const x0 = Math.min(...xs) - pad, y0 = Math.min(...ys) - pad
+    return { stars, lines, anchors, frame, scale: k, bounds: { x: x0, y: y0, w: Math.max(...xs) + pad - x0, h: Math.max(...ys) + pad - y0 } }
   }
   LAB.layout.shapes = Object.keys(SHAPES)
 })()
