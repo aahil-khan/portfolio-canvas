@@ -384,7 +384,6 @@
   const ON_DESK = Object.keys(SPOTS)
 
   const esc = (s) => String(s).replace(/[&<>"']/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' })[c])
-  const rich = (s) => esc(s).replace(/\*\*([^*]+)\*\*/g, '<strong>$1</strong>')
   const app = (id) => C.apps.find((a) => a.id === id)
 
   const BODIES = {
