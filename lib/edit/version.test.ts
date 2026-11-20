@@ -11,7 +11,7 @@ test('on Vercel, the live commit is the one Vercel built', () => {
   assert.equal(buildSha({ VERCEL_GIT_COMMIT_SHA: 'abc123' }, none), 'abc123')
 })
 
-test('on the server, the commit the deploy watcher wrote', () => {
+test('self-hosted, the commit written to .build-sha', () => {
   assert.equal(buildSha({}, () => 'def456\n'), 'def456')
 })
 
