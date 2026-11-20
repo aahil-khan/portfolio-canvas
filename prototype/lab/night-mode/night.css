@@ -1,0 +1,311 @@
+/*
+ * prototype/lab/night-mode/night.css: the desk at night. Load after ../shared/jet.css and
+ * ../shared/desk.css. Values from design/DIRECTION.md and the kit's tokens; jet only inside the
+ * sky (.lab-sky). The desk itself keeps its theme (cream here).
+ * No backdrop-filter anywhere in this file: the night bar and plate are solid, and nothing in
+ * the transformed world blurs. (The kit's dock keeps its own glass: fixed, as DIRECTION allows.)
+ */
+
+/* animatable, so dimming eases instead of snapping */
+@property --dim { syntax: '<number>'; inherits: false; initial-value: 1; }
+
+/* ── the night layer: fixed in #deskBackdrop, behind the world ── */
+.night { position: absolute; inset: 0; overflow: hidden; visibility: hidden; pointer-events: none; }
+html.has-night .night { visibility: visible; }
+.night__blind {
+  position: absolute; left: 0; right: 0; top: 0; height: 160%;
+  transform: translateY(-100%); will-change: transform;
+  /* solid night down to 100vh, then a dusk edge: a breath of warmth before it goes clear */
+  background: linear-gradient(180deg,
+    #0a0a0a 0%, #0a0a0a 62.5%,
+    #121014 72%, rgba(42, 30, 34, 0.82) 82%, rgba(255, 180, 162, 0.14) 92%, rgba(255, 180, 162, 0) 100%);
+}
+.night__field { position: absolute; inset: 0; opacity: 0; }
+.night__field::before {
+  content: ''; position: absolute; inset: 0;
+  background: radial-gradient(ellipse at 50% 0%, rgba(237, 234, 224, 0.06), transparent 55%);
+}
+.night__moon { position: absolute; left: 50%; top: 30%; width: 128px; height: 128px; margin: -64px 0 0 -64px; opacity: 0; }
+.night__moon canvas { display: block; width: 100%; height: 100%; image-rendering: pixelated; opacity: 0.82; transition: opacity var(--dur-hover) var(--ease-out); }
+html.has-focus .night__moon canvas { opacity: 0.3; } /* a focused star or an open window outranks the moon */
+.night__moon::before {
+  /* the moon's halo: soft light, not blur on anything */
+  content: ''; position: absolute; inset: -60%; border-radius: 50%;
+  background: radial-gradient(circle, rgba(237, 234, 224, 0.07) 0, rgba(237, 234, 224, 0.025) 38%, transparent 62%);
+}
+
+/* While night falls or lifts, everything that changes gets its own compositor layer, so a
+   frame is a composite, not a repaint of the whole world. Off again at rest, so text re-rasters
+   crisp at the final zoom. */
+html.is-turning .desk-card, html.is-turning .desk-hero { will-change: opacity, translate, scale; }
+html.is-turning #deskGrid { will-change: opacity; }
+html.is-turning .sky { will-change: transform; }
+
+/* ── the sky: a world layer. Marks and words counter-scale with --inv (1 / camera scale) ── */
+.sky { visibility: hidden; }
+html.has-night .sky { visibility: visible; }
+.sky__lines { position: absolute; left: 0; top: 0; overflow: visible; pointer-events: none; }
+.sky__line {
+  stroke: var(--line-rest); stroke-width: calc(1.25px * var(--inv, 1)); stroke-linecap: round;
+  opacity: calc(var(--lo, 1) * var(--dim)); transition: --dim var(--dur-hover) var(--ease-out), stroke var(--dur-hover) var(--ease-out);
+}
+.sky__line[data-kind='figure'] {
+  stroke: rgba(var(--star-dust), 0.2);
+  stroke-dasharray: calc(1.5px * var(--inv, 1)) calc(5px * var(--inv, 1));
+}
+.sky__line.is-hot { stroke: var(--line-focus); stroke-width: calc(1.75px * var(--inv, 1)); stroke-dasharray: none; }
+.sky__line.is-off { --dim: 0.12; }
+.sky[data-focus] .sky__line:not(.is-hot) { --dim: 0.35; }
+.sky__divide {
+  stroke: rgba(var(--star-dust), 0.12); stroke-width: calc(1px * var(--inv, 1));
+  stroke-dasharray: calc(2px * var(--inv, 1)) calc(9px * var(--inv, 1)); opacity: var(--labels, 1);
+}
+
+.sky__words > * {
+  position: absolute; transform-origin: 0 0; transform: scale(var(--inv, 1));
+  white-space: nowrap; pointer-events: none; user-select: none;
+  opacity: calc(var(--labels, 1) * var(--dim)); transition: --dim var(--dur-hover) var(--ease-out);
+}
+.sky__words > .is-off { --dim: 0.22; }
+.sky__name { font-size: 0.6875rem; font-weight: 500; line-height: 1.3; letter-spacing: 0.08em; text-transform: uppercase; color: var(--ink-subtle); }
+.sky__shelf {
+  display: inline-flex; align-items: center; gap: 8px; padding: 5px 11px 5px 9px;
+  font-size: 0.75rem; font-weight: 700; line-height: 1.3; letter-spacing: 0.06em; text-transform: uppercase;
+  color: var(--ink); background: var(--canvas-base); border: 1.5px solid rgba(var(--star-dust), 0.3); border-radius: var(--radius-pill);
+}
+.sky__shelf[data-shelf='playground'] { color: var(--star-play); border-color: color-mix(in srgb, var(--star-play) 40%, transparent); }
+.sky__count { font-weight: 500; color: var(--ink-subtle); letter-spacing: 0.02em; }
+
+.star {
+  position: absolute; width: 28px; height: 28px; margin: 0; padding: 0; border: 0; border-radius: 50%;
+  background: none; font: inherit; color: var(--star-notes); cursor: pointer;
+  transform-origin: 0 0; transform: scale(var(--inv, 1)) translate(-50%, -50%);
+  opacity: calc(var(--o, 1) * var(--dim) * var(--seen, 1));
+  transition: --dim var(--dur-hover) var(--ease-out);
+}
+.star[data-shelf='playground'] { color: var(--star-play); }
+.star[data-visited] { --seen: var(--star-visited); }
+@media (pointer: coarse) { .star { width: 44px; height: 44px; } }
+.star::before {
+  content: ''; position: absolute; left: 50%; top: 50%; width: calc(var(--r) * 4.4); height: calc(var(--r) * 4.4);
+  border-radius: 50%; transform: translate(-50%, -50%) scale(var(--pop, 1));
+  background: radial-gradient(circle, color-mix(in srgb, currentColor 26%, transparent) 0, transparent 62%);
+  pointer-events: none;
+}
+.star__mark { position: absolute; left: 50%; top: 50%; overflow: visible; transform: translate(-50%, -50%) scale(var(--pop, 1)); pointer-events: none; }
+.star__mark path { fill: currentColor; }
+.star:is(:hover, .is-focus)::before { width: calc(var(--r) * 6); height: calc(var(--r) * 6); }
+.star.is-off { --dim: 0.14; }
+.sky[data-focus] .star:not(.is-near) { --dim: 0.3; }
+.star:focus-visible { outline: 2px solid var(--accent); outline-offset: 3px; }
+.star.is-focus .star__mark { filter: none; }
+.star.is-focus::after {
+  content: ''; position: absolute; left: 50%; top: 50%; width: calc(var(--r) * 2 + 14px); height: calc(var(--r) * 2 + 14px);
+  transform: translate(-50%, -50%); border-radius: 50%; border: 1.5px solid currentColor; pointer-events: none;
+}
+.star.is-new::after {
+  content: ''; position: absolute; left: 50%; top: 50%; width: calc(var(--r) * 2 + 16px); height: calc(var(--r) * 2 + 16px);
+  transform: translate(-50%, -50%); border-radius: 50%; border: 2px solid var(--accent); pointer-events: none;
+}
+
+.star__label {
+  position: absolute; left: calc(50% + 14px); top: 50%; width: max-content; max-width: 150px;
+  font-size: 0.75rem; font-weight: 500; line-height: 1.25; letter-spacing: 0; text-align: left; white-space: normal;
+  color: var(--ink-muted); opacity: var(--labels, 1); pointer-events: none;
+  transition: opacity var(--dur-hover) var(--ease-out), color var(--dur-hover) var(--ease-out);
+}
+.star__label[data-side='left'], .star__label[data-side='nw'], .star__label[data-side='sw'] { text-align: right; }
+.star__label[data-side='above'], .star__label[data-side='below'] { text-align: center; }
+.star__label[data-hidden] { opacity: 0; }
+.star:is(:hover, :focus-visible, .is-focus) .star__label { opacity: 1; color: var(--ink); z-index: 2; }
+.star:is(:hover, :focus-visible, .is-focus) .star__label[data-hidden] {
+  background: var(--canvas-base); padding: 2px 7px; margin: -2px -7px; border-radius: 6px; border: 1px solid rgba(var(--star-dust), 0.25);
+}
+.sky[data-focus] .star.is-near:not(.is-focus) .star__label { color: var(--ink); }
+
+.sky__ring {
+  position: absolute; width: 22px; height: 22px; border-radius: 50%; border: 1.5px solid var(--ink-muted);
+  transform-origin: 0 0; transform: scale(var(--inv, 1)) translate(-50%, -50%); pointer-events: none;
+}
+
+/* ── the night bar: the one clear way back, and the filter ── */
+.nightbar {
+  position: fixed; top: 22px; left: 50%; z-index: 61; display: flex; align-items: center; gap: 8px; padding: 6px;
+  background: var(--surface); color: var(--ink); border: var(--bw) solid var(--border); border-radius: var(--radius-pill);
+  box-shadow: 4px 4px 0 0 var(--shadow-color);
+  opacity: 0; visibility: hidden; transform: translate(-50%, -10px);
+  transition: opacity 320ms var(--ease-out), transform 320ms var(--ease-out), visibility 0s linear 320ms;
+}
+html.is-night .nightbar { opacity: 1; visibility: visible; transform: translate(-50%, 0); transition-delay: 0s; }
+.nightbar button {
+  font: inherit; font-size: 0.8125rem; font-weight: 500; color: inherit; background: none; border: 0; cursor: pointer;
+  display: inline-flex; align-items: center; gap: 7px; white-space: nowrap; border-radius: var(--radius-pill); padding: 7px 12px;
+}
+.nightbar button:hover { background: rgba(var(--star-dust), 0.1); }
+.nightbar .nb-back {
+  /* the desk's own colours, so the way back looks like where it goes */
+  background: #f7f5ee; color: #161616; font-weight: 700; padding: 7px 14px 7px 11px; border: var(--bw) solid #f7f5ee;
+}
+.nightbar .nb-back:hover { background: #fdf7c4; }
+.nb-seg { display: flex; gap: 2px; padding: 2px; border-radius: var(--radius-pill); background: var(--canvas-base); border: 1px solid rgba(var(--star-dust), 0.16); }
+.nb-seg button { padding: 5px 11px; color: var(--ink-muted); }
+.nb-seg button[aria-pressed='true'] { background: var(--ink); color: #161616; font-weight: 700; }
+.nb-seg button[aria-pressed='true'] .lab-mark[data-shelf='notes'] { background: #161616; }
+.nb-seg button[aria-pressed='true'] .lab-mark[data-shelf='playground'] { background: #b3401e; }
+.nb-tools { display: flex; gap: 2px; }
+
+/* the desk's pill goes with the night (night.js), the dock and zoom turn to night, and the
+   cards' open dots rest: the cards are away. Only the Lab's dot stays. */
+html.is-night .desk-dock__item:not([data-id='lab'])::after { opacity: 0; }
+.desk-dock__panel, .desk-zoom { transition: background-color var(--dur-dock) var(--ease-out), border-color var(--dur-dock) var(--ease-out), box-shadow var(--dur-dock) var(--ease-out); }
+html.is-night .desk-dock__panel { background: rgba(20, 20, 20, 0.74); border-color: rgba(237, 234, 224, 0.16); box-shadow: 0 8px 24px rgba(0, 0, 0, 0.5); }
+html.is-night .desk-dock__sep { background: rgba(237, 234, 224, 0.2); }
+html.is-night .desk-dock__item[data-open='true']::after { background: #edeae0; }
+html.is-night .desk-dock__item[data-id='lab'] .desk-dock__icon { border-color: #edeae0; box-shadow: 2px 2px 0 0 #3a3a3a; }
+html.is-night .desk-dock__tip { background: #edeae0; color: #161616; }
+html.is-night .desk-zoom { background: rgba(20, 20, 20, 0.8); color: rgba(237, 234, 224, 0.58); border-color: rgba(237, 234, 224, 0.16); }
+html.is-night .desk-zoom button { color: #edeae0; }
+
+/* ── the plate: a focused star's card ── */
+.plate { position: fixed; z-index: 62; width: 300px; padding: 14px 16px 16px; }
+.plate[hidden] { display: none; }
+.plate__x {
+  position: absolute; right: 10px; top: 10px; width: 26px; height: 26px; border-radius: 50%; padding: 0; cursor: pointer;
+  background: none; border: 1.5px solid rgba(var(--star-dust), 0.35);
+}
+.plate__x::before, .plate__x::after { content: ''; position: absolute; left: 50%; top: 50%; width: 10px; height: 1.5px; background: var(--ink); }
+.plate__x::before { transform: translate(-50%, -50%) rotate(45deg); }
+.plate__x::after { transform: translate(-50%, -50%) rotate(-45deg); }
+.plate__shelf { display: flex; align-items: center; gap: 7px; margin: 0 34px 8px 0; color: var(--ink-muted); }
+.plate[data-shelf='playground'] .plate__shelf { color: var(--star-play); }
+.plate__title { font-size: 1.375rem; font-weight: 700; line-height: 1.15; letter-spacing: -0.01em; margin: 0 30px 6px 0; }
+.plate__blurb { margin: 0 0 10px; font-size: 0.9375rem; line-height: 1.5; color: var(--ink-muted); }
+.plate__meta { display: flex; flex-wrap: wrap; align-items: center; gap: 6px 8px; margin: 0 0 14px; color: var(--ink-subtle); }
+.plate__meta .lab-chip { font-size: 0.6875rem; padding: 1px 7px; }
+
+.nbtn {
+  display: inline-flex; align-items: center; gap: 6px; font: inherit; font-size: 0.875rem; font-weight: 700; text-decoration: none; cursor: pointer;
+  color: var(--ink); background: var(--surface); border: var(--bw) solid var(--border); border-radius: var(--radius-pill); padding: 6px 14px;
+  box-shadow: 3px 3px 0 0 var(--shadow-color);
+}
+.nbtn--primary { background: var(--accent); color: var(--accent-ink); }
+.nbtn:active { translate: 2px 2px; box-shadow: 1px 1px 0 0 var(--shadow-color); }
+
+/* ── night windows: desk windows, in jet ── */
+.nwin { --on-app: #161616; }
+.nwin[data-tone='index'] { --on-app: #edeae0; }
+.nwin[data-tone='index'] .desk-card__ico, .nwin[data-tone='index'] .desk-card__x { background: rgba(237, 234, 224, 0.1); }
+.nwin .desk-card__ico .lab-mark { width: 12px; height: 12px; background: #161616; }
+.nwin .desk-card__body { overflow: auto; overscroll-behavior: contain; touch-action: pan-y; scrollbar-width: thin; scrollbar-color: rgba(237, 234, 224, 0.25) transparent; }
+.nwin .desk-card__body p { max-width: none; }
+.nwin__meta { display: flex; flex-wrap: wrap; align-items: center; gap: 6px 10px; margin: 0 0 12px !important; }
+.nwin__meta .lab-chip { font-size: 0.6875rem; padding: 1px 7px; }
+.nwin__shelf { display: inline-flex; align-items: center; gap: 7px; color: var(--ink); }
+.nwin[data-tone='playground'] .nwin__shelf, .nwin[data-tone='arcade'] .nwin__shelf { color: var(--star-play); }
+.nwin__dim { color: var(--ink-subtle); margin: 0; }
+.nwin__status { border-style: dashed; }
+.nwin__title { font-size: 1.375rem; font-weight: 700; line-height: 1.15; letter-spacing: -0.01em; margin: 0 0 8px; outline: none; }
+/* the title takes focus when a window opens (tabindex=-1, so the dialog is announced and Tab
+   carries on inside it); it is not a control, so no ring */
+.nwin__title:focus, .nwin__title:focus-visible { outline: none; }
+.nwin .lede { color: var(--ink) !important; }
+.nwin__gallery { margin: 4px 0 16px; display: grid; gap: 8px; }
+.nwin__gallery figure { margin: 0; }
+.nwin__gallery img { display: block; width: 100%; height: auto; background: #1d1d1d; border: var(--bw) solid var(--border); border-radius: var(--radius-chip); }
+.nwin__hero img { max-height: 300px; object-fit: cover; }
+.nwin__thumbs { display: grid; grid-template-columns: repeat(var(--n), 1fr); gap: 8px; }
+.nwin__thumb img { aspect-ratio: 4 / 3; object-fit: cover; }
+.nwin__gallery figcaption { font-size: 0.6875rem; font-weight: 500; letter-spacing: 0.04em; text-transform: uppercase; color: var(--ink-subtle); margin-top: 5px; line-height: 1.35; }
+.nwin__prose { font-size: 0.9375rem; color: var(--ink-muted); }
+.nwin__prose strong { color: var(--ink); }
+.nwin__actions { display: flex; flex-wrap: wrap; gap: 10px; margin: 6px 0 16px; }
+.nwin__rel { margin-top: 14px; padding-top: 12px; border-top: 1.5px solid rgba(var(--star-dust), 0.14); }
+.nwin__rel .t-label { margin-bottom: 8px !important; }
+.nwin__links { display: flex; flex-wrap: wrap; gap: 6px; }
+.nwin__link {
+  display: inline-flex; align-items: center; gap: 7px; font: inherit; font-size: 0.8125rem; font-weight: 500; color: var(--ink); cursor: pointer;
+  background: var(--canvas-base); border: 1.5px solid rgba(var(--star-dust), 0.3); border-radius: var(--radius-pill); padding: 4px 11px 4px 9px;
+}
+.nwin__link:hover { border-color: var(--ink); }
+.nwin__stub { color: var(--ink-subtle); margin: 14px 0 0 !important; }
+
+.arc { list-style: none; margin: 12px 0 0; padding: 0; display: grid; gap: 8px; }
+.arc__game {
+  display: flex; align-items: center; gap: 12px; padding: 10px 12px; border-radius: var(--radius-chip);
+  border: 1.5px solid rgba(var(--star-dust), 0.2); background: var(--canvas-base);
+}
+.arc__game.is-on { border: var(--bw) solid #dce8a0; box-shadow: 3px 3px 0 0 #3a3a3a; }
+.arc__game b { display: block; font-weight: 700; color: var(--ink); }
+.arc__game span span { display: block; font-size: 0.875rem; color: var(--ink-muted); }
+.arc__play { font-size: 0.75rem; color: var(--ink-subtle); width: 14px; }
+.arc__game.is-on .arc__play { color: #dce8a0; }
+.arc__star { margin-left: auto; width: 32px; height: 32px; flex: 0 0 auto; border-radius: 50%; border: 1.5px solid rgba(var(--star-dust), 0.25); background: none; cursor: pointer; display: grid; place-items: center; }
+
+/* the index */
+.ix__count-line { margin: 0 0 12px !important; }
+.ix__desks { display: flex; flex-wrap: wrap; align-items: center; gap: 8px; margin: 0 0 6px; }
+.ix__desk {
+  font: inherit; font-size: 0.8125rem; font-weight: 700; color: #161616; cursor: pointer;
+  background: var(--c); border: var(--bw) solid var(--border); border-radius: var(--radius-pill); padding: 4px 12px; box-shadow: 2px 2px 0 0 var(--shadow-color);
+}
+.ix__shelf { margin-top: 18px; }
+.ix__name {
+  display: flex; align-items: center; gap: 9px; margin: 0; padding: 0 0 8px; font-size: 1rem; font-weight: 700; letter-spacing: -0.005em;
+  border-bottom: var(--bw) solid var(--border);
+}
+.ix__shelf[data-shelf='playground'] .ix__name { color: var(--star-play); border-color: var(--star-play); }
+.ix__count { margin-left: auto; font-size: 0.75rem; font-weight: 500; color: var(--ink-subtle); }
+.ix__kind { margin: 14px 0 4px; color: var(--ink-subtle); }
+.ix__list { list-style: none; margin: 0; padding: 0; }
+.ix__list li { display: flex; align-items: center; gap: 8px; border-top: 1px solid rgba(var(--star-dust), 0.1); }
+.ix__list li:first-child { border-top: 0; }
+.ix__row {
+  flex: 1; min-width: 0; display: grid; grid-template-columns: 1fr auto; gap: 1px 12px; align-items: baseline; text-align: left;
+  font: inherit; color: inherit; background: none; border: 0; padding: 8px 6px; margin: 0 -6px; border-radius: 6px; cursor: pointer;
+}
+.ix__row:hover { background: rgba(var(--star-dust), 0.06); }
+.ix__title { font-weight: 700; color: var(--ink); }
+.ix__when { color: var(--ink-subtle); white-space: nowrap; }
+.ix__blurb { grid-column: 1 / -1; font-size: 0.875rem; color: var(--ink-muted); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.ix__work {
+  flex: 0 0 auto; font: inherit; font-size: 0.6875rem; font-weight: 700; letter-spacing: 0.04em; text-transform: uppercase; cursor: pointer;
+  color: #161616; background: #a8e6a1; border: 1.5px solid var(--border); border-radius: var(--radius-chip); padding: 2px 7px;
+}
+
+/* ── proof readout (throwaway) ── */
+.proof {
+  position: fixed; left: 16px; bottom: 120px; z-index: 70; margin: 0; padding: 6px 10px; border-radius: 8px;
+  background: #161616; color: #edeae0; border: 2px solid #edeae0; font-variant-numeric: tabular-nums;
+}
+.proof[data-ok='true']::before { content: '✓ '; color: #a8e6a1; }
+.proof[data-ok='false']::before { content: '✗ '; color: #ffb4a2; }
+
+/* ── phone ── */
+@media (max-width: 700px) {
+  .nightbar {
+    top: 10px; width: calc(100vw - 20px); flex-wrap: wrap; justify-content: space-between; gap: 6px; border-radius: 18px; padding: 6px;
+  }
+  .nightbar button { font-size: 0.75rem; padding: 6px 10px; }
+  .nightbar .nb-back { padding: 6px 12px 6px 9px; }
+  .nb-tools { order: 2; }
+  .nb-seg { order: 3; width: 100%; justify-content: space-between; }
+  .nb-seg button { flex: 1 1 auto; justify-content: center; padding: 6px 6px; }
+  .star__label { max-width: 120px; font-size: 0.6875rem; }
+  .sky__shelf { font-size: 0.6875rem; padding: 4px 9px 4px 8px; }
+  .night__moon { width: 96px; height: 96px; margin: -48px 0 0 -48px; }
+  .plate {
+    left: 0 !important; right: 0; bottom: 0; top: auto !important; width: auto; z-index: 66;
+    border-radius: 18px 18px 0 0; border-bottom: 0; box-shadow: 0 -4px 0 0 var(--shadow-color);
+    padding: 16px 18px calc(20px + env(safe-area-inset-bottom));
+  }
+  .proof { bottom: 84px; left: 10px; right: 10px; }
+}
+
+/* ── reduced motion: opacity only. night.js already swaps its timeline; this covers CSS ── */
+@media (prefers-reduced-motion: reduce) {
+  .nightbar, html.is-night .nightbar { transform: translate(-50%, 0); transition: opacity 200ms linear, visibility 0s linear 200ms; }
+  html.is-night .nightbar { transition-delay: 0s; }
+  .star, .sky__line, .sky__words > * { transition: --dim 120ms linear; }
+  .star__label { transition: opacity 120ms linear; }
+  .nbtn:active { translate: none; }
+}
