@@ -1,0 +1,46 @@
+<!doctype html>
+<html lang="en" data-theme="cream">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>Lab — sky beyond the desk</title>
+<!--
+  DESIGN GATE — prototype/lab/sky-beyond/ (Direction 1: the sky beyond the desk)
+
+  What is being judged:
+    - The move from desk to sky. Zoom out (pinch, or ctrl/⌘ + wheel) or pan past the desk and the
+      cream floor thins out, square by square, into a jet starfield. The Lab tile in the dock flies
+      the same path. ?view=edge freezes the moment halfway.
+    - The sky itself: 19 real pieces as stars in one chart, two shelves told apart by shape AND
+      colour (✦ Notes & write-ups, ● Playground), constellation names, the three-way filter.
+    - The deep-space card as the door, at the sky's rim.
+    - Pieces opening as ordinary canvas windows in the sky; the Arcade's games opening the Arcade.
+    - The Lab index: a plain canvas window, for people who just want a list.
+  Throwaway: the arcade stub's insides, the proof badge, every chrome string's exact wording.
+
+  Views (all reproducible from the URL):
+    index.html                                the desk as today, Lab tile in the dock
+    ?view=edge                                mid-transition
+    ?at=lab   (alias ?lab=1)                  landing in the sky — what /lab would deep-link to
+    ?at=lab&focus=sop-opera                   a star focused, with its plate
+    ?at=lab&shelf=playground                  the filter
+    ?open=sop-opera,chinese-watch · ?open=snake · ?open=index
+    ?proof=1                                  a 20th piece pushed onto LAB.pieces, then renderSky()
+
+  Keyboard: Tab reaches the stars once you are in the sky (focus shows the plate), Enter opens,
+  arrows step to the nearest star that way, Escape closes the top window, then the plate.
+-->
+<link rel="stylesheet" href="../shared/jet.css">
+<link rel="stylesheet" href="../shared/desk.css">
+<link rel="stylesheet" href="sky-beyond.css">
+<script src="../shared/pieces.js"></script>
+<script src="../shared/sky.js"></script>
+</head>
+<body>
+<script src="../shared/layout.js"></script>
+<script src="../shared/body.js"></script>
+<script src="../shared/desk.js"></script>
+<script src="logic.js"></script>
+<script src="sky-beyond.js"></script>
+</body>
+</html>

@@ -1,0 +1,258 @@
+/*
+ * prototype/lab/sky-beyond/sky-beyond.css: Direction 1. Loads after shared/jet.css and
+ * shared/desk.css. Jet is only for the sky: everything here that is dark sits under .lab-sky,
+ * and the desk keeps whatever theme it has. No backdrop blur anywhere in this file: the only
+ * glass is the kit's dock and pill.
+ */
+
+/* Past the island, the floor is sky. The desk's cream lives in the world now, as an island. */
+html.sb body { background: #0a0a0a; }
+.sb-backdrop { background: var(--canvas-base); }
+.sb-nebula { position: absolute; display: block; pointer-events: none; }
+.sb-backdrop.is-covered { visibility: hidden; }
+/* the starfield: three bitmap tiles, each a tile larger than the screen, slid by transform */
+.sb-field { position: absolute; inset: 0; overflow: hidden; }
+.sb-field__layer { position: absolute; left: 0; top: 0; width: calc(100% + var(--t) * 2); height: calc(100% + var(--t) * 2); will-change: transform; }
+.sb-field__layer:last-child { animation: lab-twinkle 7s ease-in-out infinite alternate; }
+.sb-backdrop.is-covered .sb-field__layer { animation-play-state: paused; }
+
+/* ── the island: a soft core with the desk's grid, over a one-bit dissolve ── */
+.sb-core, .sb-dither { position: absolute; pointer-events: none; }
+.sb-dither { image-rendering: pixelated; image-rendering: crisp-edges; }
+/* the grid only, clipped to an ellipse inside the solid part of the dither (e < 0.92), so its
+   edge falls on plain cream. A clip, not a mask: a mask here re-rasterised on every zoom frame */
+[data-layer='floor'] .sb-core {
+  border-radius: 50%;
+  background:
+    linear-gradient(to right, var(--canvas-grid) 1px, transparent 1px) 0 0 / 48px 48px,
+    linear-gradient(to bottom, var(--canvas-grid) 1px, transparent 1px) 0 0 / 48px 48px;
+}
+
+/* ── the sky layer. --k = 1 / scale, written once per zoom frame from DESK.onFrame, so marks,
+      labels and the plate keep their screen size while their positions zoom with the world ── */
+/* its own layer: a zoom repaints the stars and labels, never the island or the cards */
+.sb-sky { --k: 1; --hit: 30px; will-change: transform; }
+@media (pointer: coarse) { .sb-sky { --hit: 44px; } }
+.sb-lines { position: absolute; overflow: visible; pointer-events: none; }
+.sb-lines line, .sb-lines circle { vector-effect: non-scaling-stroke; fill: none; }
+.sb-lines .rim { stroke: rgba(237, 234, 224, 0.13); stroke-width: 1; }
+.sb-lines .tick { stroke: rgba(237, 234, 224, 0.13); stroke-width: 1; }
+.sb-lines .ln { stroke: rgba(237, 234, 224, 0.3); stroke-width: 1; transition: stroke var(--dur-hover) var(--ease-out), opacity var(--dur-hover) var(--ease-out); }
+.sb-lines .ln.link { stroke: rgba(237, 234, 224, 0.5); }
+.sb-lines .ln.is-hot { stroke: var(--line-focus); stroke-width: 1.5; stroke-dasharray: none; }
+.sb-lines .ln.is-dim { opacity: 0.12; }
+.sb-sky[data-focus] .sb-lines .ln:not(.is-hot) { opacity: 0.35; }
+.sb-ghost::before {
+  content: ''; position: absolute; left: -10px; top: -10px; width: 20px; height: 20px; border-radius: 50%;
+  border: 1.5px dashed var(--accent);
+}
+
+.sb-pin { position: absolute; width: 0; height: 0; transform-origin: 0 0; transform: scale(var(--k)); pointer-events: none; }
+
+.sb-star {
+  position: absolute; width: var(--hit); height: var(--hit); padding: 0; margin: 0; border: 0; border-radius: 50%;
+  background: none; color: var(--ink); cursor: pointer; font: inherit;
+  transform-origin: 0 0; transform: scale(var(--k)) translate(-50%, -50%);
+  transition: opacity var(--dur-hover) var(--ease-out);
+  -webkit-tap-highlight-color: transparent;
+}
+.sb-star:focus-visible { outline: 2px solid var(--accent); outline-offset: 0; }
+.sb-star__mark { position: absolute; left: 50%; top: 50%; transform: translate(-50%, -50%) scale(var(--mk, 1)); overflow: visible; pointer-events: none; }
+.sb-star__mark path { fill: var(--star-notes); transition: transform var(--dur-hover) var(--ease-out); }
+.sb-star[data-shelf='playground'] .sb-star__mark path { fill: var(--star-play); }
+.sb-star__mark .halo { fill: rgba(237, 234, 224, 0.07); }
+.sb-star[data-shelf='playground'] .sb-star__mark .halo { fill: rgba(255, 180, 162, 0.09); }
+.sb-star__mark .ring { fill: none; stroke: var(--accent); stroke-width: 1.5; opacity: 0; }
+.sb-star:hover .sb-star__mark path, .sb-star.is-focus .sb-star__mark path { transform: scale(1.3); }
+.sb-star.is-focus .sb-star__mark .ring { opacity: 1; }
+.sb-star.is-visited .sb-star__mark path { opacity: var(--star-visited); }
+.sb-star.is-new .sb-star__mark .ring { opacity: 1; stroke-dasharray: none; }
+
+.sb-star__label, .sb-con__name {
+  position: absolute; left: 50%; top: 50%; white-space: nowrap; pointer-events: none;
+  text-shadow: 0 0 3px #0a0a0a, 0 0 6px #0a0a0a;
+  transition: opacity var(--dur-hover) var(--ease-out);
+}
+.sb-star__label { font-size: 0.75rem; font-weight: 500; line-height: 1.3; color: var(--ink-muted); }
+.sb-star:hover .sb-star__label, .sb-star.is-focus .sb-star__label, .sb-star.is-near .sb-star__label { color: var(--ink); }
+.sb-con__name { left: 0; top: 0; color: var(--ink-subtle); }
+.sb-con.is-near .sb-con__name { color: var(--ink); }
+.is-off { opacity: 0; visibility: hidden; }
+
+/* focus dims everything that is not the star or a neighbour; the filter dims the other shelf */
+.sb-sky[data-focus] .sb-star:not(.is-focus):not(.is-near) { opacity: 0.34; }
+.sb-sky[data-focus] .sb-con:not(.is-near) { opacity: 0.45; }
+.sb-sky .sb-star.is-dim, .sb-sky .sb-con.is-dim { opacity: 0.14; }
+.sb-sky .sb-star.is-dim { pointer-events: none; }
+
+.sb-skyname { opacity: 0; transition: opacity var(--dur-open) var(--ease-out); }
+.sb-skyname.is-on { opacity: 1; }
+.sb-skyname__t {
+  position: absolute; transform: translate(-50%, calc(var(--up, 0px) - 100%)); display: flex; align-items: center; gap: 8px; white-space: nowrap;
+  font-size: 0.75rem; font-weight: 500; letter-spacing: 0.04em; text-transform: uppercase; color: var(--ink);
+  text-shadow: 0 0 6px #0a0a0a;
+}
+
+/* ── the plate: a small card pinned beside the focused star ── */
+.sb-plate, .sb-sheet {
+  width: 288px; padding: 14px 16px 16px; display: grid; gap: 8px;
+  background: var(--surface); color: var(--ink); border: var(--bw) solid var(--border); border-radius: var(--radius-window);
+  box-shadow: 4px 4px 0 0 var(--shadow-color); font-size: 0.875rem;
+}
+.sb-plate { position: absolute; transform-origin: 0 0; transform: scale(var(--k)) translate(var(--dx, 18px), var(--dy, -40px)); z-index: 5; }
+.sb-plate[hidden], .sb-sheet[hidden] { display: none; }
+.sb-plate__shelf { display: flex; align-items: center; gap: 7px; color: var(--ink-subtle); }
+.sb-plate__title { margin: 0; font-size: 1.0625rem; font-weight: 700; line-height: 1.2; letter-spacing: -0.01em; }
+.sb-plate__blurb { margin: 0; color: var(--ink-muted); line-height: 1.45; }
+.sb-chips { display: flex; flex-wrap: wrap; gap: 5px; }
+.sb-chips .lab-chip { font-size: 0.6875rem; padding: 1px 6px; border-width: 1.5px; color: var(--ink-muted); }
+.sb-sheet {
+  position: fixed; left: 12px; right: 12px; bottom: calc(var(--dock-bottom) + var(--dock-size) + var(--dock-pad) * 2 + 12px);
+  width: auto; z-index: 58;
+}
+
+.sb-btn {
+  display: inline-flex; align-items: center; gap: 7px; justify-self: start;
+  font: inherit; font-size: 0.8125rem; font-weight: 500; line-height: 1; color: var(--ink); text-decoration: none; cursor: pointer;
+  background: var(--surface); border: var(--bw) solid var(--border); border-radius: var(--radius-pill); padding: 7px 13px;
+  transition: box-shadow var(--dur-hover) var(--ease-out);
+}
+.sb-btn:hover { box-shadow: 3px 3px 0 0 var(--shadow-color); }
+.sb-btn svg { width: 15px; height: 15px; }
+.sb-btn--go { background: var(--accent); color: var(--accent-ink); border-color: var(--accent); font-weight: 700; }
+.sb-btn[disabled] { opacity: 0.55; cursor: default; box-shadow: none; }
+.sb-btn--sq { padding: 6px 10px; }
+.sb-mark { margin-right: 1px; }
+
+/* ── the sky bar: fixed, solid, only in the sky ── */
+.sb-bar {
+  position: fixed; top: 74px; left: 50%; transform: translateX(-50%); z-index: 59;
+  display: flex; align-items: center; gap: 10px; padding: 6px; max-width: calc(100vw - 24px);
+  background: var(--surface); color: var(--ink); border: var(--bw) solid var(--border); border-radius: 16px;
+  box-shadow: 4px 4px 0 0 var(--shadow-color);
+  opacity: 0; visibility: hidden; transition: opacity var(--dur-open) var(--ease-out), visibility 0s linear var(--dur-open);
+}
+html[data-place='sky'] .sb-bar { opacity: 1; visibility: visible; transition: opacity var(--dur-open) var(--ease-out); }
+.sb-seg { display: flex; gap: 2px; padding: 2px; border-radius: 11px; background: #0a0a0a; }
+.sb-seg button, .sb-bar__acts .sb-btn { font: inherit; font-size: 0.8125rem; font-weight: 500; white-space: nowrap; }
+.sb-seg button {
+  display: inline-flex; align-items: center; gap: 7px; border: 0; border-radius: 9px; padding: 7px 11px; cursor: pointer;
+  background: none; color: var(--ink-muted);
+}
+.sb-seg button[aria-pressed='true'] { background: var(--ink); color: #0a0a0a; }
+.sb-seg button[aria-pressed='true'] .lab-mark[data-shelf='notes'] { background: #0a0a0a; }
+.sb-bar__acts { display: flex; gap: 6px; }
+.sb-bar__acts .sb-btn { border-radius: 10px; }
+.sb-badge {
+  position: fixed; top: 132px; left: 50%; transform: translateX(-50%); z-index: 59; white-space: nowrap;
+  background: var(--accent); color: var(--accent-ink); border: var(--bw) solid #161616; border-radius: var(--radius-chip); padding: 5px 10px;
+}
+.sb-badge[hidden] { display: none; }
+
+/* the kit's chrome, once you are in the sky: the same glass, night tokens */
+.desk-dock__panel, .desk-pill, .desk-zoom { transition: background-color var(--dur-open) var(--ease-out), border-color var(--dur-open) var(--ease-out); }
+#deskDock.lab-sky .desk-dock__panel { box-shadow: 0 8px 24px rgba(0, 0, 0, 0.5); }
+
+/* ── the door: the deep-space card, lit, at the sky's rim ── */
+.sb-door .sb-door__btn { margin-top: 12px; display: block; }
+
+/* ── windows in the sky ── */
+.sb-win { color: var(--ink); }
+.sb-win .desk-card__ico { background: rgba(255, 255, 255, 0.72); }
+.sb-win[data-card='lab-index'] .desk-card__head { color: var(--ink); }
+.sb-win[data-card='lab-index'] .desk-card__ico { background: #0a0a0a; border-color: var(--ink); color: var(--ink); }
+.sb-win[data-card='lab-index'] .desk-card__x { background: #0a0a0a; border-color: var(--ink); }
+.sb-win[data-card='lab-index'] .desk-card__x::before, .sb-win[data-card='lab-index'] .desk-card__x::after { background: var(--ink); }
+.sb-win .desk-card__ico svg { width: 14px; height: 14px; }
+.sb-win .desk-card__name { white-space: nowrap; overflow: hidden; text-overflow: ellipsis; min-width: 0; }
+.sb-win__body {
+  display: grid; gap: 14px; align-content: start;
+  /* a long piece scrolls inside its window, so it opens near 100% instead of shrinking to fit */
+  max-height: 660px; overflow: auto; overscroll-behavior: contain; touch-action: pan-y;
+  scrollbar-width: thin; scrollbar-color: rgba(237, 234, 224, 0.3) transparent;
+}
+.sb-win[data-card='lab-index'] .sb-win__body { max-height: 760px; }
+.sb-index__cols { display: grid; grid-template-columns: 1fr 1fr; align-items: start; }
+.sb-index__cols .sb-index__shelf:first-child { padding-right: 24px; }
+.sb-index__cols .sb-index__shelf + .sb-index__shelf { padding: 0 0 0 24px; border-top: 0; border-left: var(--bw) solid var(--border); }
+@media (max-width: 700px) {
+  .sb-index__cols { grid-template-columns: 1fr; }
+  .sb-index__cols .sb-index__shelf + .sb-index__shelf { padding: 14px 0 0; margin: 0; border-left: 0; border-top: var(--bw) solid var(--border); }
+}
+.sb-win__body > * { margin: 0; }
+.sb-win__meta { display: flex; flex-wrap: wrap; align-items: center; gap: 6px; color: var(--ink-subtle); }
+.sb-win__title { font-size: 1.375rem; font-weight: 700; line-height: 1.15; letter-spacing: -0.01em; }
+.sb-win__blurb { color: var(--ink-muted); }
+.sb-win .lab-prose { color: var(--ink-muted); font-size: 0.9375rem; }
+.sb-win .lab-prose strong { color: var(--ink); }
+.sb-win .lab-prose p, .sb-win .lab-prose ul { color: inherit; }
+.sb-acts { display: flex; flex-wrap: wrap; gap: 8px; }
+.sb-refs { display: flex; flex-wrap: wrap; align-items: center; gap: 6px; padding-top: 12px; border-top: 1.5px solid rgba(237, 234, 224, 0.13); }
+.sb-refs .t-label { color: var(--ink-subtle); margin-right: 4px; flex-basis: 100%; }
+.sb-ref {
+  display: inline-flex; align-items: center; gap: 6px; font: inherit; font-size: 0.8125rem; color: var(--ink); cursor: pointer;
+  background: #0a0a0a; border: 1.5px solid rgba(237, 234, 224, 0.3); border-radius: var(--radius-chip); padding: 4px 9px;
+}
+.sb-ref:hover { border-color: var(--ink); }
+
+.sb-car { position: relative; display: grid; gap: 8px; }
+.sb-car__fig { margin: 0; display: grid; gap: 6px; }
+.sb-car__fig[hidden] { display: none; }
+.sb-car__fig img {
+  display: block; width: 100%; aspect-ratio: 4 / 3; object-fit: contain; background: #0a0a0a;
+  border: var(--bw) solid var(--border); border-radius: var(--radius-chip);
+}
+.sb-car--one .sb-car__fig img { aspect-ratio: auto; max-height: 360px; object-fit: cover; }
+.sb-car__fig figcaption { font-size: 0.75rem; font-weight: 500; letter-spacing: 0.04em; text-transform: uppercase; color: var(--ink-subtle); }
+.sb-car__nav { display: flex; align-items: center; gap: 10px; }
+.sb-car__count { color: var(--ink-subtle); font-variant-numeric: tabular-nums; }
+
+/* the arcade stub */
+.sb-games { list-style: none; padding: 0; display: grid; gap: 0; }
+.sb-games li { display: flex; align-items: center; justify-content: space-between; gap: 12px; padding: 10px 8px; border-top: 1.5px solid rgba(237, 234, 224, 0.13); border-radius: 8px; }
+.sb-games li:first-child { border-top: 0; }
+.sb-games li.is-on { background: rgba(220, 232, 160, 0.1); outline: 1.5px solid #dce8a0; }
+.sb-games b { display: block; }
+.sb-games li span span { display: block; color: var(--ink-muted); font-size: 0.875rem; }
+.sb-stub { font-size: 0.75rem; color: var(--ink-subtle); border: 1.5px dashed rgba(237, 234, 224, 0.3); border-radius: 8px; padding: 6px 9px; }
+
+/* the Lab index: a plain list, both shelves */
+.sb-index__sum { color: var(--ink-subtle); }
+.sb-index__shelf { display: grid; gap: 4px; align-content: start; }
+.sb-index__shelf + .sb-index__shelf { padding-top: 14px; border-top: var(--bw) solid var(--border); }
+.sb-index__h { display: flex; align-items: center; gap: 9px; margin: 0 0 2px; font-size: 1.375rem; font-weight: 700; line-height: 1.15; letter-spacing: -0.01em; }
+.sb-index__h .lab-mark { width: 0.7em; height: 0.7em; }
+.sb-index__n { margin-left: auto; font-size: 0.75rem; font-weight: 500; letter-spacing: 0.04em; color: var(--ink-subtle); font-variant-numeric: tabular-nums; }
+.sb-index__kind { color: var(--ink-subtle); margin: 8px 0 0; }
+.sb-index__list { list-style: none; margin: 0; padding: 0; }
+.sb-index__list li { display: flex; align-items: center; gap: 8px; border-top: 1.5px solid rgba(237, 234, 224, 0.1); }
+.sb-index__list li:first-child { border-top: 0; }
+.sb-row {
+  flex: 1; min-width: 0; display: flex; align-items: baseline; gap: 12px; padding: 7px 6px; margin: 0 -6px;
+  font: inherit; font-size: 0.9375rem; text-align: left; color: var(--ink); background: none; border: 0; border-radius: 6px; cursor: pointer;
+}
+.sb-row:hover { background: rgba(237, 234, 224, 0.07); }
+.sb-row__t { flex: 1; font-weight: 500; }
+.sb-row__m { color: var(--ink-subtle); font-size: 0.8125rem; white-space: nowrap; font-variant-numeric: tabular-nums; }
+.sb-chipbtn {
+  font: inherit; font-size: 0.6875rem; font-weight: 500; letter-spacing: 0.04em; cursor: pointer; white-space: nowrap;
+  color: #161616; background: #a8e6a1; border: 1.5px solid #161616; border-radius: var(--radius-chip); padding: 2px 7px;
+}
+.sb-index__desk { display: flex; flex-wrap: wrap; align-items: center; gap: 8px; padding-top: 14px; border-top: var(--bw) solid var(--border); }
+.sb-index__desk .t-label { color: var(--ink-subtle); flex-basis: 100%; }
+.sb-index__desk i { width: 12px; height: 12px; border-radius: 4px; border: 1.5px solid var(--border); background: var(--c); }
+
+@media (max-width: 700px) {
+  .sb-bar { top: 56px; flex-wrap: wrap; justify-content: center; gap: 4px; padding: 4px; border-radius: 13px; }
+  .sb-seg button, .sb-bar__acts .sb-btn { font-size: 0.75rem; padding: 5px 9px; }
+  .sb-bar__acts .sb-btn { border-width: 1.5px; }
+  .sb-badge { top: 152px; }
+}
+
+/* Reduced motion: opacity only. The kit's flyTo already jumps; flights here jump too (fly()). */
+@media (prefers-reduced-motion: reduce) {
+  .sb-field__layer { animation: none !important; }
+  .sb-star__mark path { transition: none; }
+  .sb-star:hover .sb-star__mark path, .sb-star.is-focus .sb-star__mark path { transform: none; }
+  .sb-btn, .desk-dock__panel, .desk-pill, .desk-zoom { transition: none; }
+}
