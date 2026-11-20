@@ -70,7 +70,7 @@ export const editCopy = {
     saved: 'Saved',
     building: 'Building',
     live: 'Live',
-    failed: 'Still not live after 10 minutes — check the deploy log on the server.',
+    failed: 'Still not live after 10 minutes — check the deployments on Vercel.',
     dev: 'Saved (dev mode, nothing deploys)',
   },
 
