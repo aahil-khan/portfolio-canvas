@@ -3,37 +3,40 @@
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
-<title>Lab: night mode</title>
+<title>Lab: its own screen</title>
 <!--
-  DESIGN GATE: prototype/lab/night-mode/index.html (Direction 2, "Night mode", revised: the Lab
-  as a terminal)
+  DESIGN GATE: prototype/lab/night-mode/index.html (Direction 2, "Night mode", third round: the
+  Lab as its own screen). Supersedes #17.
 
-  The Lab tile in the dock turns the desk to night, and at night the desk is the Lab: everything
-  changes to say you have left the desk. As dusk settles the UI decodes into a terminal: the dock
-  becomes a row of bracketed glyphs, a prompt ($ cd ~/desk) is the way back, the stars are ASCII,
-  and three panes open out of the Lab tile: ~/lab/work, ~/lab/experiments, ~/lab/writing. Back to
-  the desk re-encodes it all and every day card lands exactly where it was.
-
-  The Lab holds only the serious work. The fun stuff (scraps, found, the Arcade) stays on the
-  desk. Write-ups are blog posts: [read] or a writing row grows into a full-page reader.
+  The Lab tile in the dock turns the desk to night, as before. Then the desk is gone: the Lab is
+  a fixed screen of its own, with nothing to pan, zoom or drag. A status bar (aahil@lab, where
+  you are, the time, and [← canvas ~]); a random ASCII effect on every visit, the welcome typing
+  on, and then the Lab's home: a TUI split, a tree of ~/lab on the left and a live preview of the
+  highlighted row on the right. The dock holds only the Lab: [← canvas], work, experiments,
+  writing, gh, in. A post or a log opens in the reader, which grows out of the row (#17's motion).
 
   What is being judged:
-    - does the Lab read as somewhere else, while the day desk is exactly as it was?
-    - the three panes: specimens, a lab log, a list of posts
-    - the reader: opening out of the row and closing back into it; reading at 64ch
-    - the three palettes, by eye (the switch at the top right is throwaway)
-    - on a phone: one pane at a time, switched by ASCII tabs
+    - does the Lab read as somewhere else, built for the serious work, while the desk is as it was?
+    - the intro: six effects, one per visit, ~2.8 s, any key or click skips it
+    - the menu: keyboard (↑↓ ↵ esc 1 2 3 ~) and mouse; on a phone, a list and a detail
+    - the reader: the framed header, the contents, the figures, prev / next
+    - the three palettes, by eye (the switch in the status bar is throwaway)
   Throwaway: the ✓ readout, the palette switch, and the URL switches that make screenshots
   repeatable:
-    ?mode=night (or ?lab=1)   land in the Lab, as /lab would     &palette=green|amber
-    #/writing/<slug>          a post, deep-linked (lands in the Lab with it open)
-    &tab=experiments          phone: which pane shows            &open=<slug>   an experiment's window
+    ?mode=night (or ?lab=1)   land in the Lab, as /lab would (the intro still plays)
+    &fx=<id>                  torus | warp | nebula | life | resolve | moonrise
+    &hold=<ms>                hold the intro at that moment       &intro=0   no intro
+    &sel=<section/slug>       highlight a row                     &view=detail  phone: its detail
+    &palette=green|amber
+    #/writing/<slug>, #/experiments/<slug>   a post or a log, deep-linked, open over the Lab
+    &toc=<section>  scroll the post to a section    &fig=<n>  enlarge figure n
     &then=desk                land in the Lab, go back, measure every day card
     ?freeze=<0..1>            hold the transition there          ?enter=1  play it once on load
     ?roundtrip=1              drag a card, pan, Lab and back, then measure every card
-    &add=1                    the 20th-piece proof. By hand: LAB.pieces.push({...}); renderShelves()
-  Content comes only from ../shared/pieces.js (filtered here: no kit edit) and work.js (projects.json,
-  transcribed and checked); desk.js is the canvas engine, sky.js the reduced-motion owner.
+    &add=1                    the 20th-piece proof. By hand: LAB.pieces.push({...}); renderLab()
+  Content comes only from ../shared/pieces.js (filtered: no kit edit) and work.js (projects.json,
+  transcribed and checked); every UI word is in copy.js. desk.js is the canvas engine, sky.js the
+  reduced-motion owner.
 -->
 <link rel="stylesheet" href="../shared/jet.css">
 <link rel="stylesheet" href="../shared/desk.css">
@@ -46,9 +49,12 @@
 <body>
 <script src="../shared/desk.js"></script>
 <script src="work.js"></script>
+<script src="copy.js"></script>
 <script src="decode.js"></script>
-<script src="shelves.js"></script>
-<script src="windows.js"></script>
+<script src="fx.js"></script>
+<script src="model.js"></script>
+<script src="menu.js"></script>
+<script src="intro.js"></script>
 <script src="reader.js"></script>
 <script src="night.js"></script>
 <script>
