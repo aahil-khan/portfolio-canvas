@@ -1,25 +1,30 @@
 /*
- * prototype/lab/night-mode/deck.js: THE DECK (research ★3A). The desk's dock, at night, is no longer
- * navigation: it is one status line of controls, htop / tmux / Midnight Commander style.
+ * prototype/lab/night-mode/deck.js: THE DECK. The desk's dock, at night, is one short status line
+ * of controls, and it is not navigation.
  *
- *   LAB │ ◂◂ ▸ ▸▸ 1.0× 0:12/0:53 ¶01/15 ▁▂▃▅▇▅▃ │ voice:synth▾ ≈ │ snd:off pal:w radial:off │ toy:[n]ext │ ?ask /cmd ?keys │ ← canvas
- *   mode    transport, dim until a narrated section is loaded   the voice   flags (tmux-style)        the toy     MC-style keys    the exit
+ *   at rest          LAB │ snd:off pal:w │ / ?
+ *   while it talks   NARRATE │ ◂◂ ❚❚ ▸▸ 1.0× 0:12/0:53 ¶01/15 ▁▂▃▅▇▅▃ │ voice:synth▾ ≈ │ snd:off pal:w │ / ?
  *
- * Phone (and any screen under 1180 px): LAB │ ▸ │ ⋯ │ ←, and ⋯ opens the rest as a sheet.
- * The cells live inside the desk's dock panel (night.js morphs the panel into this line on the
- * way in). Above the deck, one popover at a time: the voice picker, the synth knobs, ?ask, the /
- * command line, the keys, the phone's sheet. Esc closes it and focus goes back where it was.
+ * The transport and the voice picker exist only while something is playing (narration, or an
+ * answer from the home's ask): they slide in when it starts and out a moment after it ends. A
+ * pause keeps them, because ▸ has to be somewhere. On a narrow screen the transport drops speed,
+ * section and waveform, and the flags step aside while it plays. night.js does the sliding
+ * (NIGHT.deckPlay); this file says when, and paints the cells.
  *
- * NO NAVIGATION. No cell opens a category, an entry or a post: act() below is the only thing a
- * cell calls, and check.mjs holds it to that. The two exceptions are named: ← canvas (the exit),
- * and the / command line, which is a search (its `open <slug>` runs through runCommand()).
+ * Not here, on purpose: ← canvas (top left of the Lab, and ~), the toy's [next] (beside the toy),
+ * ask (the home's hero button), and the dial's flag (inside ?, marked experimental).
+ *
+ * NO NAVIGATION. act() below is the only thing a cell calls, and check.mjs holds it to that. The
+ * / command line is a search: its `open <slug>` runs through runCommand().
  *
  *   NIGHT.deck.mount()                    after the reader and the home exist
  *   .key(e) → bool                        the deck's keys (space , . [ ] v n / ? esc), from anywhere
+ *   .tap(target)                          a short press of space (when the dial owns space)
  *   .loadPost(target) / .unloadPost()     the reader's narrated section, loaded (never played)
  *   .listen()                             a [▸ listen] press: load it and play
- *   .open(kind) / .close()                voice · knobs · ask · cmd · help · more
- *   .mode()                               LAB · NARRATE · ASK · CMD · RADIAL
+ *   .open(kind) / .close()                voice · knobs · cmd · help
+ *   .mode()                               LAB · NARRATE · ASK · CMD · DIAL
+ *   .active()                             is something playing (or paused part-way)?
  */
 ;(() => {
   const NIGHT = (window.NIGHT = window.NIGHT || {})
@@ -32,27 +37,26 @@
   const R = () => LAB.sky.reduced
   const PALS = ['white', 'green', 'amber']
   const D = (NIGHT.deck = {})
-  const st = { pop: null, opener: null, post: null, answer: null, seen: {}, cmdSel: 0, radial: false }
+  const st = { pop: null, opener: null, post: null, cmdSel: 0 }
   let el = {}
 
-  // ── the cells: fixed widths in characters (ch on a wide screen, chp on a narrow one) ──────
-  const cell = (cls, inner, { ch = 0, chp = 0, tag = 'span', attrs = '' } = {}) =>
-    `<${tag} class="ldock ${cls}" data-ch="${ch}" data-chp="${chp}" ${attrs}>${inner}</${tag}>`
+  // ── the cells: fixed widths in characters (ch wide, chp narrow, chx the mode while playing) ──
+  // role: rest (always), play (only while something plays), flags (rest, but steps aside while
+  // something plays on a narrow screen)
+  const cell = (cls, role, inner, { ch = 0, chp = ch, chx = 0, tag = 'span', attrs = '' } = {}) =>
+    `<${tag} class="ldock ${cls}" data-role="${role}" data-ch="${ch}" data-chp="${chp}"${chx ? ` data-chx="${chx}"` : ''} ${attrs}>${inner}</${tag}>`
   const b = (doo, label, aria, extra = '') => `<button type="button" class="dk-b" data-do="${doo}"${aria ? ` aria-label="${esc(aria)}"` : ''}${extra}>${label}</button>`
+  const wide = (html) => `<span class="dk-wide">${html}</span>`
   function cellsHtml() {
     const K = C().deck
     return [
-      cell('dk-mode', `<span class="dk-m">${esc(K.modes.lab)}</span>`, { ch: 9, chp: 9, attrs: 'role="status"' }),
-      cell('dk-tr', b('back', '◂◂', K.prev) + ' ' + b('play', '▸', K.play) + ' ' + b('fwd', '▸▸', K.next) + ' ' + b('rate', '1.0×', K.rateLabel('1.0')) +
-        ` <span class="dk-time">0:00/0:00</span> <span class="dk-sec">¶--/--</span> <span class="dk-wave" aria-hidden="true">${G().wave(null, 20, 0, 12)}</span>`, { ch: 45 }),
-      cell('dk-pplay dk-btn', '▸', { chp: 3, tag: 'button', attrs: `type="button" data-do="play" aria-label="${esc(K.play)}"` }),
-      cell('dk-voice', b('voice', `${esc(K.voice)}:<span class="dk-v">ai</span>▾`, K.voiceLabel('ai'), ' aria-haspopup="dialog"') + ' ' + b('knobs', '≈', K.knobsLabel, ' aria-haspopup="dialog"'), { ch: 15 }),
-      cell('dk-flags', b('snd', `${esc(K.snd)}:<span class="dk-f">${esc(K.off)}</span>`, K.sndLabel(false), ' aria-pressed="false"') + ' ' +
-        b('pal', `${esc(K.pal)}:<span class="dk-f">w</span>`, K.palLabel('white')) + ' ' +
-        b('radial', `${esc(K.radial)}:<span class="dk-f">${esc(K.off)}</span>`, K.radialLabel(false), ' aria-pressed="false"'), { ch: 24 }),
-      cell('dk-toy', b('toy', `${esc(K.toy)}:[<span class="dk-key">n</span>]${esc(K.toyNext.slice(1))}`, C().toy.nextLabel), { ch: 10 }),
-      cell('dk-keys', b('ask', `?${esc(K.ask)}`, K.askLabel, ' aria-haspopup="dialog"') + ' ' + b('cmd', `/${esc(K.cmd)}`, K.cmdLabel, ' aria-haspopup="dialog"') + ' ' + b('help', `?${esc(K.help)}`, K.helpLabel, ' aria-haspopup="dialog"'), { ch: 15 }),
-      cell('dk-more dk-btn', '⋯', { chp: 3, tag: 'button', attrs: `type="button" data-do="more" aria-label="${esc(K.more)}" aria-haspopup="dialog"` }),
+      cell('dk-mode', 'rest', `<span class="dk-m">${esc(K.modes.lab)}</span>`, { ch: 4, chx: 7, attrs: 'role="status"' }),
+      cell('dk-tr', 'play', b('back', '◂◂', K.prev) + ' ' + b('play', '▸', K.play) + ' ' + b('fwd', '▸▸', K.next) + ' ' + wide(b('rate', '1.0×', K.rateLabel('1.0')) + ' ') +
+        `<span class="dk-time">0:00/0:00</span>` + wide(` <span class="dk-sec">¶--/--</span> <span class="dk-wave" aria-hidden="true">${G().wave(null, 20, 0, 12)}</span>`), { ch: 45, chp: 17 }),
+      cell('dk-voice', 'play', b('voice', `${wide(esc(K.voice) + ':')}<span class="dk-v">ai</span>▾`, K.voiceLabel('ai'), ' aria-haspopup="dialog"') + ' ' + b('knobs', '≈', K.knobsLabel, ' aria-haspopup="dialog"'), { ch: 15, chp: 9 }),
+      cell('dk-flags', 'flags', b('snd', `${esc(K.snd)}:<span class="dk-f">${esc(K.off)}</span>`, K.sndLabel(false), ' aria-pressed="false"') + ' ' +
+        b('pal', `${esc(K.pal)}:<span class="dk-f">w</span>`, K.palLabel('white')), { ch: 13 }),
+      cell('dk-keys', 'rest', b('cmd', '/', K.cmdLabel, ' aria-haspopup="dialog" aria-keyshortcuts="/"') + ' ' + b('help', '?', K.helpLabel, ' aria-haspopup="dialog" aria-keyshortcuts="?"'), { ch: 3 }),
     ]
   }
 
@@ -64,55 +68,52 @@
       case 'back': return v.seek(-15)
       case 'fwd': return v.seek(15)
       case 'rate': return v.cycleRate()
-      case 'voice': case 'knobs': case 'ask': case 'cmd': case 'help': case 'more': return toggle(doo, from)
+      case 'voice': case 'knobs': case 'cmd': case 'help': return toggle(doo, from)
       case 'snd': return NIGHT.sound.toggle()
       case 'pal': { const cur = document.documentElement.dataset.palette || 'white'; NIGHT.setPalette(PALS[(PALS.indexOf(cur) + 1) % PALS.length]); return paint() }
-      case 'radial': return setRadial(!st.radial)
-      case 'toy': NIGHT.toy.next(); return paint()
+      case 'dial': NIGHT.dial.setEnabled(!NIGHT.dial.enabled()); return paint()
     }
   }
-  function setRadial(on) {
-    st.radial = !!on
-    NIGHT.home.setRadialFlag(st.radial)
-    paint()
-  }
-  D.setRadial = setRadial
 
   // ── painting the line from the one owner of each fact ────────────────────────────────────
   const $ = (sel) => el.panel.querySelectorAll(sel)
+  // something is playing, or paused part-way (▸ has to stay reachable); a loaded section that
+  // nobody pressed play on is not, and neither is one that has run to its end
+  const active = (s) => !!(s.loaded && (s.playing || (s.t > 0.05 && s.t < s.dur - 0.05)))
+  D.active = () => active(V().state())
   D.mode = () => {
     const s = V().state(), K = C().deck.modes
+    if (NIGHT.dial && NIGHT.dial.isOpen()) return K.dial
     if (st.pop === 'cmd') return K.cmd
-    if (st.pop === 'ask' || s.kind === 'answer') return K.ask
-    if (s.playing) return K.narrate
-    if (NIGHT.home.home && NIGHT.home.home() === 'radial') return K.radial
+    if (active(s)) return s.kind === 'answer' ? K.ask : K.narrate
     return K.lab
   }
   let last = -1
   function paint() {
-    const s = V().state(), K = C().deck, loaded = s.loaded
+    const s = V().state(), K = C().deck, loaded = s.loaded, on = active(s)
+    NIGHT.deckPlay(on)
+    if (!on && (st.pop === 'voice' || st.pop === 'knobs')) D.close()
     const mode = D.mode()
     for (const n of $('.dk-m')) n.textContent = mode
     for (const n of $('.dk-mode')) { n.dataset.mode = mode.toLowerCase(); n.setAttribute('aria-label', K.modeLabel(mode)) }
     el.panel.dataset.loaded = loaded
-    for (const n of [...$('[data-do="play"]'), ...el.pop.querySelectorAll('[data-do="play"]')]) { n.textContent = s.playing ? '❚❚' : '▸'; n.setAttribute('aria-label', s.playing ? K.pause : K.play); n.disabled = !loaded }
-    for (const n of [...$('[data-do="back"], [data-do="fwd"], [data-do="rate"]'), ...el.pop.querySelectorAll('[data-do="back"], [data-do="fwd"], [data-do="rate"]')]) n.disabled = !loaded
+    for (const n of $('[data-do="play"]')) { n.textContent = s.playing ? '❚❚' : '▸'; n.setAttribute('aria-label', s.playing ? K.pause : K.play); n.disabled = !loaded }
+    for (const n of $('[data-do="back"], [data-do="fwd"], [data-do="rate"]')) n.disabled = !loaded
     const rate = s.rate.toFixed(s.rate % 1 && (s.rate * 10) % 1 ? 2 : 1) + '×'
-    for (const n of [...$('[data-do="rate"]'), ...el.pop.querySelectorAll('[data-do="rate"]')]) { n.textContent = rate.padEnd(5, ' ').slice(0, 5); n.setAttribute('aria-label', K.rateLabel(rate)) }
+    for (const n of $('[data-do="rate"]')) { n.textContent = rate.padEnd(5, ' ').slice(0, 5); n.setAttribute('aria-label', K.rateLabel(rate)) }
     const time = loaded ? `${G().clock(s.t)}/${G().clock(s.dur)}` : '0:00/0:00'
     const sec = loaded && s.kind !== 'answer' ? K.section(s.index, s.of) : '¶--/--'
     const wave = G().wave(s.peaks, s.perSec, s.t, 12, R())
-    for (const n of [...$('.dk-time'), ...el.pop.querySelectorAll('.dk-time')]) n.textContent = time
-    for (const n of [...$('.dk-sec'), ...el.pop.querySelectorAll('.dk-sec')]) n.textContent = sec
-    for (const n of [...$('.dk-wave'), ...el.pop.querySelectorAll('.dk-wave')]) n.textContent = wave
+    for (const n of $('.dk-time')) n.textContent = time
+    for (const n of $('.dk-sec')) n.textContent = sec
+    for (const n of $('.dk-wave')) n.textContent = wave
     for (const n of $('.dk-v')) n.textContent = s.voice
     for (const n of $('[data-do="voice"]')) n.setAttribute('aria-label', K.voiceLabel(s.voice))
     const muted = NIGHT.sound.muted, pal = document.documentElement.dataset.palette || 'white'
-    for (const n of [...$('[data-do="snd"]'), ...el.pop.querySelectorAll('[data-do="snd"]')]) { n.querySelector('.dk-f').textContent = muted ? K.off : K.on; n.setAttribute('aria-pressed', String(!muted)); n.setAttribute('aria-label', K.sndLabel(!muted)) }
-    for (const n of [...$('[data-do="pal"]'), ...el.pop.querySelectorAll('[data-do="pal"]')]) { n.querySelector('.dk-f').textContent = C().palShort[pal]; n.setAttribute('aria-label', K.palLabel(pal)) }
-    for (const n of [...$('[data-do="radial"]'), ...el.pop.querySelectorAll('[data-do="radial"]')]) { n.querySelector('.dk-f').textContent = st.radial ? K.on : K.off; n.setAttribute('aria-pressed', String(st.radial)) }
+    for (const n of $('[data-do="snd"]')) { n.querySelector('.dk-f').textContent = muted ? K.off : K.on; n.setAttribute('aria-pressed', String(!muted)); n.setAttribute('aria-label', K.sndLabel(!muted)) }
+    for (const n of $('[data-do="pal"]')) { n.querySelector('.dk-f').textContent = C().palShort[pal]; n.setAttribute('aria-label', K.palLabel(pal)) }
+    for (const n of el.pop.querySelectorAll('[data-do="dial"]')) { const v = NIGHT.dial.enabled(); n.querySelector('.dk-f').textContent = v ? K.on : K.off; n.setAttribute('aria-pressed', String(v)) }
     if (st.pop === 'voice') paintVoices()
-    if (st.pop === 'ask' && st.answer) typeAnswer(s)
     // the reader lights the spoken word; only when it changes
     const w = s.kind === 'answer' || !s.loaded ? -1 : s.word
     if (w !== last && NIGHT.reader.light) { last = w; NIGHT.reader.light(w) }
@@ -129,19 +130,10 @@
         `<input type="range" min="${a}" max="${z}" step="${step}" value="${V().knobs[k]}" data-knob="${k}" aria-label="${esc(C().knobs[k][0] + ', ' + C().knobs[k][1])}">` +
         `<span class="knob__v" data-kv="${k}"></span><span class="knob__h">${esc(C().knobs[k][1])}</span></label>`).join('') +
       `</div><p class="pop__act"><button type="button" class="act" data-knob-reset>${esc(C().knobs.reset)}</button></p><p class="pop__note" data-note></p>`,
-    ask: () => `<p class="pop__h">?${esc(C().ask.title)}</p><ul class="pop__ls">` +
-      C().ask.prompts.map((p, i) => `<li><button type="button" class="pop__opt pop__q" data-ask="${p.id}"><span class="pop__k" aria-hidden="true">${i + 1}</span><span class="pop__on">${esc(p.q)}</span></button></li>`).join('') +
-      `</ul><div class="ans" hidden><p class="ans__q"></p><p class="ans__t" aria-live="polite"></p><p class="ans__mark"></p>` +
-      `<p class="pop__act"><button type="button" class="act" data-ask-again>${esc(C().ask.again)}</button> <button type="button" class="act" data-ask-close aria-label="${esc(C().ask.closeLabel)}">${esc(C().ask.close)}</button></p><p class="pop__note" data-note></p></div>`,
     cmd: () => `<form class="cmd" autocomplete="off"><label class="cmd__p" for="dk-cmd">${esc(C().cmd.prompt)}</label><input id="dk-cmd" class="cmd__in" type="text" spellcheck="false" aria-label="${esc(C().cmd.label)}" aria-controls="dk-cmdl" aria-autocomplete="list"></form>` +
       `<ul class="cmd__ls" id="dk-cmdl" role="listbox" aria-label="${esc(C().cmd.label)}"></ul><p class="pop__hint">${esc(C().cmd.hint)}</p>`,
-    help: () => `<p class="pop__h">?${esc(C().help.title)}</p><dl class="help">${C().help.rows.map(([k, v]) => `<dt>${esc(k)}</dt><dd>${esc(v)}</dd>`).join('')}</dl>`,
-    more: () => `<p class="pop__h">${esc(C().deck.label)}</p><div class="sheet">` +
-      `<p class="sheet__r">${b('back', '◂◂', C().deck.prev)} ${b('play', '▸', C().deck.play)} ${b('fwd', '▸▸', C().deck.next)} ${b('rate', '1.0×', C().deck.rate)} <span class="dk-time">0:00/0:00</span> <span class="dk-sec">¶--/--</span></p>` +
-      `<p class="sheet__r"><span class="dk-wave" aria-hidden="true"></span></p>` +
-      `<p class="sheet__r">${b('voice', `${esc(C().deck.voice)}:<span class="dk-v">${esc(V().state().voice)}</span>▾`, C().deck.voiceLabel(V().state().voice))} ${b('knobs', '≈ ' + esc(C().deck.knobs), C().deck.knobsLabel)}</p>` +
-      `<p class="sheet__r">${b('snd', `${esc(C().deck.snd)}:<span class="dk-f"></span>`, '')} ${b('pal', `${esc(C().deck.pal)}:<span class="dk-f"></span>`, '')} ${b('radial', `${esc(C().deck.radial)}:<span class="dk-f"></span>`, '')}</p>` +
-      `<p class="sheet__r">${b('toy', `${esc(C().deck.toy)}:${esc(C().deck.toyNext)}`, C().toy.nextLabel)} ${b('ask', '?' + esc(C().deck.ask), C().deck.askLabel)} ${b('cmd', '/' + esc(C().deck.cmd), C().deck.cmdLabel)} ${b('help', '?' + esc(C().deck.help), C().deck.helpLabel)}</p></div>`,
+    help: () => `<p class="pop__h">?${esc(C().help.title)}</p><dl class="help">${C().help.rows.map(([k, v]) => `<dt>${esc(k)}</dt><dd>${esc(v)}</dd>`).join('')}</dl>` +
+      `<p class="pop__x"><span class="pop__xl">${esc(C().dial.flag)}</span> ${b('dial', `${esc(C().dial.name)}:<span class="dk-f"></span>`, C().dial.flagLabel, ' aria-pressed="false"')}<span class="pop__why">${esc(C().dial.how)}</span></p>`,
   }
   function toggle(kind, from) { if (st.pop === kind) D.close(); else D.open(kind, from) }
   D.open = (kind, from) => {
@@ -162,7 +154,6 @@
     paint()
   }
   function closeNow() {
-    if (st.pop === 'ask' && st.answer) endAnswer()
     st.pop = null
     el.pop.hidden = true
     el.pop.innerHTML = ''
@@ -197,42 +188,6 @@
   }
   function knobVals() { for (const n of el.pop.querySelectorAll('[data-kv]')) { const k = n.dataset.kv, v = V().knobs[k]; n.textContent = k === 'tape' ? v.toFixed(2) + '×' : k === 'mono' ? Math.round(v * 100) + '%' : k === 'pitch' ? (v > 0 ? '+' : '') + v : String(v) } }
 
-  // ── ?ask: an answer types out, in time with the voice reading it ─────────────────────────
-  function ask(id) {
-    const A = C().ask, P = A.prompts.find((p) => p.id === id)
-    let text, mark
-    if (id === 'now') { text = A.now.text; mark = A.now.mark }
-    else { const r = G().pick(A[id], st.seen[id] || []); st.seen[id] = r.seen; text = A[id][r.i]; mark = A.authored }
-    const words = G().tokens(text).map((t) => t.w)
-    st.answer = { id, text, words }
-    const box = el.pop.querySelector('.ans')
-    box.hidden = false
-    box.querySelector('.ans__q').textContent = '?> ' + P.q
-    box.querySelector('.ans__mark').textContent = mark
-    box.querySelector('.ans__t').textContent = ''
-    V().load({ id: 'ask:' + id, kind: 'answer', title: P.q, words, index: 0, of: 0 })
-    V().play() // a press on the prompt is the press that plays it
-    cue('enter')
-  }
-  // words up to the one being spoken are out; the current one types letter by letter
-  function typeAnswer(s) {
-    const a = st.answer, t = el.pop.querySelector('.ans__t')
-    if (!a || !t) return
-    if (R() || (!s.playing && s.t >= s.dur && s.dur)) { t.textContent = a.text; return }
-    const w = s.word, tm = V().timingsOf ? V().timingsOf() : null
-    let out = a.words.slice(0, Math.max(0, w)).join(' ')
-    if (w >= 0) {
-      const cur = a.words[w], span = tm && tm[w] ? Math.max(0.05, tm[w].e - tm[w].s) : 0.3, f = tm && tm[w] ? Math.min(1, (s.t - tm[w].s) / span) : 1
-      out += (w ? ' ' : '') + cur.slice(0, Math.max(1, Math.ceil(cur.length * f)))
-    }
-    if (t.textContent !== out + '▌') { t.textContent = out + '▌'; cue('key') }
-  }
-  function endAnswer() {
-    V().unload(st.answer && 'ask:' + st.answer.id)
-    st.answer = null
-    if (st.post) V().load(st.post)
-  }
-
   // ── / the command line (a search: the one place in the deck that can open an entry) ─────
   function commandsAll() {
     const L = C().cmd.list, W = C().cmd.what, out = []
@@ -247,7 +202,7 @@
     for (const p of PALS) out.push({ cmd: L.pal(p), label: p, what: W.pal, run: ['pal', p] })
     for (const t of NIGHT.fx.ids) out.push({ cmd: L.toy(t), label: t, what: W.toy, run: ['toy', t] })
     for (const p of C().ask.prompts) out.push({ cmd: L.ask(p.id), label: p.q, what: W.ask, run: ['ask', p.id] })
-    for (const k of ['snd', 'radial', 'play', 'keys', 'canvas']) out.push({ cmd: L[k], label: W[k], what: W[k], run: [k] })
+    for (const k of ['snd', 'dial', 'play', 'keys', 'canvas']) out.push({ cmd: L[k], label: W[k], what: W[k], run: [k] })
     return out
   }
   function cmdList(q) {
@@ -276,18 +231,19 @@
     else if (k === 'voice') V().use(a)
     else if (k === 'pal') NIGHT.setPalette(a)
     else if (k === 'toy') NIGHT.toy.set(a)
-    else if (k === 'ask') D.open('ask')
+    else if (k === 'ask') NIGHT.home.ask(a)
     else if (k === 'snd') NIGHT.sound.toggle()
-    else if (k === 'radial') setRadial(!st.radial)
+    else if (k === 'dial') NIGHT.dial.setEnabled(!NIGHT.dial.enabled())
     else if (k === 'play') act('play')
     else if (k === 'keys') D.open('help')
     else if (k === 'canvas') NIGHT.leave()
-    if (k === 'ask') ask(a)
     paint()
   }
 
   // ── the reader's narrated section ────────────────────────────────────────────────────────
-  D.loadPost = (t) => { st.post = t; if (!st.answer) V().load(t) }
+  D.loadPost = (t) => { st.post = t; if (V().state().kind !== 'answer' || !active(V().state())) V().load(t) }
+  // an answer ended (or was stopped): the open post's section is loaded again, still unplayed
+  D.reloadPost = () => { if (st.post) V().load(st.post) }
   D.unloadPost = () => { if (st.post) V().unload(st.post.id); st.post = null; paint() }
   // [▸ listen] is play / pause for its own section (space on the focused button presses it)
   D.listen = () => { if (!st.post) return; const s = V().state(); if (s.id === st.post.id && s.playing) { V().pause(); return } if (s.id !== st.post.id) V().load(st.post); V().play() }
@@ -303,20 +259,24 @@
     if (k === ' ' && !onButton && s.loaded) { e.preventDefault(); act('play'); return true }
     if ((k === ',' || k === '.') && s.loaded) { e.preventDefault(); act(k === ',' ? 'back' : 'fwd'); return true }
     if ((k === '[' || k === ']') && s.loaded) { e.preventDefault(); V().cycleRate(k === ']' ? 1 : -1); return true }
-    if (k === 'v') { e.preventDefault(); toggle('voice'); return true }
-    if (k === 'n' && !NIGHT.reader.isOpen()) { e.preventDefault(); act('toy'); return true }
+    if (k === 'v' && active(s)) { e.preventDefault(); toggle('voice', el.panel.querySelector('[data-do="voice"]')); return true }
+    if (k === 'n' && !NIGHT.reader.isOpen()) { e.preventDefault(); NIGHT.toy.next(); return true }
     if (k === '/') { e.preventDefault(); D.open('cmd'); return true }
     if (k === '?') { e.preventDefault(); toggle('help'); return true }
-    if (st.pop === 'ask' && /^[1-3]$/.test(k)) { e.preventDefault(); ask(C().ask.prompts[+k - 1].id); return true }
     return false
+  }
+  // a short press of space while the dial owns the key: what space would have done
+  D.tap = (tgt) => {
+    const btn = tgt && tgt.closest && tgt.closest('button, a[href]')
+    if (btn) { btn.click(); return }
+    if (V().state().loaded) act('play')
   }
 
   D.mount = () => {
     const lab = document.querySelector('.desk-dock__item[data-id="lab"]')
-    // a rule before every cell but the first, shown when its cell is (same data-ch / data-chp)
-    const sep = (c) => { const m = /data-ch="(\d+)" data-chp="(\d+)"/.exec(c); return `<span class="ldock-sep" aria-hidden="true" data-ch="${+m[1] ? 1 : 0}" data-chp="${+m[2] ? 1 : 0}"></span>` }
-    const frag = document.createRange().createContextualFragment(cellsHtml().map((c, i) => (i ? sep(c) : '') + c).join('') + '<span class="ldock-sep" aria-hidden="true" data-ch="1" data-chp="1"></span>')
-    lab.before(frag)
+    // a rule before every cell but the first; night.js opens it with the cell after it
+    const frag = document.createRange().createContextualFragment(cellsHtml().map((c, i) => (i ? '<span class="ldock-sep" aria-hidden="true"></span>' : '') + c).join(''))
+    lab.after(frag)
     el.panel = DESK.dock.querySelector('.desk-dock__panel')
     el.panel.setAttribute('aria-label', C().deck.label)
     el.pop = h('div', 'deckpop')
@@ -332,10 +292,6 @@
       if (n) return act(n.dataset.do, st.opener)
       const v = e.target.closest('[data-voice]')
       if (v) { V().use(v.dataset.voice); cue('select'); paint(); return }
-      const q = e.target.closest('[data-ask]')
-      if (q) return ask(q.dataset.ask)
-      if (e.target.closest('[data-ask-again]') && st.answer) return ask(st.answer.id)
-      if (e.target.closest('[data-ask-close]')) return D.close()
       if (e.target.closest('[data-knob-reset]')) { V().resetKnobs(); el.pop.querySelectorAll('[data-knob]').forEach((i) => { i.value = V().knobs[i.dataset.knob] }); knobVals(); return }
       const o = e.target.closest('.cmd__o')
       if (o) return runCommand(st.cmdHits[+o.dataset.i])
@@ -368,5 +324,5 @@
     document.addEventListener('pointerdown', (e) => { if (st.pop && !el.pop.contains(e.target) && !el.panel.contains(e.target)) D.close() }, true)
     paint()
   }
-  D.paint = () => paint()
+  D.paint = () => { if (el.panel) paint() }
 })()

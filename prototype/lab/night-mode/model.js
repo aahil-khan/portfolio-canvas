@@ -162,19 +162,31 @@
   const bar = (n, of) => (NIGHT.logic ? NIGHT.logic.bar(n, of) : '')
   const clock = (s) => (NIGHT.logic ? NIGHT.logic.clock(s) : String(s))
   const id = (s, e) => `${s}-${esc(e.slug)}`
+  // a row's tiny status glyph (◐ is the one that turns: vignette.js); words for it in copy.js
+  const GLYPH = { live: '●', spin: '◐', done: '✓', shelf: '◌', out: '↗', post: '¶', plan: '○' }
+  const glyphOf = (s, e) => {
+    const st = String(e.status || '').toLowerCase()
+    if (/ongoing|progress|draft|building|wip/.test(st)) return 'spin'
+    if (/shelved|paused|archived/.test(st)) return 'shelf'
+    if (/planned|soon|idea/.test(st)) return 'plan'
+    if (s === 'writing') return e.href ? 'out' : 'post'
+    if (s === 'work' && !/done/.test(st) && (e.links || []).some((l) => l.label === 'live')) return 'live'
+    return 'done'
+  }
+  const glyph = (k) => `<span class="dl__g" data-g="${k}" title="${esc(C().glyphs[k])}" aria-hidden="true">${GLYPH[k]}</span>`
   // a series' row: the series opens its hub; its chapters sit indented under it, then the empty
   // slots still to come. Nothing here reads a visitor's progress (that is the hub's, at runtime).
   const seriesRow = (e) => `<li class="dl dl--series" data-row="research/${esc(e.slug)}" data-sec="research">` +
-    `<button type="button" class="dl__row" id="dl-research-${esc(e.slug)}" data-read="${esc(e.slug)}" data-in="research">` +
+    `<button type="button" class="dl__row" id="dl-research-${esc(e.slug)}" data-read="${esc(e.slug)}" data-in="research">` + glyph(glyphOf('research', e)) +
     `<span class="dl__t">${esc(e.title)}</span><span class="dl__s">${esc(e.question)}</span><span class="dl__m">${esc(META.research(e))}</span></button>` +
     `<ol class="dl__ch" aria-label="${esc(C().series.chapters)}">` +
-    e.chapters.map((c) => `<li><button type="button" class="dl__c" data-read="${esc(c.slug)}" data-in="research" data-ch="${esc(c.slug)}">` +
+    e.chapters.map((c) => `<li><button type="button" class="dl__c" data-read="${esc(c.slug)}" data-in="research" data-ch="${esc(c.slug)}">` + glyph(glyphOf('research', c)) +
       `<span class="dl__cn">${String(c.n).padStart(2, '0')}</span><span class="dl__ct">${esc(c.title)}</span><span class="dl__cm">${esc(C().mins(c.mins))} · ${esc(clock(c.listen))} ▸</span></button></li>`).join('') +
-    e.next.map((t, i) => `<li class="dl__plan"><span class="dl__cn">${String(e.written + i + 1).padStart(2, '0')}</span><span class="dl__ct">${esc(C().series.planned(t))}</span></li>`).join('') +
+    e.next.map((t, i) => `<li class="dl__plan">${glyph('plan')}<span class="dl__cn">${String(e.written + i + 1).padStart(2, '0')}</span><span class="dl__ct">${esc(C().series.planned(t))}</span></li>`).join('') +
     `</ol></li>`
   // A row is a button that expands its entry in place (#19's dock layout, kept).
   const rowHtml = (e, s) => s === 'research' ? seriesRow(e) : `<li class="dl" data-row="${s}/${esc(e.slug)}" data-sec="${s}">` +
-    `<button type="button" class="dl__row" id="dl-${id(s, e)}" aria-expanded="false" aria-controls="dlx-${id(s, e)}">` +
+    `<button type="button" class="dl__row" id="dl-${id(s, e)}" aria-expanded="false" aria-controls="dlx-${id(s, e)}">` + glyph(glyphOf(s, e)) +
     `<span class="dl__t">${esc(e.title)}</span><span class="dl__s">${esc(e.tagline || e.sub || e.result || e.topic || '')}</span><span class="dl__m">${esc(META[s](e))}</span></button>` +
     `<div class="dl__x" id="dlx-${id(s, e)}" role="region" aria-labelledby="dl-${id(s, e)}" hidden></div></li>`
   const sectionsOf = (secs) => secs.map((s) => ({ id: s.id, key: s.key, count: s.count, upd: s.upd, chapters: s.chapters, unit: C().sections[s.id].unit(s.count, s.chapters), blurb: C().sections[s.id].blurb }))
@@ -230,5 +242,5 @@
   // the order ↑↓ walks: every entry, section by section
   const order = (secs) => secs.flatMap((s) => s.entries.map((e) => s.id + '/' + e.slug))
 
-  NIGHT.model = { imp, bodyOf, imagesOf, SECTIONS, inLab, build, readable, seriesOf, chapterBody, parts, rowHtml, catHtml, sectionsOf, previewHtml, order, minutes, listen, words, when, host, firstLines, META }
+  NIGHT.model = { GLYPH, glyphOf, imp, bodyOf, imagesOf, SECTIONS, inLab, build, readable, seriesOf, chapterBody, parts, rowHtml, catHtml, sectionsOf, previewHtml, order, minutes, listen, words, when, host, firstLines, META }
 })()

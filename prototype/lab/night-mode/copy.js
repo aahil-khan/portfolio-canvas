@@ -20,7 +20,7 @@
       'press ~ to go back to the canvas :)',
     ],
     // on a phone there is no ~ key: the last line says so
-    welcomeTouch: '← in the deck, bottom right, goes back :)',
+    welcomeTouch: '← canvas, top left, goes back :)',
 
     root: '~/lab',
     entries: (n) => `${n} entries`,
@@ -42,15 +42,30 @@
     },
     start: 'not sure where to start?',
     picks: [['work', 'holt'], ['research', 'reliability-study'], ['writing', 'old-laptop-cloud']],
-    keys: [['1–4', 'open'], ['↑↓', 'move'], ['↵', 'expand'], ['/', 'command'], ['?', 'keys']],
+    keys: [['1–4', 'open'], ['←↑↓→', 'move'], ['↵', 'open'], ['/', 'command'], ['?', 'keys']],
+
+    // ── the living tiles (home.js, vignette.js) ──
+    tiles: {
+      label: 'What is in the Lab',
+      open: (id) => `open ${id}/`,
+      count: (n, unit) => `${n} · ${unit}`,
+      back: 'lab',
+      backLabel: 'Back to the four tiles',
+      preview: 'Preview',
+      empty: 'nothing here yet.',
+    },
+    // a row's tiny status glyph, said out loud
+    glyphs: { live: 'live', done: 'done', spin: 'in progress', shelf: 'shelved', plan: 'planned', out: 'elsewhere', post: 'published' },
 
     // ── the compass (experimental: ?home=radial, or radial:on in the deck) ──
-    radial: {
-      label: 'Compass: point at a category, click to open it',
-      hint: 'point, then click · 1–4 · esc for the list',
-      touch: 'the compass needs a pointer; on touch it is the list',
-      back: 'compass',
-      backLabel: 'Back to the compass',
+    dial: {
+      name: 'dial',
+      flag: 'experimental',
+      flagLabel: 'Experimental dial, on or off',
+      how: 'hold space, right-click, or long-press; point; let go',
+      label: 'Dial: point at a category and let go to open it',
+      hint: 'let go to open · 1–4 · esc',
+      idle: 'point at one',
     },
 
     // ── the series ──
@@ -76,7 +91,7 @@
     // ── the deck: a status line, not navigation ──
     deck: {
       label: 'Lab deck',
-      modes: { lab: 'LAB', narrate: 'NARRATE', ask: 'ASK', cmd: 'CMD', radial: 'RADIAL' },
+      modes: { lab: 'LAB', narrate: 'NARRATE', ask: 'ASK', cmd: 'CMD', dial: 'DIAL' },
       modeLabel: (m) => `Mode: ${m}`,
       prev: 'Back 15 seconds', play: 'Play narration', pause: 'Pause narration', next: 'Forward 15 seconds',
       rate: 'Speed', rateLabel: (r) => `Speed ${r}×, press to change`,
@@ -86,12 +101,11 @@
       knobs: 'knobs', knobsLabel: 'Synth knobs',
       snd: 'snd', sndLabel: (on) => `Interface sounds ${on ? 'on' : 'off'}`,
       pal: 'pal', palLabel: (p) => `Palette: ${p}, press to change`,
-      radial: 'radial', radialLabel: (on) => `Experimental compass home ${on ? 'on' : 'off'}`,
       on: 'on', off: 'off',
       toy: 'toy', toyNext: 'next',
       ask: 'ask', askLabel: 'Ask the Lab',
-      cmd: 'cmd', cmdLabel: 'Command line',
-      help: 'keys', helpLabel: 'Keyboard keys',
+      cmd: 'cmd', cmdLabel: 'Command line (/)',
+      help: 'keys', helpLabel: 'Keys and help (?)',
       more: 'More controls',
       moreClose: 'Close',
       canvasShort: '←',
@@ -119,9 +133,12 @@
       title: 'ask',
       prompts: [
         { id: 'now', q: 'what am i working on?' },
-        { id: 'interesting', q: 'tell me something interesting' },
-        { id: 'joke', q: 'tell me a joke' },
+        { id: 'interesting', q: 'tell me something interesting', chip: 'something interesting' },
+        { id: 'joke', q: 'tell me a joke', chip: 'a joke' },
       ],
+      label: 'Ask the Lab',
+      stop: 'stop',
+      stopLabel: 'Stop the answer',
       now: {
         mark: 'sample: the real one is written by a model from my own posts, server-side, after every content change',
         text: 'right now: a lab for this site, with a directory home, a deck that reads posts aloud, and a reliability study of the old laptop that runs everything at home. before that, holt shipped, a tool that tells you whether a repo is worth contributing to.',
@@ -150,13 +167,13 @@
       hint: '↑↓ choose · ↵ run · esc close',
       list: {
         open: (t) => `open ${t}`, voice: (v) => `voice ${v}`, pal: (p) => `pal ${p}`, toy: (t) => `toy ${t}`, ask: (a) => `ask ${a}`,
-        snd: 'snd', radial: 'radial', play: 'play', keys: 'keys', canvas: 'canvas',
+        snd: 'snd', dial: 'dial', play: 'play', keys: 'keys', canvas: 'canvas',
       },
-      what: { open: 'read it', voice: 'narration voice', pal: 'palette', toy: 'corner toy', ask: 'ask the lab', snd: 'sounds on / off', radial: 'compass on / off', play: 'play / pause', keys: 'keyboard keys', canvas: 'back to the canvas' },
+      what: { open: 'read it', voice: 'narration voice', pal: 'palette', toy: 'corner toy', ask: 'ask the lab', snd: 'sounds on / off', dial: 'experimental dial on / off', play: 'play / pause', keys: 'keyboard keys', canvas: 'back to the canvas' },
     },
     help: {
       title: 'keys',
-      rows: [['1–4', 'open a category'], ['↑ ↓', 'move'], ['↵', 'expand / open'], ['esc', 'back, close'], ['space', 'play / pause (when loaded)'], [', .', '−15 s / +15 s'], ['[ ]', 'slower / faster'], ['v', 'voice'], ['n', 'next toy'], ['/', 'command line'], ['?', 'this list'], ['~', 'back to the canvas']],
+      rows: [['1–4', 'open a category'], ['← ↑ ↓ →', 'move'], ['↵', 'open'], ['esc', 'back, close'], ['space', 'play / pause (when loaded)'], [', .', '−15 s / +15 s'], ['[ ]', 'slower / faster'], ['v', 'voice (while playing)'], ['n', 'next toy'], ['/', 'command line'], ['?', 'this list'], ['~', 'back to the canvas']],
       close: 'close',
     },
 

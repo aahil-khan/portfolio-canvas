@@ -15,14 +15,15 @@
  *   NIGHT.timing           { in, out }: how long the last trip each way took, measured (ms)
  *   window.renderLab()     re-renders the home from LAB.pieces and reports what changed
  *
- * THE TRANSITION, one timeline, a pure function of t: 0 → 1 over 0.7 s in, 1 → 0 over 0.6 s back,
+ * THE TRANSITION, one timeline, a pure function of t: 0 → 1 over 1.2 s in, 1 → 0 over 1.2 s back,
  * and nothing plays after it (the old full-screen intro is gone).
  *   0.00–0.60  night falls from the top (a 160vh blind, a warm dusk edge), and each day card makes
  *              way as the dusk edge passes it. Only translate, scale and opacity, never left/top,
  *              so on the way back every card lands where it was.
  *   0.25–0.70  the ASCII stars come up
- *   0.30–0.78  THE DOCK MORPHS in place into the deck: the desk's tiles fold away, the Lab tile turns
- *              into ← canvas and the deck's cells open out before it
+ *   0.30–0.78  THE DOCK MORPHS in place into the deck: every desk tile folds away (the Lab tile too)
+ *              while the deck's resting cells open out. The panel's width is a straight blend of
+ *              the two, so it never jumps, wraps or leaves the screen (e2e.mjs samples it).
  *   0.50–0.80  the Lab screen fades in, and its words decode in place, done by t = 1
  * Going back is the same timeline backwards with mirrored easing. The toy starts at once.
  * REDUCED MOTION (LAB.sky.reduced, the one owner): a 0.32 s crossfade. No drift, no blind, no
@@ -36,7 +37,7 @@
   const h = (tag, cls, html) => { const e = document.createElement(tag); if (cls) e.className = cls; if (html != null) e.innerHTML = html; return e }
   const PALETTES = Object.keys(C.palettes)
   const SECTIONS = NIGHT.model.SECTIONS
-  const MS = { in: 700, out: 600, calm: 320 }
+  const MS = { in: 1200, out: 1200, calm: 320 }
 
   // cubic-bezier(0.16, 1, 0.3, 1), solved for x by Newton's method
   const bezier = (x1, y1, x2, y2) => {
@@ -61,10 +62,11 @@
   const DECODE = { main: [0.52, 0.22, 0.26], dock: [0.55, 0.15, 0.12] }
   const DOCK = [0.3, 0.78], SCREEN = [0.5, 0.8]
 
-  const st = { t: 0, anim: 0, queue: [], cards: [], dock: null }
+  const st = { t: 0, anim: 0, queue: [], cards: [], dock: null, kp: 0 }
   const phone = () => innerWidth < 700
-  // under 1180 px the deck is its narrow form: mode, ▸, ⋯ and ← canvas
-  const narrow = () => innerWidth < 1180
+  // under 820 px the deck is its narrow form: the transport without speed, section or waveform,
+  // and the flags step aside while something plays
+  const narrow = () => innerWidth < 820
   let el = {}
   NIGHT.timing = { in: null, out: null }
 
@@ -87,10 +89,13 @@
   const nightAt = (b, y) => Math.min(1, Math.max(0, (1.6 * b - y) / 0.6))
 
   // ── the dock becomes the deck ───────────────────────────────────────────────────────────
-  // The desk's panel morphs in place: its tiles fold away, the Lab tile turns into ← canvas, and
-  // the deck's cells open out before it. Each cell's width is a fixed count of characters in the
-  // mono face (data-ch wide, data-chp narrow; measured once the face has loaded), never content:
-  // a ticking clock or a new piece never changes the deck.
+  // The desk's panel morphs in place: every desk tile folds away and the deck's resting cells open
+  // out. Each cell's width is a fixed count of characters in the mono face (data-ch wide, data-chp
+  // narrow; measured once the face has loaded), never content: a ticking clock never moves it.
+  // Two factors drive it, both pure: k (the trip, from t) and kp (something is playing: the
+  // transport and the voice slide in, deck.js decides when). A cell's padding scales with its
+  // width, so a folded cell takes no room at all: in #20 its 20 px of padding stayed behind, and
+  // the panel jumped wide the instant night began.
   let chW = { 12: 7.2, 11: 6.6 }
   function measureMono() {
     const c = document.createElement('canvas').getContext('2d')
@@ -101,52 +106,80 @@
     const size = parseFloat(cs.getPropertyValue('--dock-size')), gap = parseFloat(cs.getPropertyValue('--dock-gap')), pad = parseFloat(cs.getPropertyValue('--dock-pad'))
     const nw = narrow(), ph = phone(), px = ph ? 11 : 12, padX = ph ? 8 : 10, H1 = 34
     document.documentElement.dataset.deck = nw ? 'narrow' : 'wide'
-    const w = (chars) => Math.ceil(chars * chW[px] + padX * 2)
+    const w = (chars) => chars * chW[px] + padX * 2
     const items = []
-    for (const node of panel.children) {
+    let cellOf = null
+    const kids = [...panel.children]
+    for (let i = kids.length - 1; i >= 0; i--) { // backwards: a rule belongs to the cell after it
+      const node = kids[i]
       if (node.classList.contains('ldock')) {
-        const ch = +node.dataset[nw ? 'chp' : 'ch'] || 0
-        items.push(ch ? { node, kind: 'grow', w1: w(ch) } : { node, kind: 'skip' })
-      } else if (node.classList.contains('ldock-sep')) items.push(+node.dataset[nw ? 'chp' : 'ch'] ? { node, kind: 'grow', w1: 1 } : { node, kind: 'skip' })
-      else if (node.dataset.id === 'lab') items.push({ node, kind: 'morph', w1: w(('← ' + C.canvas).length) })
-      else if (node.classList.contains('desk-dock__item') || node.classList.contains('desk-dock__sep')) items.push({ node, kind: 'fold' })
+        const ch = +node.dataset[nw ? 'chp' : 'ch'] || 0, chx = +node.dataset.chx || ch
+        cellOf = { node, kind: 'cell', role: node.dataset.role || 'rest', w0: w(ch), wx: w(chx), padX }
+        items.unshift(cellOf)
+      } else if (node.classList.contains('ldock-sep')) items.unshift({ node, kind: 'sep', cell: cellOf })
+      else if (node.classList.contains('desk-dock__item') || node.classList.contains('desk-dock__sep')) items.unshift({ node, kind: 'fold' })
     }
-    st.dock = { panel, size, gap, pad, H1, P1: ph ? 4 : 6, items }
+    const radius = parseFloat(cs.getPropertyValue('--dock-panel-r')) || 0
+    st.dock = { panel, size, gap, pad, H1, P1: ph ? 4 : 6, items, nw, radius }
   }
-  const DOCK_PROPS = ['width', 'height', 'margin-right', 'opacity', 'visibility', '--lo', '--io']
+  const DOCK_PROPS = ['width', 'height', 'margin-left', 'margin-right', 'opacity', 'visibility', 'padding-left', 'padding-right']
   function dockDay(d) {
     for (const it of d.items) for (const p of DOCK_PROPS) it.node.style.removeProperty(p)
     d.panel.style.removeProperty('padding')
+    d.panel.style.removeProperty('border-radius')
   }
+  // how open a deck cell is: the trip's k, times whether its role is showing
+  const openOf = (it, k, kp, nw) => it.role === 'play' ? k * kp : it.role === 'flags' && nw ? k * (1 - kp) : k
   function dockAt(t) {
     const d = st.dock
     if (!d) return
     if (t === 0) { dockDay(d); return }
-    const k = R() ? (t >= 0.5 ? 1 : 0) : ease(seg(t, DOCK[0], DOCK[1]))
+    const k = R() ? (t >= 0.5 ? 1 : 0) : ease(seg(t, DOCK[0], DOCK[1])), kp = st.kp
     const hgt = (d.size + (d.H1 - d.size) * k).toFixed(2) + 'px'
+    const sepH = (d.size * 0.62 + (18 - d.size * 0.62) * k).toFixed(2) + 'px'
     for (const it of d.items) {
       const s = it.node.style
-      if (it.kind === 'skip') { for (const p of DOCK_PROPS) s.removeProperty(p); continue }
       if (it.kind === 'fold') {
         const sep = it.node.classList.contains('desk-dock__sep')
         if (!sep) { s.width = (d.size * (1 - k)).toFixed(2) + 'px'; s.height = hgt }
-        s.marginRight = (-d.gap * k).toFixed(2) + 'px'
+        else { s.height = sepH; s.width = (1 - k).toFixed(3) + 'px'; s.marginLeft = (4 * (1 - k)).toFixed(2) + 'px' }
+        s.marginRight = ((sep ? 4 * (1 - k) : 0) - d.gap * k).toFixed(2) + 'px'
         s.opacity = (1 - seg(k, 0, 0.55)).toFixed(3)
         s.visibility = k >= 1 ? 'hidden' : ''
-        if (sep && k >= 1) s.width = '0px'
-        else if (sep) s.removeProperty('width')
-      } else if (it.kind === 'morph') {
-        s.width = (d.size + (it.w1 - d.size) * k).toFixed(2) + 'px'; s.height = hgt
-        s.setProperty('--io', (1 - seg(k, 0, 0.45)).toFixed(3)) // the day icon goes
-        s.setProperty('--lo', seg(k, 0.5, 1).toFixed(3)) // the label comes
-      } else {
-        s.width = (it.w1 * k).toFixed(2) + 'px'; s.height = d.H1 + 'px'
-        s.marginRight = (-d.gap * (1 - k)).toFixed(2) + 'px'
-        s.opacity = seg(k, 0.45, 1).toFixed(3)
-        s.visibility = k <= 0 ? 'hidden' : ''
+        continue
       }
+      const o = it.kind === 'sep' ? (it.cell ? openOf(it.cell, k, kp, d.nw) : 0) : openOf(it, k, kp, d.nw)
+      const wfull = it.kind === 'sep' ? 1 : it.w0 + (it.wx - it.w0) * kp
+      s.width = (wfull * o).toFixed(2) + 'px'
+      if (it.kind === 'cell') { s.height = d.H1 + 'px'; s.paddingLeft = s.paddingRight = (it.padX * o).toFixed(2) + 'px' }
+      s.marginRight = (-d.gap * (1 - o)).toFixed(2) + 'px'
+      s.opacity = seg(o, 0.45, 1).toFixed(3)
+      s.visibility = o <= 0 ? 'hidden' : ''
     }
     d.panel.style.padding = (d.pad + (d.P1 - d.pad) * k).toFixed(2) + 'px'
+    d.panel.style.borderRadius = (d.radius * (1 - k)).toFixed(2) + 'px'
+  }
+  // the transport and the voice slide in while something plays, and out a moment after it stops
+  let kpAnim = 0, kpTimer = 0, kpWant = 0
+  NIGHT.deckPlay = (on, { now = false } = {}) => {
+    const want = on ? 1 : 0
+    clearTimeout(kpTimer)
+    if (want === kpWant && !now) return
+    kpWant = want
+    const go = () => {
+      cancelAnimationFrame(kpAnim)
+      const from = st.kp, ms = R() || now ? 0 : 320, t0 = performance.now()
+      const step = (tnow) => {
+        const p = ms ? Math.min(1, (tnow - t0) / ms) : 1
+        st.kp = from + (want - from) * EASE(p)
+        if (st.t > 0 && !st.anim) dockAt(st.t)
+        if (p < 1) kpAnim = requestAnimationFrame(step)
+        else { kpAnim = 0; document.documentElement.dataset.playing = String(!!want) }
+      }
+      if (want) document.documentElement.dataset.playing = 'true'
+      if (ms) kpAnim = requestAnimationFrame(step); else step(t0)
+    }
+    if (want || now) go(); else kpTimer = setTimeout(go, 1400)
   }
 
   // ── the timeline ─────────────────────────────────────────────────────────────────────────
@@ -203,25 +236,15 @@
     const [m0, cap, len] = DECODE.main, nodes = texts(el.main).filter(onScreen).slice(0, 160)
     nodes.forEach((n, j) => { const a = m0 + cap * (j / Math.max(1, nodes.length - 1)); decoders.push({ node: n, text: n.nodeValue, a, b: Math.min(1, a + len), seed: 900 + j }) })
     const [d0, dLen, dStep] = DECODE.dock
-    // the Lab tile's label is a CSS string (--g, night.css): written inline while it plays
-    const lab = labTile().querySelector('.desk-dock__icon')
-    lab.style.removeProperty('--g')
-    const g = getComputedStyle(lab).getPropertyValue('--g').trim().replace(/^["']|["']$/g, '')
-    if (g) decoders.push({ dock: lab, text: g, a: d0, b: d0 + dLen, seed: 101 })
-    // the deck's words, staggered over dStep in all (there are dozens): done by t = 0.84
-    const dn = el.ldockNodes.filter((n) => +n.dataset[narrow() ? 'chp' : 'ch'] > 0).flatMap((n) => texts(n))
+    // the deck's resting words, staggered over dStep in all: done by t = 0.84
+    const dn = el.ldockNodes.filter((n) => n.dataset.role !== 'play').flatMap((n) => texts(n))
     dn.forEach((n, i) => { const a = d0 + 0.02 + dStep * (i / Math.max(1, dn.length - 1)); decoders.push({ node: n, text: n.nodeValue, a, b: a + dLen, seed: 201 + i }) })
   }
   function decodeAt(t, red) {
     for (const d of decoders) {
       const p = red ? 1 : seg(t, d.a, d.b)
-      if (d.dock) {
-        if (p >= 1 || t === 0) d.dock.style.removeProperty('--g')
-        else d.dock.style.setProperty('--g', `"${NIGHT.decode(d.text, p, d.seed)}"`)
-      } else {
-        const v = NIGHT.decode(d.text, t === 0 ? 1 : p, d.seed)
-        if (d.node.nodeValue !== v) d.node.nodeValue = v
-      }
+      const v = NIGHT.decode(d.text, t === 0 ? 1 : p, d.seed)
+      if (d.node.nodeValue !== v) d.node.nodeValue = v
     }
   }
 
@@ -262,7 +285,9 @@
   function beginLeave() {
     toy.stop()
     deck.close()
+    if (NIGHT.dial) NIGHT.dial.close()
     NIGHT.voice.stop()
+    NIGHT.deckPlay(false, { now: true })
     reader.closeNow()
     planDock()
     collectDecoders()
@@ -272,14 +297,11 @@
     const lab = labTile(), a = document.activeElement
     home.live()
     if (to === 1) {
-      lab.setAttribute('aria-label', C.canvasLabel)
       setURL(true)
-      // came in by keyboard: focus goes to the first row of the directory (the way back is ~,
-      // or the deck's ← canvas, which is the tile that was just pressed)
-      if (!a || a === document.body || a === lab) { const f = home.first(); (f || lab).focus({ preventScroll: true }) }
+      // came in by keyboard: focus goes to the first tile (the way back is ~, or ← canvas top left)
+      if (!a || a === document.body || a === lab) { const f = home.first(); (f || el.back).focus({ preventScroll: true }) }
       if (NIGHT.sound) NIGHT.sound.cue('boot')
     } else {
-      lab.setAttribute('aria-label', 'Lab') // desk.js's own label for it
       setURL(false)
       if (!a || a === document.body || el.lab.contains(a) || DESK.dock.contains(a)) lab.focus({ preventScroll: true })
     }
@@ -288,7 +310,7 @@
   function setURL(night) {
     try {
       const u = new URL(location.href)
-      if (night) u.searchParams.set('mode', 'night'); else { u.searchParams.delete('mode'); u.searchParams.delete('lab') }
+      if (night) u.searchParams.set('mode', 'night'); else { u.searchParams.delete('mode'); u.searchParams.delete('lab'); if (u.hash === '#lab') u.hash = '' }
       history.replaceState(null, '', u)
     } catch { /* file:// */ }
   }
@@ -296,7 +318,8 @@
   NIGHT.enter = () => run(1)
   NIGHT.leave = () => run(0)
   NIGHT.toggle = () => run(st.t > 0.5 || (st.anim && dir > 0) ? 0 : 1)
-  NIGHT.scrub = (t) => { if (st.t === 0) { dir = 1; beginEnter() } apply(t) }
+  // ?freeze=t holds the way in at t; &back=1 the way back (mirrored easing)
+  NIGHT.scrub = (t, back = false) => { if (st.t === 0) beginEnter(); dir = back ? -1 : 1; apply(t) }
   NIGHT.state = st
 
   // ── the Lab screen: the home, and the deck in the desk's dock ───────────────────────────
@@ -306,20 +329,21 @@
     lab.inert = true
     lab.setAttribute('aria-label', C.labLabel)
     lab.setAttribute('role', 'region')
-    lab.innerHTML = `<div class="lab__main"></div>`
+    lab.innerHTML = `<button type="button" class="lab-back" aria-label="${C.canvasLabel}" aria-keyshortcuts="~">← ${C.canvas}<span class="lab-back__k" aria-hidden="true">${C.canvasKey}</span></button><div class="lab__main"></div>`
     document.body.insertBefore(lab, DESK.dock) // in the Tab order: the home, then the deck
     el.lab = lab
     el.main = lab.querySelector('.lab__main')
+    el.back = lab.querySelector('.lab-back')
+    el.back.addEventListener('click', () => NIGHT.leave())
     const want = q.get('palette')
     NIGHT.setPalette(PALETTES.includes(want) ? want : 'white', true)
     toy.mount()
-    const radial = q.get('home') === 'radial'
-    home.mount(el.main, { home: radial ? 'radial' : 'dir', radialFlag: radial })
+    home.mount(el.main)
+    if (NIGHT.dial) NIGHT.dial.mount({ on: q.get('dial') === '1' })
   }
   // the deck's cells, inside the desk's panel, before the Lab tile; display:none by day
   function buildDock() {
     deck.mount()
-    if (q.get('home') === 'radial') deck.setRadial(true)
     el.ldock = DESK.dock.querySelector('.desk-dock__panel')
     el.ldockNodes = [...el.ldock.querySelectorAll('.ldock')]
   }
@@ -388,16 +412,18 @@
       if (st.t === 0) return
       if (['0', '+', '=', '-'].includes(e.key)) e.stopPropagation()
       if (reader.isOpen() || st.t < 1) return
-      // the deck's keys first (space , . [ ] v n / ? and Esc for an open popover)
+      // the dial first (hold space, 1–4, arrows, esc while it is open), then the deck's keys
+      if (NIGHT.dial && NIGHT.dial.key(e)) return
       if (deck.key(e)) return
       if (e.target.closest && e.target.closest('input, textarea, select')) return
       if (e.metaKey || e.ctrlKey || e.altKey || deck.popOpen()) return
       if (e.key === '~' || e.key === '`') { e.preventDefault(); NIGHT.leave(); return }
       const s = SECTIONS.find((x) => x.key === e.key)
-      if (s) { e.preventDefault(); if (!home.commitKey(e.key)) home.go(s.id); return }
+      if (s) { e.preventDefault(); home.go(s.id); return }
       if (e.key === 'r' && !(e.target.closest && e.target.closest('.toy__fx')) && toy.key('r')) { e.preventDefault(); return }
-      if (e.key === 'Escape' && home.back()) e.preventDefault()
+      if (e.key === 'Escape' && (home.stopAnswer() || home.back())) e.preventDefault()
     }, true)
+    document.addEventListener('keyup', (e) => { if (st.t === 1 && NIGHT.dial) NIGHT.dial.keyup(e) }, true)
     // a pinch (ctrl + wheel) never zooms anything in the Lab; plain wheels scroll its own columns
     el.lab.addEventListener('wheel', (e) => { if (e.ctrlKey) e.preventDefault() }, { passive: false })
     reader.onchange = () => toy.wake()
@@ -435,14 +461,13 @@
   function land() {
     dir = 1; beginEnter(); apply(1)
     document.documentElement.classList.remove('is-turning')
-    labTile().setAttribute('aria-label', C.canvasLabel)
     setURL(true)
     home.live()
     const sel = q.get('sel')
     if (sel) home.select(sel)
     if (q.get('voice')) NIGHT.voice.use(q.get('voice'))
     // a popover open on arrival, for screenshots (?pop=voice|knobs|ask|cmd|help|more). Never ▸.
-    if (q.get('pop')) setTimeout(() => deck.open(q.get('pop'), labTile()), 60)
+    if (q.get('pop')) setTimeout(() => deck.open(q.get('pop'), el.back), 60)
     if (q.get('add')) {
       // exactly what the brief asks a visitor to type in the console
       LAB.pieces.push({ slug: 'test-piece', title: 'Test piece', shelf: 'playground', kind: 'experiment', date: '2099-01' })
@@ -455,8 +480,6 @@
   }
 
   NIGHT.mount = () => {
-    // the dock's text labels are CSS strings (night.css reads them); the words are copy.js's
-    document.documentElement.style.setProperty('--lab-tile', JSON.stringify('← ' + C.canvas))
     reader.mount()
     buildLab()
     buildDock()
@@ -472,8 +495,8 @@
     })
 
     const freeze = q.get('freeze')
-    if (freeze != null) { settled().then(() => { measureMono(); NIGHT.scrub(Math.min(1, Math.max(0, parseFloat(freeze) || 0))) }); return }
-    const atNight = q.get('mode') === 'night' || q.get('lab') === '1' || /^#\/(writing|experiments)\//.test(location.hash)
+    if (freeze != null) { settled().then(() => { measureMono(); NIGHT.scrub(Math.min(1, Math.max(0, parseFloat(freeze) || 0)), q.get('back') === '1') }); return }
+    const atNight = q.get('mode') === 'night' || q.get('lab') === '1' || /^#(lab$|\/(writing|experiments|research)\/)/.test(location.hash)
     if (atNight && q.get('then') === 'desk') {
       // record the desk once it has painted, land in the Lab, go back, measure every card
       settled().then(() => {
