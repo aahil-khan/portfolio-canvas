@@ -15,7 +15,7 @@ something else.
 - Reading the code to learn how something works.
 - Lifting the canvas engine, the pan/zoom, the dock, the window system, the `/edit` editor or the
   scripts into your own project.
-- Taking the idea of a desktop-style portfolio and making it yours.
+- Taking the idea of a desktop style portfolio and making it yours, even I didn't come up with this idea lol, taking inspiration is always fine.
 
 **Please don't:** clone the site, swap in your own content and ship it with the same layout, hero,
 themes and copy structure. Even with credit, that's still a copy of my site.
