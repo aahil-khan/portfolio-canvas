@@ -63,7 +63,6 @@
   const hello = () => `<div class="hello"><p class="hello__1">${esc(welcome()[0])}</p>` +
     welcome().slice(1).map((l) => `<p class="hello__l">${esc(l)}</p>`).join('') + `</div><div class="ask">${hero()}</div>`
   const latest = () => { const all = st.secs.map((s) => s.upd).filter(Boolean); const key = (u) => { const [m, y] = u.split(' '); return y ? y + String(['jan', 'feb', 'mar', 'apr', 'may', 'jun', 'jul', 'aug', 'sep', 'oct', 'nov', 'dec'].indexOf(m)).padStart(2, '0') : m + '00' }; return all.sort((a, b) => (key(a) < key(b) ? 1 : -1))[0] || '' }
-  const titleOf = (id) => { const [sid, slug] = id.split('/'), s = st.secs.find((x) => x.id === sid), e = s && s.entries.find((x) => x.slug === slug); return e ? e.title : slug }
   // the latest 2–3 things inside a category, for the peek
   const peekOf = (s) => {
     if (s.id === 'research') return s.entries.flatMap((e) => [`${e.title} · ${C().series.of(e.written, e.planned)}`, ...e.chapters.slice().reverse().slice(0, 2).map((c) => `${String(c.n).padStart(2, '0')} ${c.title}`)]).slice(0, 3)

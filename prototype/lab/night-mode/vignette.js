@@ -37,11 +37,11 @@
   function work(f) {
     const g = grid(), p = mod(f, 4)
     const top = ["  .-'-.  ", "  '-.-'  "], bot = ["  '-.-'  ", "  .-'-.  "]
-    put(g, 0, 0, top[p % 2])
+    put(g, 0, 0, top[(p >> 1) % 2])
     put(g, 1, 0, ' /     \\ ')
     put(g, 2, 0, '|   o   |')
     put(g, 3, 0, ' \\     / ')
-    put(g, 4, 0, bot[p % 2])
+    put(g, 4, 0, bot[(p >> 1) % 2])
     if (p % 2 === 0) { put(g, 1, 4, '|'); put(g, 2, 2, '--'); put(g, 2, 5, '--'); put(g, 3, 4, '|') }
     else { put(g, 1, 3, '\\'); put(g, 1, 5, '/'); put(g, 3, 3, '/'); put(g, 3, 5, '\\') }
     put(g, 2, 9, p % 2 ? '=' : '-')
@@ -49,7 +49,7 @@
     put(g, 2, 10, `( ${'x+'[p % 2]} )`)
     put(g, 3, 10, p % 2 ? " '-' " : " '.' ")
     // the belt: a pattern sliding right, one cell a frame
-    const belt = '=-=.'
+    const belt = '=---'
     for (let c = 1; c < W - 1; c++) g[5][c] = belt[mod(c - f, belt.length)]
     g[5][0] = '('; g[5][W - 1] = ')'
     return out(g)

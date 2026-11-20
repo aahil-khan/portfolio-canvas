@@ -231,7 +231,7 @@ html.has-night .desk-dock__panel {
   flex-wrap: nowrap;
 }
 html.has-night .desk-dock__tip { display: none; }
-html.has-night .desk-dock__icon { position: relative; transition: background-color var(--dur-dock) var(--ease-out), border-color var(--dur-dock) var(--ease-out), box-shadow var(--dur-dock) var(--ease-out), border-radius var(--dur-dock) var(--ease-out); }
+html.has-night .desk-dock__icon { position: relative; overflow: hidden; transition: background-color var(--dur-dock) var(--ease-out), border-color var(--dur-dock) var(--ease-out), box-shadow var(--dur-dock) var(--ease-out), border-radius var(--dur-dock) var(--ease-out); }
 html.has-night .desk-dock__item[data-folder]::before { opacity: 0; }
 html.has-night .desk-dock__item::after { opacity: 0; }
 /* THE DECK: fixed-width cells of mono text, split by 1px rules; the mode cell is the only accent */
@@ -307,7 +307,7 @@ html.is-reading #deskDock { z-index: 95; }
 /* THE COMPASS (experimental): four labels around the centre of the screen */
 
 html.is-night .desk-dock__panel { background: var(--lab-pane); border-color: var(--lab-fg); box-shadow: none; }
-html.is-night .desk-dock__item { color: var(--lab-fg); }
+html.is-night .desk-dock__item { color: var(--lab-fg); overflow: hidden; } /* a folded tile keeps nothing poking out */
 html.is-night .desk-dock__item:hover, html.is-night .desk-dock__item:focus-visible { transform: none; }
 html.is-night .desk-dock__item:focus-visible { outline: 1px dashed var(--lab-fg); outline-offset: 2px; }
 html.is-night .desk-dock__icon { background: transparent; border-color: transparent; box-shadow: none; border-radius: 0; color: var(--lab-dim); }

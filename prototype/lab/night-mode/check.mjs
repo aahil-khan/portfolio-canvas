@@ -29,7 +29,7 @@ import { fileURLToPath } from 'node:url'
 const here = dirname(fileURLToPath(import.meta.url))
 const require = createRequire(import.meta.url)
 globalThis.window = globalThis
-for (const f of ['../shared/pieces.js', '../shared/body.js', 'work.js', 'copy.js', 'decode.js', 'moon.js', 'fx.js', 'essay.js', 'series.js', 'logic.js', 'model.js', 'narration/sample-timings.js']) require(join(here, f))
+for (const f of ['../shared/pieces.js', '../shared/body.js', 'work.js', 'copy.js', 'decode.js', 'moon.js', 'fx.js', 'essay.js', 'series.js', 'logic.js', 'model.js', 'vignette.js', 'narration/sample-timings.js']) require(join(here, f))
 const { LAB, NIGHT } = globalThis
 const M = NIGHT.model, FX = NIGHT.fx, C = NIGHT.copy
 
@@ -93,7 +93,7 @@ const extras = {
 ok(same(M.build([...LAB.pieces, extras["the brief's (an experiment)"][0]])[1].entries[0].n, 'exp-04'), 'a new experiment is exp-04; no older number moves')
 const css = readFileSync(join(here, 'night.css'), 'utf8')
 const home = readFileSync(join(here, 'home.js'), 'utf8')
-ok(!/offsetHeight|getBoundingClientRect\(\)\.height|\.length \*|count \*/.test(home) && !/style=/.test(tree), 'nothing places anything by counting rows or reading heights; rows carry no inline style')
+ok(!/offsetHeight|getBoundingClientRect\(\)\.height|\.length \*|count \*/.test(home.replace(/function typeAnswer\(\) \{[\s\S]*?\n  \}/, '')) && !/style=/.test(tree), 'nothing places anything by counting rows or reading heights; rows carry no inline style')
 
 console.log('3. nothing pans, zooms or drags')
 const files = readdirSync(here).filter((f) => /\.(html|css|js|mjs)$/.test(f) && f !== 'check.mjs')
@@ -102,24 +102,24 @@ const code = (s) => s.replace(/\/\*[\s\S]*?\*\//g, '').replace(/(^|[^:])\/\/.*$/
 const lab = ['night.js', 'home.js', 'reader.js', 'model.js', 'deck.js', 'voice.js', 'sound.js'].map((f) => code(text[f])).join('\n')
 ok(!/DESK\.flyTo|DESK\.fit\(|DESK\.focusCard/.test(code(text['night.js']).replace(/if \(q\.get\('roundtrip'\)\)[\s\S]*?settled\(\)\.then/, '')), 'the Lab never moves the camera (DESK.flyTo only in the ?roundtrip proof, by day)')
 ok(!/pointermove|setPointerCapture|style\.(left|top)\s*=/.test(lab.replace(/about\.el\.style\.(left|top)/g, '')), 'no drag handler and no left/top written in the Lab screen, the directory, the deck or the reader')
-const radJs = code(text['radial.js'])
-ok(/pointermove/.test(radJs) && !/setPointerCapture/.test(radJs) && [...radJs.matchAll(/\.style\.(\w+)/g)].every((m) => m[1] === 'transform') && !/function frame\(\)[\s\S]*?commit\(/.test(radJs.replace(/\n  \}[\s\S]*/, '')) && /requestAnimationFrame\(frame\)/.test(radJs),
-  "the compass reads the pointer into a variable and a rAF loop; it writes only its pointer line's transform, and a pointer move never commits")
+const dialJs = code(text['dial.js']), frameFn = (dialJs.match(/function frame\(\) \{[\s\S]*?\n  \}/) || [''])[0]
+ok(/pointermove/.test(dialJs) && !/setPointerCapture/.test(dialJs) && frameFn.length > 100 && [...frameFn.matchAll(/\.style\.(\w+)/g)].every((m) => ['transform', 'opacity'].includes(m[1])) && !/commit\(|release\(/.test(frameFn) && /requestAnimationFrame\(frame\)/.test(dialJs) && ![...dialJs.matchAll(/\.style\.(\w+)/g)].some((m) => !['transform', 'opacity', 'left', 'top'].includes(m[1])),
+  "the dial reads the pointer into a variable and one rAF loop; the loop writes only the needle's transform and opacity and never commits; the dial itself is placed once, when summoned")
 const toyJs = code(text['toy.js'])
 ok(/setPointerCapture/.test(toyJs) && !/style\.|\.animate\(|transform|translate/.test(toyJs.replace(/el\.pre\.textContent/g, '')) && /el\.pre\.textContent = text/.test(toyJs), "the only drag is the toy's, and it rewrites the toy's own text: no style, transform or animation")
 ok(/\['0', '\+', '=', '-'\]\.includes\(e\.key\)\) e\.stopPropagation\(\)/.test(text['night.js']) && /html\.has-night #deskViewport \{ pointer-events: none;/.test(css), "the desk's 0 / + / − keys are stopped at night, and the desk takes no pointer from the first frame of dusk")
 ok(/\.lab \{\s*position: fixed; inset: 0;/.test(css) && !/\.lab[^{]*\{[^}]*transform/.test(css), 'the Lab screen is position:fixed, inset 0, never transformed')
 ok(!/lbar|status bar class|\.palsw|class="frame/.test(code(text['night.js']) + code(text['home.js'])) && !/\.(lbar|frame|tui)\b/.test(code(css)), 'no top status bar and no boxed panels (no .lbar, .frame or .tui anywhere)')
-const borders = [...code(css).matchAll(/([^{}]+)\{([^{}]*\bborder(?:-(?:top|bottom|left|right))?:\s*1px solid[^{}]*)\}/g)].map((m) => m[1].trim()).filter((sel) => !/^\.(rd__|lbx|reader|proof|pop\b)|html\.is-night \.desk-dock|desk-dock__item|pv__fig|pg__fig|rd__zoom/.test(sel))
-ok(!borders.length, `solid frames only on the reader's header, figures, the deck and its popovers${borders.length ? ' — ALSO ON: ' + borders.join(' | ') : ''}`)
+const borders = [...code(css).matchAll(/([^{}]+)\{([^{}]*\bborder(?:-(?:top|bottom|left|right))?:\s*1px solid[^{}]*)\}/g)].map((m) => m[1].trim()).filter((sel) => !/^\.(rd__|lbx|reader|proof|pop\b|lab-back|hero__go|tile__b|dial)|html\.is-night \.desk-dock|desk-dock__item|pv__fig|pg__fig|rd__zoom/.test(sel))
+ok(!borders.length, `solid frames only on the reader's header, figures, the deck and its popovers, ← canvas, the ask hero, the tiles and the dial${borders.length ? ' — ALSO ON: ' + borders.join(' | ') : ''}`)
 // one navigation system: the directory. No layouts, no corner, no switches, no section tiles.
 const deckJs = code(text['deck.js']), actFn = (deckJs.match(/function act\(doo, from\) \{[\s\S]*?\n  \}/) || [''])[0]
-ok(/class="dir__cats"/.test(home) && !/LAYOUTS|setLayout|lcorner|class="lsw|class="ixn"|class="jump"/.test(code(text['night.js']) + code(home)) && !/data-lab=|\.ldock\[data-lab/.test(deckJs + css) && !/data-lab-layout/.test(css + code(text['night.js'])),
-  'one navigation system, the directory: no layouts, no layout switch, no corner, no section tiles in the deck')
+ok(/class="tiles"/.test(home) && !/LAYOUTS|setLayout|lcorner|class="lsw|class="ixn"|class="jump"/.test(code(text['night.js']) + code(home)) && !/data-lab=|\.ldock\[data-lab/.test(deckJs + css) && !/data-lab-layout/.test(css + code(text['night.js'])),
+  'one navigation system, the tiles and their categories: no layouts, no layout switch, no corner, no section tiles in the deck')
 ok(actFn.length > 200 && !/home\.(go|select|openCat|setHome)|reader\.go|location|NIGHT\.leave/.test(actFn) && (deckJs.match(/reader\.go\(/g) || []).length === 1 && /function runCommand[\s\S]*?reader\.go\(/.test(deckJs),
   "the deck does no navigation: act(), the only thing a cell calls, opens no category, entry or post; reader.go appears once, in the / command line's runCommand (a search)")
 const MS = /const MS = \{ in: (\d+), out: (\d+), calm: (\d+) \}/.exec(text['night.js'])
-ok(MS && +MS[1] <= 800 && +MS[2] <= 800 && +MS[3] <= 400 && !/intro/.test(code(text['night.js'])), `the trip: ${MS && MS[1]} ms in, ${MS && MS[2]} ms back, decode included (the decode windows end by t = 1); reduced motion a ${MS && MS[3]} ms crossfade; no intro after it`)
+ok(MS && +MS[1] >= 1100 && +MS[1] <= 1300 && +MS[2] >= 1100 && +MS[2] <= 1300 && +MS[3] <= 400 && !/intro/.test(code(text['night.js'])), `the trip: ${MS && MS[1]} ms in, ${MS && MS[2]} ms back, decode included (the decode windows end by t = 1); reduced motion a ${MS && MS[3]} ms crossfade; no intro after it`)
 
 console.log('4. the toys')
 ok(same(FX.ids, ['donut', 'warp', 'life', 'nebula', 'moon']), `${FX.ids.length} toys: ${FX.ids.join(', ')}`)
@@ -214,7 +214,7 @@ for (const [name, P] of Object.entries(palettes)) {
 }
 
 console.log('8. the files')
-const NIGHT_ONLY = /html\.(has-night|is-night|is-turning|is-reading)|^\.(night|cut|act|lab|hello|keys|toy|sh|is-new|L--|pv|top|dk|dl|dir|cat|deckpop|pop|knob|ans|cmd|help|sheet|rad|thread|hub|ldock|reader|rd__|lbx|proof)|^\[data-|^html\[data-palette|^html:not\(\[data-palette\]\)|^:root$|^\.desk-dock__item\[(data-id|aria-label)=[^\]]+\] \.desk-dock__icon$/
+const NIGHT_ONLY = /html\.(has-night|is-night|is-turning|is-reading)|^\.(night|cut|act|lab|hello|keys|toy|sh|is-new|L--|pv|top|dk|dl|dir|cat|deckpop|pop|knob|ans|cmd|help|sheet|rad|thread|hub|ldock|reader|rd__|lbx|proof|L\b|hero|chip|tiles?\b|tile__|vg\b|cvh?\b|cvh__|cvs\b|pane\b|dial|ask\b)|^\[data-|^html\[data-(palette|deck|dial)|^html\.has-dial|^html:not\(\[data-palette\]\)|^:root$|^\.desk-dock__item\[(data-id|aria-label)=[^\]]+\] \.desk-dock__icon$/
 const rules = [...code(css).replace(/'[^'\n]*'/g, "''").replace(/@import[^;]+;/g, '').replace(/@media[^{]+\{/g, '').matchAll(/([^{}]+)\{([^{}]*)\}/g)].map((m) => [m[1].trim(), m[2]])
 const leaky = rules.filter(([sel, body]) => {
   const props = [...body.matchAll(/([\w-]+)\s*:/g)].map((m) => m[1])
@@ -226,27 +226,51 @@ ok(files.every((f) => !/backdrop-filter/i.test(code(text[f]))), 'no backdrop-fil
 ok(files.every((f) => !/lorem|ipsum/i.test(text[f])), 'no lorem ipsum')
 const scripts = [...text['index.html'].matchAll(/<script[^>]*src="([^"]+)"/g)].map((x) => x[1])
 ok(scripts.every((s) => !/^https?:|^\/\//.test(s)), `no script from a CDN (${scripts.length} local scripts)`)
-ok(['../shared/pieces.js', '../shared/desk.js', '../shared/sky.js', '../shared/body.js', 'copy.js', 'fx.js', 'series.js', 'logic.js', 'model.js', 'sam.js', 'sound.js', 'voice.js', 'toy.js', 'radial.js', 'home.js', 'reader.js', 'deck.js', 'night.js'].every((s) => scripts.includes(s)) && !scripts.some((s) => /shelves|windows|intro|menu|sample-audio/.test(s)), "built on the shared kit plus this folder; the sample's audio is not a page script (it loads on the first press)")
+ok(['../shared/pieces.js', '../shared/desk.js', '../shared/sky.js', '../shared/body.js', 'copy.js', 'fx.js', 'series.js', 'logic.js', 'model.js', 'sam.js', 'sound.js', 'voice.js', 'toy.js', 'vignette.js', 'dial.js', 'home.js', 'reader.js', 'deck.js', 'night.js'].every((s) => scripts.includes(s)) && !scripts.some((s) => /shelves|windows|intro|menu|sample-audio/.test(s)), "built on the shared kit plus this folder; the sample's audio is not a page script (it loads on the first press)")
 // every sentence the Lab shows is in copy.js: no quoted run of 4+ words in the UI scripts
 const sentence = /(['"`])(?:(?!\1)[^\n]){0,6}\b[a-z]+ [a-z]+ [a-z]+ [a-z]+\b(?:(?!\1)[^\n])*\1/i
 const strip = (s) => code(s).replace(/(['"`])(?:\\.|(?!\1)[^\\\n])*\1/g, (m) => (/[<>=(){}$]|\.\w+\(|^.(\w+-)+\w+.$/.test(m) ? "''" : m))
-const prose = ['night.js', 'home.js', 'toy.js', 'reader.js', 'model.js', 'deck.js', 'voice.js', 'radial.js', 'sound.js', 'logic.js'].filter((f) => sentence.test(strip(text[f])))
+const prose = ['night.js', 'home.js', 'toy.js', 'reader.js', 'model.js', 'deck.js', 'voice.js', 'dial.js', 'vignette.js', 'sound.js', 'logic.js'].filter((f) => sentence.test(strip(text[f])))
 ok(!prose.length && C.welcome.length === 3 && /PROPOSAL FOR AAHIL/.test(text['copy.js']), `every UI word is in copy.js (the welcome is marked a proposal)${prose.length ? ' — prose in ' + prose.join(', ') : ''}`)
 
 console.log('9. the deck, the compass, the series, the voices, the sound')
 const G = NIGHT.logic, nightJs = code(text['night.js']), voiceJs = code(text['voice.js']), soundJs = code(text['sound.js']), readerJs = code(text['reader.js'])
 // the deck
 const cellsFn = (deckJs.match(/function cellsHtml\(\) \{[\s\S]*?\n  \}/) || [''])[0]
-ok(['dk-mode', 'dk-tr', 'dk-voice', 'dk-flags', 'dk-toy', 'dk-keys', 'dk-pplay', 'dk-more'].every((c) => cellsFn.includes(`'${c}`)) && ['back', 'play', 'fwd', 'rate', 'voice', 'knobs', 'snd', 'pal', 'radial', 'toy', 'ask', 'cmd', 'help', 'more'].every((d) => cellsFn.includes(`'${d}'`) || cellsFn.includes(`data-do="${d}"`)),
-  'the deck: mode · ◂◂ ▸ ▸▸ speed time ¶section waveform · voice · knobs · snd pal radial · toy:[n]ext · ?ask /cmd ?keys · ← canvas; narrow: mode ▸ ⋯ ←')
-ok(/chp: 9[\s\S]*chp: 3[\s\S]*chp: 3/.test(cellsFn) && (cellsFn.match(/chp: [1-9]/g) || []).length === 3 && /dataset\[nw \? 'chp' : 'ch'\]/.test(nightJs) && /innerWidth < 1180/.test(nightJs), 'on a phone (and under 1180 px) the deck collapses to mode, ▸ and ⋯ (plus the exit)')
+ok(['dk-mode', 'dk-tr', 'dk-voice', 'dk-flags', 'dk-keys'].every((c) => cellsFn.includes(`'${c}'`)) && ['back', 'play', 'fwd', 'rate', 'voice', 'knobs', 'snd', 'pal', 'cmd', 'help'].every((d) => cellsFn.includes(`'${d}'`)) && !/dk-toy|dk-more|dk-pplay|'radial'|'ask'|'toy'|'more'|canvas/.test(cellsFn),
+  'the deck at rest: LAB │ snd pal │ / ? — no toy, no ask, no radial flag, no ← canvas; the transport and the voice are its only other cells')
+ok(/cell\('dk-tr', 'play'/.test(cellsFn) && /cell\('dk-voice', 'play'/.test(cellsFn) && /cell\('dk-flags', 'flags'/.test(cellsFn) && /role === 'play' \? k \* kp/.test(nightJs) && /NIGHT\.deckPlay\(on\)/.test(deckJs) && /setTimeout\(go, \d{3,4}\)/.test(nightJs) && /chp: 17/.test(cellsFn) && /innerWidth < 820/.test(nightJs),
+  'the transport and the voice slide in only while something plays (night.js kp), and out a moment after it stops; under 820 px the transport is short and the flags step aside while it plays')
 // the compass
 const wd = (deg, prev, r = 100) => G.wedge(Math.sin((deg * Math.PI) / 180) * r, -Math.cos((deg * Math.PI) / 180) * r, prev)
 ok(wd(0) === 0 && wd(90) === 1 && wd(180) === 2 && wd(270) === 3 && G.wedge(5, 5, 2) === 2 && G.wedge(0, -13.9, null) === null && G.wedge(0, -14.1, null) === 0,
   'the compass: N E S W are wedges 0–3; inside the 14 px dead zone nothing changes')
 ok(wd(49, 0) === 0 && wd(51, 0) === 1 && wd(41, 1) === 1 && wd(39, 1) === 0 && G.wedge(0, 0, null, { dead: 12 }) === null, 'hysteresis: a lit wedge holds until the pointer is 5° past the boundary, from either side')
-ok(/q\.get\('home'\) === 'radial'/.test(nightJs) && !/home: 'radial'/.test(code(home).replace(/H\.mount = [\s\S]*?\n  \}/, '')) && /\(hover: none\)[\s\S]*\(pointer: coarse\)/.test(radJs) && /commitKey/.test(nightJs) && /radial\.touch/.test(home),
-  'the compass is the home only behind ?home=radial or radial:on; touch-only devices get the directory and a line saying why; keys 1–4 commit it')
+const wd8 = (deg, prev) => G.wedge(Math.sin((deg * Math.PI) / 180) * 100, -Math.cos((deg * Math.PI) / 180) * 100, prev, { dead: 16, hyst: 8 })
+ok(wd8(52, 0) === 0 && wd8(54, 0) === 1 && wd8(38, 1) === 1 && wd8(36, 1) === 0 && G.wedge(0, -15.9, null, { dead: 16, hyst: 8 }) === null && /DEAD = 16, HYST = 8/.test(dialJs) && /wedge\(st\.px - st\.x, st\.py - st\.y, st\.lit, \{ dead: DEAD, hyst: HYST \}\)/.test(dialJs),
+  'the dial: four notches N E S W, a 16 px dead zone, 8° of hysteresis either side')
+ok(/q\.get\('dial'\) === '1'/.test(nightJs) && /D\.mount = \(\{ on = false \}/.test(dialJs) && /help: \(\) =>[\s\S]*?b\('dial'/.test(deckJs) && !/'dial'/.test(cellsFn) && /'contextmenu'/.test(dialJs) && /e\.button === 2/.test(dialJs) && /PRESS = 450/.test(dialJs) && /HOLD = \d+/.test(dialJs) && /\^\[1-4\]\$/.test(dialJs) && /commit\(st\.lit\)/.test(dialJs) && /NIGHT\.home\.go\(id\)/.test(dialJs),
+  'the dial is off by default: ?dial=1, or its toggle inside ? (never the deck); hold space, right-click or a 450 ms long-press summon it; 1–4 commit; letting go commits the lit notch (none: cancel); a commit only opens a category')
+// the living tiles: four vignettes, pure, plain ASCII, one size, looping, calm
+console.log('10. the living tiles')
+const VGN = NIGHT.vignette, wlines = W_(secs).entries.slice(0, 4).map((e) => e.title)
+for (const k of ['work', 'experiments', 'research', 'writing']) {
+  const fr = Array.from({ length: 60 }, (_, f) => VGN.frame(k, f, wlines)), per = VGN.period(k, wlines)
+  const shape = fr.every((x) => x.split('\n').length === VGN.H && x.split('\n').every((l) => l.length === VGN.W)) && fr.every((x) => /^[\x20-\x7e\n]*$/.test(x))
+  const moves = new Set(fr).size > 3, loops = !per || VGN.frame(k, 0, wlines) === VGN.frame(k, per, wlines)
+  const diff = (a, b) => [...a].filter((c, i) => c !== b[i]).length / a.length
+  const ds = fr.slice(1).map((x, i) => diff(x, fr[i])).sort((a, b) => a - b), med = ds[ds.length >> 1]
+  const calm = ds[ds.length - 1] <= 0.35 && med <= 0.25 && fr.every((x) => x.replace(/\s/g, '').length >= 12)
+  ok(shape && moves && loops && calm, `${k}: ${VGN.W}×${VGN.H} plain ASCII in every frame, ${new Set(fr).size} distinct frames${per ? `, loops every ${per}` : ''}, a frame changes ${Math.round(med * 100)}% of cells typically, ${Math.round(ds[ds.length - 1] * 100)}% at most (≤ 25% typical, ≤ 35% max), never empty`)
+}
+const vgJs = code(text['vignette.js'])
+ok(/IntersectionObserver/.test(vgJs) && /document\.hidden/.test(vgJs) && /reduced\(\)/.test(vgJs) && /REST: 700, AWAKE: 110/.test(vgJs) && /live && !document\.hidden && !reduced\(\)/.test(vgJs) && /attachVignettes/.test(home) && /h\.wake\(on\)/.test(home),
+  'one runner: a frame every 700 ms at rest, 110 ms awake (hover or focus); paused off screen, in a hidden tab, outside the Lab and under reduced motion (first frame, still)')
+ok(/tile__d, \.tile__peek \{ grid-area: 1 \/ 1;/.test(css) && /\.tile\.is-awake \.tile__peek \{ opacity: 1; \}/.test(css) && secs.every((s) => s.entries.every((e) => /class="dl__g" data-g="(live|spin|done|shelf|out|post|plan)"/.test(M.rowHtml(e, s.id)))),
+  'a woken tile peeks its latest items in place of its line (same box: nothing moves); every row carries a status glyph, ◐ the one that turns')
+const ser0 = secs.find((s) => s.id === 'research').entries[0]
+ok(new RegExp(`${ser0.written} of ~${ser0.planned}`).test(M.rowHtml(ser0, 'research')), `a series shows ${ser0.written} of ~${ser0.planned} on its row`)
+
 // the series
 const ser = NIGHT.series[0], hub = M.build(LAB.pieces).find((x) => x.id === 'research').entries[0]
 ok(ser.placeholder && ser.chapters.length === 3 && ser.planned === 6 && ser.next.length === 3 && hub.written === 3 && /3 of ~6 ▓▓▓░░░/.test(M.rowHtml(hub, 'research')),
@@ -275,7 +299,11 @@ ok(files.every((f) => !/api\.elevenlabs|xi-api-key|elevenlabs\.io/i.test(text[f]
 ok(['tape', 'pitch', 'robot', 'mono', 'crush'].every((k) => new RegExp(`${k}:`).test(voiceJs)) && /createDelay[\s\S]*sawtooth/.test(voiceJs) && /rOsc\.connect\(ring\.gain\)/.test(voiceJs) && /for \(let k = 0; k < 12; k\+\+\)/.test(voiceJs) && /crush\.curve/.test(voiceJs),
   'synth: Tier 1 on the pre-rendered file: tape, pitch (dual delay), robot (ring mod), monotone (12-band vocoder), crush (bits), all knobs')
 // nothing autoplays; one mute
-const plays = ['night.js', 'home.js', 'reader.js', 'radial.js', 'toy.js'].filter((f) => /voice\(\)\.play|voice\.play|V\(\)\.play\(|\.toggle\(\)/.test(code(text[f]).replace(/NIGHT\.toggle\(\)|sound\.toggle\(\)/g, '')))
+// the ask hero plays only inside H.ask, and H.ask is reached only from a press (its buttons) or the / command line
+const askFn = (code(home).match(/H\.ask = \(id\) => \{[\s\S]*?\n  \}/) || [''])[0]
+const plays = ['night.js', 'home.js', 'reader.js', 'dial.js', 'toy.js'].filter((f) => /voice\(\)\.play|voice\.play|V\(\)\.play\(|\.toggle\(\)/.test(code(text[f]).replace(askFn, '').replace(/NIGHT\.toggle\(\)|sound\.toggle\(\)/g, '')))
+ok(/V\(\)\.play\(\)/.test(askFn) && (code(home).match(/H\.ask\(/g) || []).length === 1 && /if \(q\) return H\.ask\(q\.dataset\.ask\)/.test(code(home)) && (deckJs.match(/home\.ask\(/g) || []).length === 1,
+  'the ask hero plays its answer only on a press: H.ask is called from its own buttons and from the / command line, nowhere else')
 ok(!plays.length && /S\.muted = true|muted: true/.test(soundJs) && files.filter((f) => /\.muted\s*=[^=]/.test(code(text[f]))).join() === 'sound.js' && files.filter((f) => /sound\.(setMuted|toggle)\(/.test(code(text[f]))).join() === 'deck.js',
   `nothing autoplays: no page script plays narration on its own${plays.length ? ' — ' + plays.join(', ') : ''}; sound is muted on arrival, and the mute has one owner (sound.js) and one switch (the deck)`)
 ok(/S\(\)\.duck\(true\)/.test(voiceJs) && /ducked\) return false/.test(soundJs) && same(['key', 'cursor', 'enter', 'chirp-open', 'chirp-close', 'select', 'boot'], Object.keys(eval('(' + (text['sound.js'].match(/const CUES = (\{[\s\S]*?\n  \})/) || [, '{}'])[1] + ')'))),

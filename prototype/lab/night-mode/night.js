@@ -137,22 +137,27 @@
     const k = R() ? (t >= 0.5 ? 1 : 0) : ease(seg(t, DOCK[0], DOCK[1])), kp = st.kp
     const hgt = (d.size + (d.H1 - d.size) * k).toFixed(2) + 'px'
     const sepH = (d.size * 0.62 + (18 - d.size * 0.62) * k).toFixed(2) + 'px'
+    // a closed item cancels the flex gap before it (after it, for the panel's first child), so the
+    // row is exactly as wide as what is open: never a gap's worth short or long at either end
+    const first = d.panel.firstElementChild
+    const px = (v) => v.toFixed(2) + 'px'
     for (const it of d.items) {
-      const s = it.node.style
+      const s = it.node.style, lead = it.node === first
       if (it.kind === 'fold') {
-        const sep = it.node.classList.contains('desk-dock__sep')
-        if (!sep) { s.width = (d.size * (1 - k)).toFixed(2) + 'px'; s.height = hgt }
-        else { s.height = sepH; s.width = (1 - k).toFixed(3) + 'px'; s.marginLeft = (4 * (1 - k)).toFixed(2) + 'px' }
-        s.marginRight = ((sep ? 4 * (1 - k) : 0) - d.gap * k).toFixed(2) + 'px'
+        const sep = it.node.classList.contains('desk-dock__sep'), neg = -d.gap * k, m = sep ? 4 * (1 - k) : 0
+        if (!sep) { s.width = px(d.size * (1 - k)); s.height = hgt }
+        else { s.height = sepH; s.width = (1 - k).toFixed(3) + 'px' }
+        s.marginLeft = px(m + (lead ? 0 : neg))
+        s.marginRight = px(m + (lead ? neg : 0))
         s.opacity = (1 - seg(k, 0, 0.55)).toFixed(3)
         s.visibility = k >= 1 ? 'hidden' : ''
         continue
       }
       const o = it.kind === 'sep' ? (it.cell ? openOf(it.cell, k, kp, d.nw) : 0) : openOf(it, k, kp, d.nw)
       const wfull = it.kind === 'sep' ? 1 : it.w0 + (it.wx - it.w0) * kp
-      s.width = (wfull * o).toFixed(2) + 'px'
-      if (it.kind === 'cell') { s.height = d.H1 + 'px'; s.paddingLeft = s.paddingRight = (it.padX * o).toFixed(2) + 'px' }
-      s.marginRight = (-d.gap * (1 - o)).toFixed(2) + 'px'
+      s.width = px(wfull * o)
+      if (it.kind === 'cell') { s.height = d.H1 + 'px'; s.paddingLeft = s.paddingRight = px(it.padX * o) }
+      s.marginLeft = px(-d.gap * (1 - o))
       s.opacity = seg(o, 0.45, 1).toFixed(3)
       s.visibility = o <= 0 ? 'hidden' : ''
     }
@@ -163,8 +168,8 @@
   let kpAnim = 0, kpTimer = 0, kpWant = 0
   NIGHT.deckPlay = (on, { now = false } = {}) => {
     const want = on ? 1 : 0
+    if (want === kpWant && !now) return // already heading there (a pending slide-out stays pending)
     clearTimeout(kpTimer)
-    if (want === kpWant && !now) return
     kpWant = want
     const go = () => {
       cancelAnimationFrame(kpAnim)
