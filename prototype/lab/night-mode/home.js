@@ -280,7 +280,7 @@
     root.addEventListener('pointerover', (e) => {
       if (e.pointerType === 'touch') return
       const t = tileOf(e)
-      if (t && !t.classList.contains('is-awake')) wake(t, true)
+      if (t && !t.classList.contains('is-awake')) { for (const o of root.querySelectorAll('.tile.is-awake')) if (!o.contains(document.activeElement)) wake(o, false); wake(t, true) }
       const r = e.target.closest && e.target.closest('.dl__row, .dl__c')
       if (r && paned()) pane(r.closest('[data-row]').dataset.row, r.dataset.ch)
     })

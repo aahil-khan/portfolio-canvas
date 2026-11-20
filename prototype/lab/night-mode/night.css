@@ -634,6 +634,6 @@ html.is-night .desk-dock__sep { background: var(--lab-faint); height: 18px; }
 .dial__hub { position: absolute; left: 50%; top: 50%; width: 9px; height: 9px; translate: -50% -50%; border-radius: 50%; background: var(--lab-fg); }
 .dial p { position: absolute; left: 50%; translate: -50% 0; margin: 0; white-space: nowrap; }
 .dial__out { top: calc(100% + 6px); padding: 3px 7px; background: var(--lab-pane); border: 1px solid var(--lab-fg); }
-.dial__hint { top: calc(100% + 32px); color: var(--lab-dim); font-size: 10.5px; font-weight: 400; }
+.dial__hint { top: calc(100% + 32px); padding: 2px 6px; background: var(--lab-pane); color: var(--lab-dim); font-size: 10.5px; font-weight: 400; }
 html.has-dial .lab, html[data-dial='on'] .lab { -webkit-user-select: none; user-select: none; -webkit-touch-callout: none; }
 @media (prefers-reduced-motion: reduce) { .dial__needle, .tile__d, .tile__peek, .vg, .tile__b { transition: none; } }
