@@ -33,11 +33,12 @@ aren't covered by the MIT licence at all. [NOTICE](NOTICE) has the details.
   screenshots, résumé): open **`/edit`** on the live site and sign in with GitHub. Each save is one
   commit to `main` and is live in about three minutes. From a Claude session, ask for the change —
   the `update-content` skill edits the same files the same way.
-- **Code:** push to `main`. The server deploys `main` on its own — see `deploy/README.md`.
+- **Code:** push to `main` (or merge a PR). Vercel deploys `main` on its own, and it's live in a
+  couple of minutes.
 
 ## Running it locally
 
-Needs Node 22.18 or newer (`npm test` relies on its built-in TypeScript support).
+Needs Node 22.6 or newer (the tests run `.ts` directly via `--experimental-strip-types`).
 
 ```bash
 npm ci
