@@ -1,5 +1,5 @@
 import type { Metadata } from 'next'
-import { Space_Grotesk } from 'next/font/google'
+import localFont from 'next/font/local'
 
 import { profile } from '@/content'
 import { DEFAULT_THEME, themeCss } from '@/content/themes'
@@ -10,9 +10,18 @@ import { SITE_URL } from '@/lib/site'
 import './globals.css'
 import './desktop.css'
 
-const spaceGrotesk = Space_Grotesk({
-  subsets: ['latin'],
-  weight: ['400', '500', '700'],
+/*
+ * Self-hosted, never a CDN (design/DIRECTION.md). The file is Google Fonts' latin subset of the
+ * variable font, byte for byte what next/font/google used to download. It is registered once
+ * per weight, as before, so a weight in between (600) still resolves to 700 instead of the
+ * variable axis rendering a new one.
+ */
+const spaceGrotesk = localFont({
+  src: [
+    { path: './fonts/space-grotesk-latin.woff2', weight: '400', style: 'normal' },
+    { path: './fonts/space-grotesk-latin.woff2', weight: '500', style: 'normal' },
+    { path: './fonts/space-grotesk-latin.woff2', weight: '700', style: 'normal' },
+  ],
   variable: '--font-space-grotesk',
   display: 'swap',
 })
