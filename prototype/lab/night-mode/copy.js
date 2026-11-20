@@ -67,7 +67,7 @@
     close: 'close',
     closeLabel: 'Close the post',
     file: (section, slug) => `~/lab/${section}/${slug}.md`,
-    meta: { file: 'file', date: 'date', read: 'read', project: 'project', log: 'log', status: 'status', tags: 'tags' },
+    meta: { source: 'source', file: 'file', date: 'date', read: 'read', project: 'project', log: 'log', status: 'status', tags: 'tags' },
     contents: 'contents',
     // a write-up's parts, as its sections (the React build's `md` field can name its own with ##)
     sec: { story: 'the story', what: 'what it is', highlights: 'highlights' },

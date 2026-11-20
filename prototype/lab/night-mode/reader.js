@@ -48,23 +48,33 @@
   const asset = (src) => LAB.asset(src)
   const capOf = (im, i) => C().fig(i + 1) + (im.caption ? ' · ' + im.caption : ' · ' + String(im.src).split('/').pop())
   // figures: one framed at the measure's width, or a grid of thumbnails; each enlarges on click
-  const figures = (imgs, title) => {
+  const figures = (imgs, title, start = 0) => {
     if (!imgs.length) return ''
-    const one = (im, i) => `<figure class="rd__fig"><button type="button" class="rd__zoom" data-fig="${i}" aria-label="${esc(C().enlarge(i + 1))}">` +
+    const one = (im, k) => { const i = start + k; return  `<figure class="rd__fig"><button type="button" class="rd__zoom" data-fig="${i}" aria-label="${esc(C().enlarge(i + 1))}">` +
       `<img src="${esc(asset(im.src))}" alt="${esc(im.caption || title)}" loading="lazy"></button>` +
-      `<figcaption><span class="rd__fign">${esc(C().fig(i + 1))}</span>${im.caption ? ' ' + esc(im.caption) : ''}</figcaption></figure>`
+      `<figcaption><span class="rd__fign">${esc(C().fig(i + 1))}</span>${im.caption ? ' ' + esc(im.caption) : ''}</figcaption></figure>` }
     return `<div class="rd__figs" data-n="${imgs.length}" aria-label="${esc(C().figs)}" role="group">${imgs.map(one).join('')}</div>`
   }
   R.body = (p, section) => {
     const list = lists()[section] || [], i = list.findIndex((x) => x.slug === p.slug), e = list[i] || {}
     const href = (slug) => { const sec = Object.keys(lists()).find((k) => lists()[k].some((x) => x.slug === slug)); return sec ? `#/${sec}/${slug}` : '#' }
-    const parts = M().parts(p.body), sections = parts.filter((s) => s.title)
-    const imgs = p.images || []
+    const parts = M().parts(M().bodyOf(p)), sections = parts.filter((s) => s.title)
+    const imgs = M().imagesOf(p), imported = M().imp(p)
+    // an imported post keeps its figures where the author put them, and its ### subheadings
+    let figN = 0
+    const render = (b) => {
+      const im = /^!\[([^\]]*)\]\(([^)\s]+)\)$/.exec(b.trim())
+      if (im) return figures([{ src: im[2], caption: im[1] }], p.title, figN++)
+      const h3 = /^###\s+(.+)$/.exec(b.trim())
+      if (h3) return `<h3><span class="rd__hn" aria-hidden="true">### </span>${esc(h3[1])}</h3>`
+      if (b.split('\n').every((l) => /^\d+\. /.test(l))) return '<ol>' + b.split('\n').map((l) => `<li>${LAB.body.render(l.replace(/^\d+\. /, ''), { href }).replace(/^<p>|<\/p>$/g, '')}</li>`).join('') + '</ol>'
+      return LAB.body.render(b, { href })
+    }
     // the figures go after the part that says what it is (or the first block), not at the top
     const figAt = sections.length ? parts.findIndex((s) => s.id === 'what') : 0
     const body = parts.map((s, k) => {
-      const blocks = s.blocks.map((b) => LAB.body.render(b, { href })).join('')
-      const figs = k === Math.max(0, figAt) ? figures(imgs, p.title) : ''
+      const blocks = s.blocks.map(render).join('').replace(/`([^`<]+)`/g, '<code>$1</code>')
+      const figs = !imported && k === Math.max(0, figAt) ? figures(imgs, p.title) : ''
       return s.title
         ? `<section class="rd__sec" id="rd-${esc(s.id)}" data-sec="${esc(s.id)}"><h2><span class="rd__hn" aria-hidden="true">## </span>${esc(s.title)}</h2>${blocks}${figs}</section>`
         : blocks + figs
@@ -82,7 +92,8 @@
     const meta = [
       [K.file, `<span class="rd__mono">${esc(C().file(section, p.slug))}</span>`],
       [K.date, esc(M().when(p))],
-      [K.read, esc(C().minsRead(e.mins || M().minutes(p.body)))],
+      [K.read, esc(C().minsRead(e.mins || M().minutes(M().bodyOf(p))))],
+      imported && p.href ? [K.source, `<a class="act" href="${esc(p.href)}" rel="noopener">${esc(C().out(M().host(p.href)))}</a>`] : null,
       exp ? [K.log, esc([exp.n, exp.topic].filter(Boolean).join(' · '))] : null,
       proj ? [K.project, esc([p.title, proj.kind, proj.year].filter(Boolean).join(' · ')) + (links.length ? ' ' + links.map((l) => `<a class="act" href="${esc(l.href)}" rel="noopener">${esc(l.label)}</a>`).join(' ') : '')] : null,
       p.status ? [K.status, `<span class="rd__st">${esc(p.status)}</span>`] : null,
@@ -207,7 +218,7 @@
   }
 
   // ── figures, enlarged in place ──────────────────────────────────────────────────────────
-  const imgsOf = () => (LAB.pieces.find((x) => x.slug === st.slug) || {}).images || []
+  const imgsOf = () => M().imagesOf(LAB.pieces.find((x) => x.slug === st.slug) || {})
   function figShow(i) {
     const imgs = imgsOf(), im = imgs[i]
     st.fig.i = i

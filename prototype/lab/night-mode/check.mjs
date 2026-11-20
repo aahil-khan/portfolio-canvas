@@ -26,7 +26,7 @@ import { fileURLToPath } from 'node:url'
 const here = dirname(fileURLToPath(import.meta.url))
 const require = createRequire(import.meta.url)
 globalThis.window = globalThis
-for (const f of ['../shared/pieces.js', '../shared/body.js', 'work.js', 'copy.js', 'decode.js', 'moon.js', 'fx.js', 'model.js', 'intro.js']) require(join(here, f))
+for (const f of ['../shared/pieces.js', '../shared/body.js', 'work.js', 'copy.js', 'decode.js', 'moon.js', 'fx.js', 'essay.js', 'model.js', 'intro.js']) require(join(here, f))
 const { LAB, NIGHT } = globalThis
 const M = NIGHT.model, FX = NIGHT.fx, C = NIGHT.copy
 
@@ -59,7 +59,7 @@ ok(!/>repo<|>live</.test(M.previewHtml(secs, 'work/portana')), 'no [live] / [rep
 const exp = M.previewHtml(secs, 'experiments/chinese-watch')
 ok(/exp-03 · jul 2026 · hardware/.test(exp) && /shelved/.test(exp) && /data-read="chinese-watch" data-in="experiments"/.test(exp), 'an experiment preview is its log entry: exp-03 · jul 2026 · hardware [shelved], first lines, [open]')
 const wr = M.previewHtml(secs, 'writing/sop-opera'), ess = M.previewHtml(secs, 'writing/chrome-hackathon')
-ok(/aug 2026 · 1 min read/.test(wr) && /Genuinely the most planning/.test(wr) && /href="https:\/\/medium\.com[^"]*"/.test(ess), 'a post preview: date, reading time, first lines; an essay links out to Medium')
+ok(/aug 2026 · 1 min read/.test(wr) && /Genuinely the most planning/.test(wr) && /data-read="chrome-hackathon" data-in="writing"/.test(ess), 'a post preview: date, reading time, first lines, [↵ read]; the essays read in the Lab now (essay.js)')
 ok(['work', 'experiments', 'writing'].every((s) => new RegExp(`data-go="${s}"`).test(M.previewHtml(secs, s))), 'a section row previews the section, with [go in]')
 ok(same(M.order(secs).slice(0, 3), ['work', 'work/sop-opera', 'work/this-site']) && M.order(secs).length === 20, '↑↓ walks each section, then its entries (20 stops)')
 
@@ -125,7 +125,15 @@ const parts = (slug) => M.parts(piece(slug).body)
 ok(same(parts('sop-opera').map((p) => p.id), ['story', 'what', 'highlights']) && same(parts('holt').map((p) => p.id), ['what', 'highlights']), "a write-up's parts become sections: SOP Opera has 3 (a contents column), Holt 2")
 ok(LAB.pieces.filter((p) => p.body).every((p) => same(M.parts(p.body).flatMap((x) => x.blocks).join('\n\n'), p.body.trim().split(/\n\s*\n/).filter(Boolean).join('\n\n'))), 'every body is all there, in order, word for word: sections only add headings')
 const R = M.readable(LAB.pieces)
-ok(same(R.writing.map((e) => e.slug), ids('writing').filter((s) => piece(s).body)) && same(R.experiments.map((e) => e.slug), ids('experiments')), "prev / next run in the menu's order, per section")
+ok(same(R.writing.map((e) => e.slug), ids('writing').filter((s) => M.bodyOf(piece(s)))) && same(R.experiments.map((e) => e.slug), ids('experiments')), "prev / next run in the menu's order, per section")
+for (const [slug, secs, figs] of [['old-laptop-cloud', 15, 10], ['chrome-hackathon', 10, 9]]) {
+  const p = piece(slug), sp = M.parts(M.bodyOf(p)), im = M.imagesOf(p), e = R.writing.find((x) => x.slug === slug)
+  ok(sp.filter((s) => s.title).length === secs && im.length === figs && im.every((x) => /^https:\/\/cdn-images-1\.medium\.com\//.test(x.src)) && e && e.mins >= 4 && !/<[a-z]/i.test(M.bodyOf(p)) && !M.bodyOf(p).split('\n\n').some((b) => /^#.*\*/.test(b)),
+    `${slug}: the real essay (essay.js, from the Medium export): ${secs} sections for the contents, ${figs} figures, ${e && e.mins} min; opens in the reader instead of linking out`)
+}
+const { convert } = await import(join(here, 'import-medium.mjs'))
+const sample = convert('<section data-field="body" class="e-content"><h3 class="graf graf--h3">T</h3><h3 class="graf graf--h3">Part</h3><h4 class="graf graf--h4">Sub</h4><p class="graf graf--p">A <strong class="markup--strong">b</strong> <em>c</em> <code>d</code> <a href="https://x.y/z">e</a><br>f &amp; g</p><ul class="postList"><li class="graf graf--li">one</li></ul><ol class="postList"><li class="graf graf--li">first</li></ol><figure class="graf graf--figure"><img src="https://cdn-images-1.medium.com/max/800/1*a.png"><figcaption class="imageCaption">cap</figcaption></figure></section>')
+ok(sample.title === 'T' && sample.body === '## Part\n\n### Sub\n\nA **b** *c* `d` [e](https://x.y/z) f & g\n\n- one\n\n1. first\n\n![cap](https://cdn-images-1.medium.com/max/1024/1*a.png)', 'import-medium.mjs maps every Medium block: h3 → ##, h4 → ###, p, ul, ol, figure + caption, and bold / italic / code / links inline')
 ok(/\^#\\\/\(writing\|experiments\)\\\/\(\[a-z0-9-\]\+\)\$/.test(text['reader.js']) && /history\.back\(\)/.test(text['reader.js']) && /hashchange/.test(text['reader.js']), 'posts and logs deep-link (#/writing/<slug>, #/experiments/<slug>), and Back closes them')
 ok(/function morph\(from, open\)/.test(text['reader.js']) && /clipPath: clip/.test(text['reader.js']) && /OPEN_MS = 560, CLOSE_MS = 480/.test(text['reader.js']), "#17's open / close motion is kept: the clip from the row, the title FLIP, 560 / 480 ms")
 

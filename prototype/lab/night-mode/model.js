@@ -46,9 +46,15 @@
   const words = (md) => String(md || '').replace(/!\[[^\]]*\]\([^)]*\)/g, '').replace(/\[([^\]]+)\]\([^)]*\)/g, '$1')
     .replace(/\[\[([a-z0-9-]+)\]\]/g, '$1').replace(/[*#-]/g, ' ').split(/\s+/).filter(Boolean).length
   const minutes = (md) => Math.max(1, Math.round(words(md) / 220))
+  // a post imported from elsewhere (essay.js): its body and images live there, not in pieces.js
+  const imp = (p) => (NIGHT.imports || {})[p.slug] || null
+  const bodyOf = (p) => p.body || (imp(p) ? imp(p).body : '')
+  const IMG = /^!\[([^\]]*)\]\(([^)\s]+)\)$/
+  const imagesOf = (p) => p.images || String(bodyOf(p)).split(/\n\s*\n/).map((b) => IMG.exec(b.trim())).filter(Boolean).map((m) => ({ src: m[2], caption: m[1] }))
+  const slugify = (s) => String(s).toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/^-|-$/g, '')
   const topic = (p) => { const c = (L().constellations || []).find((x) => x.id === p.constellation); return c ? c.name.toLowerCase() : '' }
   const firstLines = (md, max) => {
-    const para = String(md || '').split(/\n\s*\n/).map((b) => b.trim()).find((b) => b && !/^[-#]/.test(b)) || ''
+    const para = String(md || '').split(/\n\s*\n/).map((b) => b.trim()).find((b) => b && !/^[-#!]/.test(b)) || ''
     const plain = para.replace(/\*\*?([^*]+)\*\*?/g, '$1').replace(/\[([^\]]+)\]\([^)]*\)/g, '$1').replace(/\[\[([a-z0-9-]+)\]\]/g, '$1')
     if (plain.length <= max) return plain
     const cut = plain.slice(0, max), sp = cut.lastIndexOf(' ')
@@ -78,8 +84,8 @@
       }))
     },
     writing: (own) => own.sort(newest).map((p) => ({
-      slug: p.slug, when: when(p), title: p.title, sub: p.blurb || '', lines: firstLines(p.body, 300),
-      mins: p.body ? minutes(p.body) : 0, href: p.body ? '' : p.href || '', read: !!p.body,
+      slug: p.slug, when: when(p), title: p.title, sub: p.blurb || '', lines: firstLines(bodyOf(p), 300),
+      mins: imp(p) && imp(p).mins ? imp(p).mins : bodyOf(p) ? minutes(bodyOf(p)) : 0, href: bodyOf(p) ? '' : p.href || '', read: !!bodyOf(p),
     })),
   }
   const build = (pieces) => SECTIONS.map((s) => {
@@ -94,7 +100,16 @@
   // gets a table of contents. A body with its own `## ` headings keeps them instead.
   const parts = (md) => {
     const blocks = String(md || '').trim().split(/\n\s*\n/).filter(Boolean)
-    if (blocks.some((b) => /^##\s/.test(b))) return [{ title: '', blocks }]
+    if (blocks.some((b) => /^##\s/.test(b))) {
+      // its own headings: one section per ##, its ### and figures inside it
+      const out = []
+      let cur = null
+      for (const b of blocks) {
+        const m = /^##\s+(.+)$/.exec(b.trim())
+        if (m) { cur = { id: slugify(m[1]), title: m[1], blocks: [] }; out.push(cur) } else { if (!cur) { cur = { title: '', blocks: [] }; out.push(cur) } cur.blocks.push(b) }
+      }
+      return out
+    }
     const list = blocks.findIndex((b) => /^- /.test(b.trim()))
     if (list < 1) return [{ title: '', blocks }]
     const out = []
@@ -170,5 +185,5 @@
   // the order ↑↓ walks: each section, then its entries
   const order = (secs) => secs.flatMap((s) => [s.id, ...s.entries.map((e) => s.id + '/' + e.slug)])
 
-  NIGHT.model = { SECTIONS, inLab, build, readable, parts, treeHtml, rowHtml, secHtml, previewHtml, order, minutes, when, host, firstLines }
+  NIGHT.model = { imp, bodyOf, imagesOf, SECTIONS, inLab, build, readable, parts, treeHtml, rowHtml, secHtml, previewHtml, order, minutes, when, host, firstLines }
 })()
