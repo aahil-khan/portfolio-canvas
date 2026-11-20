@@ -5,42 +5,42 @@
 <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
 <title>Lab: night mode</title>
 <!--
-  DESIGN GATE: prototype/lab/night-mode/index.html (Direction 2, "Night mode")
+  DESIGN GATE: prototype/lab/night-mode/index.html (Direction 2, "Night mode", revised: shelves)
 
   The Lab as a mode of the canvas, not a page. The Lab tile in the dock turns the same desk to
-  night: night falls from the top, the cards make way as it passes them, the camera eases out in
-  the same world, and the pieces come out as stars, oldest first. "Back to the desk" (or the Lab
-  tile again) runs it backwards and every card lands where it was, even one you dragged.
+  night: night falls from the top, the day cards step aside as it passes, and two cards open out
+  of the Lab tile onto the night desk: Notes & write-ups and Playground. They are the desk's own
+  cards (title bar, 2px border, hard slab, the Work card's year / title / subtitle / chip rows),
+  so the Lab reads as more of the same desk. The stars and the dithered moon are only the sky:
+  nothing in them is a piece. "Back to the desk" (or the Lab tile again) runs it backwards and
+  every day card lands where it was, even one you dragged.
 
   What is being judged:
-    - does it feel like the same desk going dark, not a page change? (?freeze=0.42 holds the moment)
-    - the sky fitted: both shelves, left and right (stacked on a phone), every constellation named,
-      titles wherever they fit without colliding (the rest show on focus)
-    - the plate (click or Enter on a star), the filter, a piece as a canvas window, the index window
-    - the dithered moon, showing tonight's real phase, between the two halves
+    - does it feel like the same desk going dark, not a page change? (?freeze=0.5 holds the moment)
+    - the two shelf cards: do they read as the desk's cards, grouped by kind, with a WORK chip on
+      the pieces that have a project? Each row opens the piece as a canvas window.
+    - on a phone: one shelf at a time, with a two-tab switch in its title bar
   Throwaway: the ✓ readout in the corner, and the URL switches that make screenshots repeatable:
     ?mode=night (or ?lab=1)   land at night, as /lab would
-    &shelf=notes|playground   filter        &focus=<slug>   a star's plate
-    &open=<slug>|index|arcade  a window      &then=desk     land at night, then go back and measure
-    ?freeze=<0..1>            hold the transition there     ?enter=1  play it once on load
+    &tab=playground           phone: which shelf shows        &open=<slug>|arcade   a window
+    &then=desk                land at night, then go back and measure every day card
+    ?freeze=<0..1>            hold the transition there       ?enter=1  play it once on load
     ?roundtrip=1              drag a card, pan, night and back, then measure every card
-    &add=1                    the 20th-piece proof. By hand: LAB.pieces.push({...}); renderSky()
-  Everything is drawn from ../shared/: pieces.js (content), layout.js (every star's position),
-  body.js (bodies), sky.js (reduced motion, marks, starfield), desk.js (the canvas engine).
+    &add=1                    the 20th-piece proof. By hand: LAB.pieces.push({...}); renderShelves()
+  Content comes only from ../shared/pieces.js (through body.js for bodies); desk.js is the canvas
+  engine, sky.js the reduced-motion owner and the starfield's seed.
 -->
 <link rel="stylesheet" href="../shared/jet.css">
 <link rel="stylesheet" href="../shared/desk.css">
 <link rel="stylesheet" href="night.css">
 <script src="../shared/pieces.js"></script>
-<script src="../shared/layout.js"></script>
 <script src="../shared/body.js"></script>
 <script src="../shared/sky.js"></script>
-<script src="labels.js"></script>
 <script src="moon.js"></script>
 </head>
 <body>
 <script src="../shared/desk.js"></script>
-<script src="stars.js"></script>
+<script src="shelves.js"></script>
 <script src="windows.js"></script>
 <script src="night.js"></script>
 <script>

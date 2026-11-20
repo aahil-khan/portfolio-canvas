@@ -1,45 +1,45 @@
 /*
  * prototype/lab/night-mode/night.js: night mode. The Lab is not a page: it is the desk at night.
  *
- *   NIGHT.mount()          after DESK.mount: builds the sky, the night layer and the night bar
+ *   NIGHT.mount()          after DESK.mount: builds the night layer, the shelf cards and the bar
  *   NIGHT.enter() / .leave() / .toggle() → Promise   (the Lab dock tile toggles)
  *   NIGHT.scrub(t)         sets the transition to t ∈ [0, 1] and holds it there (?freeze=)
- *   window.renderSky()     re-places the sky from LAB.pieces, rings where stars were, and
- *                          reports how many moved (the 20th-piece proof)
+ *   window.renderShelves() re-renders both shelf cards from LAB.pieces and reports what changed
+ *                          (the 20th-piece proof)
  *
  * THE TRANSITION is one timeline, a pure function of t, so it runs both ways and can be frozen
  * on any frame for a screenshot. t goes 0 → 1 over 1.7 s into night and 1 → 0 over 1.35 s back.
  *   0.00–0.62  night falls from the top of the screen: a 160vh blind, solid night above a
  *              warm dusk edge, eased in-out (a fall is not a deceleration)
- *     …        each card makes way exactly as the dusk edge passes it: drifts outward from the
- *              middle of the screen, settles a little and fades. Only `translate`, `scale` and
- *              `opacity` are touched (never left/top), so on the way back every card lands where
- *              it was, dragged or not. The grid and the desk's pill go with the night.
- *   0.30–1.00  the camera eases out to fit the sky, in the same world, from wherever you were
- *   0.25–0.85  the starfield and the dithered moon come up, the moon rising a little
- *   0.24–0.92  stars come out one by one, oldest first like an evening, and only where it is
- *              already dark
- *   0.66–0.90  constellation lines grow out of the older star of each pair
- *   0.80–1.00  names and labels
+ *     …        each day card makes way exactly as the dusk edge passes it: drifts outward from
+ *              the middle of the screen, settles a little and fades. Only `translate`, `scale`
+ *              and `opacity` are touched (never left/top), so on the way back every card lands
+ *              where it was, dragged or not. The grid and the desk's pill go with the night.
+ *   0.25–0.75  the camera eases to fit the shelf cards, in the same world, from wherever you were
+ *   0.25–0.85  the starfield and the dithered moon come up, the moon rising a little. Both are
+ *              background: fixed behind the world, never clickable, never a piece.
+ *   0.60–0.92  Notes & write-ups opens out of the Lab tile (an explicit FLIP from the tile's
+ *              screen rect to the card's, as a canvas card opens from its dock icon)
+ *   0.68–1.00  the Playground does the same, a beat later
  * Going back is the same timeline run backwards with mirrored easing, so it decelerates into
- * day: labels go, stars go, the camera returns to exactly where it was, the cards come back,
- * the blind lifts.
- * Every segment eases with DIRECTION.md's one curve, cubic-bezier(0.16, 1, 0.3, 1).
+ * day: the shelves fold back into the Lab tile, the camera returns to exactly where it was, the
+ * day cards come back, the blind lifts.
  *
  * REDUCED MOTION (LAB.sky.reduced, the one owner) swaps in an opacity-only timeline: the desk
- * fades out, the camera cuts while nothing is on screen, the sky fades in. No drift, no growth,
- * no blind, no moonrise.
+ * fades out, the camera cuts while nothing is on screen, the shelves fade in. No drift, no
+ * growth, no blind, no moonrise.
  *
  * The camera stays the desk's: every frame goes through DESK.flyTo(…, 0), which writes the one
  * world transform from the desk's rAF loop. React state would never see any of this.
  */
 ;(() => {
   const NIGHT = (window.NIGHT = window.NIGHT || {})
-  const sky = NIGHT.sky, win = NIGHT.win
+  const shelves = NIGHT.shelves, win = NIGHT.win
   const R = () => LAB.sky.reduced
   const q = new URLSearchParams(location.search)
-  const esc = (s) => String(s).replace(/[&<>"']/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' })[c])
   const h = (tag, cls, html) => { const e = document.createElement(tag); if (cls) e.className = cls; if (html != null) e.innerHTML = html; return e }
+  // UI words for this mockup (the React build takes them from content/, like every other string)
+  const COPY = { back: 'Back to the desk', bar: 'Night mode' }
 
   // cubic-bezier(0.16, 1, 0.3, 1), solved for x by Newton's method
   const bezier = (x1, y1, x2, y2) => {
@@ -60,12 +60,17 @@
   const seg = (t, a, b) => (t <= a ? 0 : t >= b ? 1 : (t - a) / (b - a))
   let dir = 1 // +1 into night, −1 back to day: easing mirrors so both directions decelerate
   const ease = (p) => (dir > 0 ? EASE(p) : 1 - EASE(1 - p))
+  // when each shelf opens, in LAB.shelves order
+  const OPENS = [[0.6, 0.92], [0.68, 1]]
 
-  const st = { t: 0, A: null, B: null, cards: [], anim: 0, queue: [], plate: null, ready: false }
+  const st = { t: 0, A: null, B: null, cards: [], anim: 0, queue: [], tile: null }
   const view = () => ({ cx: (innerWidth / 2 - DESK.camera.x) / DESK.camera.s, cy: (innerHeight / 2 - DESK.camera.y) / DESK.camera.s, s: DESK.camera.s })
   const camOf = (v) => ({ s: v.s, x: innerWidth / 2 - v.cx * v.s, y: innerHeight / 2 - v.cy * v.s })
   const setView = (v) => DESK.flyTo(v.cx, v.cy, v.s, 0)
   const lerpView = (a, b, k) => ({ cx: a.cx + (b.cx - a.cx) * k, cy: a.cy + (b.cy - a.cy) * k, s: Math.exp(Math.log(a.s) + (Math.log(b.s) - Math.log(a.s)) * k) })
+  const phone = () => innerWidth < 700
+  // the screen band between the night bar and the dock
+  const band = () => ({ top: el.bar ? el.bar.getBoundingClientRect().bottom + (phone() ? 12 : 28) : 90, bottom: phone() ? 84 : 124, side: phone() ? 12 : 40 })
 
   let el = {} // night layer parts and chrome
 
@@ -96,9 +101,9 @@
     root.classList.toggle('is-night', t >= 0.6)
 
     // camera
-    const k = red ? (t >= 0.5 ? 1 : 0) : ease(seg(t, 0.3, 1))
+    const k = red ? (t >= 0.5 ? 1 : 0) : ease(seg(t, 0.25, 0.75))
     setView(k === 0 ? st.A : k === 1 ? st.B : lerpView(st.A, st.B, k))
-    const cam = DESK.camera
+    const cam = camOf(k === 0 ? st.A : k === 1 ? st.B : lerpView(st.A, st.B, k)) // what flyTo just set
 
     // night falls, top to bottom
     const b = red ? 1 : FALL(seg(t, 0, 0.62))
@@ -123,24 +128,24 @@
       s.visibility = p >= 1 ? 'hidden' : ''
     }
 
-    // the sky comes out: oldest first, and only where it is already dark
-    const n = sky.list.length
-    for (const s of sky.list) {
-      const a = 0.24 + 0.46 * (n > 1 ? s.rank / (n - 1) : 0)
-      // 1 once the solid night is over the star, 0 until the dusk edge is within a quarter screen
-      const dark = red || b >= 1 ? 1 : Math.min(1, Math.max(0, (1.6 * b - 0.6 + 0.25 - (s.y * cam.s + cam.y) / innerHeight) / 0.25))
-      const p = red ? seg(t, 0.55, 1) : ease(seg(t, a, a + 0.22)) * dark
-      s.el.style.setProperty('--o', p.toFixed(3))
-      s.el.style.setProperty('--pop', red ? 1 : (0.25 + 0.75 * p).toFixed(3))
-    }
-    const lp = red ? seg(t, 0.6, 1) : ease(seg(t, 0.66, 0.9))
-    for (const l of sky.lines) {
-      const g = red ? 1 : lp
-      l.el.setAttribute('x2', l.a.x + (l.z.x - l.a.x) * g)
-      l.el.setAttribute('y2', l.a.y + (l.z.y - l.a.y) * g)
-      l.el.style.setProperty('--lo', lp.toFixed(3))
-    }
-    el.skyLayer.style.setProperty('--labels', (red ? seg(t, 0.6, 1) : seg(t, 0.8, 1)).toFixed(3))
+    // the shelves open out of the Lab tile: a FLIP, written as translate + scale on the card.
+    // The tile is fixed on screen and the camera may be moving, so the start is converted into
+    // the card's world space on every frame (screen delta ÷ scale, as every canvas move is).
+    const ids = (LAB.shelves || []).map((s) => s.id)
+    ids.forEach((id, i) => {
+      const c = shelves.cards[id], s = c.el.style
+      const [a0, a1] = OPENS[i] || OPENS[OPENS.length - 1]
+      const p = red ? seg(t, 0.55, 1) : ease(seg(t, a0, a1))
+      c.el.classList.toggle('is-out', p <= 0)
+      if (red || p >= 1 || p <= 0) { s.translate = s.scale = ''; s.opacity = red ? p.toFixed(3) : p >= 1 ? '' : '0'; return }
+      const tile = st.tile, w = c.w * cam.s
+      const sx = c.x * cam.s + cam.x, sy = c.y * cam.s + cam.y // the card's top-left on screen
+      const k0 = tile.width / w, sc = k0 + (1 - k0) * p
+      // origin is the card's top-left (CSS), so moving it onto the tile's top-left is enough
+      s.translate = `${(((tile.left - sx) * (1 - p)) / cam.s).toFixed(2)}px ${(((tile.top - sy) * (1 - p)) / cam.s).toFixed(2)}px`
+      s.scale = sc.toFixed(4)
+      s.opacity = Math.min(1, p / 0.35).toFixed(3)
+    })
   }
 
   function run(to) {
@@ -165,36 +170,38 @@
     })
   }
 
+  const labTile = () => document.querySelector('.desk-dock__item[data-id="lab"]')
   function beginEnter() {
     if (st.t > 0) return
     const folder = document.querySelector('.desk-folder')
     if (folder) folder.hidden = true
     st.A = view()
-    if (sky.geo.portrait !== (innerHeight > innerWidth * 1.1)) sky.render()
+    // the shelves open around wherever you are looking: no layout data, no fixed spot
+    shelves.layout({ x: Math.round(st.A.cx), y: Math.round(st.A.cy) })
     st.B = fitView()
+    st.tile = labTile().querySelector('.desk-dock__icon').getBoundingClientRect()
     planCards()
     placeMoon()
-    sky.relabel(camOf(st.B))
   }
   function beginLeave() {
-    hidePlate(false)
     win.closeAll({ instant: true })
-    st.B = view() // leave from wherever the sky was panned to
-    sky.focus(null)
+    st.B = view() // leave from wherever the night was panned to
+    st.tile = labTile().querySelector('.desk-dock__icon').getBoundingClientRect()
+    // a shelf you dragged folds back from where it is now
   }
   function finish(to) {
     document.documentElement.classList.remove('is-turning')
-    const lab = document.querySelector('.desk-dock__item[data-id="lab"]')
+    const lab = labTile()
     if (to === 1) {
       lab.dataset.open = 'true'
-      sky.relabel()
       setURL(true)
       if (document.activeElement === lab) el.back.focus({ preventScroll: true })
     } else {
       setView(st.A)
       lab.dataset.open = 'false'
       setURL(false)
-      if (!document.activeElement || document.activeElement === document.body || el.bar.contains(document.activeElement)) lab.focus({ preventScroll: true })
+      const a = document.activeElement
+      if (!a || a === document.body || el.bar.contains(a) || shelvesLayer.contains(a)) lab.focus({ preventScroll: true })
     }
   }
   // /lab deep-links into night mode: here, ?mode=night. file:// refuses replaceState, harmlessly.
@@ -212,140 +219,93 @@
   NIGHT.scrub = (t) => { if (st.t === 0) { dir = 1; beginEnter() } apply(t) }
   NIGHT.state = st
 
-  function fitView() { return sky.fit() }
+  const fitView = () => shelves.fit(shelves.rects(), { vw: innerWidth, vh: innerHeight, ...band() })
   const flyFit = () => { const f = fitView(); st.B = f; return DESK.flyTo(f.cx, f.cy, f.s, 620) }
 
-  // ── the moon sits in the gap between the two halves, far away: it barely moves when you pan
+  // ── the moon: background, up in the corner of the sky, far away (it barely moves on a pan) ──
   let moonAt = null
   function placeMoon() {
-    const g = sky.geo, b = g.bounds, B = camOf(st.B || fitView())
-    const wp = g.portrait ? { x: b.x + b.w * 0.5, y: g.gap } : { x: g.gap, y: b.y + b.h * 0.32 }
-    moonAt = { wp, base: { x: wp.x * B.s + B.x, y: wp.y * B.s + B.y } }
+    const B = camOf(st.B || fitView()), rs = shelves.rects()
+    const right = Math.max(...rs.map((r) => r.x + r.w)), top = Math.min(...rs.map((r) => r.y))
+    // beside the shelves' top-right corner on a desk screen; peeking above the card on a phone
+    const base = phone()
+      ? { x: innerWidth - 78, y: (top * B.s + B.y) - 8 }
+      : { x: Math.min(innerWidth - 90, (right * B.s + B.x) + (innerWidth - (right * B.s + B.x)) / 2), y: (top * B.s + B.y) + 70 }
+    moonAt = { base, cam0: B }
     moveMoon(DESK.camera)
   }
   function moveMoon(cam) {
     if (!moonAt) return
-    const px = moonAt.wp.x * cam.s + cam.x, py = moonAt.wp.y * cam.s + cam.y
-    el.moonWrap.style.left = (moonAt.base.x + (px - moonAt.base.x) * 0.05).toFixed(1) + 'px'
-    el.moonWrap.style.top = (moonAt.base.y + (py - moonAt.base.y) * 0.05).toFixed(1) + 'px'
-  }
-
-  // ── the plate: a focused star's card ─────────────────────────────────────────────────────
-  const phone = () => innerWidth < 700
-  function showPlate(slug, opener) {
-    const p = LAB.pieces.find((x) => x.slug === slug), s = sky.stars[slug]
-    if (!p || !s) return
-    st.plate = { slug, opener: opener || s.el }
-    sky.focus(slug)
-    const con = p.constellation && LAB.constellations.find((c) => c.id === p.constellation)
-    const opens = LAB.opens(p)
-    const label = opens.card ? 'Open the ' + DESK.content.apps.find((a) => a.id === opens.card).label : 'Open'
-    el.plate.dataset.shelf = p.shelf
-    el.plate.innerHTML =
-      `<button type="button" class="plate__x" aria-label="Close"></button>` +
-      `<p class="plate__shelf t-label"><span class="lab-mark" data-shelf="${p.shelf}"></span>${esc(LAB.shelfName(p.shelf))}</p>` +
-      `<h2 class="plate__title" id="plateTitle">${esc(p.title)}</h2>` +
-      (LAB.excerpt(p, 140) ? `<p class="plate__blurb">${esc(LAB.excerpt(p, 140))}</p>` : '') +
-      `<p class="plate__meta"><span class="lab-chip">${esc(p.kind)}</span><span class="t-label">${esc(p.when || p.date)}</span>` +
-      (con ? `<span class="t-label">· ${esc(con.name)}</span>` : '') + `</p>` +
-      `<button type="button" class="nbtn nbtn--primary plate__open">${esc(label)} →</button>`
-    el.plate.hidden = false
-    el.plate.querySelector('.plate__x').onclick = () => hidePlate(true)
-    el.plate.querySelector('.plate__open').onclick = () => openPiece(slug, s.el)
-    positionPlate()
-    if (phone()) {
-      // lift the star above the sheet, same zoom
-      const sheet = el.plate.offsetHeight, target = (innerHeight - sheet) / 2 + 20
-      const v = view()
-      DESK.flyTo(s.x, s.y + (innerHeight / 2 - target) / v.s, v.s, 520)
-    }
-    el.plate.querySelector('.plate__open').focus({ preventScroll: true })
-  }
-  function hidePlate(restore) {
-    if (!st.plate) return
-    const o = st.plate
-    st.plate = null
-    el.plate.hidden = true
-    sky.focus(null)
-    if (restore && o.opener && o.opener.isConnected) o.opener.focus({ preventScroll: true })
-  }
-  function positionPlate() {
-    if (!st.plate || phone()) { el.plate.style.left = el.plate.style.top = ''; return }
-    const s = sky.stars[st.plate.slug], cam = DESK.camera
-    const x = s.x * cam.s + cam.x, y = s.y * cam.s + cam.y, w = el.plate.offsetWidth, hh = el.plate.offsetHeight
-    const right = x + 30 + w < innerWidth - 16
-    const top = Math.min(innerHeight - hh - 120, Math.max(el.bar.getBoundingClientRect().bottom + 12, y - hh / 2))
-    el.plate.style.left = (right ? x + 30 : x - 30 - w) + 'px'
-    el.plate.style.top = top + 'px'
-    el.plate.dataset.side = right ? 'right' : 'left'
+    const k = 0.05 // parallax: far away
+    el.moonWrap.style.left = (moonAt.base.x + (cam.x - moonAt.cam0.x) * k).toFixed(1) + 'px'
+    el.moonWrap.style.top = (moonAt.base.y + (cam.y - moonAt.cam0.y) * k).toFixed(1) + 'px'
   }
 
   // ── opening things ───────────────────────────────────────────────────────────────────────
-  const markSvg = (shelf) => `<span class="lab-mark" data-shelf="${shelf}"></span>`
   const dockIcon = (id) => { const s = document.querySelector(`.desk-dock__item[data-id="${id}"] svg`); return s ? s.outerHTML : '' }
-  function openPiece(slug, opener) {
-    const p = LAB.pieces.find((x) => x.slug === slug)
-    if (!p) return
-    hidePlate(false)
-    const s = sky.stars[slug]
-    LAB.visited.add(slug)
-    if (s) s.el.dataset.visited = ''
-    if (LAB.opens(p).card) return openArcade(p, opener)
-    sky.focus(slug)
-    return win.open({
-      id: 'piece:' + slug, title: p.title, tone: p.shelf, icon: markSvg(p.shelf),
-      colour: p.shelf === 'playground' ? 'var(--star-play)' : 'var(--star-notes)',
-      body: win.piece(p), from: s ? { x: s.x, y: s.y } : null, near: s ? { x: s.x, y: s.y } : null, opener: opener || (s && s.el),
-    })
-  }
-  function openArcade(p, opener) {
-    const a = DESK.content.apps.find((x) => x.id === 'arcade'), s = p && sky.stars[p.slug]
-    const near = s ? { x: s.x, y: s.y } : null
-    const existing = win.open_.find((w) => w.id === 'arcade')
-    if (existing) win.close(existing, { instant: true, keepCamera: true })
-    return win.open({ id: 'arcade', title: a.label, tone: 'arcade', icon: dockIcon('arcade'), colour: a.colour, width: a.width, body: win.arcade(p), from: near || worldOf(opener), near, opener })
-  }
-  function openIndex(opener) {
-    hidePlate(false)
-    return win.open({ id: 'index', title: 'Lab', tone: 'index', icon: dockIcon('lab'), colour: '#141414', width: 600, body: win.index(), from: worldOf(opener), opener })
-  }
+  const shelfIcon = (id) => { const s = shelves.cards[id] && shelves.cards[id].head.querySelector('.desk-card__ico svg'); return s ? s.outerHTML : '' }
   const worldOf = (node) => {
     if (!node || !node.getBoundingClientRect) return null
     const r = node.getBoundingClientRect(), c = DESK.camera
     return { x: (r.left + r.width / 2 - c.x) / c.s, y: (r.top + r.height / 2 - c.y) / c.s }
   }
+  // a window sits over the middle of the shelves, a little down, cascading if several are open
+  function windowAt(width) {
+    const rs = shelves.rects()
+    const x0 = Math.min(...rs.map((r) => r.x)), x1 = Math.max(...rs.map((r) => r.x + r.w)), y0 = Math.min(...rs.map((r) => r.y))
+    const n = win.open_.length, step = phone() ? 14 : 28
+    return { x: Math.round((x0 + x1) / 2 - width / 2 + n * step), y: Math.round(y0 + (phone() ? 18 : 36) + n * step) }
+  }
+  // the row a window opens for is scrolled into sight inside its card (only that card's body
+  // scrolls: never the viewport, whose scroll would desync the world from the camera)
+  const reveal = (row) => {
+    const body = row && row.closest('.shelf__body')
+    if (!body) return
+    const top = row.offsetTop - body.offsetTop, bottom = top + row.offsetHeight
+    if (top < body.scrollTop) body.scrollTop = top - 8
+    else if (bottom > body.scrollTop + body.clientHeight) body.scrollTop = bottom - body.clientHeight + 8
+  }
+  const rowFor = (slug) => shelvesLayer.querySelector(`.shelf-row[data-open="${CSS.escape(slug)}"]`)
+  function openPiece(slug, opener) {
+    const p = LAB.pieces.find((x) => x.slug === slug)
+    if (!p) return
+    opener = opener || rowFor(slug)
+    reveal(rowFor(slug))
+    LAB.visited.add(slug)
+    if (LAB.opens(p).card) return openArcade(p, opener)
+    const s = shelves.model(LAB.pieces).find((x) => x.id === p.shelf) || {}
+    const width = Math.min(560, innerWidth - 24)
+    return win.open({ id: 'piece:' + slug, title: p.title, icon: shelfIcon(p.shelf), colour: s.colour, width, body: win.piece(p), from: worldOf(opener), at: windowAt(width), opener })
+  }
+  function openArcade(p, opener) {
+    const a = DESK.content.apps.find((x) => x.id === 'arcade')
+    const existing = win.open_.find((w) => w.id === 'arcade')
+    if (existing) win.close(existing, { instant: true, keepCamera: true })
+    const width = Math.min(a.width, innerWidth - 24)
+    return win.open({ id: 'arcade', title: a.label, icon: dockIcon('arcade'), colour: a.colour, width, body: win.arcade(p), from: worldOf(opener), at: windowAt(width), opener })
+  }
   // a desk card from night mode: back to the desk first, then the desk's own focusCard
   function toDesk(card) { return run(0).then(() => card && DESK.focusCard(card)) }
-
-  win.onAction((a, from) => {
+  const onAction = (a, from) => {
     if (a.open) return openPiece(a.open, from)
     if (a.desk) return toDesk(a.desk)
-    if (a.star) { win.closeAll({}).then(() => { flyFit(); showPlate(a.star) }) }
-  })
+  }
+  win.onAction(onAction)
+  shelves.onAction(onAction)
+  // phone: switching tabs re-fits, so a shorter shelf isn't left floating
+  shelves.onTab = () => { if (st.t === 1 && !st.anim) flyFit() }
 
-  // ── chrome: the night bar ───────────────────────────────────────────────────────────────
+  // ── chrome: the night bar, now just the one clear way back ──────────────────────────────
   const SUN = '<svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" aria-hidden="true"><circle cx="12" cy="12" r="4"/><path d="M12 2.5v2.2M12 19.3v2.2M2.5 12h2.2M19.3 12h2.2M5.3 5.3l1.6 1.6M17.1 17.1l1.6 1.6M5.3 18.7l1.6-1.6M17.1 6.9l1.6-1.6"/></svg>'
   function buildBar() {
-    const bar = h('div', 'nightbar lab-sky')
+    const bar = h('div', 'nightbar')
     bar.setAttribute('role', 'toolbar')
-    bar.setAttribute('aria-label', 'Night mode')
-    const shelves = (LAB.shelves || []).map((s) => `<button type="button" data-shelf="${s.id}" aria-pressed="false">${markSvg(s.id)}${esc(LAB.shelfName(s.id))}</button>`).join('')
-    bar.innerHTML =
-      `<button type="button" class="nb-back">${SUN}<span>Back to the desk</span></button>` +
-      `<div class="nb-seg" role="group" aria-label="Show"><button type="button" data-shelf="" aria-pressed="true">Both</button>${shelves}</div>` +
-      `<div class="nb-tools"><button type="button" class="nb-btn" data-act="index">Index</button><button type="button" class="nb-btn" data-act="fit">Fit</button></div>`
-    document.body.prepend(bar) // first in the Tab order: back, filter, index, fit, then the stars
+    bar.setAttribute('aria-label', COPY.bar)
+    bar.innerHTML = `<button type="button" class="nb-back">${SUN}<span>${COPY.back}</span></button>`
+    document.body.prepend(bar) // first in the Tab order: back, then the shelves' rows
     bar.querySelector('.nb-back').addEventListener('click', () => NIGHT.leave())
-    bar.querySelector('.nb-seg').addEventListener('click', (e) => { const b = e.target.closest('button'); if (b) setShelf(b.dataset.shelf || null) })
-    bar.querySelector('[data-act="index"]').addEventListener('click', (e) => openIndex(e.currentTarget))
-    bar.querySelector('[data-act="fit"]').addEventListener('click', () => { hidePlate(false); win.closeAll({}); flyFit() })
     el.bar = bar
     el.back = bar.querySelector('.nb-back')
-  }
-  function setShelf(shelf) {
-    sky.filter(shelf)
-    for (const b of el.bar.querySelectorAll('.nb-seg button')) b.setAttribute('aria-pressed', String((b.dataset.shelf || null) === (shelf || null)))
-    if (st.plate && shelf && LAB.pieces.find((p) => p.slug === st.plate.slug).shelf !== shelf) hidePlate(false)
   }
 
   // ── the night layer: fixed, behind the world, never transformed by the camera ────────────
@@ -383,17 +343,11 @@
     })
     const wrap = (v, m) => ((v % m) + m) % m
     const field = { move: (x, y) => { for (const d of depths) d.l.style.transform = `translate3d(${wrap(x * d.f, d.tile).toFixed(1)}px, ${wrap(y * d.f, d.tile).toFixed(1)}px, 0)` } }
-    NIGHT.paintMoon(n.querySelector('canvas'), { size: innerWidth < 700 ? 48 : 64 })
-    el.plate = h('aside', 'plate lab-card lab-sky')
-    el.plate.hidden = true
-    el.plate.setAttribute('aria-labelledby', 'plateTitle')
-    document.body.appendChild(el.plate)
+    NIGHT.paintMoon(n.querySelector('canvas'), { size: phone() ? 48 : 64 })
     DESK.onFrame((cam) => {
       if (st.t === 0) return
-      sky.frame(cam)
       field.move(cam.x, cam.y)
       moveMoon(cam)
-      if (st.plate) positionPlate()
     })
   }
 
@@ -413,36 +367,28 @@
       if (e.key === 'Escape') {
         const top = win.top()
         if (top) { e.preventDefault(); win.close(top) }
-        else if (st.plate) { e.preventDefault(); hidePlate(true) }
-      } else if (e.key === '0') { e.stopPropagation(); hidePlate(false); flyFit() } // the desk's 0 fits the desk
+      } else if (e.key === '0') { e.stopPropagation(); win.closeAll({}); flyFit() } // the desk's 0 fits the desk
     }, true)
-    // a click on empty sky (not a drag) puts the plate away
-    let down = null
-    DESK.viewport.addEventListener('pointerdown', (e) => { down = { x: e.clientX, y: e.clientY } })
-    DESK.viewport.addEventListener('click', (e) => {
-      if (!st.plate || !down || Math.hypot(e.clientX - down.x, e.clientY - down.y) > 5) return
-      if (!e.target.closest('.star, .nwin')) hidePlate(false)
-    })
-    // Tab into an off-screen star: the browser would scroll the viewport and desync the world
-    // from the camera. Undo the scroll, and bring the star into view with the camera instead.
+    // Tab onto a row that is off-screen: the browser would scroll the viewport and desync the
+    // world from the camera. Undo the scroll, and bring the card into view with the camera.
     DESK.viewport.addEventListener('scroll', () => { DESK.viewport.scrollTop = DESK.viewport.scrollLeft = 0 })
     DESK.viewport.addEventListener('focusin', (e) => {
-      const b = e.target.closest('.star')
-      if (!b || st.t < 1) return
-      const r = b.getBoundingClientRect(), c = sky.chrome()
-      if (r.left < 16 || r.right > innerWidth - 16 || r.top < c.top - 30 || r.bottom > innerHeight - c.bottom) {
-        const s = sky.stars[b.dataset.slug]
-        DESK.flyTo(s.x, s.y, DESK.camera.s, 420)
+      const card = e.target.closest('.shelf')
+      if (!card || st.t < 1) return
+      const r = e.target.getBoundingClientRect(), b = band()
+      if (r.left < 8 || r.right > innerWidth - 8 || r.top < b.top - 20 || r.bottom > innerHeight - b.bottom + 20) {
+        const c = shelves.cards[card.dataset.shelf], s = DESK.camera.s
+        DESK.flyTo(c.x + c.w / 2, (r.top + r.height / 2 - DESK.camera.y) / s, s, 420)
       }
     })
     let resizeTimer = 0
     addEventListener('resize', () => {
       clearTimeout(resizeTimer)
       resizeTimer = setTimeout(() => {
-        const portrait = innerHeight > innerWidth * 1.1
-        if (st.t !== 1 || st.anim) { if (sky.geo.portrait !== portrait && st.t === 0) sky.render(); return }
-        if (sky.geo.portrait !== portrait) { sky.render(); setView(fitView()) }
-        placeMoon(); sky.relabel()
+        if (st.t !== 1 || st.anim) return
+        shelves.layout(shelves.at)
+        setView((st.B = fitView()))
+        placeMoon()
       }, 160)
     })
   }
@@ -454,17 +400,18 @@
     b.dataset.ok = ok
     b.textContent = text
   }
-  const snapshot = () => JSON.parse(JSON.stringify(sky.geo.stars))
-  let lastStars = null
-  window.renderSky = () => {
-    const before = lastStars || snapshot(), count = Object.keys(before).length
-    sky.render()
-    const moved = sky.rings(before)
-    for (const s of sky.list) s.el.classList.toggle('is-new', !before[s.slug])
-    apply(st.t)
-    lastStars = snapshot()
-    badge(`${sky.list.length} stars · ${moved} of ${count} moved`, moved === 0)
-    return moved
+  // the 20th piece: push it, call this, and only its row appears
+  window.renderShelves = () => {
+    const pos = () => JSON.stringify(Object.values(shelves.cards).map((c) => [c.x, c.y, c.w, c.el.style.left, c.el.style.top]))
+    const before = pos(), rows = shelvesLayer.querySelectorAll('.shelf-row').length
+    const out = shelves.render()
+    for (const s of out.added) { const r = rowFor(s); if (r) r.classList.add('is-new') }
+    const after = shelvesLayer.querySelectorAll('.shelf-row').length, still = pos() === before
+    const where = out.added.map((s) => { const p = LAB.pieces.find((x) => x.slug === s); return `${LAB.shelfName(p.shelf)} · ${shelves.KIND[p.kind] || p.kind}` })
+    const ok = after === rows + out.added.length && out.removed.length === 0 && out.kept === rows && still
+    badge(`${after} rows · +${out.added.length} in ${where.join(', ') || '—'} · ${out.kept} of ${rows} rows untouched · ` +
+      `${out.changed.length} of ${Object.keys(shelves.cards).length} cards re-rendered · cards ${still ? 'unmoved' : 'MOVED'}`, ok)
+    return out
   }
   // where every card and the hero are on screen, to the hundredth of a pixel
   const rects = () => Object.fromEntries([...Object.entries(DESK.cards).map(([id, c]) => [id, c.el]), ['hero', document.querySelector('.desk-hero')]]
@@ -472,46 +419,42 @@
   // measure once the web font has landed (it re-wraps the cards) and the desk has painted the
   // camera, which it writes on its next frame
   const settled = () => document.fonts.ready.then(() => new Promise((ok) => requestAnimationFrame(() => requestAnimationFrame(ok))))
-  function compare(a, b) {
-    let worst = 0, same = 0
-    for (const id in a) { const d = Math.max(...a[id].map((v, i) => Math.abs(v - b[id][i]))); worst = Math.max(worst, d); if (d < 0.01) same++ }
-    return { worst, same, n: Object.keys(a).length }
-  }
-
   function proof(what, before) {
-    const now = rects(), c = compare(before, now)
-    const off = Object.keys(before).filter((id) => Math.max(...before[id].map((v, i) => Math.abs(v - now[id][i]))) >= 0.01)
-    badge(`${what} · ${c.same} of ${c.n} where they were · max Δ ${c.worst.toFixed(2)} px${off.length ? ' (' + off.join(', ') + ')' : ''}`, c.same === c.n)
+    const now = rects()
+    const d = (id) => Math.max(...before[id].map((v, i) => Math.abs(v - now[id][i])))
+    const ids = Object.keys(before), off = ids.filter((id) => d(id) >= 0.01), worst = Math.max(...ids.map(d))
+    badge(`${what} · ${ids.length - off.length} of ${ids.length} where they were · max Δ ${worst.toFixed(2)} px${off.length ? ' (' + off.join(', ') + ')' : ''}`, !off.length)
   }
   // /lab, or ?mode=night: straight into night, no transition, then any screenshot switches
   function land() {
     dir = 1; beginEnter(); apply(1); finish(1)
+    if (q.get('tab')) shelves.tab(q.get('tab'))
     if (q.get('add')) {
       // exactly what the brief asks a visitor to type in the console
-      LAB.pieces.push({ slug: 'test-piece', title: 'Test piece', shelf: 'playground', kind: 'experiment', date: '2099-01', constellation: 'hardware', links: ['usb-camera'] })
-      window.renderSky()
+      LAB.pieces.push({ slug: 'test-piece', title: 'Test piece', shelf: 'playground', kind: 'experiment', date: '2099-01' })
+      window.renderShelves()
     }
-    const f = q.get('focus'), o = q.get('open')
-    if (f && sky.stars[f]) showPlate(f)
-    if (o === 'index') openIndex(el.bar.querySelector('[data-act="index"]'))
-    else if (o === 'arcade') openArcade(null, null)
+    const o = q.get('open')
+    if (o === 'arcade') openArcade(null, null)
     else if (o) openPiece(o)
   }
 
+  let shelvesLayer
   NIGHT.mount = () => {
     buildBar()
     win.mount(DESK.addLayer('night-windows'))
-    el.skyLayer = DESK.addLayer('night-sky') // addLayer inserts under earlier layers: sky below windows
-    sky.mount(el.skyLayer)
-    sky.onPick = (slug, b) => showPlate(slug, b)
-    sky.render()
-    lastStars = snapshot()
+    shelvesLayer = DESK.addLayer('night-shelves') // addLayer inserts under earlier layers: shelves below windows
+    shelvesLayer.classList.add('shelves')
+    shelves.mount(shelvesLayer)
+    shelves.layout({ x: 0, y: 0 })
     buildNight()
     bindNight()
-    if (LAB.params.shelf) setShelf(LAB.params.shelf)
+    st.A = st.B = view()
+    st.tile = labTile().querySelector('.desk-dock__icon').getBoundingClientRect()
+    apply(0) // the shelves start folded away
 
     const freeze = q.get('freeze')
-    if (freeze != null) { NIGHT.scrub(Math.min(1, Math.max(0, parseFloat(freeze) || 0))); return }
+    if (freeze != null) { settled().then(() => NIGHT.scrub(Math.min(1, Math.max(0, parseFloat(freeze) || 0)))); return }
     const atNight = q.get('mode') === 'night' || q.get('lab') === '1'
     if (atNight && q.get('then') === 'desk') {
       // record the desk once it has painted, land at night, go back, measure every card
@@ -520,7 +463,7 @@
         land()
         setTimeout(() => NIGHT.leave().then(settled).then(() => proof('Back on the desk', desk)), 700)
       })
-    } else if (atNight) land()
+    } else if (atNight) settled().then(land)
     else if (q.get('roundtrip')) {
       // as a visitor would: drag a card, pan a little, then night and back
       const about = DESK.cards.about
@@ -529,7 +472,7 @@
       const v = view(); setView({ ...v, cx: v.cx + 60, cy: v.cy - 30 })
       settled().then(() => {
         const before = rects()
-        return NIGHT.enter().then(() => NIGHT.leave()).then(settled).then(() => proof('Round trip', before))
+        return NIGHT.enter().then(() => NIGHT.leave()).then(settled).then(() => proof('Round trip, About dragged', before))
       })
     } else if (q.get('enter')) setTimeout(() => NIGHT.enter(), 500)
   }

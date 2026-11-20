@@ -1,18 +1,18 @@
 /*
- * prototype/lab/night-mode/windows.js: night mode's canvas windows: a piece, the Arcade, the
- * Lab index. They are desk windows (desk.css's .desk-card chrome, dragged by the title bar
- * with deltas divided by scale), living in the same world as the stars, in jet.
+ * prototype/lab/night-mode/windows.js: night mode's canvas windows: a piece, or the Arcade.
+ * They are desk windows (desk.css's .desk-card chrome, dragged by the title bar with deltas
+ * divided by scale), in the same world as the shelf cards and in the same cream card style.
  *
- *   NIGHT.win.open({ id, title, tone, icon, body, from, near, width, opener }) → win
- *       from    world point the window grows out of (the star, or a button's spot)
- *       near    world point to sit beside; omitted = the middle of the screen
+ *   NIGHT.win.open({ id, title, icon, colour, body, from, at, width, opener }) → win
+ *       from    world point the window grows out of (the row that opened it)
+ *       at      world point for its top-left; omitted = the middle of the screen
  *   NIGHT.win.close(win, { instant })   shrinks back into `from`, camera returns
  *   NIGHT.win.closeAll({ instant }), NIGHT.win.top(), NIGHT.win.open_ (the live list)
- *   NIGHT.win.piece(p) / .arcade(p) / .index()   the bodies, built from LAB data only
- *   NIGHT.win.onAction(fn)   night.js handles { open: slug } / { desk: cardId } / { star: slug }
+ *   NIGHT.win.piece(p) / .arcade(p)     the bodies, built from LAB data only
+ *   NIGHT.win.onAction(fn)   night.js handles { open: slug } / { desk: cardId }
  *
  * Open and close are an explicit FLIP, as CLAUDE.md asks (never Motion's layoutId): the start
- * transform is measured from the star's point and the window's rect, both in world space, which
+ * transform is measured from the row's point and the window's rect, both in world space, which
  * is screen space divided by the one camera transform they share. Reduced motion: opacity only.
  */
 ;(() => {
@@ -22,10 +22,11 @@
   const EASE = 'cubic-bezier(0.16, 1, 0.3, 1)'
   const reduced = () => LAB.sky.reduced
   const app = (id) => DESK.content.apps.find((a) => a.id === id)
-  const conName = (id) => ((LAB.constellations || []).find((c) => c.id === id) || { name: id }).name
-  // Display labels for the `kind` enum. The model has labels for shelves but not kinds: a
-  // finding for the PR (content/schema would hold these as the enum's labels).
-  const KIND = { 'write-up': 'Write-ups', essay: 'Essays', experiment: 'Experiments', scrap: 'Scraps', found: 'Found', game: 'Games' }
+  // UI words for this mockup (the React build takes them from content/, like every other string)
+  const COPY = {
+    readOn: (host) => `Read on ${host}`, project: 'Project page', inWork: (w) => `In ${w}, on the desk`,
+    linked: 'Linked', stub: 'Stub · the live Arcade card plays these here',
+  }
   const host = (u) => { try { return new URL(u).host.replace(/^www\./, '') } catch { return u } }
 
   const win = (NIGHT.win = { open_: [] })
@@ -48,10 +49,9 @@
   win.open = (o) => {
     const had = win.open_.find((w) => w.id === o.id)
     if (had) { raise(had); flyTo(had); had.el.querySelector('.nwin__title').focus({ preventScroll: true }); return had }
-    const phone = innerWidth < 700, w = Math.min(o.width || 560, innerWidth - 24)
-    const el = h('section', 'desk-card nwin lab-sky')
+    const w = Math.min(o.width || 560, innerWidth - 24)
+    const el = h('section', 'desk-card nwin')
     el.dataset.win = o.id
-    el.dataset.tone = o.tone || 'notes'
     el.setAttribute('role', 'dialog')
     el.setAttribute('aria-label', o.title)
     const head = h('header', 'desk-card__head', `<span class="desk-card__ico">${o.icon || ''}</span><span class="desk-card__name">${esc(o.title)}</span>`)
@@ -61,18 +61,15 @@
     if (typeof o.body === 'string') body.innerHTML = o.body; else body.appendChild(o.body)
     el.append(head, body)
 
-    // where: beside the star, on the side away from the sky's middle; else mid-screen
-    const v = view(), mid = NIGHT.sky.geo.bounds
-    let wx, wy
-    if (o.near) {
-      const portrait = NIGHT.sky.geo.portrait, gap = phone ? 30 : 70
-      if (portrait) { wx = mid.x + mid.w / 2 - w / 2; wy = o.near.y + gap }
-      else { wx = o.near.x < mid.x + mid.w / 2 ? o.near.x + gap : o.near.x - gap - w; wy = o.near.y - 180 }
-    } else { wx = v.cx - w / 2; wy = v.cy - 260 }
-    el.style.cssText = `left:${wx}px;top:${wy}px;width:${w}px;--c:${o.colour || 'var(--star-notes)'}`
-    const b = band()
-    body.style.maxHeight = Math.max(240, innerHeight - b.top - b.bottom - 52) + 'px'
+    // where: night.js says (beside the shelves); else the middle of the screen
+    const v = view()
+    const wx = o.at ? o.at.x : v.cx - w / 2, wy = o.at ? o.at.y : v.cy - 260
+    el.style.cssText = `left:${wx}px;top:${wy}px;width:${w}px;--c:${o.colour || '#fff'}`
     layer.appendChild(el)
+    // the body scrolls inside the band between bar and dock; the head is measured, since a long
+    // title wraps to two lines on a phone
+    const b = band()
+    body.style.maxHeight = Math.max(240, innerHeight - b.top - b.bottom - head.offsetHeight - 8) + 'px'
 
     const item = { id: o.id, el, x: wx, y: wy, w, from: o.from || { x: wx + w / 2, y: wy }, opener: o.opener, prev: { ...v } }
     raise(item) // also adds it to win.open_, on top
@@ -141,23 +138,23 @@
     // a long piece scrolls inside its window instead of panning the sky
     body.addEventListener('wheel', (e) => { if (!(e.ctrlKey || e.metaKey) && body.scrollHeight > body.clientHeight) e.stopPropagation() })
     el.addEventListener('click', (e) => {
-      const t = e.target.closest('[data-open], [data-desk], [data-star], a.lab-ref')
+      const t = e.target.closest('[data-open], [data-desk], a.lab-ref')
       if (!t) return
       if (t.matches('a.lab-ref')) { e.preventDefault(); return act({ open: t.getAttribute('href').slice(1) }, t) }
       if (t.dataset.open) act({ open: t.dataset.open }, t)
       else if (t.dataset.desk) act({ desk: t.dataset.desk }, t)
-      else if (t.dataset.star) act({ star: t.dataset.star }, t)
     })
   }
 
+
   // ── bodies: everything below comes from LAB.pieces / DESK.content, nothing typed per piece ──
-  const mark = (shelf) => `<span class="lab-mark" data-shelf="${shelf}"></span>`
+  const shelf = (id) => (NIGHT.shelves.model(LAB.pieces).find((s) => s.id === id) || {})
+  const swatch = (id) => `<i class="nwin__swatch" style="--c:${shelf(id).colour || '#fff'}"></i>`
   const meta = (p) => `<p class="nwin__meta">` +
-    `<span class="nwin__shelf t-label">${mark(p.shelf)}${esc(LAB.shelfName(p.shelf))}</span>` +
-    `<span class="lab-chip">${esc(p.kind)}</span>` +
+    `<span class="nwin__shelf t-label">${swatch(p.shelf)}${esc(LAB.shelfName(p.shelf))}</span>` +
+    `<span class="desk-chip" style="--t:${shelf(p.shelf).tint}">${esc(p.kind)}</span>` +
     `<span class="t-label nwin__dim">${esc(p.when || p.date)}</span>` +
-    (p.status ? `<span class="lab-chip nwin__status">${esc(p.status)}</span>` : '') +
-    (p.constellation ? `<span class="t-label nwin__dim">✦ ${esc(conName(p.constellation))}</span>` : '') + `</p>`
+    (p.status ? `<span class="desk-chip nwin__status">${esc(p.status)}</span>` : '') + `</p>`
 
   const gallery = (p) => {
     const imgs = p.images || []
@@ -169,22 +166,20 @@
       imgs.slice(1).map((im) => fig(im, 'nwin__thumb')).join('') + `</div></div>`
   }
 
+  // links one way in lab.json, backlinks computed, [[slug]]s in the body: all one list
   win.related = (p) => {
     const back = LAB.backlinks()[p.slug] || []
     const linked = [...new Set([...(p.links || []), ...LAB.body.refs(p.body), ...back])].filter((s) => s !== p.slug)
-    const same = LAB.pieces.filter((x) => x.constellation && x.constellation === p.constellation)
-      .sort((a, b) => (a.date < b.date ? -1 : a.date > b.date ? 1 : LAB.pieces.indexOf(a) - LAB.pieces.indexOf(b)))
-    const i = same.indexOf(p), next = same.length > 1 ? same[(i + 1) % same.length] : null
-    return { linked: linked.map((s) => LAB.pieces.find((x) => x.slug === s)).filter(Boolean), next }
+    return linked.map((s) => LAB.pieces.find((x) => x.slug === s)).filter(Boolean)
   }
 
   win.piece = (p) => {
-    const { linked, next } = win.related(p)
-    const chip = (x) => `<button type="button" class="nwin__link" data-open="${esc(x.slug)}">${mark(x.shelf)}${esc(x.title)}</button>`
+    const linked = win.related(p)
+    const chip = (x) => `<button type="button" class="nwin__link" data-open="${esc(x.slug)}">${swatch(x.shelf)}${esc(x.title)}</button>`
     const actions = [
-      p.href ? `<a class="nbtn nbtn--primary" href="${esc(p.href)}" rel="noopener">Read on ${esc(host(p.href))} ↗</a>` : '',
-      p.project ? `<a class="nbtn" href="/work/${esc(p.project)}">Project page ↗</a>` : '',
-      p.isProject ? `<button type="button" class="nbtn" data-desk="work">In Work, on the desk</button>` : '',
+      p.href ? `<a class="nbtn nbtn--primary" href="${esc(p.href)}" rel="noopener">${esc(COPY.readOn(host(p.href)))} ↗</a>` : '',
+      p.project ? `<a class="nbtn" href="/work/${esc(p.project)}">${esc(COPY.project)} ↗</a>` : '',
+      p.isProject ? `<button type="button" class="nbtn" data-desk="work">${esc(COPY.inWork(app('work').label))}</button>` : '',
     ].join('')
     return meta(p) +
       `<h2 class="nwin__title" tabindex="-1">${esc(p.title)}</h2>` +
@@ -192,39 +187,19 @@
       gallery(p) +
       (p.body ? `<div class="lab-prose nwin__prose">${LAB.body.render(p.body, { href: (s) => '#' + s })}</div>` : '') +
       (actions ? `<div class="nwin__actions">${actions}</div>` : '') +
-      (linked.length ? `<div class="nwin__rel"><p class="t-label nwin__dim">Linked</p><div class="nwin__links">${linked.map(chip).join('')}</div></div>` : '') +
-      (next ? `<div class="nwin__rel"><p class="t-label nwin__dim">Next in ${esc(conName(p.constellation))}</p><div class="nwin__links">${chip(next)}</div></div>` : '')
+      (linked.length ? `<div class="nwin__rel"><p class="t-label nwin__dim">${esc(COPY.linked)}</p><div class="nwin__links">${linked.map(chip).join('')}</div></div>` : '')
   }
 
-  // The Arcade: a stub of the real card, listing the games it plays (pieces with card: 'arcade')
+  // The Arcade: a stub of the real card, listing the games it plays (pieces with card: 'arcade').
+  // The row you came from is marked; the live card would start that game.
   win.arcade = (p) => {
-    const games = LAB.pieces.filter((x) => x.card === 'arcade')
-    return `<p class="nwin__meta"><span class="nwin__shelf t-label">${mark('playground')}${esc(LAB.shelfName('playground'))}</span>` +
-      `<span class="lab-chip">${esc(app('arcade').label)}</span></p>` +
-      `<h2 class="nwin__title" tabindex="-1">${esc(app('arcade').label)}</h2>` +
-      `<ul class="arc">${games.map((g) => `<li class="arc__game${p && g.slug === p.slug ? ' is-on' : ''}"${p && g.slug === p.slug ? ' aria-current="true"' : ''}>` +
-        `<span class="arc__play" aria-hidden="true">▶</span><span><b>${esc(g.title)}</b><span>${esc(g.blurb || '')}</span></span>` +
-        `<button type="button" class="arc__star" data-star="${esc(g.slug)}" aria-label="Show ${esc(g.title)} in the sky">${mark('playground')}</button></li>`).join('')}</ul>` +
-      `<p class="nwin__stub t-label">Stub · the live Arcade card plays these here</p>`
-  }
-
-  // The Lab index: the same pieces as a plain list, for people who just want a list
-  win.index = () => {
-    const P = LAB.pieces
-    const desk = ['work', 'about'].map((id) => { const a = app(id); return `<button type="button" class="ix__desk" data-desk="${id}" style="--c:${a.colour}">${esc(a.label)} →</button>` }).join('')
-    const shelves = (LAB.shelves || []).map((s) => {
-      const own = P.filter((p) => p.shelf === s.id)
-      const kinds = [...new Set(own.map((p) => p.kind))].sort((a, b) => Object.keys(KIND).indexOf(a) - Object.keys(KIND).indexOf(b))
-      return `<section class="ix__shelf" data-shelf="${s.id}"><h3 class="ix__name">${mark(s.id)}${esc(LAB.shelfName(s.id))}<span class="ix__count">${own.length}</span></h3>` +
-        kinds.map((k) => `<h4 class="ix__kind t-label">${esc(KIND[k] || k)}</h4><ul class="ix__list">` +
-          own.filter((p) => p.kind === k).sort((a, b) => (b.pinned ? 1 : 0) - (a.pinned ? 1 : 0) || (a.date < b.date ? 1 : a.date > b.date ? -1 : 0)).map((p) =>
-            `<li><button type="button" class="ix__row" data-open="${esc(p.slug)}"><span class="ix__title">${esc(p.title)}</span>` +
-            `<span class="ix__blurb">${esc(LAB.excerpt(p, 90))}</span><span class="ix__when t-label">${esc(p.when || p.date)}</span></button>` +
-            (p.isProject ? `<button type="button" class="ix__work" data-desk="work" aria-label="${esc(p.title)} in Work, on the desk">${esc(app('work').label)}</button>` : '') +
-            `</li>`).join('') + `</ul>`).join('') + `</section>`
-    }).join('')
-    return `<h2 class="nwin__title" tabindex="-1">Index</h2>` +
-      `<p class="ix__count-line t-label nwin__dim">${P.length} pieces · ${(LAB.shelves || []).map((s) => `${P.filter((p) => p.shelf === s.id).length} ${esc(LAB.shelfName(s.id))}`).join(' · ')}</p>` +
-      `<div class="ix__desks"><span class="t-label nwin__dim">On the desk</span>${desk}</div>` + shelves
+    const games = LAB.pieces.filter((x) => x.card === 'arcade'), a = app('arcade')
+    return `<p class="nwin__meta"><span class="nwin__shelf t-label">${swatch('playground')}${esc(LAB.shelfName('playground'))}</span></p>` +
+      `<h2 class="nwin__title" tabindex="-1">${esc(a.label)}</h2>` +
+      `<div class="arc">${games.map((g) => { const on = p && g.slug === p.slug
+        return `<div class="desk-row arc__game${on ? ' is-on' : ''}"${on ? ' aria-current="true"' : ''} style="--t:${a.tint}">` +
+          `<span class="arc__play" aria-hidden="true">▶</span><span><span class="desk-row__ttl">${esc(g.title)}</span>` +
+          `<span class="desk-row__sub">${esc(g.blurb || '')}</span></span></div>` }).join('')}</div>` +
+      `<p class="nwin__stub t-label">${esc(COPY.stub)}</p>`
   }
 })()
