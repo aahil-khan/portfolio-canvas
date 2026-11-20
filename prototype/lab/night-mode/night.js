@@ -34,12 +34,16 @@
  */
 ;(() => {
   const NIGHT = (window.NIGHT = window.NIGHT || {})
-  const shelves = NIGHT.shelves, win = NIGHT.win
+  const shelves = NIGHT.shelves, win = NIGHT.win, reader = NIGHT.reader
   const R = () => LAB.sky.reduced
   const q = new URLSearchParams(location.search)
   const h = (tag, cls, html) => { const e = document.createElement(tag); if (cls) e.className = cls; if (html != null) e.innerHTML = html; return e }
   // UI words for this mockup (the React build takes them from content/, like every other string)
-  const COPY = { back: 'Back to the desk', bar: 'Night mode' }
+  const COPY = {
+    back: 'cd ~/desk, back to the desk', bar: 'The Lab', where: '~/lab', cmd: 'cd ~/desk', key: '⏎',
+    palette: 'Palette (mockup)', palettes: { white: 'white', green: 'green', amber: 'amber' }, cat: (s) => `$ cat ${s}.md`,
+  }
+  const PALETTES = Object.keys(COPY.palettes)
 
   // cubic-bezier(0.16, 1, 0.3, 1), solved for x by Newton's method
   const bezier = (x1, y1, x2, y2) => {
@@ -60,8 +64,12 @@
   const seg = (t, a, b) => (t <= a ? 0 : t >= b ? 1 : (t - a) / (b - a))
   let dir = 1 // +1 into night, −1 back to day: easing mirrors so both directions decelerate
   const ease = (p) => (dir > 0 ? EASE(p) : 1 - EASE(1 - p))
-  // when each shelf opens, in LAB.shelves order
-  const OPENS = [[0.6, 0.92], [0.68, 1]]
+  // when each pane opens, in shelves.SECTIONS order
+  const OPENS = [[0.6, 0.9], [0.64, 0.95], [0.68, 1]]
+  // THE DECODE: the Lab's UI types itself in as dusk settles, and scrambles out on the way back.
+  // t 0.60–0.93 (≈ 560 ms of the 1.7 s into night, ≈ 445 ms of the 1.35 s back):
+  //   the dock's glyphs 0.60–0.74, the prompt 0.62–0.78, each pane's text 0.63–0.93, line by line
+  const DECODE = { dock: [0.6, 0.1, 0.004], bar: [0.62, 0.16], pane: [0.63, 0.12, 0.03, 0.12] }
 
   const st = { t: 0, A: null, B: null, cards: [], anim: 0, queue: [], tile: null }
   const view = () => ({ cx: (innerWidth / 2 - DESK.camera.x) / DESK.camera.s, cy: (innerHeight / 2 - DESK.camera.y) / DESK.camera.s, s: DESK.camera.s })
@@ -131,7 +139,7 @@
     // the shelves open out of the Lab tile: a FLIP, written as translate + scale on the card.
     // The tile is fixed on screen and the camera may be moving, so the start is converted into
     // the card's world space on every frame (screen delta ÷ scale, as every canvas move is).
-    const ids = (LAB.shelves || []).map((s) => s.id)
+    const ids = shelves.SECTIONS.map((s) => s.id)
     ids.forEach((id, i) => {
       const c = shelves.cards[id], s = c.el.style
       const [a0, a1] = OPENS[i] || OPENS[OPENS.length - 1]
@@ -146,7 +154,52 @@
       s.scale = sc.toFixed(4)
       s.opacity = Math.min(1, p / 0.35).toFixed(3)
     })
+    decodeAt(t, red)
   }
+
+  // ── the decode, one more pure-of-t segment ───────────────────────────────────────────────
+  // Every text node in the panes and the prompt, and the dock's glyphs, collected when a turn
+  // begins (so a re-rendered pane is picked up) with the slice of t it decodes over.
+  let decoders = []
+  function collectDecoders() {
+    decoders = []
+    const [d0, dLen, dStep] = DECODE.dock
+    // the dock's glyphs are CSS strings (night.css, --g on each tile); the decode writes them
+    // inline while it plays and removes them at rest, so the stylesheet stays the one source
+    labDock().forEach((icon, i) => {
+      icon.style.removeProperty('--g')
+      const g = getComputedStyle(icon).getPropertyValue('--g').trim().replace(/^["']|["']$/g, '')
+      if (g) decoders.push({ dock: icon, text: g, a: d0 + i * dStep, b: d0 + i * dStep + dLen, seed: 101 + i })
+    })
+    const texts = (root) => {
+      const out = [], w = document.createTreeWalker(root, NodeFilter.SHOW_TEXT, { acceptNode: (n) => (/\S/.test(n.nodeValue) ? 1 : 2) })
+      while (w.nextNode()) out.push(w.currentNode)
+      return out
+    }
+    const [b0, bLen] = DECODE.bar
+    texts(el.bar).forEach((n, i) => decoders.push({ node: n, text: n.nodeValue, a: b0, b: b0 + bLen, seed: 7 + i }))
+    const [p0, cap, step, len] = DECODE.pane
+    shelves.SECTIONS.forEach((s, i) => {
+      const nodes = texts(shelves.cards[s.id].el)
+      nodes.forEach((n, j) => {
+        const a = p0 + i * step + cap * (j / Math.max(1, nodes.length - 1))
+        decoders.push({ node: n, text: n.nodeValue, a, b: a + len, seed: 1000 * (i + 1) + j })
+      })
+    })
+  }
+  function decodeAt(t, red) {
+    for (const d of decoders) {
+      const p = red ? 1 : seg(t, d.a, d.b)
+      if (d.dock) {
+        if (p >= 1 || t === 0) d.dock.style.removeProperty('--g')
+        else d.dock.style.setProperty('--g', `"${NIGHT.decode(d.text, p, d.seed)}"`)
+      } else {
+        const v = NIGHT.decode(d.text, t === 0 ? 1 : p, d.seed)
+        if (d.node.nodeValue !== v) d.node.nodeValue = v
+      }
+    }
+  }
+  const labDock = () => [...document.querySelectorAll('#deskDock .desk-dock__icon')]
 
   function run(to) {
     return new Promise((resolve) => {
@@ -182,12 +235,14 @@
     st.tile = labTile().querySelector('.desk-dock__icon').getBoundingClientRect()
     planCards()
     placeMoon()
+    collectDecoders()
   }
   function beginLeave() {
     win.closeAll({ instant: true })
     st.B = view() // leave from wherever the night was panned to
     st.tile = labTile().querySelector('.desk-dock__icon').getBoundingClientRect()
-    // a shelf you dragged folds back from where it is now
+    collectDecoders()
+    // a pane you dragged folds back from where it is now
   }
   function finish(to) {
     document.documentElement.classList.remove('is-turning')
@@ -226,11 +281,21 @@
   let moonAt = null
   function placeMoon() {
     const B = camOf(st.B || fitView()), rs = shelves.rects()
-    const right = Math.max(...rs.map((r) => r.x + r.w)), top = Math.min(...rs.map((r) => r.y))
-    // beside the shelves' top-right corner on a desk screen; peeking above the card on a phone
-    const base = phone()
-      ? { x: innerWidth - 78, y: (top * B.s + B.y) - 8 }
-      : { x: Math.min(innerWidth - 90, (right * B.s + B.x) + (innerWidth - (right * B.s + B.x)) / 2), y: (top * B.s + B.y) + 70 }
+    let base
+    if (phone()) {
+      // up in the top band, between the prompt and the right edge
+      const r = el.back.getBoundingClientRect(), right = el.palsw.getBoundingClientRect().left || innerWidth
+      base = { x: Math.round((Math.max(r.right, 140) + right) / 2), y: 34 }
+    } else {
+      // low in the sky, under whichever pane leaves the most of it open; it is background, so it
+      // may read the panes' heights (placement of the panes themselves never does)
+      const dockTop = innerHeight - 124
+      const gaps = rs.map((r) => ({ r, top: (r.y + r.h) * B.s + B.y })).map((g) => ({ ...g, gap: dockTop - g.top })).sort((a, b) => b.gap - a.gap)
+      const g = gaps[0]
+      base = g && g.gap >= 170
+        ? { x: (g.r.x + g.r.w / 2) * B.s + B.x, y: g.top + g.gap * 0.48 }
+        : { x: innerWidth - 90, y: 96 }
+    }
     moonAt = { base, cam0: B }
     moveMoon(DESK.camera)
   }
@@ -242,21 +307,19 @@
   }
 
   // ── opening things ───────────────────────────────────────────────────────────────────────
-  const dockIcon = (id) => { const s = document.querySelector(`.desk-dock__item[data-id="${id}"] svg`); return s ? s.outerHTML : '' }
-  const shelfIcon = (id) => { const s = shelves.cards[id] && shelves.cards[id].head.querySelector('.desk-card__ico svg'); return s ? s.outerHTML : '' }
   const worldOf = (node) => {
     if (!node || !node.getBoundingClientRect) return null
     const r = node.getBoundingClientRect(), c = DESK.camera
     return { x: (r.left + r.width / 2 - c.x) / c.s, y: (r.top + r.height / 2 - c.y) / c.s }
   }
-  // a window sits over the middle of the shelves, a little down, cascading if several are open
+  // a window sits over the middle of the panes, a little down, cascading if several are open
   function windowAt(width) {
     const rs = shelves.rects()
     const x0 = Math.min(...rs.map((r) => r.x)), x1 = Math.max(...rs.map((r) => r.x + r.w)), y0 = Math.min(...rs.map((r) => r.y))
     const n = win.open_.length, step = phone() ? 14 : 28
-    return { x: Math.round((x0 + x1) / 2 - width / 2 + n * step), y: Math.round(y0 + (phone() ? 18 : 36) + n * step) }
+    return { x: Math.round((x0 + x1) / 2 - width / 2 + n * step), y: Math.round(y0 + (phone() ? 44 : 36) + n * step) }
   }
-  // the row a window opens for is scrolled into sight inside its card (only that card's body
+  // the row a window opens for is scrolled into sight inside its pane (only that pane's body
   // scrolls: never the viewport, whose scroll would desync the world from the camera)
   const reveal = (row) => {
     const body = row && row.closest('.shelf__body')
@@ -265,47 +328,62 @@
     if (top < body.scrollTop) body.scrollTop = top - 8
     else if (bottom > body.scrollTop + body.clientHeight) body.scrollTop = bottom - body.clientHeight + 8
   }
-  const rowFor = (slug) => shelvesLayer.querySelector(`.shelf-row[data-open="${CSS.escape(slug)}"]`)
+  const rowFor = (slug) => shelvesLayer.querySelector(`.log[data-open="${CSS.escape(slug)}"]`)
+  // an experiment opens as a terminal window; anything else in the Lab is a post
   function openPiece(slug, opener) {
     const p = LAB.pieces.find((x) => x.slug === slug)
-    if (!p) return
+    if (!p || !shelves.inLab(p)) return
+    if (p.kind !== 'experiment') return reader.go(slug, opener)
+    if (phone() && shelves.current() !== 'experiments') shelves.tab('experiments', false)
     opener = opener || rowFor(slug)
     reveal(rowFor(slug))
     LAB.visited.add(slug)
-    if (LAB.opens(p).card) return openArcade(p, opener)
-    const s = shelves.model(LAB.pieces).find((x) => x.id === p.shelf) || {}
     const width = Math.min(560, innerWidth - 24)
-    return win.open({ id: 'piece:' + slug, title: p.title, icon: shelfIcon(p.shelf), colour: s.colour, width, body: win.piece(p), from: worldOf(opener), at: windowAt(width), opener })
+    return win.open({ id: 'piece:' + slug, cmd: COPY.cat(slug), title: p.title, width, body: win.piece(p), from: worldOf(opener), at: windowAt(width), opener })
   }
-  function openArcade(p, opener) {
-    const a = DESK.content.apps.find((x) => x.id === 'arcade')
-    const existing = win.open_.find((w) => w.id === 'arcade')
-    if (existing) win.close(existing, { instant: true, keepCamera: true })
-    const width = Math.min(a.width, innerWidth - 24)
-    return win.open({ id: 'arcade', title: a.label, icon: dockIcon('arcade'), colour: a.colour, width, body: win.arcade(p), from: worldOf(opener), at: windowAt(width), opener })
-  }
-  // a desk card from night mode: back to the desk first, then the desk's own focusCard
+  // a desk card from the Lab: back to the desk first, then the desk's own focusCard
   function toDesk(card) { return run(0).then(() => card && DESK.focusCard(card)) }
   const onAction = (a, from) => {
+    if (a.read) return reader.go(a.read, from)
     if (a.open) return openPiece(a.open, from)
-    if (a.desk) return toDesk(a.desk)
   }
   win.onAction(onAction)
   shelves.onAction(onAction)
-  // phone: switching tabs re-fits, so a shorter shelf isn't left floating
+  // phone: switching tabs re-fits, so a shorter pane isn't left floating
   shelves.onTab = () => { if (st.t === 1 && !st.anim) flyFit() }
 
-  // ── chrome: the night bar, now just the one clear way back ──────────────────────────────
-  const SUN = '<svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" aria-hidden="true"><circle cx="12" cy="12" r="4"/><path d="M12 2.5v2.2M12 19.3v2.2M2.5 12h2.2M19.3 12h2.2M5.3 5.3l1.6 1.6M17.1 17.1l1.6 1.6M5.3 18.7l1.6-1.6M17.1 6.9l1.6-1.6"/></svg>'
+  // ── chrome: the prompt, the one clear way back, and the mockup's palette switch ────────
   function buildBar() {
     const bar = h('div', 'nightbar')
     bar.setAttribute('role', 'toolbar')
     bar.setAttribute('aria-label', COPY.bar)
-    bar.innerHTML = `<button type="button" class="nb-back">${SUN}<span>${COPY.back}</span></button>`
-    document.body.prepend(bar) // first in the Tab order: back, then the shelves' rows
+    bar.innerHTML = `<button type="button" class="nb-back" aria-label="${COPY.back}">` +
+      `<span class="nb-where">${COPY.where}</span> <span class="nb-ps">$</span> <span class="nb-cmd">${COPY.cmd}</span><span class="nb-cur" aria-hidden="true"></span> <span class="nb-key">${COPY.key}</span></button>`
+    document.body.prepend(bar) // first in the Tab order: back, then the panes
     bar.querySelector('.nb-back').addEventListener('click', () => NIGHT.leave())
     el.bar = bar
     el.back = bar.querySelector('.nb-back')
+  }
+  // THROWAWAY: the palette is for Aahil to judge by eye, not a feature. ?palette=green|amber.
+  function buildPalette() {
+    const sw = h('div', 'palsw')
+    sw.setAttribute('role', 'group')
+    sw.setAttribute('aria-label', COPY.palette)
+    sw.innerHTML = PALETTES.map((id) => `<button type="button" data-palette="${id}" aria-pressed="false">${COPY.palettes[id]}</button>`).join('')
+    document.body.appendChild(sw) // last in the Tab order: after the panes and the dock
+    sw.addEventListener('click', (e) => { const b = e.target.closest('[data-palette]'); if (b) setPalette(b.dataset.palette) })
+    el.palsw = sw
+    const want = q.get('palette')
+    setPalette(PALETTES.includes(want) ? want : 'white', true)
+  }
+  function setPalette(id, first) {
+    document.documentElement.dataset.palette = id
+    for (const b of el.palsw.querySelectorAll('button')) b.setAttribute('aria-pressed', String(b.dataset.palette === id))
+    if (!first) {
+      bakeStars()
+      paintMoon()
+      try { const u = new URL(location.href); u.searchParams.set('palette', id); history.replaceState(null, '', u) } catch { /* file:// */ }
+    }
   }
 
   // ── the night layer: fixed, behind the world, never transformed by the camera ────────────
@@ -324,26 +402,43 @@
     // DEPTHS (shared/sky.js), far to near. Reported as a kit fix in the PR.
     LAB.sky.starfield(n.querySelector('.lab-starfield'), { seed: 11 })
     const FACTORS = [0.08, 0.18, 0.32]
-    // Each kit layer is dozens of radial-gradients, slow to rasterise. Bake each into one bitmap
-    // tile (same dots: read back from the gradients the kit wrote), so a tile paints as an image.
-    const dpr = Math.min(2, devicePixelRatio || 1)
+    // Each kit layer is dozens of radial-gradients, slow to rasterise. Read the dots back from the
+    // gradients the kit wrote (same seed, same places) and bake each layer into one bitmap tile,
+    // so a tile paints as an image. In the Lab the dots are glyphs: . far, · and + nearer, * nearest.
     const depths = [...n.querySelectorAll('.lab-starfield__layer')].map((l, i) => {
       const tile = parseFloat(l.style.backgroundSize) || 400
-      const c = document.createElement('canvas'), g = c.getContext('2d')
-      c.width = c.height = Math.round(tile * dpr)
-      g.scale(dpr, dpr)
-      for (const m of l.style.backgroundImage.matchAll(/at ([\d.]+)px ([\d.]+)px, rgba\([^,]+,\s*([\d.]+)\) 0(?:px)? ([\d.]+)px/g)) {
-        g.fillStyle = `rgba(237, 234, 224, ${m[3]})`
-        g.beginPath(); g.arc(+m[1], +m[2], +m[4] + 0.3, 0, Math.PI * 2); g.fill()
-      }
-      l.style.backgroundImage = `url(${c.toDataURL()})`
+      const dots = [...l.style.backgroundImage.matchAll(/at ([\d.]+)px ([\d.]+)px, rgba\([^,]+,\s*([\d.]+)\) 0(?:px)? ([\d.]+)px/g)].map((m) => ({ x: +m[1], y: +m[2], a: +m[3] }))
+      l.style.backgroundImage = 'none'
       l.style.inset = `-${tile}px`
       l.style.willChange = 'transform'
-      return { l, tile, f: FACTORS[i] || 0.2 }
+      return { l, tile, dots, i, f: FACTORS[i] || 0.2 }
     })
+    const GLYPH = [['.', '.', '·'], ['·', '·', '+'], ['+', '*', '+']], SIZE = [11, 12, 14]
+    bakeStars = () => {
+      const dpr = Math.min(2, devicePixelRatio || 1)
+      const rgb = getComputedStyle(document.documentElement).getPropertyValue('--lab-star').trim() || '237, 234, 224'
+      for (const d of depths) {
+        const c = document.createElement('canvas'), g = c.getContext('2d')
+        c.width = c.height = Math.round(d.tile * dpr)
+        g.scale(dpr, dpr)
+        g.font = `${SIZE[d.i] || 12}px 'JetBrains Mono', ui-monospace, monospace`
+        g.textAlign = 'center'; g.textBaseline = 'middle'
+        d.dots.forEach((dot, k) => {
+          // glyph strokes are thinner than the kit's discs, so they carry a little more alpha;
+          // still faint, and nothing twinkles
+          g.fillStyle = `rgba(${rgb}, ${Math.min(0.62, dot.a * 2.4).toFixed(3)})`
+          g.fillText((GLYPH[d.i] || GLYPH[1])[k % 3], dot.x, dot.y)
+        })
+        d.l.style.backgroundImage = `url(${c.toDataURL()})`
+      }
+    }
+    bakeStars()
+    // once the mono face has landed, bake again in it (the first bake used the fallback)
+    if (document.fonts && document.fonts.load) document.fonts.load("12px 'JetBrains Mono'").then(bakeStars, () => {})
     const wrap = (v, m) => ((v % m) + m) % m
     const field = { move: (x, y) => { for (const d of depths) d.l.style.transform = `translate3d(${wrap(x * d.f, d.tile).toFixed(1)}px, ${wrap(y * d.f, d.tile).toFixed(1)}px, 0)` } }
-    NIGHT.paintMoon(n.querySelector('canvas'), { size: phone() ? 48 : 64 })
+    el.moonCanvas = n.querySelector('canvas')
+    paintMoon()
     DESK.onFrame((cam) => {
       if (st.t === 0) return
       field.move(cam.x, cam.y)
@@ -351,19 +446,26 @@
     })
   }
 
+  let bakeStars = () => {}
+  // the dithered moon, in the palette's ink
+  function paintMoon() {
+    const rgb = (getComputedStyle(document.documentElement).getPropertyValue('--lab-star').trim() || '237, 234, 224').split(',').map((v) => +v)
+    NIGHT.paintMoon(el.moonCanvas, { size: phone() ? 48 : 64, ink: rgb })
+  }
+
   // ── input that only means something at night ────────────────────────────────────────────
   function bindNight() {
-    // dock tiles at night: a desk card takes you back to the desk first; the Arcade opens here
+    // dock tiles in the Lab: every desk card, the Arcade too, is back on the desk, so a tile goes
+    // back there first (the fun stuff stays on the desk and never enters the Lab)
     document.addEventListener('click', (e) => {
       if (st.t === 0) return
       const item = e.target.closest('.desk-dock__item[data-id], .desk-folder button')
       if (!item || item.dataset.id === 'lab' || item.dataset.folder !== undefined) return
       e.stopImmediatePropagation()
-      if (item.dataset.id === 'arcade') return openArcade(null, item)
       toDesk(null).then(() => item.click())
     }, true)
     document.addEventListener('keydown', (e) => {
-      if (st.t === 0 || (e.target.closest && e.target.closest('input, textarea'))) return
+      if (st.t === 0 || reader.isOpen() || (e.target.closest && e.target.closest('input, textarea'))) return
       if (e.key === 'Escape') {
         const top = win.top()
         if (top) { e.preventDefault(); win.close(top) }
@@ -400,17 +502,18 @@
     b.dataset.ok = ok
     b.textContent = text
   }
-  // the 20th piece: push it, call this, and only its row appears
+  // the 20th piece: push it, call this, and only its entry appears
   window.renderShelves = () => {
     const pos = () => JSON.stringify(Object.values(shelves.cards).map((c) => [c.x, c.y, c.w, c.el.style.left, c.el.style.top]))
-    const before = pos(), rows = shelvesLayer.querySelectorAll('.shelf-row').length
+    const entries = () => shelvesLayer.querySelectorAll('[data-entry]').length
+    const before = pos(), rows = entries()
     const out = shelves.render()
-    for (const s of out.added) { const r = rowFor(s); if (r) r.classList.add('is-new') }
-    const after = shelvesLayer.querySelectorAll('.shelf-row').length, still = pos() === before
-    const where = out.added.map((s) => { const p = LAB.pieces.find((x) => x.slug === s); return `${LAB.shelfName(p.shelf)} · ${shelves.KIND[p.kind] || p.kind}` })
+    for (const a of out.added) { const [slug, pane] = a.split('@'); const r = shelves.cards[pane].body.querySelector(`[data-entry="${CSS.escape(slug)}"]`); if (r) r.classList.add('is-new') }
+    const after = entries(), still = pos() === before
+    const where = out.added.map((a) => '~/lab/' + a.split('@')[1])
     const ok = after === rows + out.added.length && out.removed.length === 0 && out.kept === rows && still
-    badge(`${after} rows · +${out.added.length} in ${where.join(', ') || '—'} · ${out.kept} of ${rows} rows untouched · ` +
-      `${out.changed.length} of ${Object.keys(shelves.cards).length} cards re-rendered · cards ${still ? 'unmoved' : 'MOVED'}`, ok)
+    badge(`${after} entries · +${out.added.length} in ${where.join(', ') || '—'} · ${out.kept} of ${rows} untouched · ` +
+      `${out.changed.length} of ${Object.keys(shelves.cards).length} panes re-rendered · panes ${still ? 'unmoved' : 'MOVED'}`, ok)
     return out
   }
   // where every card and the hero are on screen, to the hundredth of a pixel
@@ -435,27 +538,31 @@
       window.renderShelves()
     }
     const o = q.get('open')
-    if (o === 'arcade') openArcade(null, null)
-    else if (o) openPiece(o)
+    if (o) openPiece(o)
+    // #/writing/<slug>: the post, open over the Lab, with no transition (nobody clicked)
+    reader.sync({ instant: true })
   }
 
   let shelvesLayer
   NIGHT.mount = () => {
     buildBar()
+    reader.mount()
     win.mount(DESK.addLayer('night-windows'))
     shelvesLayer = DESK.addLayer('night-shelves') // addLayer inserts under earlier layers: shelves below windows
     shelvesLayer.classList.add('shelves')
     shelves.mount(shelvesLayer)
     shelves.layout({ x: 0, y: 0 })
+    buildPalette()
     buildNight()
     bindNight()
     st.A = st.B = view()
     st.tile = labTile().querySelector('.desk-dock__icon').getBoundingClientRect()
-    apply(0) // the shelves start folded away
+    apply(0) // the panes start folded away
 
     const freeze = q.get('freeze')
     if (freeze != null) { settled().then(() => NIGHT.scrub(Math.min(1, Math.max(0, parseFloat(freeze) || 0)))); return }
-    const atNight = q.get('mode') === 'night' || q.get('lab') === '1'
+    // a post's link is a Lab link: #/writing/<slug> lands at night with the post open
+    const atNight = q.get('mode') === 'night' || q.get('lab') === '1' || /^#\/writing\//.test(location.hash)
     if (atNight && q.get('then') === 'desk') {
       // record the desk once it has painted, land at night, go back, measure every card
       settled().then(() => {

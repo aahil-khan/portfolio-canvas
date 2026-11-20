@@ -1,13 +1,65 @@
 /*
- * prototype/lab/night-mode/night.css: the desk at night. Load after ../shared/jet.css and
- * ../shared/desk.css. Values from design/DIRECTION.md and the kit's tokens.
+ * prototype/lab/night-mode/night.css: the desk at night is the Lab, and the Lab is a terminal.
+ * Load after ../shared/jet.css and ../shared/desk.css.
  *
- * Jet only in the sky: the night layer (blind, starfield, moon) is the one jet thing. The shelf
- * cards and the windows they open are the desk's own cards, in the desk's own theme (cream
- * here): desk.css's .desk-card, pastel title bar from apps.ts, 2px --border, hard slab.
- * No backdrop-filter anywhere in this file. (The kit's dock keeps its own glass: fixed, as
- * DIRECTION allows.)
+ * THE DAY DESK IS UNTOUCHED. Every rule that changes something on screen is scoped to the night:
+ * html.has-night (t > 0) or html.is-night (t ≥ 0.6), or to things that only exist at night
+ * (the panes, terminal windows, reader, prompt and palette switch, all hidden by day). The only
+ * unscoped declarations are custom properties (the palettes and the dock's glyph strings), which
+ * paint nothing.
+ *
+ * In the Lab: one monospace face for all UI (JetBrains Mono here, from Google Fonts because this
+ * is a mockup; the real build self-hosts it with next/font/local, per DIRECTION.md). 1px frames
+ * with square corners that read as ┌─┐, titles cut into the top line as ┤ ~/lab/work ├, no hard
+ * offset shadows, no rounded corners, no fills in title bars: a pane is known by its text colour.
+ * The reader's body is Space Grotesk: chrome and metadata stay mono.
+ * No backdrop-filter anywhere in this file.
  */
+@import url('https://fonts.googleapis.com/css2?family=JetBrains+Mono:wght@400;500;700&display=swap');
+
+/* ── the palettes (THROWAWAY switch: white is the default, green and amber are for judging by eye).
+   check.mjs reads these three blocks and holds every text token to 4.5:1 on every surface it
+   sits on, and every frame to 3:1. --lab-faint is decoration only (leader dots, dashed rules). ── */
+:root {
+  --mono: 'JetBrains Mono', ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
+}
+html:not([data-palette]),
+html[data-palette='white'] {
+  --lab-bg: #0a0a0a;
+  --lab-pane: #0e0e0e;
+  --lab-fg: #edeae0;
+  --lab-dim: #a3a097;
+  --lab-faint: #4f4d47;
+  --lab-work: #a8e6a1;      /* apps.ts: the Work card's green */
+  --lab-experiments: #ffd9a8; /* apps.ts: the Archive card's peach */
+  --lab-writing: #d9c2ff;   /* apps.ts: the Writing card's lavender */
+  --lab-hi: #facc00;
+  --lab-star: 237, 234, 224;
+}
+html[data-palette='green'] {
+  --lab-bg: #030a05;
+  --lab-pane: #06100a;
+  --lab-fg: #8dffa6;
+  --lab-dim: #4fb86a;
+  --lab-faint: #1f4a2b;
+  --lab-work: #c4ff7a;
+  --lab-experiments: #6ff0d2;
+  --lab-writing: #e2ffd8;
+  --lab-hi: #f2ff9a;
+  --lab-star: 141, 255, 166;
+}
+html[data-palette='amber'] {
+  --lab-bg: #0a0603;
+  --lab-pane: #110b05;
+  --lab-fg: #ffb547;
+  --lab-dim: #c4893a;
+  --lab-faint: #4d3415;
+  --lab-work: #ffdb8a;
+  --lab-experiments: #ff9a4d;
+  --lab-writing: #ffecd0;
+  --lab-hi: #fff3c4;
+  --lab-star: 255, 181, 71;
+}
 
 /* ── the night layer: fixed in #deskBackdrop, behind the world ── */
 .night { position: absolute; inset: 0; overflow: hidden; visibility: hidden; pointer-events: none; }
@@ -17,96 +69,127 @@ html.has-night .night { visibility: visible; }
   transform: translateY(-100%); will-change: transform;
   /* solid night down to 100vh, then a dusk edge: a breath of warmth before it goes clear */
   background: linear-gradient(180deg,
-    #0a0a0a 0%, #0a0a0a 62.5%,
+    var(--lab-bg) 0%, var(--lab-bg) 62.5%,
     #121014 72%, rgba(42, 30, 34, 0.82) 82%, rgba(255, 180, 162, 0.14) 92%, rgba(255, 180, 162, 0) 100%);
 }
 .night__field { position: absolute; inset: 0; opacity: 0; }
 .night__field::before {
   content: ''; position: absolute; inset: 0;
-  background: radial-gradient(ellipse at 50% 0%, rgba(237, 234, 224, 0.06), transparent 55%);
+  background: radial-gradient(ellipse at 50% 0%, rgba(var(--lab-star), 0.05), transparent 55%);
 }
 .night__moon { position: absolute; left: 50%; top: 30%; width: 128px; height: 128px; margin: -64px 0 0 -64px; opacity: 0; }
 .night__moon canvas { display: block; width: 100%; height: 100%; image-rendering: pixelated; opacity: 0.82; }
 .night__moon::before {
-  /* the moon's halo: soft light, not blur on anything */
   content: ''; position: absolute; inset: -60%; border-radius: 50%;
-  background: radial-gradient(circle, rgba(237, 234, 224, 0.07) 0, rgba(237, 234, 224, 0.025) 38%, transparent 62%);
+  background: radial-gradient(circle, rgba(var(--lab-star), 0.07) 0, rgba(var(--lab-star), 0.025) 38%, transparent 62%);
 }
 
 /* While night falls or lifts, everything that changes gets its own compositor layer, so a
-   frame is a composite, not a repaint of the whole world. Off again at rest, so text re-rasters
-   crisp at the final zoom. */
-html.is-turning .desk-card, html.is-turning .desk-hero { will-change: opacity, translate, scale; }
+   frame is a composite, not a repaint of the whole world. Off again at rest. */
+html.is-turning .desk-card, html.is-turning .desk-hero, html.is-turning .pane { will-change: opacity, translate, scale; }
 html.is-turning #deskGrid { will-change: opacity; }
 
-/* ── the night's cards: desk cards, on a dark floor ──
-   The cards keep the desk's tokens. Only the slab changes: an ink slab on a #0a0a0a floor is
-   invisible, so at night it takes the sky's --border (#edeae0, jet.css), the colour the jet theme
-   flips it to. (--shadow-rest itself, since a var() resolves where it is declared.) The card face, its 2px ink border and its pastel bar are untouched. */
-.shelf, .nwin { --shadow-rest: 6px 6px 0 0 #edeae0; --shadow-lift: 8px 8px 0 0 #edeae0; }
+/* ── the frame: 1px, square, a title cut into the top line ──
+   .cut is a piece of the title line: it masks the line behind it and stands between two 1px
+   ticks, so the line reads ─┤ title ├─. The ticks are CSS, not box-drawing glyphs, so they meet
+   the frame on the pixel at any zoom and in any fallback face. */
+.cut { position: relative; flex: 0 0 auto; background: var(--lab-pane); padding: 0 9px; white-space: nowrap; line-height: 22px; }
+.cut::before, .cut::after { content: ''; position: absolute; top: 5px; bottom: 5px; width: 1px; background: var(--tick, var(--c)); }
+.cut::before { left: 0; }
+.cut::after { right: 0; }
+.pane__fill { flex: 1 1 auto; min-width: 8px; }
 
+/* ── the panes ── */
 .shelves { visibility: hidden; }
 html.has-night .shelves { visibility: visible; }
-.shelf { transform-origin: 0 0; max-height: 640px; } /* 640: card.tsx MAX_CARD_H, as on /canvas */
-.shelf.is-out { visibility: hidden; }
-.shelf .desk-card__name { margin: 0; font: inherit; font-size: 0.9375rem; font-weight: 500; letter-spacing: -0.005em; }
-.shelf__count { margin-left: auto; color: var(--on-app); opacity: 0.62; font-variant-numeric: tabular-nums; }
-.shelf__scroll { width: 21px; height: 21px; flex: 0 0 auto; display: none; place-items: center; border-radius: 6px; color: var(--on-app); opacity: 0.6; }
-.shelf[data-scrolls] .shelf__scroll { display: grid; }
-.shelf__body { flex: 1 1 auto; min-height: 0; overflow: auto; overscroll-behavior: contain; touch-action: pan-y; scrollbar-width: thin; padding-bottom: 14px; }
+.pane {
+  position: absolute; display: flex; flex-direction: column; max-height: 640px; /* card.tsx MAX_CARD_H, as on /canvas */
+  transform-origin: 0 0; cursor: auto;
+  font-family: var(--mono); font-size: 13px; line-height: 1.55; color: var(--lab-fg);
+  background: var(--lab-pane); border: 1px solid var(--c); border-radius: 0; box-shadow: none;
+  font-variant-ligatures: none;
+}
+.pane[hidden] { display: none; }
+.pane.is-out { visibility: hidden; }
+.pane[data-shelf='work'] { --c: var(--lab-work); }
+.pane[data-shelf='experiments'] { --c: var(--lab-experiments); }
+.pane[data-shelf='writing'] { --c: var(--lab-writing); }
+.pane__head { flex: 0 0 auto; display: flex; align-items: center; height: 22px; margin: -12px 12px 0; position: relative; z-index: 1; cursor: grab; }
+.pane__head.is-dragging { cursor: grabbing; }
+.pane__name { margin: 0; font: inherit; font-weight: 700; color: var(--c); }
+.pane__path { color: var(--lab-dim); font-weight: 400; }
+.pane__count { color: var(--c); font-variant-numeric: tabular-nums; }
+.pane__scroll { display: none; color: var(--lab-dim); }
+.pane[data-scrolls] .pane__scroll { display: inline; }
+.pane__body {
+  flex: 1 1 auto; min-height: 0; overflow: auto; overscroll-behavior: contain; touch-action: pan-y;
+  padding: 8px 16px 14px; scrollbar-width: thin; scrollbar-color: var(--lab-faint) transparent;
+}
+.pane__cmd { margin: 0 0 6px; color: var(--lab-dim); }
+.lead { flex: 1 1 0; min-width: 2ch; overflow: hidden; white-space: nowrap; color: var(--lab-faint); font-weight: 400; }
+.lead::after { content: ' ································································································'; }
+.is-new { outline: 1px dashed var(--lab-hi); outline-offset: -1px; }
 
-.shelf-group + .shelf-group { margin-top: 18px; }
-.shelf-group__h { margin: 0 0 2px; color: var(--ink-subtle); }
-/* the rows: desk.css's .desk-row, as buttons, and app/desktop.css's button.item behaviour */
-.shelf-row {
-  width: calc(100% + 20px); margin: 0 -10px; padding: 11px 10px; text-align: left;
-  font: inherit; color: inherit; background: none; cursor: pointer; position: relative;
-  border: 0; border-radius: 9px;
-  transition: background var(--dur-hover) var(--ease-out), transform var(--dur-hover) var(--ease-out);
+/* the bracketed actions: [read] [repo] [live]. Inverse video when hovered or focused, like a
+   selected cell in a terminal */
+.act {
+  font: inherit; font-size: 12.5px; color: var(--c, var(--lab-fg)); background: none; border: 0; padding: 0 1px; margin: 0;
+  cursor: pointer; text-decoration: none; white-space: nowrap; border-radius: 0;
 }
-/* the separator is a line inset to the text, not the button's border, so the hover's 9px radius
-   doesn't bend it at the ends */
-.shelf-row::before { content: ''; position: absolute; left: 10px; right: 10px; top: 0; border-top: 1.5px solid color-mix(in srgb, var(--ink) 13%, transparent); }
-.shelf-group__h + .shelf-row { padding-top: 8px; }
-.shelf-group__h + .shelf-row::before, .shelf-row:hover::before, .shelf-row:focus-visible::before, .shelf-row:hover + .shelf-row::before, .shelf-row:focus-visible + .shelf-row::before { border-top-color: transparent; }
-.shelf-row:hover, .shelf-row:focus-visible { background: color-mix(in srgb, var(--c) 30%, transparent); transform: translateX(3px); }
-.shelf-row:focus-visible { outline: 2px solid var(--ink); outline-offset: -2px; }
-.shelf-row__txt { min-width: 0; }
-.shelf-row .desk-row__ttl { display: flex; align-items: center; gap: 6px; }
-.shelf-row .desk-row__ttl::after {
-  content: '→'; opacity: 0; transform: translateX(-4px);
-  transition: opacity var(--dur-hover) var(--ease-out), transform var(--dur-hover) var(--ease-out);
-}
-.shelf-row:is(:hover, :focus-visible) .desk-row__ttl::after { opacity: 0.55; transform: translateX(0); }
-.shelf-row .desk-row__tag { margin: 0 0 0 auto; }
-.shelf-row.is-new { box-shadow: inset 0 0 0 2px var(--accent); background: color-mix(in srgb, var(--accent) 14%, transparent); }
+.act::before { content: '['; color: var(--lab-dim); }
+.act::after { content: ']'; color: var(--lab-dim); }
+.act:hover, .act:focus-visible { background: var(--c, var(--lab-fg)); color: var(--lab-bg); outline: none; }
+.act:hover::before, .act:hover::after, .act:focus-visible::before, .act:focus-visible::after { color: inherit; }
 
-.shelf-foot {
-  flex: 0 0 auto; display: flex; flex-wrap: wrap; align-items: center; gap: 8px; padding: 10px 18px 12px;
-  border-top: 1.5px solid color-mix(in srgb, var(--ink) 13%, transparent);
-}
-.shelf-foot .t-label { color: var(--ink-subtle); margin-right: 2px; }
-.shelf-foot__desk {
-  font: inherit; font-size: 0.8125rem; font-weight: 700; color: var(--on-app); cursor: pointer;
-  background: var(--c); border: 1.5px solid var(--border); border-radius: var(--radius-pill); padding: 3px 11px;
-  box-shadow: 2px 2px 0 0 var(--border);
-}
-.shelf-foot__desk:active { translate: 1px 1px; box-shadow: 1px 1px 0 0 var(--border); }
+/* work: project specimens */
+.spec { padding: 11px 0 13px; border-top: 1px dashed var(--lab-faint); }
+.spec:first-child { border-top: 0; padding-top: 4px; }
+.spec__ttl { display: flex; align-items: baseline; gap: 1ch; margin: 0; font-size: 14px; font-weight: 700; line-height: 1.4; }
+.spec__name { color: var(--c); flex: 0 1 auto; min-width: 0; }
+.spec__yr { color: var(--lab-dim); font-weight: 400; font-size: 12px; white-space: nowrap; }
+.spec__tag { margin: 2px 0 7px; }
+.spec__kv { display: grid; grid-template-columns: 7ch minmax(0, 1fr); gap: 1px 1ch; margin: 0 0 8px; font-size: 12px; line-height: 1.5; }
+.spec__kv dt { color: var(--lab-dim); }
+.spec__kv dd { margin: 0; color: var(--lab-fg); }
+.spec__act { display: flex; flex-wrap: wrap; gap: 4px 1.5ch; margin: 0; }
 
-/* phone: one shelf at a time; the title bar's name becomes a two-tab switch */
-.shelf-tabs { display: none; }
-.shelves[data-mode='tabs'] .shelf .desk-card__name { position: absolute; width: 1px; height: 1px; overflow: hidden; clip-path: inset(50%); white-space: nowrap; }
-.shelves[data-mode='tabs'] .shelf-tabs {
-  display: flex; flex: 1; min-width: 0; gap: 2px; padding: 2px;
-  border: 1.5px solid var(--on-app); border-radius: var(--radius-pill); background: rgba(255, 255, 255, 0.5);
+/* experiments and writing: whole-row buttons */
+.log, .post {
+  display: grid; width: calc(100% + 2ch); margin: 0 -1ch; padding: 9px 1ch 11px; text-align: left; position: relative;
+  font: inherit; color: inherit; background: none; border: 0; border-top: 1px dashed var(--lab-faint); border-radius: 0;
+  cursor: pointer; text-decoration: none; transition: background-color var(--dur-hover) linear;
 }
-.shelf-tabs button {
-  flex: 1 1 auto; min-width: 0; font: inherit; font-size: 0.8125rem; font-weight: 500; color: var(--on-app); cursor: pointer;
-  background: none; border: 0; border-radius: var(--radius-pill); padding: 5px 8px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
-}
-.shelf-tabs button[aria-selected='true'] { background: var(--surface); font-weight: 700; box-shadow: 0 0 0 1.5px var(--on-app); }
+.pane__list > :first-child { border-top: 0; }
+.log:hover, .post:hover, .log:focus-visible, .post:focus-visible { background: color-mix(in srgb, var(--c) 14%, var(--lab-pane)); }
+.log:focus-visible, .post:focus-visible { outline: 1px solid var(--c); outline-offset: -1px; }
+/* a block cursor after the title of the row you are on */
+.log__ttl::after, .post__ttl::after { content: '\2588'; margin-left: 0.5ch; color: var(--c); opacity: 0; font-weight: 400; }
+.log:hover .log__ttl::after, .log:focus-visible .log__ttl::after, .post:hover .post__ttl::after, .post:focus-visible .post__ttl::after { opacity: 1; }
+.log { grid-template-columns: minmax(0, 1fr) auto; gap: 1px 1ch; }
+.log__id { color: var(--lab-dim); font-size: 12px; }
+.log__st { color: var(--c); font-size: 12px; }
+.log__st::before { content: '['; color: var(--lab-dim); }
+.log__st::after { content: ']'; color: var(--lab-dim); }
+.log__ttl { grid-column: 1 / -1; font-weight: 700; font-size: 14px; color: var(--c); line-height: 1.4; }
+.log__res { grid-column: 1 / -1; color: var(--lab-dim); }
+.post { grid-template-columns: 8ch auto minmax(2ch, 1fr) auto; align-items: baseline; gap: 1px 1ch; }
+.post__d { color: var(--lab-dim); font-size: 12px; white-space: nowrap; }
+.post__ttl { font-weight: 700; color: var(--c); min-width: 0; }
+.post__t { color: var(--lab-dim); font-size: 12px; white-space: nowrap; }
+.post__sub { grid-column: 2 / -1; color: var(--lab-dim); }
 
-/* ── the night bar: the one clear way back ── */
+/* phone: one pane at a time; the title line's name becomes ASCII tabs */
+.pane-tabs { display: none; }
+.shelves[data-mode='tabs'] .pane__name { position: absolute; width: 1px; height: 1px; overflow: hidden; clip-path: inset(50%); white-space: nowrap; }
+.shelves[data-mode='tabs'] .pane-tabs { display: flex; gap: 0; padding: 0 6px; }
+.pane-tabs button {
+  font: inherit; font-size: 12.5px; line-height: 18px; color: var(--lab-dim); background: none; border: 0; border-radius: 0;
+  padding: 0 0.6ch; margin: 0 1px; cursor: pointer; white-space: nowrap;
+}
+.pane-tabs button[aria-selected='true'] { color: var(--lab-bg); background: var(--c); font-weight: 700; }
+.pane-tabs button:focus-visible { outline: 1px dashed var(--lab-fg); outline-offset: 1px; }
+
+/* ── the prompt: the one clear way back ── */
 .nightbar {
   position: fixed; top: 22px; left: 50%; z-index: 61;
   opacity: 0; visibility: hidden; transform: translate(-50%, -10px);
@@ -114,81 +197,172 @@ html.has-night .shelves { visibility: visible; }
 }
 html.is-night .nightbar { opacity: 1; visibility: visible; transform: translate(-50%, 0); transition-delay: 0s; }
 .nb-back {
-  /* the desk's own colours, so the way back looks like where it goes */
-  display: inline-flex; align-items: center; gap: 8px; white-space: nowrap; cursor: pointer;
-  font: inherit; font-size: 0.875rem; font-weight: 700; color: #161616;
-  background: #f7f5ee; border: var(--bw) solid #161616; border-radius: var(--radius-pill); padding: 8px 16px 8px 12px;
-  box-shadow: 3px 3px 0 0 #edeae0;
+  display: inline-block; white-space: pre; cursor: pointer;
+  font-family: var(--mono); font-size: 13.5px; font-weight: 400; line-height: 1.4; color: var(--lab-fg); font-variant-ligatures: none;
+  background: var(--lab-pane); border: 1px solid var(--lab-fg); border-radius: 0; padding: 7px 14px; box-shadow: none;
 }
-.nb-back:hover { background: #fdf7c4; }
-.nb-back:active { translate: 2px 2px; box-shadow: 1px 1px 0 0 #edeae0; }
+.nb-where { color: var(--lab-dim); }
+.nb-ps { color: var(--lab-work); }
+.nb-cmd { font-weight: 700; }
+.nb-cur { display: inline-block; width: 0.62em; height: 1.15em; margin-left: 1px; background: var(--lab-fg); opacity: 0.75; vertical-align: -0.2em; }
+.nb-key { color: var(--lab-dim); }
+.nb-back:hover, .nb-back:focus-visible { background: var(--lab-fg); color: var(--lab-bg); outline: none; }
+.nb-back:hover > *, .nb-back:focus-visible > * { color: inherit; }
+.nb-back:hover .nb-cur, .nb-back:focus-visible .nb-cur { background: var(--lab-bg); }
 
-/* the desk's pill goes with the night (night.js), the dock and zoom turn to night, and the
-   cards' open dots rest: the cards are away. Only the Lab's dot stays. */
-html.is-night .desk-dock__item:not([data-id='lab'])::after { opacity: 0; }
-.desk-dock__panel, .desk-zoom { transition: background-color var(--dur-dock) var(--ease-out), border-color var(--dur-dock) var(--ease-out), box-shadow var(--dur-dock) var(--ease-out); }
-html.is-night .desk-dock__panel { background: rgba(20, 20, 20, 0.74); border-color: rgba(237, 234, 224, 0.16); box-shadow: 0 8px 24px rgba(0, 0, 0, 0.5); }
-html.is-night .desk-dock__sep { background: rgba(237, 234, 224, 0.2); }
-html.is-night .desk-dock__item[data-open='true']::after { background: #edeae0; }
-html.is-night .desk-dock__item[data-id='lab'] .desk-dock__icon { border-color: #edeae0; box-shadow: 2px 2px 0 0 #3a3a3a; }
-html.is-night .desk-dock__tip { background: #edeae0; color: #161616; }
-html.is-night .desk-zoom { background: rgba(20, 20, 20, 0.8); color: rgba(237, 234, 224, 0.58); border-color: rgba(237, 234, 224, 0.16); }
-html.is-night .desk-zoom button { color: #edeae0; }
+/* THROWAWAY: the palette switch */
+.palsw { position: fixed; top: 22px; right: 20px; z-index: 61; display: flex; visibility: hidden; font-family: var(--mono); font-size: 12px; background: var(--lab-pane); border: 1px solid var(--lab-faint); }
+html.is-night .palsw { visibility: visible; }
+.palsw::before { content: 'pal'; padding: 5px 8px; color: var(--lab-dim); border-right: 1px solid var(--lab-faint); }
+.palsw button { font: inherit; color: var(--lab-dim); background: none; border: 0; border-radius: 0; padding: 5px 9px; cursor: pointer; }
+.palsw button[aria-pressed='true'] { color: var(--lab-bg); background: var(--lab-fg); font-weight: 700; }
+.palsw button:focus-visible { outline: 1px dashed var(--lab-fg); outline-offset: -3px; }
 
-.nbtn {
-  display: inline-flex; align-items: center; gap: 6px; font: inherit; font-size: 0.875rem; font-weight: 700; text-decoration: none; cursor: pointer;
-  color: var(--ink); background: var(--surface); border: var(--bw) solid var(--border); border-radius: var(--radius-pill); padding: 6px 14px;
-  box-shadow: 3px 3px 0 0 var(--border);
+/* ── the dock in the Lab: the same tiles in the same order, as a row of terminal glyphs ──
+   The glyphs are CSS strings in --g (night.js scrambles them in as it decodes, then removes its
+   inline copy, so these stay the source). Folders take braces, since they hold several. */
+.desk-dock__item[data-id='about'] .desk-dock__icon { --g: '[~]'; }
+.desk-dock__item[data-id='work'] .desk-dock__icon { --g: '[≡]'; }
+.desk-dock__item[data-id='experience'] .desk-dock__icon { --g: '[»]'; }
+.desk-dock__item[data-id='stack'] .desk-dock__icon { --g: '[#]'; }
+.desk-dock__item[data-id='contact'] .desk-dock__icon { --g: '[@]'; }
+.desk-dock__item[data-id='lab'] .desk-dock__icon { --g: '[*]'; }
+.desk-dock__item[data-id='words'] .desk-dock__icon { --g: '{¶}'; }
+.desk-dock__item[data-id='live'] .desk-dock__icon { --g: '{%}'; }
+.desk-dock__item[data-id='arcade'] .desk-dock__icon { --g: '[>]'; }
+.desk-dock__item[data-id='themes'] .desk-dock__icon { --g: '[^]'; }
+.desk-dock__item[data-id='tutorial'] .desk-dock__icon { --g: '[?]'; }
+.desk-dock__item[aria-label='GitHub'] .desk-dock__icon { --g: '[gh]'; }
+.desk-dock__item[aria-label='LinkedIn'] .desk-dock__icon { --g: '[in]'; }
+
+/* the morph runs both ways while has-night is on: into the Lab at t 0.6, back out before day */
+html.has-night .desk-dock__panel {
+  transition: background-color var(--dur-dock) var(--ease-out), border-color var(--dur-dock) var(--ease-out), box-shadow var(--dur-dock) var(--ease-out),
+    border-radius var(--dur-dock) var(--ease-out), padding var(--dur-dock) var(--ease-out), gap var(--dur-dock) var(--ease-out);
 }
-.nbtn--primary { background: var(--accent); color: var(--accent-ink); }
-.nbtn:active { translate: 2px 2px; box-shadow: 1px 1px 0 0 var(--border); }
+html.has-night .desk-dock__item { transition: transform 220ms var(--ease-out), width var(--dur-dock) var(--ease-out), height var(--dur-dock) var(--ease-out); }
+html.has-night .desk-dock__icon {
+  position: relative;
+  transition: background-color var(--dur-dock) var(--ease-out), border-color var(--dur-dock) var(--ease-out), box-shadow var(--dur-dock) var(--ease-out),
+    border-radius var(--dur-dock) var(--ease-out), color var(--dur-dock) var(--ease-out);
+}
+html.has-night .desk-dock__icon > svg, html.has-night .desk-dock__icon > img { transition: opacity 200ms linear; }
+html.has-night .desk-dock__icon::before {
+  content: var(--g, ''); position: absolute; inset: 0; display: grid; place-items: center; white-space: pre;
+  font: 500 14px/1 var(--mono); font-variant-ligatures: none; opacity: 0; transition: opacity 200ms linear;
+}
+html.is-night .desk-dock__panel { background: var(--lab-pane); border-color: var(--lab-fg); border-radius: 0; box-shadow: none; padding: 6px 8px; gap: 2px; }
+html.is-night .desk-dock__item { width: 46px; height: 34px; color: var(--lab-fg); }
+html.is-night .desk-dock__item:hover, html.is-night .desk-dock__item:focus-visible { transform: none; }
+html.is-night .desk-dock__icon { background: transparent; border-color: transparent; box-shadow: none; border-radius: 0; color: var(--lab-fg); }
+html.is-night .desk-dock__item:hover .desk-dock__icon { background: color-mix(in srgb, var(--lab-fg) 14%, var(--lab-pane)); }
+html.is-night .desk-dock__item:focus-visible { outline: 1px dashed var(--lab-fg); outline-offset: 1px; }
+html.is-night .desk-dock__icon > svg, html.is-night .desk-dock__icon > img { opacity: 0; }
+html.is-night .desk-dock__icon::before { opacity: 1; }
+html.is-night .desk-dock__item[data-folder]::before { opacity: 0; }
+/* the cursor: the open tile (the Lab) in inverse video, like the cell under a terminal cursor */
+html.is-night .desk-dock__item::after { opacity: 0; }
+html.is-night .desk-dock__item[data-id='lab'][data-open='true'] .desk-dock__icon { background: var(--lab-fg); color: var(--lab-bg); }
+html.is-night .desk-dock__sep { background: var(--lab-faint); height: 22px; margin: 0 6px; }
+html.is-night .desk-dock__tip { background: var(--lab-fg); color: var(--lab-bg); border-radius: 0; font-family: var(--mono); }
+html.is-night .desk-zoom { background: var(--lab-pane); color: var(--lab-dim); border-color: var(--lab-faint); border-radius: 0; font-family: var(--mono); }
+html.is-night .desk-zoom button { color: var(--lab-fg); border-radius: 0; }
+html.is-night .desk-folder { background: var(--lab-pane); border: 1px solid var(--lab-fg); border-radius: 0; box-shadow: none; font-family: var(--mono); }
+html.is-night .desk-folder button { color: var(--lab-fg); border-radius: 0; font-size: 13px; }
+html.is-night .desk-folder button:hover, html.is-night .desk-folder button:focus-visible { background: var(--lab-fg); color: var(--lab-bg); }
+html.is-night .desk-folder i { border-radius: 0; border-color: var(--lab-fg); }
 
-/* ── night windows: desk windows, as on /canvas ── */
-.nwin .desk-card__body { overflow: auto; overscroll-behavior: contain; touch-action: pan-y; scrollbar-width: thin; }
-.nwin .desk-card__body p { max-width: none; }
-.nwin__meta { display: flex; flex-wrap: wrap; align-items: center; gap: 6px 10px; margin: 0 0 12px !important; }
-.nwin__meta .desk-chip { margin: 0; }
-.nwin__shelf { display: inline-flex; align-items: center; gap: 7px; color: var(--ink); }
-.nwin__swatch { width: 12px; height: 12px; border-radius: 4px; border: 1.5px solid var(--border); background: var(--c); flex: 0 0 auto; }
-.nwin__dim { color: var(--ink-subtle); margin: 0; }
-.nwin__status { border-style: dashed !important; }
-.nwin__title { font-size: 1.375rem; font-weight: 700; line-height: 1.15; letter-spacing: -0.01em; margin: 0 0 8px; outline: none; }
-/* the title takes focus when a window opens (tabindex=-1, so the dialog is announced and Tab
-   carries on inside it); it is not a control, so no ring */
+/* ── terminal windows (experiments) ── */
+.tw {
+  position: absolute; display: flex; flex-direction: column; cursor: auto; --c: var(--lab-experiments); --tick: var(--lab-fg);
+  font-family: var(--mono); font-size: 13px; line-height: 1.6; color: var(--lab-fg); font-variant-ligatures: none;
+  background: var(--lab-pane); border: 3px double var(--lab-fg); border-radius: 0; box-shadow: none; /* double line: ╔═╗, over the panes' ┌─┐ */
+}
+.tw__head { flex: 0 0 auto; display: flex; align-items: center; height: 22px; margin: -12.5px 12px 0; position: relative; z-index: 1; cursor: grab; }
+.tw__head.is-dragging { cursor: grabbing; }
+.tw__cmd { font-weight: 700; }
+.tw__x { font: inherit; color: var(--lab-fg); background: var(--lab-pane); border: 0; border-radius: 0; padding: 0 6px; line-height: 22px; cursor: pointer; }
+.tw__x::before { content: '['; color: var(--lab-dim); }
+.tw__x::after { content: ']'; color: var(--lab-dim); }
+.tw__x:hover, .tw__x:focus-visible { background: var(--lab-fg); color: var(--lab-bg); outline: none; }
+.tw__x:hover::before, .tw__x:hover::after, .tw__x:focus-visible::before, .tw__x:focus-visible::after { color: inherit; }
+.tw__body { overflow: auto; overscroll-behavior: contain; touch-action: pan-y; scrollbar-width: thin; scrollbar-color: var(--lab-faint) transparent; padding: 12px 18px 18px; }
+.nwin__meta { display: flex; flex-wrap: wrap; gap: 0; margin: 0 0 6px; font-size: 12px; color: var(--lab-dim); }
+.nwin__meta > span + span::before { content: ' · '; white-space: pre; color: var(--lab-faint); }
+.nwin__status { color: var(--c); }
+.nwin__title { font: inherit; font-size: 17px; font-weight: 700; line-height: 1.3; color: var(--c); margin: 0 0 10px; outline: none; }
+.nwin__title::before { content: '# '; color: var(--lab-dim); font-weight: 400; }
+/* the title takes focus when a window opens (tabindex=-1); it is not a control, so no ring */
 .nwin__title:focus, .nwin__title:focus-visible { outline: none; }
-.nwin .lede { color: var(--ink) !important; }
-.nwin__gallery { margin: 4px 0 16px; display: grid; gap: 8px; }
+.nwin__lede { margin: 0 0 12px; }
+.nwin__gallery { margin: 4px 0 14px; display: grid; gap: 8px; }
 .nwin__gallery figure { margin: 0; }
-.nwin__gallery img { display: block; width: 100%; height: auto; background: var(--canvas-base); border: var(--bw) solid var(--border); border-radius: var(--radius-chip); }
+.nwin__gallery img { display: block; width: 100%; height: auto; background: var(--lab-bg); border: 1px solid var(--lab-fg); border-radius: 0; }
 .nwin__hero img { max-height: 300px; object-fit: cover; }
 .nwin__thumbs { display: grid; grid-template-columns: repeat(var(--n), 1fr); gap: 8px; }
 .nwin__thumb img { aspect-ratio: 4 / 3; object-fit: cover; }
-.nwin__gallery figcaption { font-size: 0.6875rem; font-weight: 500; letter-spacing: 0.04em; text-transform: uppercase; color: var(--ink-subtle); margin-top: 5px; line-height: 1.35; }
-.nwin__prose { font-size: 0.9375rem; color: var(--ink-muted); }
-.nwin__prose strong { color: var(--ink); }
-.nwin__actions { display: flex; flex-wrap: wrap; gap: 10px; margin: 6px 0 16px; }
-.nwin__rel { margin-top: 14px; padding-top: 12px; border-top: 1.5px solid color-mix(in srgb, var(--ink) 13%, transparent); }
-.nwin__rel .t-label { margin-bottom: 8px !important; }
-.nwin__links { display: flex; flex-wrap: wrap; gap: 6px; }
-.nwin__link {
-  display: inline-flex; align-items: center; gap: 7px; font: inherit; font-size: 0.8125rem; font-weight: 500; color: var(--ink); cursor: pointer;
-  background: var(--surface); border: 1.5px solid var(--border); border-radius: var(--radius-pill); padding: 4px 11px 4px 8px;
-}
-.nwin__link:hover { background: var(--canvas-base); }
-.nwin__stub { color: var(--ink-subtle); margin: 14px 0 0 !important; }
+.nwin__gallery figcaption { font-size: 11px; color: var(--lab-dim); margin-top: 4px; line-height: 1.4; }
+.nwin__gallery figcaption::before { content: '└ '; color: var(--lab-faint); }
+.tw .lab-prose { font-size: 13px; line-height: 1.65; max-width: 64ch; color: var(--lab-fg); }
+.tw .lab-prose strong { color: var(--c); }
+.tw .lab-prose a, .tw a.lab-ref { color: var(--c); text-decoration: underline; text-decoration-thickness: 1px; text-underline-offset: 0.2em; }
+.tw .lab-prose ul { list-style: none; padding-left: 2ch; }
+.tw .lab-prose li::before { content: '- '; margin-left: -2ch; color: var(--lab-dim); }
+.nwin__actions { margin: 4px 0 12px; }
+.nwin__rel { margin-top: 14px; padding-top: 10px; border-top: 1px dashed var(--lab-faint); }
+.nwin__dim { color: var(--lab-dim); margin: 0 0 4px; font-size: 12px; }
+.nwin__dim::before { content: '-- '; }
+.nwin__links { display: flex; flex-wrap: wrap; gap: 4px 1.5ch; margin: 0; }
 
-/* the Arcade stub: the games as desk-rows */
-.arc { margin-top: 6px; }
-.arc__game { align-items: center; }
-.arc__game.is-on { border-radius: 9px; background: var(--t); box-shadow: inset 0 0 0 2px var(--border); padding-left: 10px; padding-right: 10px; margin: 0 -10px; border-top-color: transparent; }
-.arc__game.is-on + .arc__game { border-top-color: transparent; }
-.arc__play { font-size: 0.75rem; color: var(--ink-subtle); width: 14px; flex: 0 0 auto; }
-.arc__game.is-on .arc__play { color: var(--ink); }
+/* ── the reader: a post, full viewport, outside the world ── */
+.reader { position: fixed; inset: 0; z-index: 90; display: flex; flex-direction: column; background: var(--lab-bg); color: var(--lab-fg); --c: var(--lab-writing); }
+.reader[hidden] { display: none; }
+.rd__bar {
+  flex: 0 0 auto; display: flex; align-items: center; gap: 2ch; height: 46px; padding: 0 20px;
+  font-family: var(--mono); font-size: 12.5px; font-variant-ligatures: none; border-bottom: 1px solid var(--lab-faint); background: var(--lab-pane);
+}
+.rd__x { flex: 0 0 auto; white-space: nowrap; font: inherit; color: var(--lab-fg); background: none; border: 1px solid var(--lab-fg); border-radius: 0; padding: 3px 10px; cursor: pointer; }
+.rd__x::before { content: '[x] '; color: var(--lab-dim); }
+.rd__x:hover, .rd__x:focus-visible { background: var(--lab-fg); color: var(--lab-bg); outline: none; }
+.rd__x:hover::before, .rd__x:focus-visible::before { color: inherit; }
+.rd__path { flex: 1 1 auto; min-width: 0; color: var(--lab-dim); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.rd__pct { color: var(--c); white-space: pre; font-variant-numeric: tabular-nums; }
+.rd__line { flex: 0 0 auto; height: 2px; background: var(--lab-faint); overflow: hidden; }
+.rd__line i { display: block; height: 100%; background: var(--c); transform-origin: 0 0; transform: scaleX(0); }
+.rd__scroll { flex: 1 1 auto; min-height: 0; overflow-y: auto; overscroll-behavior: contain; scrollbar-color: var(--lab-faint) transparent; }
+.rd__post { max-width: 64ch; margin: 0 auto; padding: 64px 24px 112px; font-family: var(--font); font-size: 1.0625rem; line-height: 1.7; }
+.rd__meta { display: flex; flex-wrap: wrap; margin: 0; font-family: var(--mono); font-size: 12.5px; color: var(--lab-dim); font-variant-ligatures: none; }
+.rd__meta > span + span::before { content: ' · '; white-space: pre; color: var(--lab-faint); }
+.rd__title { font-size: clamp(2.25rem, 5.4vw, 3.25rem); font-weight: 700; line-height: 1.02; letter-spacing: -0.02em; margin: 14px 0 16px; color: var(--lab-fg); transform-origin: 0 0; outline: none; }
+.rd__title:focus, .rd__title:focus-visible { outline: none; }
+.rd__lede { font-size: 1.3125rem; line-height: 1.45; margin: 0 0 36px; color: var(--c); }
+.rd__body p, .rd__body ul { margin: 0 0 1.15em; }
+.rd__body ul { padding-left: 1.4em; }
+.rd__body li { margin-bottom: 0.55em; padding-left: 0.3em; }
+.rd__body li::marker { content: '–  '; color: var(--c); font-family: var(--mono); }
+.rd__body strong { font-weight: 700; color: var(--lab-fg); }
+.rd__body a { color: var(--lab-fg); text-decoration: underline; text-decoration-color: var(--c); text-decoration-thickness: 2px; text-underline-offset: 0.2em; }
+.rd__body h2 { font-size: 1.375rem; line-height: 1.15; letter-spacing: -0.01em; margin: 1.6em 0 0.6em; }
+.rd__figs { display: grid; gap: 12px; margin: 32px 0; }
+.rd__figs[data-n='2'] { grid-template-columns: 1fr 1fr; }
+.rd__figs[data-n='3'] { grid-template-columns: 1fr 1fr; }
+.rd__figs[data-n='3'] > :first-child { grid-column: 1 / -1; }
+.rd__fig { margin: 0; }
+.rd__fig img { display: block; width: 100%; height: auto; border: 1px solid var(--lab-faint); background: var(--lab-pane); }
+.rd__fig figcaption { font-family: var(--mono); font-size: 12px; color: var(--lab-dim); margin-top: 6px; }
+.rd__links { display: flex; flex-wrap: wrap; gap: 4px 2ch; margin: 36px 0 0; font-family: var(--mono); }
+.rd__links .act { font-size: 13px; }
+.rd__nav { display: grid; grid-template-columns: 1fr 1fr; gap: 14px; margin-top: 56px; padding-top: 22px; border-top: 1px dashed var(--lab-faint); font-family: var(--mono); }
+.rd__step { display: flex; flex-direction: column; gap: 3px; padding: 11px 13px; color: var(--lab-fg); text-decoration: none; border: 1px solid var(--lab-faint); min-width: 0; }
+.rd__step--next { text-align: right; grid-column: 2; }
+.rd__stepk { font-size: 12px; color: var(--lab-dim); }
+.rd__stept { font-weight: 700; color: var(--c); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.rd__step:hover, .rd__step:focus-visible { border-color: var(--c); background: color-mix(in srgb, var(--c) 14%, var(--lab-bg)); outline: none; }
 
 /* ── proof readout (throwaway) ── */
 .proof {
-  position: fixed; left: 16px; bottom: 120px; z-index: 70; margin: 0; padding: 6px 10px; border-radius: 8px; max-width: calc(100vw - 32px);
-  background: #161616; color: #edeae0; border: 2px solid #edeae0; font-variant-numeric: tabular-nums;
+  position: fixed; left: 16px; bottom: 120px; z-index: 70; margin: 0; padding: 6px 10px; border-radius: 0; max-width: calc(100vw - 32px);
+  background: #161616; color: #edeae0; border: 1px solid #edeae0; font-family: var(--mono); font-size: 11.5px; letter-spacing: 0; text-transform: none; font-variant-numeric: tabular-nums;
 }
 .proof[data-ok='true']::before { content: '✓ '; color: #a8e6a1; }
 .proof[data-ok='false']::before { content: '✗ '; color: #ffb4a2; }
@@ -197,19 +371,32 @@ html.is-night .desk-zoom button { color: #edeae0; }
 @media (max-width: 700px) {
   .nightbar { top: 10px; left: 10px; transform: translate(0, -10px); }
   html.is-night .nightbar { transform: none; }
-  .nb-back { font-size: 0.8125rem; padding: 7px 14px 7px 10px; }
-  .night__moon { width: 96px; height: 96px; margin: -48px 0 0 -48px; }
-  .shelf-foot { padding: 9px 14px 11px; }
+  .nb-back { font-size: 12.5px; padding: 6px 10px; }
+  .nb-where { display: none; }
+  .palsw { top: 10px; right: 10px; font-size: 11px; }
+  .palsw::before { display: none; }
+  .palsw button { padding: 6px 6px; }
+  .night__moon { width: 64px; height: 64px; margin: -32px 0 0 -32px; }
+  .pane__body { padding: 8px 12px 12px; }
+  .pane__head { margin: -12px 8px 0; }
+  .cut { padding: 0 6px; }
+  html.is-night .desk-dock__panel { padding: 4px 4px; gap: 0; }
+  html.is-night .desk-dock__item { width: 26px; height: 30px; }
+  html.has-night .desk-dock__icon::before { font-size: 10.5px; letter-spacing: -0.04em; }
+  html.is-night .desk-dock__sep { margin: 0 2px; }
+  .rd__bar { padding: 0 12px; gap: 1.2ch; height: 44px; font-size: 12px; }
+  .rd__post { padding: 36px 18px 88px; font-size: 1.0625rem; }
+  .rd__figs[data-n='2'], .rd__figs[data-n='3'] { grid-template-columns: 1fr; }
+  .rd__nav { grid-template-columns: 1fr; }
+  .rd__step--next { grid-column: 1; }
   .proof { bottom: 76px; left: 10px; right: 10px; }
 }
 
-/* ── reduced motion: opacity only. night.js already swaps its timeline; this covers CSS ── */
+/* ── reduced motion: crossfades only. night.js and reader.js swap their timelines; this covers CSS ── */
 @media (prefers-reduced-motion: reduce) {
   .nightbar, html.is-night .nightbar { transform: translate(-50%, 0); transition: opacity 200ms linear, visibility 0s linear 200ms; }
   html.is-night .nightbar { transition-delay: 0s; }
-  .shelf-row, .shelf-row .desk-row__ttl::after { transition: background 120ms linear, opacity 120ms linear; }
-  .shelf-row:hover, .shelf-row:focus-visible, .shelf-row:is(:hover, :focus-visible) .desk-row__ttl::after { transform: none; }
-  .nbtn:active, .nb-back:active, .shelf-foot__desk:active { translate: none; }
+  html.has-night .desk-dock__panel, html.has-night .desk-dock__item, html.has-night .desk-dock__icon { transition: none; }
 }
 @media (prefers-reduced-motion: reduce) and (max-width: 700px) {
   .nightbar, html.is-night .nightbar { transform: none; }
