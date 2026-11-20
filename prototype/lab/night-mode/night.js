@@ -2,15 +2,16 @@
  * prototype/lab/night-mode/night.js: the way into the Lab, and the Lab screen itself.
  *
  * THE LAB IS NOT A CANVAS. Night falls over the desk as in #17, quickly now, and the desk is
- * replaced by a fixed, full-viewport screen: one small way back (← canvas, top left), the home in
- * one of three layouts (home.js), the toy (toy.js) and, in the dock layout only, the Lab's dock.
- * There is no status bar. Nothing in the screen pans or zooms, and the camera never moves: the desk
- * is left exactly where it was, under the night, and is there again when the night lifts.
+ * replaced by a fixed, full-viewport screen: the home (home.js, the directory; the compass behind
+ * a flag), the toy (toy.js) and THE DECK (deck.js): the desk's own dock, morphed into a status line
+ * of controls. The deck is not navigation; its ← canvas is the one way back. Nothing in the screen
+ * pans or zooms, and the camera never moves: the desk is left exactly where it was, under the
+ * night, and is there again when the night lifts.
  *
- *   NIGHT.mount()          after DESK.mount: builds the Lab screen, its dock tiles and the sky
- *   NIGHT.enter() / .leave() / .toggle() → Promise   (the Lab tile, ← canvas, ~ and the dock)
+ *   NIGHT.mount()          after DESK.mount: builds the Lab screen, the deck's cells and the sky
+ *   NIGHT.enter() / .leave() / .toggle() → Promise   (the Lab tile, ← canvas and ~)
  *   NIGHT.scrub(t)         holds the transition at t ∈ [0, 1] (?freeze=)
- *   NIGHT.setLayout(id)    index | dock | page, live (the switch, bottom right; ?layout=)
+ *   NIGHT.setPalette(id)   white | green | amber (the deck's pal: flag; ?palette=)
  *   NIGHT.timing           { in, out }: how long the last trip each way took, measured (ms)
  *   window.renderLab()     re-renders the home from LAB.pieces and reports what changed
  *
@@ -20,9 +21,8 @@
  *              way as the dusk edge passes it. Only translate, scale and opacity, never left/top,
  *              so on the way back every card lands where it was.
  *   0.25–0.70  the ASCII stars come up
- *   0.04–0.45  the desk's dock drops away (index, page)
- *   0.30–0.78  or, in the dock layout, THE DOCK MORPHS in place: the desk's tiles fold away, the Lab
- *              tile turns into ← canvas and the Lab's sections open out beside it
+ *   0.30–0.78  THE DOCK MORPHS in place into the deck: the desk's tiles fold away, the Lab tile turns
+ *              into ← canvas and the deck's cells open out before it
  *   0.50–0.80  the Lab screen fades in, and its words decode in place, done by t = 1
  * Going back is the same timeline backwards with mirrored easing. The toy starts at once.
  * REDUCED MOTION (LAB.sky.reduced, the one owner): a 0.32 s crossfade. No drift, no blind, no
@@ -30,11 +30,10 @@
  */
 ;(() => {
   const NIGHT = (window.NIGHT = window.NIGHT || {})
-  const home = NIGHT.home, toy = NIGHT.toy, reader = NIGHT.reader, C = NIGHT.copy
+  const home = NIGHT.home, toy = NIGHT.toy, reader = NIGHT.reader, deck = NIGHT.deck, C = NIGHT.copy
   const R = () => LAB.sky.reduced
   const q = new URLSearchParams(location.search)
   const h = (tag, cls, html) => { const e = document.createElement(tag); if (cls) e.className = cls; if (html != null) e.innerHTML = html; return e }
-  const esc = (s) => String(s).replace(/[&<>"']/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' })[c])
   const PALETTES = Object.keys(C.palettes)
   const SECTIONS = NIGHT.model.SECTIONS
   const MS = { in: 700, out: 600, calm: 320 }
@@ -57,13 +56,15 @@
   const seg = (t, a, b) => (t <= a ? 0 : t >= b ? 1 : (t - a) / (b - a))
   let dir = 1 // +1 into night, −1 back to day: easing mirrors so both directions decelerate
   const ease = (p) => (dir > 0 ? EASE(p) : 1 - EASE(1 - p))
-  // THE DECODE: the corner 0.50–0.75; the screen's words staggered 0.52–1.00; the dock's labels
-  // 0.55–0.80. On the way back the same windows play backwards.
-  const DECODE = { corner: [0.5, 0.25], main: [0.52, 0.22, 0.26], dock: [0.55, 0.15, 0.02] }
-  const DOCK = [0.3, 0.78], DROP = [0.04, 0.45], SCREEN = [0.5, 0.8]
+  // THE DECODE: the screen's words staggered 0.52–1.00; the deck's words
+  // 0.57–0.84. On the way back the same windows play backwards.
+  const DECODE = { main: [0.52, 0.22, 0.26], dock: [0.55, 0.15, 0.12] }
+  const DOCK = [0.3, 0.78], SCREEN = [0.5, 0.8]
 
-  const st = { t: 0, anim: 0, queue: [], cards: [], dock: null, layout: 'index' }
+  const st = { t: 0, anim: 0, queue: [], cards: [], dock: null }
   const phone = () => innerWidth < 700
+  // under 1180 px the deck is its narrow form: mode, ▸, ⋯ and ← canvas
+  const narrow = () => innerWidth < 1180
   let el = {}
   NIGHT.timing = { in: null, out: null }
 
@@ -85,11 +86,11 @@
   // at screen height y (in vh) is at fall progress b: 0 in daylight, 1 under full night.
   const nightAt = (b, y) => Math.min(1, Math.max(0, (1.6 * b - y) / 0.6))
 
-  // ── the dock ────────────────────────────────────────────────────────────────────────────
-  // In the dock layout the desk's panel morphs in place into the Lab's: ← canvas, then the three
-  // sections. In the other two it drops away whole: they have no dock. Widths come from the labels'
-  // length in the mono face (measured once it has loaded), never from content: a new piece never
-  // changes the dock.
+  // ── the dock becomes the deck ───────────────────────────────────────────────────────────
+  // The desk's panel morphs in place: its tiles fold away, the Lab tile turns into ← canvas, and
+  // the deck's cells open out before it. Each cell's width is a fixed count of characters in the
+  // mono face (data-ch wide, data-chp narrow; measured once the face has loaded), never content:
+  // a ticking clock or a new piece never changes the deck.
   let chW = { 12: 7.2, 11: 6.6 }
   function measureMono() {
     const c = document.createElement('canvas').getContext('2d')
@@ -98,17 +99,19 @@
   function planDock() {
     const panel = DESK.dock.querySelector('.desk-dock__panel'), cs = getComputedStyle(document.documentElement)
     const size = parseFloat(cs.getPropertyValue('--dock-size')), gap = parseFloat(cs.getPropertyValue('--dock-gap')), pad = parseFloat(cs.getPropertyValue('--dock-pad'))
-    const ph = phone(), px = ph ? 11 : 12, padX = ph ? 8 : 12, H1 = ph ? 34 : 34
-    const w = (label) => Math.ceil(label.length * chW[px] + padX * 2)
+    const nw = narrow(), ph = phone(), px = ph ? 11 : 12, padX = ph ? 8 : 10, H1 = 34
+    document.documentElement.dataset.deck = nw ? 'narrow' : 'wide'
+    const w = (chars) => Math.ceil(chars * chW[px] + padX * 2)
     const items = []
     for (const node of panel.children) {
-      if (node.classList.contains('ldock') || node.classList.contains('ldock-sep')) {
-        const label = node.classList.contains('ldock-sep') ? '' : node.dataset[ph ? 'short' : 'long']
-        items.push({ node, kind: 'grow', w1: label ? w(label) : 1 })
-      } else if (node.dataset.id === 'lab') items.push({ node, kind: 'morph', w1: w('← ' + C.canvas) })
+      if (node.classList.contains('ldock')) {
+        const ch = +node.dataset[nw ? 'chp' : 'ch'] || 0
+        items.push(ch ? { node, kind: 'grow', w1: w(ch) } : { node, kind: 'skip' })
+      } else if (node.classList.contains('ldock-sep')) items.push(+node.dataset[nw ? 'chp' : 'ch'] ? { node, kind: 'grow', w1: 1 } : { node, kind: 'skip' })
+      else if (node.dataset.id === 'lab') items.push({ node, kind: 'morph', w1: w(('← ' + C.canvas).length) })
       else if (node.classList.contains('desk-dock__item') || node.classList.contains('desk-dock__sep')) items.push({ node, kind: 'fold' })
     }
-    st.dock = { panel, size, gap, pad, H1, P1: ph ? 4 : 6, items, lab: st.layout === 'dock' }
+    st.dock = { panel, size, gap, pad, H1, P1: ph ? 4 : 6, items }
   }
   const DOCK_PROPS = ['width', 'height', 'margin-right', 'opacity', 'visibility', '--lo', '--io']
   function dockDay(d) {
@@ -118,22 +121,12 @@
   function dockAt(t) {
     const d = st.dock
     if (!d) return
-    const box = DESK.dock.style
-    if (t === 0 || !d.lab) {
-      dockDay(d)
-      if (t === 0) { for (const p of ['opacity', 'translate', 'visibility']) box.removeProperty(p); return }
-      // index, page: the desk's dock drops out of sight; there is none tonight
-      const k = R() ? (t >= 0.5 ? 1 : 0) : ease(seg(t, DROP[0], DROP[1]))
-      box.opacity = R() ? String(1 - seg(t, 0, 0.5)) : (1 - k).toFixed(3)
-      box.translate = R() ? '' : `0 ${(30 * k).toFixed(2)}px`
-      box.visibility = k >= 1 ? 'hidden' : ''
-      return
-    }
-    for (const p of ['opacity', 'translate', 'visibility']) box.removeProperty(p)
+    if (t === 0) { dockDay(d); return }
     const k = R() ? (t >= 0.5 ? 1 : 0) : ease(seg(t, DOCK[0], DOCK[1]))
     const hgt = (d.size + (d.H1 - d.size) * k).toFixed(2) + 'px'
     for (const it of d.items) {
       const s = it.node.style
+      if (it.kind === 'skip') { for (const p of DOCK_PROPS) s.removeProperty(p); continue }
       if (it.kind === 'fold') {
         const sep = it.node.classList.contains('desk-dock__sep')
         if (!sep) { s.width = (d.size * (1 - k)).toFixed(2) + 'px'; s.height = hgt }
@@ -203,22 +196,21 @@
     while (w.nextNode()) out.push(w.currentNode)
     return out
   }
-  // only what is on screen decodes (the page layout runs far below the fold); the rest just fades
+  // only what is on screen decodes (an open category can run below the fold); the rest just fades
   const onScreen = (n) => { const r = n.parentElement.getBoundingClientRect(); return r.bottom > 0 && r.top < innerHeight && r.width > 0 }
   function collectDecoders() {
     decoders = []
-    const [c0, cLen] = DECODE.corner
-    texts(el.corner).forEach((n, i) => decoders.push({ node: n, text: n.nodeValue, a: c0, b: c0 + cLen, seed: 7 + i }))
     const [m0, cap, len] = DECODE.main, nodes = texts(el.main).filter(onScreen).slice(0, 160)
     nodes.forEach((n, j) => { const a = m0 + cap * (j / Math.max(1, nodes.length - 1)); decoders.push({ node: n, text: n.nodeValue, a, b: Math.min(1, a + len), seed: 900 + j }) })
-    if (st.layout !== 'dock') return
     const [d0, dLen, dStep] = DECODE.dock
     // the Lab tile's label is a CSS string (--g, night.css): written inline while it plays
     const lab = labTile().querySelector('.desk-dock__icon')
     lab.style.removeProperty('--g')
     const g = getComputedStyle(lab).getPropertyValue('--g').trim().replace(/^["']|["']$/g, '')
     if (g) decoders.push({ dock: lab, text: g, a: d0, b: d0 + dLen, seed: 101 })
-    el.ldockNodes.flatMap((n) => texts(n)).forEach((n, i) => decoders.push({ node: n, text: n.nodeValue, a: d0 + 0.02 + i * dStep, b: d0 + 0.02 + i * dStep + dLen, seed: 201 + i }))
+    // the deck's words, staggered over dStep in all (there are dozens): done by t = 0.84
+    const dn = el.ldockNodes.filter((n) => +n.dataset[narrow() ? 'chp' : 'ch'] > 0).flatMap((n) => texts(n))
+    dn.forEach((n, i) => { const a = d0 + 0.02 + dStep * (i / Math.max(1, dn.length - 1)); decoders.push({ node: n, text: n.nodeValue, a, b: a + dLen, seed: 201 + i }) })
   }
   function decodeAt(t, red) {
     for (const d of decoders) {
@@ -269,6 +261,8 @@
   }
   function beginLeave() {
     toy.stop()
+    deck.close()
+    NIGHT.voice.stop()
     reader.closeNow()
     planDock()
     collectDecoders()
@@ -276,11 +270,14 @@
   function finish(to) {
     document.documentElement.classList.remove('is-turning')
     const lab = labTile(), a = document.activeElement
+    home.live()
     if (to === 1) {
-      lab.setAttribute('aria-label', st.layout === 'dock' ? C.canvasLabel : 'Lab')
+      lab.setAttribute('aria-label', C.canvasLabel)
       setURL(true)
-      // came in by keyboard: focus goes to the way back (the Lab tile itself, in the dock layout)
-      if (!a || a === document.body || a === lab) (st.layout === 'dock' ? lab : el.back).focus({ preventScroll: true })
+      // came in by keyboard: focus goes to the first row of the directory (the way back is ~,
+      // or the deck's ← canvas, which is the tile that was just pressed)
+      if (!a || a === document.body || a === lab) { const f = home.first(); (f || lab).focus({ preventScroll: true }) }
+      if (NIGHT.sound) NIGHT.sound.cue('boot')
     } else {
       lab.setAttribute('aria-label', 'Lab') // desk.js's own label for it
       setURL(false)
@@ -302,76 +299,40 @@
   NIGHT.scrub = (t) => { if (st.t === 0) { dir = 1; beginEnter() } apply(t) }
   NIGHT.state = st
 
-  // ── the Lab screen: the corner, the home, the switches ──────────────────────────────────
+  // ── the Lab screen: the home, and the deck in the desk's dock ───────────────────────────
   function buildLab() {
     const lab = h('div', 'lab')
     lab.id = 'lab'
     lab.inert = true
     lab.setAttribute('aria-label', C.labLabel)
     lab.setAttribute('role', 'region')
-    const opts = (ids, names, cur) => ids.map((id) => `<option value="${id}"${id === cur ? ' selected' : ''}>${esc(names[id])}</option>`).join('')
-    lab.innerHTML =
-      `<p class="lcorner"><button type="button" class="lcorner__back" aria-label="${esc(C.canvasLabel)}"><span aria-hidden="true">← </span>${esc(C.canvas)}<span class="lcorner__key" aria-hidden="true"> ${esc(C.canvasKey)}</span></button></p>` +
-      `<div class="lab__main" data-layout="${st.layout}"></div>` +
-      `<p class="lsw">` +
-      `<label class="lsw__f"><span class="lsw__l">${esc(C.layout)}</span><select class="lsw__s" data-sw="layout" aria-label="${esc(C.layoutLabel)}">${opts(home.LAYOUTS, C.layouts, st.layout)}</select></label>` +
-      `<label class="lsw__f"><span class="lsw__l">${esc(C.palette)}</span><select class="lsw__s" data-sw="palette" aria-label="${esc(C.paletteLabel)}">${opts(PALETTES, C.palettes, 'white')}</select></label>` +
-      `</p>`
-    document.body.insertBefore(lab, DESK.dock) // in the Tab order: the corner, the home, the switches, then the dock
+    lab.innerHTML = `<div class="lab__main"></div>`
+    document.body.insertBefore(lab, DESK.dock) // in the Tab order: the home, then the deck
     el.lab = lab
-    el.corner = lab.querySelector('.lcorner')
-    el.back = lab.querySelector('.lcorner__back')
     el.main = lab.querySelector('.lab__main')
-    el.back.addEventListener('click', () => NIGHT.leave())
-    lab.querySelector('[data-sw="layout"]').addEventListener('change', (e) => NIGHT.setLayout(e.target.value))
-    lab.querySelector('[data-sw="palette"]').addEventListener('change', (e) => setPalette(e.target.value))
     const want = q.get('palette')
-    setPalette(PALETTES.includes(want) ? want : 'white', true)
+    NIGHT.setPalette(PALETTES.includes(want) ? want : 'white', true)
     toy.mount()
-    home.onSection = (sid) => { if (el.ldock) for (const b of el.ldockNodes) b.toggleAttribute('aria-current', b.dataset.lab === sid) }
-    home.mount(el.main, st.layout)
+    const radial = q.get('home') === 'radial'
+    home.mount(el.main, { home: radial ? 'radial' : 'dir', radialFlag: radial })
   }
-  // the Lab's own dock tiles, inside the desk's panel, after the Lab tile; display:none by day
+  // the deck's cells, inside the desk's panel, before the Lab tile; display:none by day
   function buildDock() {
-    const lab = labTile()
-    const group = document.createDocumentFragment()
-    const sep = h('span', 'ldock-sep')
-    sep.setAttribute('aria-hidden', 'true')
-    group.appendChild(sep)
-    for (const s of SECTIONS) {
-      const b = h('button', 'ldock', `<span class="ldock__k" aria-hidden="true">${esc(s.key)} </span><span class="ldock__l">${esc(C.dock[s.id])}</span><span class="ldock__s" aria-hidden="true">${esc(C.dockShort[s.id])}</span>`)
-      b.type = 'button'
-      b.dataset.lab = s.id
-      b.dataset.long = `${s.key} ${C.dock[s.id]}`
-      b.dataset.short = C.dockShort[s.id]
-      b.addEventListener('click', () => { if (st.t === 1) home.go(s.id) })
-      group.appendChild(b)
-    }
-    lab.after(group)
+    deck.mount()
+    if (q.get('home') === 'radial') deck.setRadial(true)
     el.ldock = DESK.dock.querySelector('.desk-dock__panel')
     el.ldockNodes = [...el.ldock.querySelectorAll('.ldock')]
-    home.onSection(home.section())
   }
-  // THROWAWAY: the layout switch is for Aahil to compare the three by eye. ?layout=index|dock|page.
-  NIGHT.setLayout = (id) => {
-    if (!home.LAYOUTS.includes(id)) return
-    st.layout = id
-    document.documentElement.dataset.labLayout = id
-    el.main.dataset.layout = id
-    el.lab.querySelector('[data-sw="layout"]').value = id
-    home.setLayout(id)
-    if (st.t === 1) { planDock(); dockAt(1); labTile().setAttribute('aria-label', id === 'dock' ? C.canvasLabel : 'Lab') }
-    try { const u = new URL(location.href); u.searchParams.set('layout', id); history.replaceState(null, '', u) } catch { /* file:// */ }
-  }
-  // THROWAWAY: the palette is for Aahil to judge by eye, not a feature. ?palette=green|amber.
-  function setPalette(id, first) {
+  // the palette: the deck's pal: flag cycles it. ?palette=green|amber.
+  NIGHT.setPalette = (id, first) => {
+    if (!PALETTES.includes(id)) return
     document.documentElement.dataset.palette = id
-    el.lab.querySelector('[data-sw="palette"]').value = id
     if (!first) {
       bakeStars()
       try { const u = new URL(location.href); u.searchParams.set('palette', id); history.replaceState(null, '', u) } catch { /* file:// */ }
     }
   }
+  NIGHT.lab = { live: () => st.t === 1 && !st.anim }
 
   // ── the sky: fixed, behind everything, ASCII stars. Nothing moves it: there is no camera. ──
   let bakeStars = () => {}
@@ -426,11 +387,14 @@
     document.addEventListener('keydown', (e) => {
       if (st.t === 0) return
       if (['0', '+', '=', '-'].includes(e.key)) e.stopPropagation()
+      if (reader.isOpen() || st.t < 1) return
+      // the deck's keys first (space , . [ ] v n / ? and Esc for an open popover)
+      if (deck.key(e)) return
       if (e.target.closest && e.target.closest('input, textarea, select')) return
-      if (reader.isOpen() || st.t < 1 || e.metaKey || e.ctrlKey || e.altKey) return
+      if (e.metaKey || e.ctrlKey || e.altKey || deck.popOpen()) return
       if (e.key === '~' || e.key === '`') { e.preventDefault(); NIGHT.leave(); return }
       const s = SECTIONS.find((x) => x.key === e.key)
-      if (s) { e.preventDefault(); home.go(s.id); return }
+      if (s) { e.preventDefault(); if (!home.commitKey(e.key)) home.go(s.id); return }
       if (e.key === 'r' && !(e.target.closest && e.target.closest('.toy__fx')) && toy.key('r')) { e.preventDefault(); return }
       if (e.key === 'Escape' && home.back()) e.preventDefault()
     }, true)
@@ -446,15 +410,15 @@
     b.dataset.ok = ok
     b.textContent = text
   }
-  // the 20th piece: push it, call this, and only its row appears (in whichever layout is showing)
+  // the 20th piece: push it, call this, and only its row appears (its category opens)
   window.renderLab = window.renderShelves = () => {
     const dock = el.ldockNodes.map((n) => n.outerHTML).join('')
     const out = home.render()
-    for (const id of out.added) { const r = home.root().querySelector(`[data-row="${CSS.escape(id)}"]`); if (r) { r.classList.add('is-new'); if (st.layout !== 'index') r.scrollIntoView({ block: 'center' }) } }
+    for (const id of out.added) { const r = home.root().querySelector(`[data-row="${CSS.escape(id)}"]`); if (r) { r.classList.add('is-new'); r.scrollIntoView({ block: 'center' }) } }
     const same = dock === el.ldockNodes.map((n) => n.outerHTML).join('')
     const ok = out.added.length > 0 && out.removed.length === 0 && out.kept === out.before && same
-    badge(`${st.layout} · +${out.added.length} in ${out.added.map((a) => a.split('/')[0]).join(', ') || '—'} · ${out.kept} of ${out.before} rows untouched · ` +
-      `count changed in ${out.changed.join(', ') || '—'} · dock ${same ? 'unchanged' : 'CHANGED'}`, ok)
+    badge(`directory · +${out.added.length} in ${out.added.map((a) => a.split('/')[0]).join(', ') || '—'} · ${out.kept} of ${out.before} rows untouched · ` +
+      `count changed in ${out.changed.join(', ') || '—'} · deck ${same ? 'unchanged' : 'CHANGED'}`, ok)
     return out
   }
   // where every card and the hero are on screen, to the hundredth of a pixel
@@ -471,11 +435,14 @@
   function land() {
     dir = 1; beginEnter(); apply(1)
     document.documentElement.classList.remove('is-turning')
-    labTile().setAttribute('aria-label', st.layout === 'dock' ? C.canvasLabel : 'Lab')
+    labTile().setAttribute('aria-label', C.canvasLabel)
     setURL(true)
+    home.live()
     const sel = q.get('sel')
     if (sel) home.select(sel)
-    if (q.get('view') === 'detail' && phone()) home.detail(true)
+    if (q.get('voice')) NIGHT.voice.use(q.get('voice'))
+    // a popover open on arrival, for screenshots (?pop=voice|knobs|ask|cmd|help|more). Never ▸.
+    if (q.get('pop')) setTimeout(() => deck.open(q.get('pop'), labTile()), 60)
     if (q.get('add')) {
       // exactly what the brief asks a visitor to type in the console
       LAB.pieces.push({ slug: 'test-piece', title: 'Test piece', shelf: 'playground', kind: 'experiment', date: '2099-01' })
@@ -490,8 +457,6 @@
   NIGHT.mount = () => {
     // the dock's text labels are CSS strings (night.css reads them); the words are copy.js's
     document.documentElement.style.setProperty('--lab-tile', JSON.stringify('← ' + C.canvas))
-    st.layout = home.LAYOUTS.includes(q.get('layout')) ? q.get('layout') : 'index'
-    document.documentElement.dataset.labLayout = st.layout
     reader.mount()
     buildLab()
     buildDock()

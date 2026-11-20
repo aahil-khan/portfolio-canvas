@@ -1,178 +1,111 @@
 /*
- * prototype/lab/night-mode/home.js: the Lab's home, in three layouts to compare by eye.
+ * prototype/lab/night-mode/home.js: the Lab's home, THE DIRECTORY (research ★1A), on #19's dock
+ * layout: the welcome beside the toy, then an `ls`-style listing of what is here.
  *
- *   index (default)  a thin text index on the left; everything to its right reads the highlighted
- *                    entry. No dock. Phone: the list, then one entry's detail.
- *   dock             the dock is the only navigation (← canvas · work · experiments · writing); the
- *                    screen is that section as a full-width list, an entry expands in place.
- *   page             one editorial page that scrolls: the welcome and the toy, then work,
- *                    experiments and writing down the page, with a tiny sticky jump line. No dock.
- * ?layout=index|dock|page picks one; the switch in the corner flips them live (night.js).
+ *   ~/lab                                                        updated nov 2026
+ *   1  work/          things that shipped and people use               6   aug 2026
+ *   2  experiments/   on the bench: half-built, and honest about it    3   jul 2026
+ *   3  research/      studies in chapters: long, measured, slow   1 · 3ch   nov 2026
+ *   4  writing/       essays, and the write-ups behind the projects    8   aug 2026
+ *   not sure where to start? → holt · the reliability study · the laptop that became my cloud
  *
- * The same in all three: one navigation system and no boxed panels (a frame is allowed only on
- * the reader's header and on figures); the welcome sits beside the toy, top right; every entry
- * comes from model.js, so a new piece is one new row in whichever layout is showing.
+ * A category expands in place: its entries as #19's dock rows (an entry expands again, text left,
+ * screenshot right), a series as one row with its chapters indented under it. Keys 1–4 open a
+ * category, ↑↓ walk every visible row, Enter / space expand, Esc folds back one level. The deck is
+ * not navigation: this list is the only way around the Lab (plus the experimental compass).
  *
- *   NIGHT.home.mount(root, layout)       builds into root (the Lab screen's main area)
- *   .layout(), .setLayout(id)            the toy is moved into the new layout's slot, never rebuilt
- *   .go(sectionId)                       1 2 3 and the dock's tiles
- *   .back() → bool                       Esc: what "back" means in this layout, if anything
- *   .first()                             the element focus lands on when the Lab opens by keyboard
- *   .render() → { kept, added, removed, changed, section }   re-render from LAB.pieces (20th piece)
- *   .select(rowId), .expand(rowId), .detail(on)   the URL switches (&sel=, &view=detail)
- *   .section()                           the dock's current section
- * NIGHT.menu.target / .titleOf are what reader.js asks of whichever layout is showing.
+ *   NIGHT.home.mount(root)            builds into root (the Lab screen's main area)
+ *   .go(catId)                        1–4: open that category and put the cursor on it
+ *   .back() → bool                    Esc: fold the open entry, then the category, then the compass
+ *   .first()                          where focus lands when the Lab opens by keyboard
+ *   .render() → { kept, added, removed, changed }   re-render from LAB.pieces (the 20th piece)
+ *   .select(rowId)                    open the row's category and expand it (&sel=)
+ *   .setHome('dir' | 'radial')        the experimental compass (radial.js), or the directory
+ * NIGHT.menu.target / .titleOf are what reader.js asks: where a closing post goes back to.
  */
 ;(() => {
   const NIGHT = (window.NIGHT = window.NIGHT || {})
   const M = () => NIGHT.model
   const C = () => NIGHT.copy
+  const cue = (n, i) => NIGHT.sound && NIGHT.sound.cue(n, i)
   const esc = (s) => String(s).replace(/[&<>"']/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' })[c])
   const phone = () => innerWidth < 700
-  const pad = (n) => String(n).padStart(2, '0')
-  const LAYOUTS = ['index', 'dock', 'page']
 
-  const H = (NIGHT.home = { LAYOUTS })
-  const st = { layout: 'index', secs: [], sel: null, open: null, sec: 'work', view: 'list', rows: new Map() }
+  const H = (NIGHT.home = {})
+  const st = { secs: [], cats: new Set(), open: null, rows: new Map(), home: 'dir' }
   let root = null, el = {}
 
-  // ── shared pieces ────────────────────────────────────────────────────────────────────────
-  const welcome = () => { const w = C().welcome; return phone() ? [...w.slice(0, -1), st.layout === 'dock' ? C().welcomeTouchDock : C().welcomeTouch] : w }
-  const hello = (cls = '') => `<div class="hello ${cls}"><p class="hello__1">${esc(welcome()[0])}</p>` +
+  // ── markup ───────────────────────────────────────────────────────────────────────────────
+  const welcome = () => { const w = C().welcome; return phone() ? [...w.slice(0, -1), C().welcomeTouch] : w }
+  const hello = () => `<div class="hello"><p class="hello__1">${esc(welcome()[0])}</p>` +
     welcome().slice(1).map((l) => `<p class="hello__l">${esc(l)}</p>`).join('') +
     `<p class="keys" aria-hidden="true">${C().keys.map(([k, v]) => `<span class="keys__k">${esc(k)}</span> ${esc(v)}`).join('<span class="keys__sep"> · </span>')}</p></div>`
-  const slot = (cls = '') => `<div class="toy-slot ${cls}"></div>`
-  const secHead = (s, tag = 'p', idp = 'h') => `<${tag} class="sh" id="${idp}-${s.id}" data-sec="${s.id}"><span class="sh__k" aria-hidden="true">${esc(s.key)}</span>` +
-    `<span class="sh__t">${esc(s.id)}</span><span class="sh__n" aria-label="${esc(C().entries(s.count))}">${pad(s.count)}</span></${tag}>`
-  const rowsHtml = (s, layout) => s.entries.map((e) => M().rowHtml(e, s.id, layout)).join('')
-  const remember = () => { st.rows = new Map(st.secs.flatMap((s) => s.entries.map((e) => [`${s.id}/${e.slug}`, M().rowHtml(e, s.id, st.layout)]))) }
+  const latest = () => { const all = st.secs.map((s) => s.upd).filter(Boolean); const key = (u) => { const [m, y] = u.split(' '); return y ? y + String(['jan', 'feb', 'mar', 'apr', 'may', 'jun', 'jul', 'aug', 'sep', 'oct', 'nov', 'dec'].indexOf(m)).padStart(2, '0') : m + '00' }; return all.sort((a, b) => (key(a) < key(b) ? 1 : -1))[0] || '' }
+  const titleOf = (id) => { const [sid, slug] = id.split('/'), s = st.secs.find((x) => x.id === sid), e = s && s.entries.find((x) => x.slug === slug); return e ? e.title : slug }
+  const VIEW = () => `<div class="L L--dir" data-home="${st.home}"><header class="top">${hello()}<div class="toy-slot"></div></header>` +
+    `<section class="dir" aria-labelledby="dir-h"><p class="dir__head"><span class="dir__root" id="dir-h">${esc(C().root)}</span>` +
+    `<button type="button" class="act dir__rad" data-to-radial hidden>◎ ${esc(C().radial.back)}</button><span class="dir__upd">${esc(C().updated(latest()))}</span></p>` +
+    `<p class="dir__note" data-touch-note hidden>${esc(C().radial.touch)}</p>` +
+    `<ul class="dir__cats" aria-label="${esc(C().dirLabel)}">` +
+    M().sectionsOf(st.secs).map((m) => `<li class="cat" data-sec="${m.id}">${M().catHtml(m)}` +
+      `<ul class="dkl" id="catx-${m.id}" hidden>${st.secs.find((x) => x.id === m.id).entries.map((e) => M().rowHtml(e, m.id)).join('')}</ul></li>`).join('') +
+    `</ul><p class="dir__start"><span class="dir__q">${esc(C().start)}</span> <span aria-hidden="true">→</span> ` +
+    C().picks.filter(([s, slug]) => st.secs.some((x) => x.id === s && x.entries.some((e) => e.slug === slug))).map(([s, slug]) => `<button type="button" class="act" data-pick="${s}/${esc(slug)}" data-sec="${s}">${esc(titleOf(`${s}/${slug}`))}</button>`).join('<span class="dir__dot" aria-hidden="true"> · </span>') +
+    `</p></section><div class="rad-host" hidden></div></div>`
+  const remember = () => { st.rows = new Map(st.secs.flatMap((s) => s.entries.map((e) => [`${s.id}/${e.slug}`, M().rowHtml(e, s.id)]))) }
   const rowEl = (id) => root && root.querySelector(`[data-row="${CSS.escape(id)}"]`)
+  const catEl = (id) => root && root.querySelector(`.cat[data-sec="${CSS.escape(id)}"]`)
   const placeToy = () => { const s = root.querySelector('.toy-slot'); if (s && NIGHT.toy.node && NIGHT.toy.node.parentNode !== s) s.appendChild(NIGHT.toy.node); NIGHT.toy.wake() }
-  const secOf = (id) => String(id).split('/')[0]
-  const entryOf = (id) => { const [sid, slug] = String(id).split('/'), s = st.secs.find((x) => x.id === sid); return s && s.entries.find((e) => e.slug === slug) }
-  // an entry opens in the reader when it has a body; an essay with none would link out
-  function openEntry(id, from) {
-    const e = entryOf(id)
-    if (!e) return
-    if (e.read) return NIGHT.reader.go(e.slug, secOf(id) === 'experiments' ? 'experiments' : 'writing', from)
-    if (e.href) window.open(e.href, '_blank', 'noopener')
-  }
-
-  // ── the three layouts: markup ────────────────────────────────────────────────────────────
-  const VIEW = {
-    index: () => `<div class="L L--index" data-view="${st.view}" data-has-sel="false">` +
-      `<nav class="ixn" aria-label="${esc(C().treeLabel)}"><ul class="ixl" role="listbox" aria-label="${esc(C().treeLabel)}">` +
-      st.secs.map((s) => `<li class="ixs" role="presentation" data-sec="${s.id}">${secHead(s, 'p', 'ixh')}` +
-        `<ul class="ixs__items" role="group" aria-labelledby="ixh-${s.id}">${rowsHtml(s, 'index')}</ul></li>`).join('') +
-      `</ul></nav>` +
-      hello('hello--index') +
-      `<section class="ixr" aria-label="${esc(C().preview)}"><button type="button" class="act ixr__back" aria-label="${esc(C().backLabel)}">← ${esc(C().back)}</button><div class="pv"></div></section>` +
-      slot() + `</div>`,
-    dock: () => {
-      const s = st.secs.find((x) => x.id === st.sec) || st.secs[0], meta = M().sectionsOf([s])[0]
-      return `<div class="L L--dock"><header class="top">${hello()}${slot()}</header>` +
-        `<section class="dks" data-sec="${s.id}" aria-labelledby="dkh-${s.id}">` +
-        `<h2 class="dks__h" id="dkh-${s.id}"><span class="dks__t">${esc(s.id)}/</span><span class="dks__n">${esc(meta.unit)}</span></h2>` +
-        `<p class="dks__blurb">${esc(meta.blurb)}</p><ul class="dkl">${rowsHtml(s, 'dock')}</ul></section></div>`
-    },
-    page: () => `<div class="L L--page"><nav class="jump" aria-label="${esc(C().jumpLabel)}">` +
-      st.secs.map((s, i) => `${i ? '<span class="jump__sep" aria-hidden="true"> · </span>' : ''}<a class="jump__a" href="#pg-${s.id}" data-jump="${s.id}" data-sec="${s.id}"><span class="jump__l">${esc(s.id)}</span><span class="jump__s" aria-hidden="true">${esc(C().dockShort[s.id])}</span></a>`).join('') + `</nav>` +
-      `<header class="top top--page">${hello('hello--page')}${slot()}</header>` +
-      M().sectionsOf(st.secs).map((m) => `<section class="pgs" id="pg-${m.id}" data-sec="${m.id}" aria-labelledby="pgh-${m.id}">` +
-        `<h2 class="pgs__h" id="pgh-${m.id}"><span class="pgs__k" aria-hidden="true">${esc(m.key)}</span><span class="pgs__t">${esc(m.id)}</span><span class="pgs__n">${esc(m.unit)}</span></h2>` +
-        `<p class="pgs__blurb">${esc(m.blurb)}</p><ol class="pgl">${rowsHtml(st.secs.find((x) => x.id === m.id), 'page')}</ol></section>`).join('') + `</div>`,
-  }
 
   function paint() {
-    root.innerHTML = VIEW[st.layout]()
-    el = { L: root.firstElementChild }
+    root.innerHTML = VIEW()
+    el = { L: root.firstElementChild, rad: root.querySelector('.rad-host'), dir: root.querySelector('.dir') }
     remember()
     placeToy()
-    if (st.layout === 'index') {
-      el.list = root.querySelector('.ixl')
-      el.pv = root.querySelector('.ixr .pv')
-      el.read = root.querySelector('.ixr')
-      const keep = st.sel && rowEl(st.sel) ? st.sel : null
-      st.sel = null
-      roving(keep || M().order(st.secs)[0])
-      if (keep) select(keep)
-    }
-    if (st.layout === 'dock' && st.open) { const o = st.open; st.open = null; if (rowEl(o)) expand(o) }
-    if (st.layout === 'page') spy()
-    count()
+    restore()
+    mountRadial()
   }
-  const count = () => { if (H.onCount) H.onCount(st.secs.reduce((n, s) => n + s.count, 0)) }
+  // after a repaint, the categories and the entry that were open are open again
+  function restore() {
+    for (const id of [...st.cats]) { st.cats.delete(id); openCat(id, { quiet: true }) }
+    if (st.open) { const o = st.open; st.open = null; if (rowEl(o)) expand(o, { quiet: true }) }
+  }
 
-  // ── index: highlight, preview, open ─────────────────────────────────────────────────────
-  // the list is one Tab stop with a roving tabindex; nothing is highlighted until you point at a
-  // row or arrow into the list, and then the reading area shows it. Esc goes back to the welcome.
-  function roving(id) {
-    for (const n of el.list.querySelectorAll('[tabindex="0"]')) n.tabIndex = -1
-    const n = rowEl(id)
-    if (n) n.tabIndex = 0
+  // ── categories and entries, in place ────────────────────────────────────────────────────
+  function openCat(id, { focus = false, quiet = false } = {}) {
+    const c = catEl(id)
+    if (!c) return
+    c.querySelector('.cat__row').setAttribute('aria-expanded', 'true')
+    c.querySelector('.dkl').hidden = false
+    c.classList.add('is-open')
+    st.cats.add(id)
+    if (!quiet) cue('enter')
+    if (focus) { c.querySelector('.cat__row').focus({ preventScroll: true }); inView(c.querySelector('.cat__row')) }
   }
-  function select(id, { focus = false } = {}) {
-    if (st.layout !== 'index') return
-    const node = rowEl(id)
-    if (!node) return
-    const was = st.sel && rowEl(st.sel)
-    if (was && was !== node) { was.classList.remove('is-sel'); was.setAttribute('aria-selected', 'false') }
-    st.sel = id
-    node.classList.add('is-sel')
-    node.setAttribute('aria-selected', 'true')
-    roving(id)
-    el.L.dataset.hasSel = 'true'
-    el.L.dataset.sec = secOf(id)
-    el.pv.innerHTML = M().previewHtml(st.secs, id)
-    el.read.scrollTop = 0
-    if (focus) node.focus({ preventScroll: false })
-    else keepInSight(node)
-  }
-  const keepInSight = (node) => {
-    const box = node.closest('.ixn'), r = node.getBoundingClientRect(), b = box.getBoundingClientRect()
-    if (r.top < b.top + 4) box.scrollTop -= b.top + 4 - r.top
-    else if (r.bottom > b.bottom - 4) box.scrollTop += r.bottom - b.bottom + 4
-  }
-  function home() {
-    if (st.layout !== 'index' || !st.sel) return false
-    const n = rowEl(st.sel)
-    if (n) { n.classList.remove('is-sel'); n.setAttribute('aria-selected', 'false') }
-    st.sel = null
-    el.L.dataset.hasSel = 'false'
-    delete el.L.dataset.sec
-    el.pv.innerHTML = ''
+  function closeCat(id) {
+    const c = catEl(id)
+    if (!c) return false
+    if (st.open && st.open.split('/')[0] === id) collapse()
+    c.querySelector('.cat__row').setAttribute('aria-expanded', 'false')
+    c.querySelector('.dkl').hidden = true
+    c.classList.remove('is-open')
+    st.cats.delete(id)
     return true
   }
-  function detail(on, focus = true) {
-    st.view = on ? 'detail' : 'list'
-    el.L.dataset.view = st.view
-    if (on) placeToy()
-    NIGHT.toy.wake()
-    if (!focus) return
-    if (on) root.querySelector('.ixr__back').focus({ preventScroll: true })
-    else { const n = rowEl(st.sel); if (n) n.focus({ preventScroll: true }) }
-  }
-  const move = (d) => {
-    const o = M().order(st.secs), i = st.sel ? o.indexOf(st.sel) : d > 0 ? -1 : o.length
-    select(o[Math.min(o.length - 1, Math.max(0, i + d))], { focus: true })
-  }
-
-  // ── dock: one section at a time; an entry expands in place ──────────────────────────────
-  function expand(id, { focus = false } = {}) {
-    if (st.layout !== 'dock') return
+  function expand(id, { focus = false, quiet = false } = {}) {
     if (st.open && st.open !== id) collapse()
     const li = rowEl(id)
     if (!li) return
     const btn = li.querySelector('.dl__row'), box = li.querySelector('.dl__x')
+    if (!box) { if (focus) btn.focus({ preventScroll: true }); return } // a series: its row opens the hub
     box.innerHTML = M().previewHtml(st.secs, id, { bare: true })
     box.hidden = false
     btn.setAttribute('aria-expanded', 'true')
     li.classList.add('is-open')
     st.open = id
+    if (!quiet) cue('enter')
     if (focus) btn.focus({ preventScroll: true })
-    // bring the opened entry into view inside the screen's own scroller
-    const sc = root, r = li.getBoundingClientRect(), b = sc.getBoundingClientRect()
-    if (r.bottom > b.bottom - 90) sc.scrollTop += Math.min(r.top - b.top - 80, r.bottom - b.bottom + 110)
+    inView(li)
   }
   function collapse() {
     const li = st.open && rowEl(st.open)
@@ -185,191 +118,163 @@
     box.innerHTML = ''
     return true
   }
-
-  // ── page: the jump line marks the section you are reading ───────────────────────────────
-  let spyObs = null
-  function spy() {
-    if (spyObs) spyObs.disconnect()
-    if (!('IntersectionObserver' in window)) return
-    const seen = new Map()
-    spyObs = new IntersectionObserver((es) => {
-      for (const e of es) seen.set(e.target.dataset.sec, e.isIntersecting)
-      const cur = st.secs.map((s) => s.id).find((id) => seen.get(id))
-      for (const a of root.querySelectorAll('.jump__a')) a.toggleAttribute('aria-current', a.dataset.jump === cur)
-    }, { root, rootMargin: '-30% 0px -60% 0px' })
-    for (const s of root.querySelectorAll('.pgs')) spyObs.observe(s)
+  // keep what was opened in sight inside the screen's own scroller (the deck covers the bottom)
+  const inView = (node) => {
+    const r = node.getBoundingClientRect(), b = root.getBoundingClientRect(), foot = phone() ? 90 : 120
+    if (r.bottom > b.bottom - foot) root.scrollTop += Math.min(r.top - b.top - 80, r.bottom - b.bottom + foot)
+    else if (r.top < b.top + 10) root.scrollTop -= b.top + 10 - r.top
   }
-  function jump(sid) {
-    const s = root.querySelector(`#pg-${sid}`)
-    if (!s) return
-    root.scrollTo({ top: s.offsetTop - (phone() ? 52 : 64), behavior: LAB.sky.reduced ? 'auto' : 'smooth' })
-    const h = s.querySelector('.pgs__h')
-    h.tabIndex = -1
-    h.focus({ preventScroll: true })
+  // every row the cursor can stand on, in order: categories, and the rows of the open ones
+  const stops = () => [...root.querySelectorAll('.cat__row, .cat.is-open .dl__row, .cat.is-open .dl__c')]
+
+  // ── the compass ──────────────────────────────────────────────────────────────────────────
+  function mountRadial() {
+    const R = NIGHT.radial
+    if (!R) return
+    R.mount(el.rad, M().sectionsOf(st.secs))
+    R.onCommit = (id) => { setHome('dir', { quiet: true }); openCat(id, { focus: true }) }
+    showHome()
+  }
+  function showHome() {
+    const R = NIGHT.radial, want = st.home === 'radial', can = R && R.supported()
+    const on = want && can
+    el.L.dataset.home = on ? 'radial' : 'dir'
+    el.rad.hidden = !on
+    el.dir.hidden = on
+    root.querySelector('[data-touch-note]').hidden = !(want && !can)
+    root.querySelector('[data-to-radial]').hidden = !(st.radialFlag && can)
+    if (R) { if (on && NIGHT.lab && NIGHT.lab.live()) R.start(); else R.stop() }
+  }
+  function setHome(h, { quiet = false } = {}) {
+    st.home = h === 'radial' ? 'radial' : 'dir'
+    showHome()
+    if (!quiet && st.home === 'radial') { const b = root.querySelector('.rad__w'); if (b && document.activeElement && root.contains(document.activeElement)) b.focus({ preventScroll: true }) }
   }
 
   // ── input ────────────────────────────────────────────────────────────────────────────────
   function bind() {
     root.addEventListener('click', (e) => {
       const act = e.target.closest('[data-read]')
-      if (act) return NIGHT.reader.go(act.dataset.read, act.dataset.in, act)
-      if (st.layout === 'index') {
-        if (e.target.closest('.ixr__back')) return detail(false)
-        const row = e.target.closest('.ix[data-row]')
-        if (!row) return
-        const id = row.dataset.row
-        if (phone()) { select(id); detail(true); return }
-        select(id, { focus: true })
-        openEntry(id, row)
-      } else if (st.layout === 'dock') {
-        const btn = e.target.closest('.dl__row')
-        if (!btn) return
-        const id = btn.parentElement.dataset.row
-        if (st.open === id) collapse(); else expand(id)
-      } else if (st.layout === 'page') {
-        const a = e.target.closest('[data-jump]')
-        if (a) { e.preventDefault(); jump(a.dataset.jump) }
-      }
-    })
-    // index: pointing at a row is enough to read it (no click)
-    root.addEventListener('pointerover', (e) => {
-      if (st.layout !== 'index' || e.pointerType !== 'mouse' || phone()) return
-      const row = e.target.closest('.ix[data-row]')
-      if (row && row.dataset.row !== st.sel) select(row.dataset.row)
+      if (act) { cue('enter'); return NIGHT.reader.go(act.dataset.read, act.dataset.in, act) }
+      const pick = e.target.closest('[data-pick]')
+      if (pick) { const id = pick.dataset.pick; openCat(id.split('/')[0]); expand(id, { focus: true }); return }
+      if (e.target.closest('[data-to-radial]')) return setHome('radial')
+      const cat = e.target.closest('.cat__row')
+      if (cat) { const id = cat.dataset.cat; if (st.cats.has(id)) closeCat(id); else openCat(id); return }
+      const btn = e.target.closest('.dl__row')
+      if (!btn) return
+      const id = btn.parentElement.dataset.row
+      if (st.open === id) collapse(); else expand(id)
     })
     root.addEventListener('keydown', (e) => {
-      const k = e.key
-      if (st.layout === 'index' && e.target.closest('.ixl')) {
-        if (k === 'ArrowDown' || k === 'j') move(1)
-        else if (k === 'ArrowUp' || k === 'k') move(-1)
-        else if (k === 'Home') select(M().order(st.secs)[0], { focus: true })
-        else if (k === 'End') { const o = M().order(st.secs); select(o[o.length - 1], { focus: true }) }
-        else if (k === 'Enter' || k === ' ') { if (!st.sel) return; if (phone()) detail(true); else openEntry(st.sel, rowEl(st.sel)) }
-        else return
-        e.preventDefault()
-        e.stopPropagation()
-      } else if (st.layout === 'dock' && e.target.closest('.dl__row')) {
-        const btns = [...root.querySelectorAll('.dl__row')], i = btns.indexOf(e.target.closest('.dl__row'))
-        if (k === 'ArrowDown' || k === 'j') btns[Math.min(btns.length - 1, i + 1)].focus()
-        else if (k === 'ArrowUp' || k === 'k') btns[Math.max(0, i - 1)].focus()
-        else if (k === 'Home') btns[0].focus()
-        else if (k === 'End') btns[btns.length - 1].focus()
-        else return
-        e.preventDefault()
-        e.stopPropagation()
-      }
-    })
-    // the index's list takes focus: if nothing is highlighted yet, the first row is
-    root.addEventListener('focusin', (e) => {
-      if (st.layout !== 'index' || st.quiet) return
-      const row = e.target.closest && e.target.closest('.ix[data-row]')
-      if (row && row.dataset.row !== st.sel) select(row.dataset.row)
+      const k = e.key, here = e.target.closest && e.target.closest('.cat__row, .dl__row, .dl__c')
+      if (!here) return
+      const all = stops(), i = all.indexOf(here)
+      let to = null
+      if (k === 'ArrowDown' || k === 'j') to = all[Math.min(all.length - 1, i + 1)]
+      else if (k === 'ArrowUp' || k === 'k') to = all[Math.max(0, i - 1)]
+      else if (k === 'Home') to = all[0]
+      else if (k === 'End') to = all[all.length - 1]
+      else if (k === 'ArrowRight' && here.classList.contains('cat__row')) { openCat(here.dataset.cat); e.preventDefault(); return }
+      else if (k === 'ArrowLeft') { const c = here.closest('.cat'); if (c) { closeCat(c.dataset.sec); c.querySelector('.cat__row').focus({ preventScroll: true }) } e.preventDefault(); return }
+      else return
+      e.preventDefault()
+      e.stopPropagation()
+      if (to && to !== here) { to.focus({ preventScroll: true }); inView(to); cue('cursor', all.indexOf(to) % 5) }
     })
   }
 
   // ── the API ──────────────────────────────────────────────────────────────────────────────
-  H.mount = (r, layout) => {
+  H.mount = (r, { home = 'dir', radialFlag = false } = {}) => {
     root = r
     st.secs = M().build(LAB.pieces)
-    st.layout = LAYOUTS.includes(layout) ? layout : 'index'
+    st.home = home
+    st.radialFlag = radialFlag
     bind()
     paint()
   }
-  H.layout = () => st.layout
-  H.setLayout = (id) => {
-    if (!LAYOUTS.includes(id) || id === st.layout) return
-    st.layout = id
-    st.view = 'list'
-    root.scrollTop = 0
-    paint()
+  H.go = (id) => {
+    if (!st.secs.some((s) => s.id === id)) return
+    if (st.home === 'radial') setHome('dir', { quiet: true })
+    openCat(id, { focus: true })
   }
-  H.go = (sid) => {
-    if (!st.secs.some((s) => s.id === sid)) return
-    if (st.layout === 'index') {
-      if (phone()) detail(false, false)
-      const s = st.secs.find((x) => x.id === sid)
-      if (s.entries[0]) select(`${sid}/${s.entries[0].slug}`, { focus: true })
-    } else if (st.layout === 'dock') {
-      if (st.sec !== sid) { st.sec = sid; st.open = null; paint() }
-      if (H.onSection) H.onSection(sid)
-      const b = root.querySelector('.dl__row')
-      if (b) b.focus({ preventScroll: true })
-      root.scrollTop = 0
-    } else jump(sid)
-  }
-  H.section = () => st.sec
+  // Esc acts where the cursor is: the entry it is in, then the category, then (flag on) the compass
   H.back = () => {
-    if (st.layout === 'index') {
-      if (phone() && st.view === 'detail') { detail(false); return true }
-      const had = st.sel, row = had && rowEl(had)
-      // focus stays on the row, quietly: focusing it must not highlight it again
-      if (home()) { if (row) { st.quiet = true; row.focus({ preventScroll: true }); st.quiet = false } return true }
-      return false
-    }
-    if (st.layout === 'dock') { const o = st.open; if (collapse()) { const b = rowEl(o); if (b) b.querySelector('.dl__row').focus({ preventScroll: true }); return true } }
+    const a = document.activeElement, c = a && a.closest && a.closest('.cat')
+    const li = a && a.closest && a.closest('.dl.is-open')
+    if (li && st.open === li.dataset.row) { collapse(); li.querySelector('.dl__row').focus({ preventScroll: true }); return true }
+    if (c && st.cats.has(c.dataset.sec)) { closeCat(c.dataset.sec); c.querySelector('.cat__row').focus({ preventScroll: true }); return true }
+    if (st.radialFlag && st.home === 'dir' && NIGHT.radial && NIGHT.radial.supported()) { setHome('radial'); return true }
     return false
   }
-  H.first = () => (st.layout === 'index' ? rowEl(M().order(st.secs)[0]) : st.layout === 'dock' ? root.querySelector('.dl__row') : root.querySelector('.jump__a'))
-  H.select = (id) => { if (st.layout === 'index') select(id); else if (st.layout === 'dock') { const s = secOf(id); if (st.sec !== s) H.go(s); expand(id) } else { const n = rowEl(id); if (n) root.scrollTop = n.offsetTop - 80 } }
-  H.expand = (id) => expand(id)
-  H.detail = (on) => { if (st.layout === 'index') detail(on, false) }
+  H.first = () => (st.home === 'radial' && el.rad && !el.rad.hidden ? root.querySelector('.rad__w') : root.querySelector('.cat__row'))
+  H.select = (id) => { const s = id.split('/')[0]; if (st.home === 'radial') setHome('dir', { quiet: true }); openCat(s, { quiet: true }); if (id.includes('/')) expand(id, { quiet: true }) }
+  H.openCat = (id) => openCat(id, { quiet: true })
   H.root = () => root
+  H.sections = () => st.secs
+  H.home = () => (el.L ? el.L.dataset.home : st.home)
+  H.setHome = setHome
+  H.setRadialFlag = (on) => { st.radialFlag = !!on; setHome(on ? 'radial' : 'dir') }
+  H.live = () => showHome() // the Lab opened or closed: the compass's pointer loop follows
+  H.commitKey = (key) => (st.home === 'radial' && el.rad && !el.rad.hidden && NIGHT.radial ? NIGHT.radial.commitKey(key) : false)
 
   // ── the 20th piece: re-render from LAB.pieces; an unchanged row keeps its DOM node ──────
   H.render = () => {
-    const out = { kept: 0, added: [], removed: [], changed: [], section: null }
+    const out = { kept: 0, added: [], removed: [], changed: [] }
     const next = M().build(LAB.pieces)
     out.changed = next.filter((s, i) => !st.secs[i] || s.count !== st.secs[i].count).map((s) => s.id)
-    const fresh = new Map(next.flatMap((s) => s.entries.map((e) => [`${s.id}/${e.slug}`, M().rowHtml(e, s.id, st.layout)])))
-    const added = [...fresh.keys()].filter((id) => !st.rows.has(id))
-    out.section = added.length ? secOf(added[0]) : null
-    // the dock shows one section: go to the one the new piece is in, as a visitor would
-    if (st.layout === 'dock' && out.section && out.section !== st.sec) { st.sec = out.section; paint() }
+    const fresh = new Map(next.flatMap((s) => s.entries.map((e) => [`${s.id}/${e.slug}`, M().rowHtml(e, s.id)])))
     const old = new Map([...root.querySelectorAll('[data-row]')].map((n) => [n.dataset.row, n]))
     out.before = old.size
-    const scroll = root.scrollTop, sel = st.sel
+    const scroll = root.scrollTop
     st.secs = next
     const t = document.createElement('template')
-    t.innerHTML = VIEW[st.layout]()
+    t.innerHTML = VIEW()
     for (const n of [...t.content.querySelectorAll('[data-row]')]) {
       const id = n.dataset.row, o = old.get(id)
       if (o && st.rows.get(id) === fresh.get(id)) { n.replaceWith(o); out.kept++ } else if (!o) out.added.push(id)
       old.delete(id)
     }
     out.removed = [...old.keys()]
-    // keep the toy where it is (moved, not rebuilt) and swap everything else
+    // the new piece's category opens, as a visitor would go and look
+    for (const id of out.added) st.cats.add(id.split('/')[0])
     const toy = NIGHT.toy.node
     root.replaceChildren(t.content)
-    el = { L: root.firstElementChild }
+    el = { L: root.firstElementChild, rad: root.querySelector('.rad-host'), dir: root.querySelector('.dir') }
     const s = root.querySelector('.toy-slot')
     if (s && toy) s.appendChild(toy)
     st.rows = fresh
-    if (st.layout === 'index') { el.list = root.querySelector('.ixl'); el.pv = root.querySelector('.ixr .pv'); el.read = root.querySelector('.ixr'); st.sel = null; roving(M().order(st.secs)[0]); if (sel && rowEl(sel)) select(sel) }
-    if (st.layout === 'page') spy()
+    const open = st.open
+    st.open = null
+    for (const id of [...st.cats]) { const c = catEl(id); if (c) { c.querySelector('.cat__row').setAttribute('aria-expanded', 'true'); c.querySelector('.dkl').hidden = false; c.classList.add('is-open') } }
+    if (open && rowEl(open) && rowEl(open).classList.contains('is-open')) st.open = open
+    mountRadial()
     root.scrollTop = scroll
-    count()
     return out
   }
-  H.sections = () => st.secs
 
   // ── what reader.js asks: where a closing post goes back to, and the title it flies from ──
   NIGHT.menu = {
     target: (section, slug) => {
+      const ser = section === 'research' && M().seriesOf(slug)
+      if (ser) {
+        openCat('research', { quiet: true })
+        const li = rowEl(`research/${ser.series.slug}`)
+        if (!li) return null
+        return ser.chapter ? li.querySelector(`[data-ch="${CSS.escape(slug)}"]`) : li.querySelector('.dl__row')
+      }
       const ids = [`${section}/${slug}`, `work/${slug}`].filter((id) => rowEl(id))
       if (!ids.length) return null
       const id = ids[0]
-      if (st.layout === 'index') {
-        if (st.sel !== id) select(id)
-        if (phone()) { detail(true, false); return el.pv.querySelector(`[data-read="${CSS.escape(slug)}"]`) || rowEl(id) }
-        return rowEl(id)
-      }
-      if (st.layout === 'dock') { if (st.open !== id) expand(id); const li = rowEl(id); return li.querySelector('.dl__row') }
-      return rowEl(id).querySelector(`[data-read="${CSS.escape(slug)}"]`) || rowEl(id)
+      openCat(id.split('/')[0], { quiet: true })
+      if (st.open !== id) expand(id, { quiet: true })
+      return rowEl(id).querySelector(`.dl__x [data-read="${CSS.escape(slug)}"]`) || rowEl(id).querySelector('.dl__row')
     },
     titleOf: (node) => {
       if (!node) return null
       const row = node.closest('[data-row]')
-      return (row && row.querySelector('.ix__t, .dl__t, .pg__tt')) || (node.closest('.pv') && node.closest('.pv').querySelector('[data-pv-title]')) || node
+      if (node.classList.contains('dl__c')) return node.querySelector('.dl__ct')
+      return (row && row.querySelector('.dl__t')) || node
     },
   }
 })()

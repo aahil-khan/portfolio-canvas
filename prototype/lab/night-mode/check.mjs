@@ -3,14 +3,16 @@
 //   node prototype/lab/night-mode/check.mjs
 //
 // Loads the shared kit's content (pieces.js, body.js) and this mockup's pure parts (work.js,
-// copy.js, decode.js, fx.js, model.js, moon.js) in Node and checks, on the real pieces:
-//   1. what is in the Lab: three sections, the serious work only; work.js agrees with
+// copy.js, decode.js, fx.js, series.js, logic.js, model.js, moon.js, sam.js) in Node and checks,
+// on the real pieces:
+//   1. what is in the Lab: four categories, the serious work only; work.js agrees with
 //      content/data/projects.json field for field; actions only where the data has them
-//   2. the 20th piece, in all three layouts: one new row in the right section, every other row
+//   2. the 20th piece, in the directory: one new row in the right category, every other row
 //      byte-identical, and nothing that lays the screen out reads content
-//   3. nothing pans or zooms: no camera call, the desk's zoom keys stopped, the only drag is the
-//      toy's and it moves nothing; one navigation system per layout, no top bar, no boxed panels;
-//      the trip is ≤ 0.8 s each way
+//   3. nothing pans or zooms: no camera call, the desk's zoom keys stopped, the only drags are the
+//      toy's and the compass's pointer, and neither moves the page; the directory is the one
+//      navigation system, the deck does none; no top bar, no boxed panels; the trip ≤ 0.8 s
+//   9. the deck, the compass, the series, the voices, the sound (this round's claims)
 //   4. the toys: five, each pure and the right size, none flashing (idle and under input), each
 //      answering its input, one picked at random per visit (never the last one twice)
 //   5. the reader: a write-up's parts become its sections (the TOC), text verbatim; prev / next
@@ -27,7 +29,7 @@ import { fileURLToPath } from 'node:url'
 const here = dirname(fileURLToPath(import.meta.url))
 const require = createRequire(import.meta.url)
 globalThis.window = globalThis
-for (const f of ['../shared/pieces.js', '../shared/body.js', 'work.js', 'copy.js', 'decode.js', 'moon.js', 'fx.js', 'essay.js', 'model.js']) require(join(here, f))
+for (const f of ['../shared/pieces.js', '../shared/body.js', 'work.js', 'copy.js', 'decode.js', 'moon.js', 'fx.js', 'essay.js', 'series.js', 'logic.js', 'model.js', 'narration/sample-timings.js']) require(join(here, f))
 const { LAB, NIGHT } = globalThis
 const M = NIGHT.model, FX = NIGHT.fx, C = NIGHT.copy
 
@@ -35,19 +37,22 @@ let fails = 0
 const ok = (cond, msg) => { console.log((cond ? '  ok   ' : '  FAIL ') + msg); if (!cond) fails++ }
 const same = (a, b) => JSON.stringify(a) === JSON.stringify(b)
 const piece = (slug) => LAB.pieces.find((p) => p.slug === slug)
-const LAYOUTS = ['index', 'dock', 'page']
-const rowsOf = (secs, layout) => Object.fromEntries(secs.flatMap((s) => s.entries.map((e) => [`${s.id}/${e.slug}`, M.rowHtml(e, s.id, layout)])))
+const rowsOf = (secs) => Object.fromEntries(secs.flatMap((s) => s.entries.map((e) => [`${s.id}/${e.slug}`, M.rowHtml(e, s.id)])))
+const W_ = (secs) => secs.find((s) => s.id === 'writing')
 
 console.log('1. what is in the Lab')
-const secs = M.build(LAB.pieces), tree = LAYOUTS.map((l) => Object.values(rowsOf(secs, l)).join('')).join(''), ids = (id) => secs.find((s) => s.id === id).entries.map((e) => e.slug)
-ok(same(secs.map((s) => s.id), ['work', 'experiments', 'writing']), `three sections, in order: ${secs.map((s) => s.id + ' (' + String(s.count).padStart(2, '0') + ')').join(' · ')}`)
+const secs = M.build(LAB.pieces), tree = Object.values(rowsOf(secs)).join(''), ids = (id) => secs.find((s) => s.id === id).entries.map((e) => e.slug)
+ok(same(secs.map((s) => s.id), ['work', 'experiments', 'research', 'writing']) && same(secs.map((s) => s.key), ['1', '2', '3', '4']), `four categories, keys 1–4: ${secs.map((s) => s.id + ' (' + String(s.count).padStart(2, '0') + ', ' + s.upd + ')').join(' · ')}`)
+const metas = M.sectionsOf(secs)
+ok(metas.every((m) => m.blurb && m.upd && new RegExp(`>${m.id}/<`).test(M.catHtml(m)) && M.catHtml(m).includes(m.blurb) && M.catHtml(m).includes(m.upd)), "each category's row: key, name/, a one-line description of what's inside, a count and the last-updated month")
+ok(same(ids('research'), ['reliability-study']), 'research: the one series (series.js)')
 ok(same(ids('work').slice().sort(), ['flowsync', 'holt', 'konta', 'portana', 'sop-opera', 'this-site']), `work: the six projects`)
 ok(same(ids('experiments').slice().sort(), ['chinese-watch', 'cursor-search-providor', 'usb-camera']), 'experiments: Cursor Search Provider, the Chinese watch, the laptop webcam')
 const posts = LAB.pieces.filter((p) => p.kind === 'essay' || (p.kind === 'write-up' && p.body)).map((p) => p.slug).sort()
 ok(same(ids('writing').slice().sort(), posts) && posts.length === 8, 'writing: the 2 essays and the 6 write-ups')
 const fun = LAB.pieces.filter((p) => ['scrap', 'found', 'game'].includes(p.kind)).map((p) => p.slug)
 ok(fun.length === 8 && fun.every((s) => !tree.includes(`/${s}"`)), `the fun stuff stays on the desk: none of ${fun.join(', ')} is in the Lab`)
-ok(LAYOUTS.every((l) => Object.keys(rowsOf(secs, l)).length === 17), `17 rows in each of the three layouts`)
+ok(Object.keys(rowsOf(secs)).length === 18, `18 rows in the directory (6 + 3 + 1 + 8)`)
 const projects = JSON.parse(readFileSync(join(here, '../../../content/data/projects.json'), 'utf8'))
 const list = Array.isArray(projects) ? projects : projects.projects || Object.values(projects)[0]
 const drift = Object.entries(NIGHT.facts).filter(([slug, f]) => {
@@ -62,11 +67,10 @@ const exp = M.previewHtml(secs, 'experiments/chinese-watch')
 ok(/exp-03 · jul 2026 · hardware/.test(exp) && /shelved/.test(exp) && /data-read="chinese-watch" data-in="experiments"/.test(exp), 'an experiment preview is its log entry: exp-03 · jul 2026 · hardware [shelved], first lines, [open]')
 const wr = M.previewHtml(secs, 'writing/sop-opera'), ess = M.previewHtml(secs, 'writing/chrome-hackathon')
 ok(/aug 2026 · 1 min read/.test(wr) && /Genuinely the most planning/.test(wr) && /data-read="chrome-hackathon" data-in="writing"/.test(ess), 'a post preview: date, reading time, first lines, [↵ read]; the essays read in the Lab now (essay.js)')
-ok(/data-read="old-laptop-cloud" data-in="writing"/.test(M.rowHtml(secs[2].entries.find((e) => e.slug === 'old-laptop-cloud'), 'writing', 'page')) && ['index', 'dock'].every((l) => /4 min/.test(M.rowHtml(secs[2].entries.find((e) => e.slug === 'chrome-hackathon'), 'writing', l))) && !/medium\.com/.test(tree),
+ok(/data-read="old-laptop-cloud" data-in="writing"/.test(M.previewHtml(secs, 'writing/old-laptop-cloud')) && /4 min/.test(M.rowHtml(W_(secs).entries.find((e) => e.slug === 'chrome-hackathon'), 'writing')) && !/medium\.com/.test(tree),
   'the imported essays show their reading time and open in the reader, like the other posts (no "medium.com ↗" in any row)')
 const bare = M.previewHtml(secs, 'work/sop-opera', { bare: true })
-ok(!/pv__path|pv__title|pv__lede/.test(bare) && /data-read="sop-opera"/.test(bare) && /pv__figs/.test(bare), "the dock's expanded entry: the preview without the path, title and tagline its row already shows")
-ok(same(M.order(secs).slice(0, 2), ['work/sop-opera', 'work/this-site']) && M.order(secs).length === 17, '↑↓ in the index walks every entry, section by section (17 stops)')
+ok(!/pv__path|pv__title|pv__lede/.test(bare) && /data-read="sop-opera"/.test(bare) && /pv__figs/.test(bare), "an entry expanded in place: the preview without the path, title and tagline its row already shows")
 
 console.log('2. the 20th piece')
 const extras = {
@@ -76,42 +80,44 @@ const extras = {
   'an oldest experiment (lands last)': [{ slug: 'test-old', title: 'Old one', shelf: 'playground', kind: 'experiment', date: '1999-01' }, ['experiments']],
   'a scrap (stays on the desk)': [{ slug: 'test-scrap', title: 'Test scrap', shelf: 'playground', kind: 'scrap', date: '2099-01' }, []],
 }
-for (const layout of LAYOUTS) {
-  const before = rowsOf(secs, layout)
+{
+  const before = rowsOf(secs)
   const res = Object.entries(extras).map(([what, [p, where]]) => {
-    const after = rowsOf(M.build([...LAB.pieces, p]), layout)
+    const after = rowsOf(M.build([...LAB.pieces, p]))
     const added = Object.keys(after).filter((k) => !before[k])
     const kept = Object.keys(before).every((k) => after[k] === before[k])
     return [what, kept && same(added.sort(), where.map((s) => `${s}/${p.slug}`).sort())]
   })
-  ok(res.every(([, r]) => r), `${layout}: each of the five extra pieces adds exactly its rows; all 17 other rows byte-identical${res.some(([, r]) => !r) ? ' — FAILS: ' + res.filter(([, r]) => !r).map(([w]) => w).join(', ') : ''}`)
+  ok(res.every(([, r]) => r), `the directory: each of the five extra pieces adds exactly its rows; all 18 other rows byte-identical${res.some(([, r]) => !r) ? ' — FAILS: ' + res.filter(([, r]) => !r).map(([w]) => w).join(', ') : ''}`)
 }
 ok(same(M.build([...LAB.pieces, extras["the brief's (an experiment)"][0]])[1].entries[0].n, 'exp-04'), 'a new experiment is exp-04; no older number moves')
 const css = readFileSync(join(here, 'night.css'), 'utf8')
 const home = readFileSync(join(here, 'home.js'), 'utf8')
-ok(!/offsetHeight|getBoundingClientRect\(\)\.height|\.length \*|count \*/.test(home.replace(/keepInSight[\s\S]*?\n  \}/, '')) && LAYOUTS.every((l) => !/[├└]──|style=/.test(M.rowHtml(secs[0].entries[0], 'work', l))), 'no layout places anything by counting rows or reading heights; rows carry no inline style')
+ok(!/offsetHeight|getBoundingClientRect\(\)\.height|\.length \*|count \*/.test(home) && !/style=/.test(tree), 'nothing places anything by counting rows or reading heights; rows carry no inline style')
 
 console.log('3. nothing pans, zooms or drags')
 const files = readdirSync(here).filter((f) => /\.(html|css|js|mjs)$/.test(f) && f !== 'check.mjs')
 const text = Object.fromEntries(files.map((f) => [f, readFileSync(join(here, f), 'utf8')]))
 const code = (s) => s.replace(/\/\*[\s\S]*?\*\//g, '').replace(/(^|[^:])\/\/.*$/gm, '$1').replace(/<!--[\s\S]*?-->/g, '')
-const lab = ['night.js', 'home.js', 'reader.js', 'model.js'].map((f) => code(text[f])).join('\n')
+const lab = ['night.js', 'home.js', 'reader.js', 'model.js', 'deck.js', 'voice.js', 'sound.js'].map((f) => code(text[f])).join('\n')
 ok(!/DESK\.flyTo|DESK\.fit\(|DESK\.focusCard/.test(code(text['night.js']).replace(/if \(q\.get\('roundtrip'\)\)[\s\S]*?settled\(\)\.then/, '')), 'the Lab never moves the camera (DESK.flyTo only in the ?roundtrip proof, by day)')
-ok(!/pointermove|setPointerCapture|style\.(left|top)\s*=/.test(lab.replace(/about\.el\.style\.(left|top)/g, '')), 'no drag handler and no left/top written in the Lab screen, its layouts or the reader')
+ok(!/pointermove|setPointerCapture|style\.(left|top)\s*=/.test(lab.replace(/about\.el\.style\.(left|top)/g, '')), 'no drag handler and no left/top written in the Lab screen, the directory, the deck or the reader')
+const radJs = code(text['radial.js'])
+ok(/pointermove/.test(radJs) && !/setPointerCapture/.test(radJs) && [...radJs.matchAll(/\.style\.(\w+)/g)].every((m) => m[1] === 'transform') && !/function frame\(\)[\s\S]*?commit\(/.test(radJs.replace(/\n  \}[\s\S]*/, '')) && /requestAnimationFrame\(frame\)/.test(radJs),
+  "the compass reads the pointer into a variable and a rAF loop; it writes only its pointer line's transform, and a pointer move never commits")
 const toyJs = code(text['toy.js'])
 ok(/setPointerCapture/.test(toyJs) && !/style\.|\.animate\(|transform|translate/.test(toyJs.replace(/el\.pre\.textContent/g, '')) && /el\.pre\.textContent = text/.test(toyJs), "the only drag is the toy's, and it rewrites the toy's own text: no style, transform or animation")
 ok(/\['0', '\+', '=', '-'\]\.includes\(e\.key\)\) e\.stopPropagation\(\)/.test(text['night.js']) && /html\.has-night #deskViewport \{ pointer-events: none;/.test(css), "the desk's 0 / + / − keys are stopped at night, and the desk takes no pointer from the first frame of dusk")
 ok(/\.lab \{\s*position: fixed; inset: 0;/.test(css) && !/\.lab[^{]*\{[^}]*transform/.test(css), 'the Lab screen is position:fixed, inset 0, never transformed')
 ok(!/lbar|status bar class|\.palsw|class="frame/.test(code(text['night.js']) + code(text['home.js'])) && !/\.(lbar|frame|tui)\b/.test(code(css)), 'no top status bar and no boxed panels (no .lbar, .frame or .tui anywhere)')
-const borders = [...code(css).matchAll(/([^{}]+)\{([^{}]*\bborder(?:-(?:top|bottom|left|right))?:\s*1px solid[^{}]*)\}/g)].map((m) => m[1].trim()).filter((sel) => !/^\.(rd__|lbx|reader|proof)|html\.is-night \.desk-dock|desk-dock__item|pv__fig|pg__fig|rd__zoom/.test(sel))
-ok(!borders.length, `solid frames only on the reader's header, figures and the dock${borders.length ? ' — ALSO ON: ' + borders.join(' | ') : ''}`)
-// one navigation system per layout: the index has no dock and no jump line; the dock has no index;
-// the page has no dock and no index
-const navs = { index: /class="ixn"/, dock: /class="dkl"/, page: /class="jump"/ }
-const VIEW = (l) => (home.match(new RegExp(`    ${l}: \\(\\) => [\\s\\S]*?(?=\\n    (index|dock|page): |\\n  \\})`)) || [''])[0]
-ok(LAYOUTS.every((l) => navs[l].test(VIEW(l)) && Object.entries(navs).filter(([k]) => k !== l).every(([, re]) => !re.test(VIEW(l)))) &&
-  /html\.has-night\[data-lab-layout='dock'\] \.ldock \{/.test(css) && !/html\.has-night \.ldock \{/.test(css) && /html\[data-lab-layout='dock'\] \.lcorner \{ display: none; \}/.test(css),
-  'one navigation system per layout: index = the index, dock = the dock (its tiles appear only there), page = the jump line; one ← canvas in each')
+const borders = [...code(css).matchAll(/([^{}]+)\{([^{}]*\bborder(?:-(?:top|bottom|left|right))?:\s*1px solid[^{}]*)\}/g)].map((m) => m[1].trim()).filter((sel) => !/^\.(rd__|lbx|reader|proof|pop\b)|html\.is-night \.desk-dock|desk-dock__item|pv__fig|pg__fig|rd__zoom/.test(sel))
+ok(!borders.length, `solid frames only on the reader's header, figures, the deck and its popovers${borders.length ? ' — ALSO ON: ' + borders.join(' | ') : ''}`)
+// one navigation system: the directory. No layouts, no corner, no switches, no section tiles.
+const deckJs = code(text['deck.js']), actFn = (deckJs.match(/function act\(doo, from\) \{[\s\S]*?\n  \}/) || [''])[0]
+ok(/class="dir__cats"/.test(home) && !/LAYOUTS|setLayout|lcorner|class="lsw|class="ixn"|class="jump"/.test(code(text['night.js']) + code(home)) && !/data-lab=|\.ldock\[data-lab/.test(deckJs + css) && !/data-lab-layout/.test(css + code(text['night.js'])),
+  'one navigation system, the directory: no layouts, no layout switch, no corner, no section tiles in the deck')
+ok(actFn.length > 200 && !/home\.(go|select|openCat|setHome)|reader\.go|location|NIGHT\.leave/.test(actFn) && (deckJs.match(/reader\.go\(/g) || []).length === 1 && /function runCommand[\s\S]*?reader\.go\(/.test(deckJs),
+  "the deck does no navigation: act(), the only thing a cell calls, opens no category, entry or post; reader.go appears once, in the / command line's runCommand (a search)")
 const MS = /const MS = \{ in: (\d+), out: (\d+), calm: (\d+) \}/.exec(text['night.js'])
 ok(MS && +MS[1] <= 800 && +MS[2] <= 800 && +MS[3] <= 400 && !/intro/.test(code(text['night.js'])), `the trip: ${MS && MS[1]} ms in, ${MS && MS[2]} ms back, decode included (the decode windows end by t = 1); reduced motion a ${MS && MS[3]} ms crossfade; no intro after it`)
 
@@ -174,7 +180,7 @@ for (const [slug, secs, figs] of [['old-laptop-cloud', 15, 10], ['chrome-hackath
 const { convert } = await import(join(here, 'import-medium.mjs'))
 const sample = convert('<section data-field="body" class="e-content"><h3 class="graf graf--h3">T</h3><h3 class="graf graf--h3">Part</h3><h4 class="graf graf--h4">Sub</h4><p class="graf graf--p">A <strong class="markup--strong">b</strong> <em>c</em> <code>d</code> <a href="https://x.y/z">e</a><br>f &amp; g</p><ul class="postList"><li class="graf graf--li">one</li></ul><ol class="postList"><li class="graf graf--li">first</li></ol><figure class="graf graf--figure"><img src="https://cdn-images-1.medium.com/max/800/1*a.png"><figcaption class="imageCaption">cap</figcaption></figure></section>')
 ok(sample.title === 'T' && sample.body === '## Part\n\n### Sub\n\nA **b** *c* `d` [e](https://x.y/z) f & g\n\n- one\n\n1. first\n\n![cap](https://cdn-images-1.medium.com/max/1024/1*a.png)', 'import-medium.mjs maps every Medium block: h3 → ##, h4 → ###, p, ul, ol, figure + caption, and bold / italic / code / links inline')
-ok(/\^#\\\/\(writing\|experiments\)\\\/\(\[a-z0-9-\]\+\)\$/.test(text['reader.js']) && /history\.back\(\)/.test(text['reader.js']) && /hashchange/.test(text['reader.js']), 'posts and logs deep-link (#/writing/<slug>, #/experiments/<slug>), and Back closes them')
+ok(/\^#\\\/\(writing\|experiments\|research\)\\\/\(\[a-z0-9-\]\+\)\$/.test(text['reader.js']) && /history\.back\(\)/.test(text['reader.js']) && /hashchange/.test(text['reader.js']), 'posts, logs, hubs and chapters deep-link (#/writing/, #/experiments/, #/research/<slug>), and Back closes them')
 ok(/function morph\(from, open\)/.test(text['reader.js']) && /clipPath: clip/.test(text['reader.js']) && /OPEN_MS = 560, CLOSE_MS = 480/.test(text['reader.js']), "#17's open / close motion is kept: the clip from the row, the title FLIP, 560 / 480 ms")
 
 console.log('6. the decode and the moon')
@@ -195,11 +201,12 @@ const palettes = {}
 for (const m of css.matchAll(/html\[data-palette='(\w+)'\]\s*\{([^}]*)\}/g)) palettes[m[1]] = Object.fromEntries([...m[2].matchAll(/--lab-([\w-]+):\s*([^;]+);/g)].map((x) => [x[1], hex(x[2])]).filter((x) => x[1]))
 ok(same(Object.keys(palettes), ['white', 'green', 'amber']), `three palettes: ${Object.keys(palettes).join(', ')}`)
 for (const [name, P] of Object.entries(palettes)) {
-  const SECT = ['work', 'experiments', 'writing'], pairs = []
+  const SECT = ['work', 'experiments', 'research', 'writing'], pairs = []
   for (const t of ['fg', 'dim', ...SECT]) for (const s of ['bg', 'pane']) pairs.push([`${t} on ${s}`, P[t], P[s], 4.5])
   for (const c of [...SECT, 'fg']) for (const t of ['fg', 'dim', c]) pairs.push([`${t} on a highlighted ${c} row`, P[t], mix(P[c], 0.14, P.pane), 4.5])
   for (const c of SECT) for (const t of ['fg', 'dim', c]) pairs.push([`${t} on a hovered ${c} prev/next`, P[t], mix(P[c], 0.14, P.bg), 4.5])
-  for (const c of ['fg', ...SECT]) pairs.push([`bg on ${c} (inverse: the cursor, ← canvas, the dock's section, the jump line, the TOC)`, P.bg, P[c], 4.5])
+  for (const c of ['fg', 'hi', ...SECT]) pairs.push([`bg on ${c} (inverse: the cursor, ← canvas, the deck's mode cell, the lit wedge, the spoken word, the TOC)`, P.bg, P[c], 4.5])
+  pairs.push(['hi on bg (the sample-content banner)', P.hi, P.bg, 4.5])
   for (const c of ['fg', ...SECT]) pairs.push([`${c} frame on the sky`, P[c], P.bg, 3])
   const low = pairs.map(([w, a, b, min]) => [w, ratio(a, b), min]).filter(([, r, min]) => r < min)
   const worst = Math.min(...pairs.filter((p) => p[3] === 4.5).map(([, a, b]) => ratio(a, b)))
@@ -207,7 +214,7 @@ for (const [name, P] of Object.entries(palettes)) {
 }
 
 console.log('8. the files')
-const NIGHT_ONLY = /html\.(has-night|is-night|is-turning|is-reading)|^html\[data-lab-layout=[^\]]+\] \.lcorner$|^\.(night|cut|act|lab|lcorner|lsw|hello|keys|toy|sh|is-new|L--|ix|pv|top|dk|dl|jump|pg|ldock|reader|rd__|lbx|proof)|^\[data-|^html\[data-palette|^html:not\(\[data-palette\]\)|^:root$|^\.desk-dock__item\[(data-id|aria-label)=[^\]]+\] \.desk-dock__icon$/
+const NIGHT_ONLY = /html\.(has-night|is-night|is-turning|is-reading)|^\.(night|cut|act|lab|hello|keys|toy|sh|is-new|L--|pv|top|dk|dl|dir|cat|deckpop|pop|knob|ans|cmd|help|sheet|rad|thread|hub|ldock|reader|rd__|lbx|proof)|^\[data-|^html\[data-palette|^html:not\(\[data-palette\]\)|^:root$|^\.desk-dock__item\[(data-id|aria-label)=[^\]]+\] \.desk-dock__icon$/
 const rules = [...code(css).replace(/'[^'\n]*'/g, "''").replace(/@import[^;]+;/g, '').replace(/@media[^{]+\{/g, '').matchAll(/([^{}]+)\{([^{}]*)\}/g)].map((m) => [m[1].trim(), m[2]])
 const leaky = rules.filter(([sel, body]) => {
   const props = [...body.matchAll(/([\w-]+)\s*:/g)].map((m) => m[1])
@@ -219,12 +226,67 @@ ok(files.every((f) => !/backdrop-filter/i.test(code(text[f]))), 'no backdrop-fil
 ok(files.every((f) => !/lorem|ipsum/i.test(text[f])), 'no lorem ipsum')
 const scripts = [...text['index.html'].matchAll(/<script[^>]*src="([^"]+)"/g)].map((x) => x[1])
 ok(scripts.every((s) => !/^https?:|^\/\//.test(s)), `no script from a CDN (${scripts.length} local scripts)`)
-ok(['../shared/pieces.js', '../shared/desk.js', '../shared/sky.js', '../shared/body.js', 'copy.js', 'fx.js', 'model.js', 'toy.js', 'home.js', 'reader.js', 'night.js'].every((s) => scripts.includes(s)) && !scripts.some((s) => /shelves|windows|intro|menu/.test(s)), 'built on the shared kit plus this folder; no intro.js or menu.js left')
+ok(['../shared/pieces.js', '../shared/desk.js', '../shared/sky.js', '../shared/body.js', 'copy.js', 'fx.js', 'series.js', 'logic.js', 'model.js', 'sam.js', 'sound.js', 'voice.js', 'toy.js', 'radial.js', 'home.js', 'reader.js', 'deck.js', 'night.js'].every((s) => scripts.includes(s)) && !scripts.some((s) => /shelves|windows|intro|menu|sample-audio/.test(s)), "built on the shared kit plus this folder; the sample's audio is not a page script (it loads on the first press)")
 // every sentence the Lab shows is in copy.js: no quoted run of 4+ words in the UI scripts
 const sentence = /(['"`])(?:(?!\1)[^\n]){0,6}\b[a-z]+ [a-z]+ [a-z]+ [a-z]+\b(?:(?!\1)[^\n])*\1/i
 const strip = (s) => code(s).replace(/(['"`])(?:\\.|(?!\1)[^\\\n])*\1/g, (m) => (/[<>=(){}$]|\.\w+\(|^.(\w+-)+\w+.$/.test(m) ? "''" : m))
-const prose = ['night.js', 'home.js', 'toy.js', 'reader.js', 'model.js'].filter((f) => sentence.test(strip(text[f])))
+const prose = ['night.js', 'home.js', 'toy.js', 'reader.js', 'model.js', 'deck.js', 'voice.js', 'radial.js', 'sound.js', 'logic.js'].filter((f) => sentence.test(strip(text[f])))
 ok(!prose.length && C.welcome.length === 3 && /PROPOSAL FOR AAHIL/.test(text['copy.js']), `every UI word is in copy.js (the welcome is marked a proposal)${prose.length ? ' — prose in ' + prose.join(', ') : ''}`)
+
+console.log('9. the deck, the compass, the series, the voices, the sound')
+const G = NIGHT.logic, nightJs = code(text['night.js']), voiceJs = code(text['voice.js']), soundJs = code(text['sound.js']), readerJs = code(text['reader.js'])
+// the deck
+const cellsFn = (deckJs.match(/function cellsHtml\(\) \{[\s\S]*?\n  \}/) || [''])[0]
+ok(['dk-mode', 'dk-tr', 'dk-voice', 'dk-flags', 'dk-toy', 'dk-keys', 'dk-pplay', 'dk-more'].every((c) => cellsFn.includes(`'${c}`)) && ['back', 'play', 'fwd', 'rate', 'voice', 'knobs', 'snd', 'pal', 'radial', 'toy', 'ask', 'cmd', 'help', 'more'].every((d) => cellsFn.includes(`'${d}'`) || cellsFn.includes(`data-do="${d}"`)),
+  'the deck: mode · ◂◂ ▸ ▸▸ speed time ¶section waveform · voice · knobs · snd pal radial · toy:[n]ext · ?ask /cmd ?keys · ← canvas; narrow: mode ▸ ⋯ ←')
+ok(/chp: 9[\s\S]*chp: 3[\s\S]*chp: 3/.test(cellsFn) && (cellsFn.match(/chp: [1-9]/g) || []).length === 3 && /dataset\[nw \? 'chp' : 'ch'\]/.test(nightJs) && /innerWidth < 1180/.test(nightJs), 'on a phone (and under 1180 px) the deck collapses to mode, ▸ and ⋯ (plus the exit)')
+// the compass
+const wd = (deg, prev, r = 100) => G.wedge(Math.sin((deg * Math.PI) / 180) * r, -Math.cos((deg * Math.PI) / 180) * r, prev)
+ok(wd(0) === 0 && wd(90) === 1 && wd(180) === 2 && wd(270) === 3 && G.wedge(5, 5, 2) === 2 && G.wedge(0, -13.9, null) === null && G.wedge(0, -14.1, null) === 0,
+  'the compass: N E S W are wedges 0–3; inside the 14 px dead zone nothing changes')
+ok(wd(49, 0) === 0 && wd(51, 0) === 1 && wd(41, 1) === 1 && wd(39, 1) === 0 && G.wedge(0, 0, null, { dead: 12 }) === null, 'hysteresis: a lit wedge holds until the pointer is 5° past the boundary, from either side')
+ok(/q\.get\('home'\) === 'radial'/.test(nightJs) && !/home: 'radial'/.test(code(home).replace(/H\.mount = [\s\S]*?\n  \}/, '')) && /\(hover: none\)[\s\S]*\(pointer: coarse\)/.test(radJs) && /commitKey/.test(nightJs) && /radial\.touch/.test(home),
+  'the compass is the home only behind ?home=radial or radial:on; touch-only devices get the directory and a line saying why; keys 1–4 commit it')
+// the series
+const ser = NIGHT.series[0], hub = M.build(LAB.pieces).find((x) => x.id === 'research').entries[0]
+ok(ser.placeholder && ser.chapters.length === 3 && ser.planned === 6 && ser.next.length === 3 && hub.written === 3 && /3 of ~6 ▓▓▓░░░/.test(M.rowHtml(hub, 'research')),
+  `the reliability study: 3 written chapters and 3 planned slots, "3 of ~6 ▓▓▓░░░"; ~${hub.mins} min read, ${G.clock(hub.listen)} listen`)
+ok(/SAMPLE CONTENT: PLACEHOLDER/.test(text['series.js']) && /R\.hub = [\s\S]*?\$\{sample\(\)\}/.test(readerJs) && /\(ser \? sample\(\) \+ banner\(/.test(readerJs) && C.series.sample === 'sample content: placeholder',
+  'every page of the study carries the "sample content: placeholder" banner: the hub and each chapter')
+ok(/thread__prev/.test(readerJs) && /thread__up/.test(readerJs) && /thread__next/.test(readerJs) && /localStorage/.test(readerJs) && /try \{ localStorage\.setItem\(KEY/.test(readerJs), "each chapter has a thread banner (part n · ← · ↑ study · →); progress is this visitor's, in localStorage, in try/catch")
+// narration: the sample, its timings, its words
+const { sampleWords } = await import(join(here, 'render-sample.mjs'))
+const N = NIGHT.narration, sw = sampleWords()
+const mono = N.words.every((w, i) => w.s < w.e && (!i || w.s >= N.words[i - 1].e))
+ok(same(N.words.map((w) => w.w), sw.words) && N.slug === 'old-laptop-cloud' && mono && Math.abs(N.peaks.length - N.dur * N.perSec) <= N.perSec,
+  `the narrated section: "${N.title}", ${N.words.length} words, ${N.dur} s; the timings file's words are the essay's words, in order, each start < end, none overlapping`)
+const audio = readFileSync(join(here, 'narration/sample-audio.js'), 'utf8'), b64 = /narrationWav = '([^']+)'/.exec(audio)[1], wav = Buffer.from(b64, 'base64')
+ok(wav.toString('ascii', 0, 4) === 'RIFF' && wav.readUInt32LE(24) === N.sr && Math.abs((wav.length - 44) / N.sr - N.dur) < 0.01, `the sample WAV: ${N.sr} Hz, ${((wav.length - 44) / N.sr).toFixed(2)} s, matching the timings; rendered offline by SAM (render-sample.mjs)`)
+ok(same(G.align(['“Why', 'not?”', 'I'], ['“Why', 'not?”', 'I']), [0, 1, 2]) && same(G.align(['ago,', '“Why', 'not?', '”', 'I'], ['ago,', '“Why', 'not?”', 'I']), [0, 1, 2, 2, 3]) &&
+  same(G.align(['i5', '—', '8250U'], ['i5', '—', '8250U']), [0, 1, 2]) && same(G.align(['Lap', 'top', 'runs'], ['Laptop', 'runs']), [0, 0, 1]),
+  'the page\'s words line up with the spoken ones even where markup splits a word')
+ok(G.wordAt(N.words, 0) === -1 && G.wordAt(N.words, N.words[5].s + 0.01) === 5 && G.wordAt(N.words, N.dur) === N.words.length - 1, 'wordAt: nothing lit before the first word; the word whose start has passed is lit')
+// the voices
+const SamJs = (await import(join(here, 'sam.js'))).default
+const live = G.samWords(SamJs, ['hello', 'lab.'])
+ok(same(['ai', 'me', 'synth', 'sam'], (voiceJs.match(/const IDS = (\[[^\]]+\])/) || [])[1] && JSON.parse((voiceJs.match(/const IDS = (\[[^\]]+\])/))[1].replace(/'/g, '"'))) && /id === 'me' \? 'soon'/.test(voiceJs) && live.words.length === 2 && live.samples.length > live.sr * 0.3,
+  `voices ai · me · synth · sam; me is "soon"; SAM renders live (2 words, ${live.dur} s)`)
+ok(files.every((f) => !/api\.elevenlabs|xi-api-key|elevenlabs\.io/i.test(text[f])) && /speechSynthesis/.test(voiceJs) && /Chirp/.test(text['voice.js']), 'no ElevenLabs anywhere; ai is speechSynthesis for now, with the free-tier plan (Chirp) noted')
+ok(['tape', 'pitch', 'robot', 'mono', 'crush'].every((k) => new RegExp(`${k}:`).test(voiceJs)) && /createDelay[\s\S]*sawtooth/.test(voiceJs) && /rOsc\.connect\(ring\.gain\)/.test(voiceJs) && /for \(let k = 0; k < 12; k\+\+\)/.test(voiceJs) && /crush\.curve/.test(voiceJs),
+  'synth: Tier 1 on the pre-rendered file: tape, pitch (dual delay), robot (ring mod), monotone (12-band vocoder), crush (bits), all knobs')
+// nothing autoplays; one mute
+const plays = ['night.js', 'home.js', 'reader.js', 'radial.js', 'toy.js'].filter((f) => /voice\(\)\.play|voice\.play|V\(\)\.play\(|\.toggle\(\)/.test(code(text[f]).replace(/NIGHT\.toggle\(\)|sound\.toggle\(\)/g, '')))
+ok(!plays.length && /S\.muted = true|muted: true/.test(soundJs) && files.filter((f) => /\.muted\s*=[^=]/.test(code(text[f]))).join() === 'sound.js' && files.filter((f) => /sound\.(setMuted|toggle)\(/.test(code(text[f]))).join() === 'deck.js',
+  `nothing autoplays: no page script plays narration on its own${plays.length ? ' — ' + plays.join(', ') : ''}; sound is muted on arrival, and the mute has one owner (sound.js) and one switch (the deck)`)
+ok(/S\(\)\.duck\(true\)/.test(voiceJs) && /ducked\) return false/.test(soundJs) && same(['key', 'cursor', 'enter', 'chirp-open', 'chirp-close', 'select', 'boot'], Object.keys(eval('(' + (text['sound.js'].match(/const CUES = (\{[\s\S]*?\n  \})/) || [, '{}'])[1] + ')'))),
+  'the terminal cue patch: key, cursor, enter, chirp-open/close, select, boot; narration ducks them and silences key / cursor')
+// the ask prompts
+ok(C.ask.prompts.map((p) => p.q).join('|') === 'what am i working on?|tell me something interesting|tell me a joke' && /^sample/.test(C.ask.now.mark) && [C.ask.interesting, C.ask.joke].every((a) => a.length >= 2 && a.length <= 3) && C.ask.authored === 'Aahil writes these',
+  '?ask: three prompts; "working on" is a marked sample, the other two 2–3 answers each, marked "Aahil writes these"')
+const seen = []; let sq = []; for (let i = 0; i < 9; i++) { const r = G.pick([0, 1, 2], sq, () => (i * 0.37) % 1); seen.push(r.i); sq = r.seen }
+ok(new Set(seen.slice(0, 3)).size === 3 && new Set(seen.slice(3, 6)).size === 3, 'an answer never repeats until the pool is used up')
+ok(G.commands([{ cmd: 'open holt', label: 'Holt' }, { cmd: 'pal green', label: 'green' }, { cmd: 'voice synth', label: 'x' }], 'pa')[0].cmd === 'pal green' && G.commands([{ cmd: 'open holt', label: 'Holt' }], 'zz').length === 0 && G.wave([0, 0.5, 1], 20, 0, 5).length === 5 && G.wave(null, 20, 0, 12) === '▁'.repeat(12),
+  '/ commands match by prefix first; the waveform is always exactly its width')
 
 console.log(fails ? `\n${fails} check(s) failed` : '\nthe Lab: all checks pass')
 process.exit(fails ? 1 : 0)

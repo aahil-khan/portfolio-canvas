@@ -3,41 +3,39 @@
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
-<title>Lab: three layouts</title>
+<title>Lab: directory and deck</title>
 <!--
-  DESIGN GATE: prototype/lab/night-mode/index.html (Direction 2, "Night mode", fourth round: the
-  layout rethought). Supersedes #18.
+  DESIGN GATE: prototype/lab/night-mode/index.html (Direction 2, "Night mode", fifth round: the
+  directory home, the deck, series, voices). Supersedes #19, built on its `dock` layout.
 
-  The Lab tile turns the desk to night, now in 0.7 s, and the Lab is a fixed screen of its own,
-  with nothing to pan, zoom or drag. No status bar and no boxed panels: one small ← canvas (top
-  left), the welcome beside a small ASCII toy (top right: a random one each visit, [next] cycles,
-  drag or point at it), and the work, in one of three layouts to compare by eye:
-    index  a thin text index on the left, the highlighted entry read to its right (the default)
-    dock   the dock is the only navigation; one section as a full-width list, entries expand
-    page   one editorial page that scrolls, with a tiny sticky jump line
-  A post or a log opens in the reader, which grows out of the row (#17's motion, #18's page).
+  The Lab tile turns the desk to night in 0.7 s. The Lab is a fixed screen of its own, with
+  nothing to pan, zoom or drag: the welcome beside the ASCII toy, then THE DIRECTORY (an ls-style
+  listing of work/ experiments/ research/ writing/, each expanding in place), and THE DECK: the
+  desk's dock, morphed into one status line of controls. The deck is not navigation.
 
   What is being judged:
-    - the three layouts, side by side (the layout switch, bottom right, flips them live)
-    - the trip: about 0.7 s in, 0.6 s back, decode included
-    - the toy: donut, warp, life, nebula, moon; does it earn its corner?
-    - the reader, as in #18
-  Throwaway: the ✓ readout, the layout and palette switches, and the URL switches that make
-  screenshots repeatable:
+    - the directory home, and the four categories' one-line descriptions (copy.js: proposals)
+    - the deck: mode · transport · voice · flags · toy · ?ask /cmd ?keys · ← canvas
+    - the series: research/the reliability study (SAMPLE CONTENT: PLACEHOLDER), hub and chapters
+    - narration: one section of one essay, word by word, in ai / synth / sam (me — soon)
+    - ?ask, the / command line, the terminal cues (muted on arrival)
+    - the compass, EXPERIMENTAL: ?home=radial or radial:on in the deck
+  Throwaway: the ✓ readout and the URL switches that make screenshots repeatable:
     ?mode=night (or ?lab=1)   land in the Lab, as /lab would
-    &layout=index|dock|page   which layout                     &palette=green|amber
-    &fx=<id>                  donut | warp | life | nebula | moon (else a random one)
-    &sel=<section/slug>       highlight (index) or expand (dock) an entry, or scroll to it (page)
-    &view=detail              phone, index layout: that entry's detail
-    #/writing/<slug>, #/experiments/<slug>   a post or a log, deep-linked, open over the Lab
+    &palette=green|amber      &fx=<id>  donut | warp | life | nebula | moon
+    &home=radial              the compass       &voice=ai|synth|sam    the voice picked
+    &sel=<category/slug>      open a category (and expand an entry)
+    &pop=voice|knobs|ask|cmd|help|more   a popover open on arrival (never ▸: nothing autoplays)
+    #/writing/<slug>, #/experiments/<slug>, #/research/<slug>   a post, a log, a hub or a chapter
     &toc=<section>  scroll the post to a section    &fig=<n>  enlarge figure n
     &then=desk                land in the Lab, go back, measure every day card
     ?freeze=<0..1>            hold the transition there          ?enter=1  play it once on load
     ?roundtrip=1              drag a card, pan, Lab and back, measure every card and both trips
     &add=1                    the 20th-piece proof. By hand: LAB.pieces.push({...}); renderLab()
-  Content comes only from ../shared/pieces.js (filtered: no kit edit), work.js (projects.json,
-  transcribed and checked) and essay.js (the two Medium essays, imported); every UI word is in
-  copy.js. desk.js is the canvas engine, sky.js the reduced-motion owner.
+  Content: ../shared/pieces.js (filtered: no kit edit), work.js, essay.js (the two Medium essays)
+  and series.js (the placeholder study); every UI word is in copy.js. desk.js is the canvas
+  engine, sky.js the reduced-motion owner, sound.js the one mute, voice.js the one narrator.
+  sam.js is SAM (1982), vendored, no licence (see its header): https://github.com/discordier/sam
 -->
 <link rel="stylesheet" href="../shared/jet.css">
 <link rel="stylesheet" href="../shared/desk.css">
@@ -54,10 +52,18 @@
 <script src="decode.js"></script>
 <script src="fx.js"></script>
 <script src="essay.js"></script>
+<script src="series.js"></script>
+<script src="logic.js"></script>
 <script src="model.js"></script>
+<script src="sam.js"></script>
+<script src="narration/sample-timings.js"></script>
+<script src="sound.js"></script>
+<script src="voice.js"></script>
 <script src="toy.js"></script>
+<script src="radial.js"></script>
 <script src="home.js"></script>
 <script src="reader.js"></script>
+<script src="deck.js"></script>
 <script src="night.js"></script>
 <script>
   DESK.mount({ theme: 'cream', publicRoot: '../../../public', onLab: () => NIGHT.toggle() })

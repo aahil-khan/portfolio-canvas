@@ -6,23 +6,24 @@
  * (no kit edit). The Lab holds only the serious work; the fun stuff stays on the desk:
  *   work         kind `write-up`: the projects (tagline, stack, status, award, [read] [live] [repo])
  *   experiments  kind `experiment`: a lab log (exp-NN · month · topic, title, first line)
+ *   research     series.js: studies in chapters (a hub, numbered chapters, planned slots)
  *   writing      kind `write-up` with a body, and kind `essay`: posts (date, reading time)
  *   (nowhere)    `scrap`, `found`, `game`
  * A write-up is both a project and the post about it, so it is in work and in writing.
  *
- *   NIGHT.model.SECTIONS             the three sections, in order
- *   NIGHT.model.build(pieces)        [{ id, count, entries: [...] }]
- *   NIGHT.model.rowHtml(e, s, layout)  one entry's row in the index, dock or page layout (what the
- *                                    20th-piece proof compares, per layout)
- *   NIGHT.model.previewHtml(secs, row, { bare })  an entry's preview (index: the reading area;
- *                                    dock: expanded in place, bare)
+ *   NIGHT.model.SECTIONS             the four categories, in order (keys 1–4)
+ *   NIGHT.model.build(pieces)        [{ id, count, upd, entries: [...] }]
+ *   NIGHT.model.rowHtml(e, s)        one entry's row in the directory (what the 20th-piece proof
+ *                                    compares)
+ *   NIGHT.model.catHtml(meta)        a category's own row: key, name/, what's inside, count, month
+ *   NIGHT.model.previewHtml(secs, row, { bare })  an entry, expanded in place under its row
  *   NIGHT.model.readable(pieces)     what opens in the reader, per section, in menu order
  *   NIGHT.model.parts(body)          a write-up's body split into its sections (the reader's TOC)
  *   NIGHT.model.minutes(body), .when(piece)
  *
- * A NEW PIECE IS ONE NEW ROW, in every layout. Nothing here reads a position, a height or a count
- * of rows to place anything: the layouts are CSS grids and lists, so the row before a new one keeps
- * its markup byte for byte.
+ * A NEW PIECE IS ONE NEW ROW. Nothing here reads a position, a height or a count of rows to place
+ * anything: the directory is CSS grids and lists, so the row before a new one keeps its markup
+ * byte for byte.
  */
 ;(() => {
   const root_ = typeof window !== 'undefined' ? window : globalThis
@@ -31,8 +32,9 @@
   const C = () => NIGHT.copy
   const esc = (s) => String(s).replace(/[&<>"']/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' })[c])
 
-  const SECTIONS = [{ id: 'work', key: '1' }, { id: 'experiments', key: '2' }, { id: 'writing', key: '3' }]
-  const IN = { work: (p) => p.kind === 'write-up', experiments: (p) => p.kind === 'experiment', writing: (p) => (p.kind === 'write-up' && !!p.body) || p.kind === 'essay' }
+  const SECTIONS = [{ id: 'work', key: '1' }, { id: 'experiments', key: '2' }, { id: 'research', key: '3' }, { id: 'writing', key: '4' }]
+  // research is not in pieces.js: its series come from series.js
+  const IN = { work: (p) => p.kind === 'write-up', experiments: (p) => p.kind === 'experiment', research: () => false, writing: (p) => (p.kind === 'write-up' && !!p.body) || p.kind === 'essay' }
   const inLab = (p) => SECTIONS.some((s) => IN[s.id](p))
   const LINK = { Repo: 'repo', Github: 'repo', Site: 'live', Demo: 'live' }
   const MON = ['jan', 'feb', 'mar', 'apr', 'may', 'jun', 'jul', 'aug', 'sep', 'oct', 'nov', 'dec']
@@ -47,6 +49,8 @@
   const words = (md) => String(md || '').replace(/!\[[^\]]*\]\([^)]*\)/g, '').replace(/\[([^\]]+)\]\([^)]*\)/g, '$1')
     .replace(/\[\[([a-z0-9-]+)\]\]/g, '$1').replace(/[*#-]/g, ' ').split(/\s+/).filter(Boolean).length
   const minutes = (md) => Math.max(1, Math.round(words(md) / 220))
+  // listening time in seconds: narration runs at about 150 words a minute
+  const listen = (md) => Math.round((words(md) / 150) * 60)
   // a post imported from elsewhere (essay.js): its body and images live there, not in pieces.js
   const imp = (p) => (NIGHT.imports || {})[p.slug] || null
   const bodyOf = (p) => p.body || (imp(p) ? imp(p).body : '')
@@ -84,18 +88,39 @@
         images: p.images || [], read: !!p.body, href: p.href || '',
       }))
     },
+    // a series: its chapters (written) and its planned slots; read and listen time from the words
+    research: () => (NIGHT.series || []).map((x) => {
+      const chapters = x.chapters.map((c) => ({ n: c.n, slug: c.slug, title: c.title, date: c.date, status: c.status, mins: minutes(c.body), listen: listen(c.body) }))
+      return {
+        slug: x.slug, title: x.title, question: x.question, status: x.status, started: x.started, updated: x.updated, planned: x.planned, next: x.next || [],
+        chapters, written: chapters.length, mins: chapters.reduce((n, c) => n + c.mins, 0), listen: chapters.reduce((n, c) => n + c.listen, 0), read: true, placeholder: !!x.placeholder,
+      }
+    }),
     writing: (own) => own.sort(newest).map((p) => ({
       slug: p.slug, when: when(p), title: p.title, sub: p.blurb || '', lines: firstLines(bodyOf(p), 300),
       mins: imp(p) && imp(p).mins ? imp(p).mins : bodyOf(p) ? minutes(bodyOf(p)) : 0, href: bodyOf(p) ? '' : p.href || '', read: !!bodyOf(p),
       images: imagesOf(p).slice(0, 1),
     })),
   }
+  // the month a category last changed: its newest entry's display date
+  const monthOf = (d) => { const [y, m] = String(d || '').split('-'); return m ? `${MON[+m - 1]} ${y}` : y || '' }
   const build = (pieces) => SECTIONS.map((s) => {
-    const own = pieces.filter(IN[s.id])
-    return { id: s.id, key: s.key, count: own.length, entries: ENTRIES[s.id](own.slice()) }
+    const own = pieces.filter(IN[s.id]), entries = ENTRIES[s.id](own.slice())
+    const upd = s.id === 'research' ? monthOf(entries.map((e) => e.updated).sort().pop()) : own.length ? when(own.slice().sort(newest).filter((p) => !p.pinned)[0] || own[0]) : ''
+    const chapters = s.id === 'research' ? entries.reduce((n, e) => n + e.written, 0) : 0
+    return { id: s.id, key: s.key, count: entries.length, chapters, upd, entries }
   })
-  // what opens in the reader: per section, in the menu's order (prev / next follow it)
-  const readable = (pieces) => Object.fromEntries(build(pieces).filter((s) => s.id !== 'work').map((s) => [s.id, s.entries.filter((e) => e.read)]))
+  // what opens in the reader: per section, in the menu's order (prev / next follow it). Research
+  // opens its hubs and its chapters; a chapter's prev / next is its thread banner instead.
+  const readable = (pieces) => Object.fromEntries(build(pieces).filter((s) => s.id !== 'work').map((s) => [s.id,
+    s.id === 'research' ? s.entries.flatMap((e) => [{ slug: e.slug, title: e.title, hub: true }, ...e.chapters.map((c) => ({ ...c, series: e.slug }))]) : s.entries.filter((e) => e.read)]))
+  // a series and chapter, by slug (the reader's hub and banner)
+  const seriesOf = (slug) => {
+    const all = ENTRIES.research()
+    for (const x of all) { if (x.slug === slug) return { series: x, chapter: null }; const c = x.chapters.find((k) => k.slug === slug); if (c) return { series: x, chapter: c } }
+    return null
+  }
+  const chapterBody = (slug) => { for (const x of NIGHT.series || []) { const c = x.chapters.find((k) => k.slug === slug); if (c) return c.body } return '' }
 
   // a write-up's body is its story, then its lede, then its highlights (pieces.js, "Projects:
   // lede, then highlights as a `- ` list"). The reader gives each part a heading, so a long one
@@ -121,7 +146,7 @@
     return out
   }
 
-  // ── markup: rows, one pure function per layout ───────────────────────────────────────────
+  // ── markup: rows ───────────────────────────────────────────────────────────────────
   // Row ids are section/slug: a write-up is a row in work and another in writing. A row's markup
   // depends on its own entry only, never on its neighbours or on a count, so a new piece is one new
   // row and every other row keeps its markup byte for byte (the 20th-piece proof).
@@ -130,24 +155,33 @@
     // the date, not exp-NN: a back-dated experiment renumbers the later ones, and its row must be
     // the only one that changes (the number is in the preview and the reader)
     experiments: (e) => e.when,
+    research: (e) => `${e.status} · ${C().series.of(e.written, e.planned)} ${bar(e.written, e.planned)}`,
     // an imported essay has a body, so it reads in the Lab and shows its time like any post
     writing: (e) => (e.href ? C().out(host(e.href)) : C().mins(e.mins)),
   }
+  const bar = (n, of) => (NIGHT.logic ? NIGHT.logic.bar(n, of) : '')
+  const clock = (s) => (NIGHT.logic ? NIGHT.logic.clock(s) : String(s))
   const id = (s, e) => `${s}-${esc(e.slug)}`
-  const ROW = {
-    // index: a thin text column; one option per entry (a listbox with a roving tabindex)
-    index: (e, s) => `<li class="ix" role="option" id="ix-${id(s, e)}" data-row="${s}/${esc(e.slug)}" data-sec="${s}" tabindex="-1" aria-selected="false">` +
-      `<span class="ix__t">${esc(e.title)}</span><span class="ix__m">${esc(META[s](e))}</span></li>`,
-    // dock: a full-width list; the row is a button that expands its preview in place
-    dock: (e, s) => `<li class="dl" data-row="${s}/${esc(e.slug)}" data-sec="${s}">` +
-      `<button type="button" class="dl__row" id="dl-${id(s, e)}" aria-expanded="false" aria-controls="dlx-${id(s, e)}">` +
-      `<span class="dl__t">${esc(e.title)}</span><span class="dl__s">${esc(e.tagline || e.sub || e.result || e.topic || '')}</span><span class="dl__m">${esc(META[s](e))}</span></button>` +
-      `<div class="dl__x" id="dlx-${id(s, e)}" role="region" aria-labelledby="dl-${id(s, e)}" hidden></div></li>`,
-    // page: an editorial entry, everything visible
-    page: (e, s) => `<li class="pg" data-row="${s}/${esc(e.slug)}" data-sec="${s}">${PAGE[s](e)}</li>`,
-  }
-  const rowHtml = (e, s, layout = 'index') => ROW[layout](e, s)
-  const sectionsOf = (secs) => secs.map((s) => ({ id: s.id, key: s.key, count: s.count, unit: C().sections[s.id].unit(s.count), blurb: C().sections[s.id].blurb }))
+  // a series' row: the series opens its hub; its chapters sit indented under it, then the empty
+  // slots still to come. Nothing here reads a visitor's progress (that is the hub's, at runtime).
+  const seriesRow = (e) => `<li class="dl dl--series" data-row="research/${esc(e.slug)}" data-sec="research">` +
+    `<button type="button" class="dl__row" id="dl-research-${esc(e.slug)}" data-read="${esc(e.slug)}" data-in="research">` +
+    `<span class="dl__t">${esc(e.title)}</span><span class="dl__s">${esc(e.question)}</span><span class="dl__m">${esc(META.research(e))}</span></button>` +
+    `<ol class="dl__ch" aria-label="${esc(C().series.chapters)}">` +
+    e.chapters.map((c) => `<li><button type="button" class="dl__c" data-read="${esc(c.slug)}" data-in="research" data-ch="${esc(c.slug)}">` +
+      `<span class="dl__cn">${String(c.n).padStart(2, '0')}</span><span class="dl__ct">${esc(c.title)}</span><span class="dl__cm">${esc(C().mins(c.mins))} · ${esc(clock(c.listen))} ▸</span></button></li>`).join('') +
+    e.next.map((t, i) => `<li class="dl__plan"><span class="dl__cn">${String(e.written + i + 1).padStart(2, '0')}</span><span class="dl__ct">${esc(C().series.planned(t))}</span></li>`).join('') +
+    `</ol></li>`
+  // A row is a button that expands its entry in place (#19's dock layout, kept).
+  const rowHtml = (e, s) => s === 'research' ? seriesRow(e) : `<li class="dl" data-row="${s}/${esc(e.slug)}" data-sec="${s}">` +
+    `<button type="button" class="dl__row" id="dl-${id(s, e)}" aria-expanded="false" aria-controls="dlx-${id(s, e)}">` +
+    `<span class="dl__t">${esc(e.title)}</span><span class="dl__s">${esc(e.tagline || e.sub || e.result || e.topic || '')}</span><span class="dl__m">${esc(META[s](e))}</span></button>` +
+    `<div class="dl__x" id="dlx-${id(s, e)}" role="region" aria-labelledby="dl-${id(s, e)}" hidden></div></li>`
+  const sectionsOf = (secs) => secs.map((s) => ({ id: s.id, key: s.key, count: s.count, upd: s.upd, chapters: s.chapters, unit: C().sections[s.id].unit(s.count, s.chapters), blurb: C().sections[s.id].blurb }))
+  // a category's own row, `ls`-style: key, name/, what's inside, count, last updated
+  const catHtml = (m) => `<button type="button" class="cat__row" id="cat-${m.id}" data-cat="${m.id}" data-sec="${m.id}" aria-expanded="false" aria-controls="catx-${m.id}">` +
+    `<span class="cat__k" aria-hidden="true">${esc(m.key)}</span><span class="cat__t">${esc(m.id)}/</span><span class="cat__d">${esc(m.blurb)}</span>` +
+    `<span class="cat__n" aria-label="${esc(m.unit)}">${esc(m.id === 'research' ? C().sections.research.short(m.count, m.chapters) : String(m.count))}</span><span class="cat__u">${esc(m.upd)}</span></button>`
 
   // ── markup: the preview ──────────────────────────────────────────────────────────────────
   const asset = (src) => (L().asset ? L().asset(src) : src)
@@ -160,12 +194,6 @@
   const thumbs = (imgs, max) => imgs.length ? `<div class="pv__figs" data-n="${Math.min(max, imgs.length)}">` +
     imgs.slice(0, max).map((im, i) => `<figure class="pv__fig"><img src="${esc(asset(im.src))}" alt="${esc(im.caption || '')}" loading="lazy"><figcaption>${esc(C().fig(i + 1))}${im.caption ? ' · ' + esc(im.caption) : ''}</figcaption></figure>`).join('') + `</div>` : ''
   const PREVIEW = {
-    section: (s) => `<p class="pv__path">${esc(C().root)}/${esc(s.id)}</p>` +
-      `<h3 class="pv__title" data-pv-title>${esc(s.id)}/</h3>` +
-      `<p class="pv__sub">${esc(C().sections[s.id].unit(s.count))}</p>` +
-      `<p class="pv__lede">${esc(C().sections[s.id].blurb)}</p>` +
-      `<ol class="pv__ls">${s.entries.map((e) => `<li><button type="button" class="pv__li" data-sel="${s.id}/${esc(e.slug)}"><span class="pv__lst">${esc(e.title)}</span><span class="pv__lsm">${esc(META[s.id](e))}</span></button></li>`).join('')}</ol>` +
-      `<p class="pv__act">${act(C().enter, `data-go="${s.id}"`, true)}</p>`,
     work: (e) => `<p class="pv__path">${esc(C().root)}/work/${esc(e.slug)}</p>` +
       `<h3 class="pv__title" data-pv-title>${esc(e.title)}</h3>` +
       `<p class="pv__sub">${esc([e.kind, e.year].filter(Boolean).join(' · '))}</p>` +
@@ -193,31 +221,14 @@
     const [sid, slug] = String(rowId).split('/')
     const s = secs.find((x) => x.id === sid)
     if (!s) return ''
-    if (!slug) return PREVIEW.section(s)
+    if (!slug || sid === 'research') return ''
     const e = s.entries.find((x) => x.slug === slug)
     if (!e) return ''
     const html = PREVIEW[sid](e)
     return bare ? html.replace(/<p class="pv__path">[\s\S]*?<\/p>/, '').replace(/<h3 class="pv__title"[\s\S]*?<\/h3>/, '').replace(/<p class="pv__sub">[\s\S]*?<\/p>/, '').replace(/<p class="pv__lede">[\s\S]*?<\/p>/, '') : html
   }
-  // the page layout's entries: the preview's facts, laid out to be read down a page
-  const PAGE = {
-    work: (e) => `<div class="pg__txt"><h3 class="pg__t"><span class="pg__tt" data-pv-title>${esc(e.title)}</span> <span class="pg__m">${esc(META.work(e))}</span></h3>` +
-      (e.tagline ? `<p class="pg__lede">${esc(e.tagline)}</p>` : '') +
-      kv([[C().kv.stack, e.stack.join(' · ')], [C().kv.status, e.status], [C().kv.award, e.award]]) +
-      ((e.read || e.links.length) ? `<p class="pv__act">${e.read ? act(C().read, `data-read="${esc(e.slug)}" data-in="writing"`, true) : ''}${e.links.map(link).join('')}</p>` : '') + `</div>` +
-      (e.images.length ? `<figure class="pg__fig"><img src="${esc(asset(e.images[0].src))}" alt="${esc(e.images[0].caption || e.title)}" loading="lazy"></figure>` : ''),
-    // the month, not exp-NN, as in the index: a back-dated experiment must not change other rows
-    experiments: (e) => `<div class="pg__txt"><p class="pg__log">${esc([e.when, e.topic].filter(Boolean).join(' · '))}${e.status ? ` <span class="pv__st">${esc(e.status)}</span>` : ''}</p>` +
-      `<h3 class="pg__t"><span class="pg__tt" data-pv-title>${esc(e.title)}</span></h3>` +
-      (e.lines ? `<p class="pg__lede pg__lede--dim">${esc(e.lines)}</p>` : '') +
-      `<p class="pv__act">${e.read ? act(C().open, `data-read="${esc(e.slug)}" data-in="experiments"`, true) : ''}${e.href ? link({ label: C().out(host(e.href)), href: e.href }) : ''}</p></div>`,
-    writing: (e) => `<div class="pg__txt"><p class="pg__log">${esc([e.when, e.href ? C().out(host(e.href)) : C().minsRead(e.mins)].filter(Boolean).join(' · '))}</p>` +
-      `<h3 class="pg__t"><span class="pg__tt" data-pv-title>${esc(e.title)}</span></h3>` +
-      (e.sub ? `<p class="pg__lede pg__lede--dim">${esc(e.sub)}</p>` : '') +
-      `<p class="pv__act">${e.read ? act(C().read, `data-read="${esc(e.slug)}" data-in="writing"`, true) : `<a class="act act--go" href="${esc(e.href)}" rel="noopener">${esc(C().readOn(host(e.href)))}</a>`}</p></div>`,
-  }
   // the order ↑↓ walks: every entry, section by section
   const order = (secs) => secs.flatMap((s) => s.entries.map((e) => s.id + '/' + e.slug))
 
-  NIGHT.model = { imp, bodyOf, imagesOf, SECTIONS, inLab, build, readable, parts, rowHtml, sectionsOf, previewHtml, order, minutes, when, host, firstLines, META }
+  NIGHT.model = { imp, bodyOf, imagesOf, SECTIONS, inLab, build, readable, seriesOf, chapterBody, parts, rowHtml, catHtml, sectionsOf, previewHtml, order, minutes, listen, words, when, host, firstLines, META }
 })()

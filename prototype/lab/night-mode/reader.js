@@ -21,6 +21,17 @@
  * screen when the post has sections; figures as framed thumbnails with captions that enlarge in
  * place (a lightbox, Esc or ← → inside it), never full-bleed slabs; prev / next at the end.
  * The body is Space Grotesk at a 64ch measure.
+ *
+ * RESEARCH (series.js): #/research/<series> is the series' HUB (framing question, a status line,
+ * `3 of ~6 ▓▓▓░░░`, read and listen totals, this visitor's progress, the chapters and the planned
+ * slots); #/research/<chapter> is a chapter, with a THREAD BANNER (part n of the study · ← prev ·
+ * ↑ study · next →) and a Gwern-style key: value line. Every one carries the "sample content:
+ * placeholder" banner. Progress is a convenience in localStorage (try/catch): a chapter opened is
+ * started, a chapter read to its end is read.
+ *
+ * NARRATION: the one narrated section (narration/sample-timings.js) gets a [▸ listen] and the
+ * deck loads it when the post opens. Its words are wrapped in spans once, and the one voice owner
+ * (voice.js) lights them as it speaks. Nothing plays until ▸ is pressed.
  */
 ;(() => {
   const NIGHT = (window.NIGHT = window.NIGHT || {})
@@ -31,7 +42,7 @@
   const reduced = () => LAB.sky.reduced
   const C = () => NIGHT.copy
   const M = () => NIGHT.model
-  const ROUTE = /^#\/(writing|experiments)\/([a-z0-9-]+)$/
+  const ROUTE = /^#\/(writing|experiments|research)\/([a-z0-9-]+)$/
 
   const R = (NIGHT.reader = {})
   const st = { slug: null, section: null, from: null, pushed: false, pending: null, inert: [], fig: null }
@@ -57,7 +68,8 @@
     return `<div class="rd__figs" data-n="${imgs.length}" aria-label="${esc(C().figs)}" role="group">${imgs.map(one).join('')}</div>`
   }
   R.body = (p, section) => {
-    const list = lists()[section] || [], i = list.findIndex((x) => x.slug === p.slug), e = list[i] || {}
+    const ser = section === 'research' ? M().seriesOf(p.slug) : null
+    const list = ser ? ser.series.chapters : lists()[section] || [], i = list.findIndex((x) => x.slug === p.slug), e = list[i] || {}
     const href = (slug) => { const sec = Object.keys(lists()).find((k) => lists()[k].some((x) => x.slug === slug)); return sec ? `#/${sec}/${slug}` : '#' }
     const parts = M().parts(M().bodyOf(p)), sections = parts.filter((s) => s.title)
     const imgs = M().imagesOf(p), imported = M().imp(p)
@@ -100,17 +112,22 @@
       p.status ? [K.status, `<span class="rd__st">${esc(p.status)}</span>`] : null,
       (f.stack || []).length || (exp && exp.topic) ? [K.tags, esc((f.stack || []).length ? f.stack.map((x) => x.toLowerCase()).join(' · ') : exp.topic)] : null,
     ].filter(Boolean)
+    // a chapter: its own file-style lines, and a Gwern-style key: value line under them
+    if (ser) meta.splice(0, meta.length, [K.file, `<span class="rd__mono">${esc(C().file(section, p.slug))}</span>`])
+    const gwern = ser ? `<p class="rd__kv">${esc(C().series.chMeta(p.status, p.date, e.mins, G().clock(e.listen)))}</p>` : ''
     const nav = (x, dir) => x ? `<a class="rd__step rd__step--${dir}" href="#/${section}/${esc(x.slug)}">` +
       `<span class="rd__stepk">${dir === 'prev' ? '← ' + esc(C().prev) : esc(C().next) + ' →'}</span><span class="rd__stept">${esc(x.title)}</span>` +
       `<span class="rd__stepf">${esc(x.slug)}.md</span></a>` : '<span class="rd__step rd__step--none" aria-hidden="true"></span>'
-    return `<div class="rd__grid${toc ? ' has-toc' : ''}">${toc}<article class="rd__post">` +
+    // a chapter's prev on chapter 1 is its study (Distill's threads do this)
+    const hubStep = ser && i === 0 ? `<a class="rd__step rd__step--prev" href="#/research/${esc(ser.series.slug)}"><span class="rd__stepk">↑ ${esc(C().series.up)}</span><span class="rd__stept">${esc(ser.series.title)}</span><span class="rd__stepf">${esc(ser.series.slug)}/</span></a>` : ''
+    return `<div class="rd__grid${toc ? ' has-toc' : ''}">${toc}<article class="rd__post">` + (ser ? sample() + banner(ser.series, ser.chapter) : '') +
       `<header class="rd__head"><span class="rd__frame" aria-hidden="true"></span><span class="cut rd__fname" aria-hidden="true">${esc(p.slug)}.md</span>` +
       `<h1 class="rd__title" tabindex="-1">${esc(p.title)}</h1>` +
       (p.blurb ? `<p class="rd__lede">${esc(p.blurb)}</p>` : '') +
-      `<dl class="rd__meta">${meta.map(([k, v]) => `<dt>${esc(k)}</dt><dd>${v}</dd>`).join('')}</dl></header>` +
+      `<dl class="rd__meta">${meta.map(([k, v]) => `<dt>${esc(k)}</dt><dd>${v}</dd>`).join('')}</dl>${gwern}</header>` +
       `<div class="rd__body">${body}</div>` +
       `<p class="rd__eof" aria-hidden="true">${esc(C().eof)}</p>` +
-      `<nav class="rd__nav">${nav(list[i - 1], 'prev')}${nav(list[i + 1], 'next')}</nav></article></div>`
+      `<nav class="rd__nav">${hubStep || nav(list[i - 1], 'prev')}${nav(list[i + 1], 'next')}</nav></article></div>`
   }
 
   // ── chrome ───────────────────────────────────────────────────────────────────────────────
@@ -150,7 +167,9 @@
       }
       if (e.key === 'Escape') { e.preventDefault(); e.stopPropagation(); R.dismiss(); return }
       if (e.key === 'Tab') trap(e, el)
-      e.stopPropagation() // the Lab's keys (1 2 3 ~) are not for a page of text
+      // the deck's transport keys work over a post (space, , . [ ] v); the Lab's 1–4 and ~ do not
+      if (NIGHT.deck && NIGHT.deck.key(e)) { e.stopPropagation(); return }
+      e.stopPropagation()
     })
     el.addEventListener('click', (e) => {
       const z = e.target.closest('[data-fig]')
@@ -160,7 +179,9 @@
       if (e.target.closest('.lbx__x') || e.target === lbx) return figClose()
       const s = e.target.closest('.lbx__p')
       if (s) return figStep(+s.dataset.step)
-      const a = e.target.closest('a[href^="#/writing/"], a[href^="#/experiments/"]')
+      const listen = e.target.closest('[data-listen]')
+      if (listen) { if (NIGHT.deck) NIGHT.deck.listen(); return }
+      const a = e.target.closest('a[href^="#/writing/"], a[href^="#/experiments/"], a[href^="#/research/"]')
       if (!a) return
       e.preventDefault()
       // prev, next and links between posts swap in place: one history entry, so Back still closes
@@ -181,6 +202,7 @@
     line.setAttribute('aria-valuenow', Math.round(f * 100))
     const n = Math.round(f * 10)
     pct.textContent = `[${'#'.repeat(n)}${'·'.repeat(10 - n)}] ${String(Math.round(f * 100)).padStart(3, ' ')}%`
+    if (f >= 0.97 && st.slug && st.section === 'research' && M().seriesOf(st.slug) && M().seriesOf(st.slug).chapter) mark(st.slug, 'read')
     // the contents follow the reading: the last section whose heading has passed a third of the way down
     const toc = page.querySelectorAll('[data-toc]')
     if (toc.length) {
@@ -203,19 +225,99 @@
   // everything but the reader goes inert while it is open, so Tab and clicks stay on the page
   const setInert = (on) => {
     if (on) {
-      st.inert = [...document.body.children].filter((n) => n !== el && !n.inert)
+      // the deck and its popovers stay usable over a post: they are where narration is played
+      st.inert = [...document.body.children].filter((n) => n !== el && !n.inert && n !== DESK.dock && !n.classList.contains('deckpop'))
       st.inert.forEach((n) => { n.inert = true })
     } else { st.inert.forEach((n) => { n.inert = false }); st.inert = [] }
   }
 
   function fill(slug, section) {
-    const p = LAB.pieces.find((x) => x.slug === slug)
-    el.setAttribute('aria-label', p.title)
+    const ser = section === 'research' ? M().seriesOf(slug) : null
+    const p = ser ? (ser.chapter ? { slug, title: ser.chapter.title, body: M().chapterBody(slug), status: ser.chapter.status, date: ser.chapter.date } : null) : LAB.pieces.find((x) => x.slug === slug)
+    el.setAttribute('aria-label', ser ? (ser.chapter ? ser.chapter.title : ser.series.title) : p.title)
     el.dataset.section = section
     path.textContent = C().file(section, slug)
-    page.innerHTML = R.body(p, section)
+    page.innerHTML = ser && !ser.chapter ? R.hub(ser.series) : R.body(p, section)
+    if (ser) mark(slug, ser.chapter ? 'started' : null)
     scroller.scrollTop = 0
     if (!el.hidden) progress()
+    narrate(slug)
+  }
+
+  // ── research: the hub, the banner, this visitor's progress ──────────────────────────────
+  const KEY = 'lab.progress'
+  const marks = () => { try { return JSON.parse(localStorage.getItem(KEY) || '{}') } catch { return {} } }
+  function mark(slug, how) {
+    if (!how) return
+    const m = marks()
+    if (m[slug] === 'read' || m[slug] === how) return
+    m[slug] = how
+    try { localStorage.setItem(KEY, JSON.stringify(m)) } catch { /* private window: progress is a convenience */ }
+  }
+  R.marks = marks
+  const sample = () => `<p class="rd__sample" role="note"><span class="rd__samplek">${esc(C().series.sample)}</span> ${esc(C().series.sampleLong.replace(C().series.sample + '. ', ''))}</p>`
+  const G = () => NIGHT.logic
+  R.hub = (x) => {
+    const m = marks(), K = C().series, done = x.chapters.filter((c) => m[c.slug] === 'read').length
+    const ch = x.chapters.map((c) => `<li class="hub__ch${m[c.slug] ? ' is-' + m[c.slug] : ''}"><a class="hub__a" href="#/research/${esc(c.slug)}">` +
+      `<span class="hub__n">${String(c.n).padStart(2, '0')}</span><span class="hub__t">${esc(c.title)}</span>` +
+      `<span class="hub__m">${esc(C().mins(c.mins))} · ${esc(G().clock(c.listen))} ▸</span><span class="hub__me">${m[c.slug] === 'read' ? esc(K.read) : m[c.slug] === 'started' ? esc(K.started_) : ''}</span></a></li>`).join('') +
+      x.next.map((t, i) => `<li class="hub__ch hub__ch--plan"><span class="hub__n">${String(x.written + i + 1).padStart(2, '0')}</span><span class="hub__t">${'░'.repeat(10)}  ${esc(K.planned(t))}</span></li>`).join('')
+    return `<div class="rd__grid"><article class="rd__post rd__post--hub">${sample()}` +
+      `<header class="rd__head"><span class="rd__frame" aria-hidden="true"></span><span class="cut rd__fname" aria-hidden="true">${esc(x.slug)}/</span>` +
+      `<p class="hub__k">${esc(C().root)}/research/${esc(x.slug)}</p>` +
+      `<h1 class="rd__title" tabindex="-1">${esc(x.title)}</h1><p class="rd__lede hub__q">${esc(x.question)}</p>` +
+      `<dl class="rd__meta"><dt>${esc(K.status)}</dt><dd><span class="rd__st">${esc(x.status)}</span> · ${esc(K.started)} ${esc(x.started)} · ${esc(K.updatedK)} ${esc(x.updated)} · ${esc(K.of(x.written, x.planned))} <span class="hub__bar">${G().bar(x.written, x.planned)}</span></dd>` +
+      `<dt>${esc(K.total)}</dt><dd>${esc(K.totals(x.mins, G().clock(x.listen)))}</dd>` +
+      `<dt>${esc(K.progress)}</dt><dd><span class="hub__bar">${G().bar(done * 2, x.written * 2)}</span> ${esc(K.yours(done, x.written))} <span class="hub__mine">(${esc(K.mine)})</span></dd></dl></header>` +
+      `<ol class="hub__list" aria-label="${esc(K.chapters)}">${ch}</ol><p class="rd__eof" aria-hidden="true">${esc(C().eof)}</p></article></div>`
+  }
+  const banner = (x, c) => {
+    const K = C().series, i = x.chapters.findIndex((k) => k.slug === c.slug), prev = x.chapters[i - 1], next = x.chapters[i + 1]
+    const a = (href, label, cls) => `<a class="act ${cls}" href="${href}">${label}</a>`
+    return `<nav class="thread" aria-label="${esc(K.partOf(c.n, x.title))}"><span class="thread__p">${esc(K.partOf(c.n, x.title))}</span> · ` +
+      (prev ? a(`#/research/${esc(prev.slug)}`, `← ${String(prev.n).padStart(2, '0')}`, 'thread__prev') : '<span class="thread__none" aria-hidden="true">← ··</span>') + ' · ' +
+      a(`#/research/${esc(x.slug)}`, `↑ ${esc(K.up)}`, 'thread__up') + ' · ' +
+      (next ? a(`#/research/${esc(next.slug)}`, `${String(next.n).padStart(2, '0')} →`, 'thread__next') : `<span class="thread__none">${esc(K.planned(x.next[0] || ''))}</span>`) + `</nav>`
+  }
+
+  // ── narration: the one narrated section, wrapped word by word ───────────────────────────
+  const N = () => NIGHT.narration
+  function narrate(slug) {
+    const n = N()
+    const sec = n && slug === n.slug && el.dataset.section === 'writing' && page.querySelector(`.rd__sec[data-sec="${CSS.escape(n.section)}"]`)
+    if (!sec || !NIGHT.voice) { if (NIGHT.deck) NIGHT.deck.unloadPost(); return }
+    const spans = []
+    for (const blk of sec.querySelectorAll(':scope > p, :scope > ul li, :scope > ol li')) {
+      const w = document.createTreeWalker(blk, NodeFilter.SHOW_TEXT), nodes = []
+      while (w.nextNode()) nodes.push(w.currentNode)
+      for (const t of nodes) {
+        const frag = document.createDocumentFragment()
+        for (const part of t.nodeValue.split(/(\s+)/)) {
+          if (!part) continue
+          if (/^\s+$/.test(part)) { frag.appendChild(document.createTextNode(part)); continue }
+          const sp = document.createElement('span'); sp.className = 'w'; sp.textContent = part; frag.appendChild(sp); spans.push(sp)
+        }
+        t.replaceWith(frag)
+      }
+    }
+    const map = G().align(spans.map((x) => x.textContent), n.words.map((x) => x.w))
+    spans.forEach((sp, i) => { sp.dataset.w = map[i] })
+    const h2 = sec.querySelector('h2')
+    h2.insertAdjacentHTML('beforeend', ` <span class="rd__narr"><button type="button" class="act act--go" data-listen aria-label="${esc(C().listenLabel)}">▸ ${esc(C().listen)}</button> <span class="rd__narrk">${esc(C().narrated)}</span></span>`)
+    const secs = [...page.querySelectorAll('.rd__sec')]
+    if (NIGHT.deck) NIGHT.deck.loadPost({ id: `${slug}#${n.section}`, title: n.title, words: n.words.map((x) => x.w), index: secs.indexOf(sec) + 1, of: secs.length, sample: true })
+  }
+  // the voice owner says which word: light it (and keep it in sight, gently)
+  let lit = []
+  R.light = (k) => {
+    for (const x of lit) x.classList.remove('is-w')
+    lit = k >= 0 ? [...page.querySelectorAll(`.w[data-w="${k}"]`)] : []
+    for (const x of lit) x.classList.add('is-w')
+    const a = lit[0]
+    if (!a || el.hidden) return
+    const r = a.getBoundingClientRect(), b = scroller.getBoundingClientRect()
+    if (r.top < b.top + 60 || r.bottom > b.bottom - 140) scroller.scrollTo({ top: scroller.scrollTop + r.top - b.top - b.height * 0.35, behavior: reduced() ? 'auto' : 'smooth' })
   }
 
   // ── figures, enlarged in place ──────────────────────────────────────────────────────────
@@ -329,6 +431,7 @@
       stop()
       el.hidden = true
       document.documentElement.classList.remove('is-reading'); if (R.onchange) R.onchange()
+      if (NIGHT.deck) NIGHT.deck.unloadPost()
       if (to && to.isConnected) to.focus({ preventScroll: true })
     }
     return morph(to, false).then(done, done)
@@ -371,6 +474,7 @@
     setInert(false)
     el.hidden = true
     document.documentElement.classList.remove('is-reading'); if (R.onchange) R.onchange()
+    if (NIGHT.deck) NIGHT.deck.unloadPost()
     try { history.replaceState(null, '', location.pathname + location.search) } catch { /* file:// */ }
   }
 })()
