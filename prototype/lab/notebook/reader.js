@@ -2,8 +2,8 @@
  * prototype/lab/notebook/reader.js: one note in the reading column, and the narrator that reads it.
  *
  *   NB.reader.render(note, q)   the kicker (one line), the title, the TL;DR lede, the tour banner,
- *                               the body (md.js), the stub slots, prev / next, and the note's end
- *                               (links out, backlinks, the local graph, tags) on every width
+ *                               the body (md.js), the stub slots (author view), prev / next, and
+ *                               "where this fits" at the note's end on every width
  *   NB.reader.toAnchor(id)      scroll to a heading or a table row (?a=p2) and mark it
  *   NB.reader.headings          the note's headings; .outline() the margin's (h2/h3, ≥ 3 or none)
  *   NB.reader.tables()          table furniture: edge fades, the scroll cue, the sticky ID column,
@@ -61,7 +61,8 @@
     const ctx = {
       resolve: (t) => { const n = v.resolve(t); return n && { href: v.href(n), id: n.id, title: v.label(n), label: n.title } },
       rowIds: v.rowIdsOf(note), row: (id) => v.rowHref(note, id), autolink: new URLSearchParams(location.search).get('autolink') !== '0',
-      block: (id) => MD.render(MD.parse(v.blockMd(note, id)), { resolve: (t) => { const n = v.resolve(t); return n && { href: v.href(n), id: n.id, title: v.label(n), label: n.title } }, asset }).html,
+      // start-here's way in and map, and the study hub's progress lists, are drawn by map.js
+      block: (id) => (NB.map.has(id) ? NB.map.html(id, v, note) : MD.render(MD.parse(v.blockMd(note, id)), { resolve: (t) => { const n = v.resolve(t); return n && { href: v.href(n), id: n.id, title: v.label(n), label: n.title } }, asset }).html),
       embed: (b, n) => NB.embeds.html(b, n, note), asset,
     }
     const out = MD.render(v.readBlocks(note), ctx)
@@ -70,11 +71,11 @@
     const stepText = (n) => n.id || (n.isHub ? S().cap(n.title) : `${n.num} ${n.title}`)
     const step = (n, dir) => n ? `<a href="${esc(S().href(n.route, ts && n.type !== 'walkthrough' ? `w=${w}` : ''))}" rel="${dir}" data-step="${dir}" aria-label="${esc((dir === 'prev' ? C.prevLabel : dir === 'next' ? C.nextLabel : C.upLabel)(v.label(n)))}">${dir === 'prev' ? esc(C.prev) + ' ' : dir === 'up' ? esc(C.up) + ' ' : ''}${esc(stepText(n))}${dir === 'next' ? ' ' + esc(C.next) : ''}</a>` : '<span></span>'
     const banner = ts ? `<nav class="nb-tour nb-callout" aria-label="${esc(C.tourBanner(ts.tour.id, ts.tour.title, ts.i + 1, ts.n))}"><b>${esc(ts.tour.id)} ${esc(ts.tour.title)}</b><span>${esc(C.tourOf(ts.i + 1, ts.n))}</span>${step(pn.prev, 'prev')}${step(pn.up, 'up')}${step(pn.next, 'next')}</nav>` : ''
-    const outline = R.outline()
+    const outline = note.route === '' ? [] : R.outline()
     const toc = outline.length ? `<details class="nb-toc-inline"><summary>${esc(C.onPage)}</summary><ul>${outline.map((x) => `<li><a href="${esc(S().href(note.route, `a=${x.id}${w ? '&w=' + w : ''}`))}">${esc(x.text)}</a></li>`).join('')}</ul></details>` : ''
     let body = out.html
     // a stub shows every part as a labelled empty slot, so what is left to fill is visible
-    if (note.fm.stub) body = body.replace(/(<\/h2>)/g, `$1<p class="nb-slot">${esc(C.stubSlot)}</p>`)
+    if (note.fm.stub && author()) body = body.replace(/(<\/h2>)/g, `$1<p class="nb-slot">${esc(C.stubSlot)}</p>`)
     // a decision record's verdict is a note callout: the paragraph that opens "Decision:"
     if (note.fm.decision) body = body.replace(/<p((?: [^>]*)?)>(Decision:)/, '<p class="nb-callout nb-decision"$1>$2')
     const totals = note.type === 'walkthrough' ? (() => { const t = v.totals(note); return `<p class="nb-meta nb-totals">${esc(C.totals(t.n, t.read, t.listen))}</p>` })() : ''
@@ -83,23 +84,23 @@
     const lede = L.why === 'ok' ? `<p class="nb-summary nb-lede">${esc(L.text)}</p>`
       : author() && L.why !== 'repeat' ? `<p class="nb-slot nb-lede-slot"><span class="nb-proposal">${esc(C.proposal)}</span> ${esc(C.ledeSlot)} (${esc(C.ledeSlotWhy[L.why])})</p>` : ''
     const title = note.isHub ? S().cap(note.title) : note.title
+    const ledeAlt = note.route === '' && author() ? `<p class="nb-slot nb-lede-slot"><span class="nb-proposal">${esc(C.proposal)}</span> ${esc(C.start.ledeProposal)}</p>` : ''
     S().el.col.innerHTML = `<article class="nb-note" data-route="${esc(note.route)}">
       ${kicker(note)}
       <h1 class="nb-title" tabindex="-1" data-say="title">${esc(title)}</h1>
-      ${lede}
+      ${lede}${ledeAlt}
       ${banner}
-      ${note.fm.stub ? `<p class="nb-stub nb-callout nb-callout--warn"><span data-st="stub" aria-hidden="true">${esc(C.status.stub[0])}</span> ${esc(C.stub)}</p>` : ''}
+      ${note.fm.stub && author() ? `<p class="nb-stub nb-callout nb-callout--warn"><span data-st="stub" aria-hidden="true">${esc(C.status.stub[0])}</span> ${esc(C.stub)}</p>` : ''}
       ${totals}
       ${toc}
       <div class="nb-body">${body}</div>
       <nav class="nb-prevnext" aria-label="${esc(C.linksHead)}">${step(pn.prev, 'prev')}${step(pn.up, 'up')}${step(pn.next, 'next')}</nav>
-      ${endLinks(note)}
+      ${note.route === '' ? '' : endLinks(note, w)}
     </article>`
     // a walkthrough's steps open inside the tour, so the banner and [ ] follow it
     if (note.type === 'walkthrough') for (const a of S().el.col.querySelectorAll('[data-block="steps"] a[href^="#/"]')) a.setAttribute('href', `${a.getAttribute('href')}?w=${note.id}`)
     statusGlyphs(S().el.col)
     NB.embeds.hydrate(S().el.col, note)
-    S().bindLocal(S().el.col)
     R.tables()
     S().el.listenBtn.setAttribute('aria-label', note.type === 'walkthrough' ? C.listenTour(note.id) : C.listenLabel)
   }
@@ -123,20 +124,20 @@
   // the outline: h2 and h3 only, and only when there are at least three of them
   R.outline = () => { const hs = R.headings.filter((x) => x.level <= 3); return hs.length >= 3 ? hs : [] }
 
-  // the note's end, on every width: the local graph, links out and backlinks by section, the tags
-  function endLinks(note) {
-    const v = V(), out = v.out(note), back = v.back(note)
-    const bySec = (ls, ctx) => {
-      const groups = {}
-      for (const l of ls) (groups[l.note.section] = groups[l.note.section] || []).push(l)
-      return Object.entries(groups).map(([s, g]) => `<p class="nb-end__sec">${esc(C.sections[s] || s)}</p>${S().linkList(g, ctx)}`).join('')
-    }
-    const w = Math.min(420, Math.max(240, (S().el.col.clientWidth || innerWidth) - 32))
+  // the note's end, on every width: where this fits. Part of (section › folder, the tour step), one
+  // next, links both ways with the sentence round each, the map. Empty parts are not drawn.
+  function endLinks(note, w) {
+    const v = V(), f = v.fits(note, w), F = C.fits
+    const crumb = (x) => (x.note ? `<a href="${esc(S().href(x.note.route))}">${esc(x.title)}</a>` : esc(x.title))
+    const part = f.partOf.length || f.step ? `<p class="nb-fits__row"><span class="nb-fits__k">${esc(F.partOf)}</span> <span>${f.partOf.map(crumb).join(` <span class="nb-crumb-sep" aria-hidden="true">${esc(C.crumbSep)}</span> `)}${f.step ? `${f.partOf.length ? ' · ' : ''}${esc(F.step(f.step.i, f.step.n))} <a href="${esc(S().href(f.step.tour.route))}">${S().nameHtml(f.step.tour)}</a>` : ''}</span></p>` : ''
+    const nextQ = f.step && f.next && f.next.type !== 'walkthrough' ? `w=${w}` : ''
+    const next = f.next ? `<p class="nb-fits__row"><span class="nb-fits__k">${esc(F.next)}</span> <a class="nb-fits__next" href="${esc(S().href(f.next.route, nextQ))}" data-step="next">${S().nameHtml(f.next)} ${esc(C.next)}</a></p>` : ''
+    const list = (head, ls) => (ls.length ? `<h3 class="nb-end__head">${esc(head)}</h3>${S().linkList(ls)}` : '')
     const tags = note.tags.length ? `<p class="nb-tags"><span class="nb-end__sec">${esc(C.tagsHead)}</span> ${note.tags.map((t) => `<span class="nb-tag">#${esc(t)}</span>`).join(' ')}</p>` : ''
-    return `<section class="nb-end" aria-label="${esc(C.linksHead)}"><h2 class="nb-end__head">${esc(C.linksHead)}</h2>${S().localGraph(note, w, 200)}
-      <h3 class="nb-end__head">${esc(C.linksOut(out.length))}</h3>${out.length ? bySec(out, false) : `<p class="nb-end__none">${esc(C.noLinks)}</p>`}
-      <h3 class="nb-end__head">${esc(C.linkedFrom(back.length))}</h3>${back.length ? bySec(back, true) : `<p class="nb-end__none">${esc(C.noLinks)}</p>`}${tags}</section>`
+    const map = `<p class="nb-fits__map"><a href="${esc(S().href('graph', `focus=${note.route}`))}" aria-label="${esc(F.onMapLabel(note.title))}">${esc(F.onMap)}</a></p>`
+    return `<section class="nb-end nb-fits" aria-label="${esc(S().cap(C.linksHead))}"><h2 class="nb-end__head">${esc(S().cap(C.linksHead))}</h2>${part}${next}${list(F.linksTo, f.out)}${list(F.linkedFrom, f.back)}${map}${tags}</section>`
   }
+
 
   // tables: an edge fade on the side that scrolls, a "scroll →" cue until the first scroll, the
   // ID column's width for the sticky column, and a fold to 8 rows on a phone past 15

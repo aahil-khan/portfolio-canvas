@@ -150,10 +150,14 @@
     function note({ file, folder, num, slug, id, route, isHub, fm, body, generated }) {
       // a part's number is a schema the reader never sees: the heading keeps its name only
       const blocks = M().parse(body).map((b) => (b.t === 'h' && PART_NUM.test(b.text) ? { ...b, text: b.text.replace(PART_NUM, '') } : b))
+      // a build or stage with nothing under "what it is" is hidden unless it says otherwise (O6)
+      const part2 = blocks.findIndex((b) => b.t === 'h' && /^what it (is|ships)$/i.test(M().plain(b.text).trim()))
+      const empty2 = part2 >= 0 && (!blocks[part2 + 1] || blocks[part2 + 1].t === 'h')
+      const defaultHidden = (fm.type === 'build' || fm.type === 'stage') && empty2 && fm.visibility == null
       const section = route === '' ? 'root' : SECTIONS.includes(route.split('/')[0]) ? route.split('/')[0] : route.split('/')[0] === 'walkthroughs' ? 'tours' : 'root'
       return {
         file, folder, num, slug, id, route, isHub: !!isHub || (fm.type === 'hub'), fm, body, blocks, generated: generated || '', section,
-        title: String(fm.title || slug), type: fm.type, status: fm.status, visibility: fm.visibility === 'hidden' ? 'hidden' : 'public',
+        title: String(fm.title || slug), type: fm.type, status: fm.status, visibility: fm.visibility === 'hidden' || defaultHidden ? 'hidden' : 'public', defaultHidden,
         tags: fm.tags || [], aliases: fm.aliases || [], updated: fm.updated || '', summary: fm.summary || '',
         // the slug path: the folders, then the slug (the number never is part of it)
         slugPath: [...(isHub ? folder.split('/').slice(0, -1) : folder ? folder.split('/') : []), slug].filter(Boolean).join('/'),
@@ -163,7 +167,7 @@
     // ── 2. checks on the notes themselves ─────────────────────────────────────────────────
     for (const n of notes) {
       const where = n.file || n.route
-      for (const k of [...REQUIRED.all, ...(REQUIRED[n.type] || [])]) if (n.fm[k] === undefined || n.fm[k] === '' && !['summary', 'updated', 'phase'].includes(k)) problems.push(`${where}: "${k}" is missing`)
+      for (const k of [...REQUIRED.all, ...(REQUIRED[n.type] || [])]) if (!(k === 'visibility' && n.defaultHidden) && n.fm[k] === undefined || n.fm[k] === '' && !['summary', 'updated', 'phase'].includes(k)) problems.push(`${where}: "${k}" is missing`)
       if (!TYPES.includes(n.type)) problems.push(`${where}: type "${n.type}" is not one of ${TYPES.join(', ')}`)
       if (!STATUSES.includes(n.status)) problems.push(`${where}: status "${n.status}" is not one of ${STATUSES.join(', ')}`)
       if (n.updated && !iso(n.updated)) problems.push(`${where}: updated "${n.updated}" is not a date`)
@@ -287,6 +291,8 @@
     const readBlocks = (n) => {
       if (hidden) return n.blocks
       if (reads.has(n)) return reads.get(n)
+      // a stub shown publicly is one line, never a page of empty slots
+      if (n.fm.stub) { const one = M().parse(C.stubPublic); reads.set(n, one); return one }
       const B = n.blocks, isClip = (b) => b && b.t === 'fence' && b.kind === 'clip'
       // a heading whose only content is the clip goes with it (a stub's empty parts stay)
       const kept = B.filter((b, i) => !isClip(b) && !(b.t === 'h' && isClip(B[i + 1]) && (!B[i + 2] || (B[i + 2].t === 'h' && B[i + 2].level <= b.level))))
@@ -387,7 +393,7 @@
         const ts = phaseTopics(current), done = ts.filter((t) => t.status === 'done').length
         const prog = ts.filter((t) => t.status === 'progress')
         const ph = study.log.filter((r) => ts.some((t) => t.id === r.id)).reduce((a, r) => a + r.h, 0)
-        return [B.studyingNow(current, done, ts.length, round1(ph), lastDate), '', ...(prog.length ? [`${B.inProgress}: ${prog.map((t) => `${t.id}`).join(' · ')}`] : [])].join('\n')
+        return [B.studyingNow(current, done, ts.length, round1(ph), lastDate), '', ...(prog.length ? [`${B.inProgress}: ${prog.map((t) => linkTo(byRoute.get(`${STUDY}/${t.track}/${t.id}`) || { id: t.id, title: t.title }, `${t.id} ${t.title}`)).join(' · ')}`] : [])].join('\n')
       }
       if (id === 'tours') return tours.filter((w) => hidden || w.visibility === 'public').map((w) => { const t = totals(w); return `- ${linkTo(w, `${w.id} ${w.title}`)} · ${B.tourLine(t.n, t.read, t.listen)}` }).join('\n')
       if (id === 'latest') {
@@ -400,7 +406,11 @@
         if (!f) return ''
         return [...f.notes.map((x) => `- ${glyphOf(x)} ${linkTo(x)}`), ...f.folders.map((s) => `- ${s.hub ? linkTo(s.hub, s.title + '/') : s.title + '/'}`)].join('\n')
       }
-      if (id === 'portfolio-line') return study.portfolioLine
+      // the author view proposes a gloss for the stage IDs, marked PROPOSAL (O7)
+      if (id === 'portfolio-line') return hidden ? study.portfolioLine.replace(/PW1 to PW5/, `$& ${B.stagesGloss} **${C.proposal}**`) : study.portfolioLine
+      // start-here's way in and its map: the reader draws them (map.js); this is what is read aloud
+      if (id === 'entries') return mapData().entries.map((e) => `- ${linkTo(e.note, e.title)} · ${e.meta}`).join('\n')
+      if (id === 'map') return mapData().sections.map((x) => `- ${linkTo(x.hub, x.title)}: ${x.desc}`).join('\n')
       if (id === 'stages') {
         const ss = shown.filter((x) => x.type === 'stage' && x.fm.project === 'shopkeeper')
         return tableMd(B.stagesHead, ss.map((s) => [s.id, s.title.replace(/\|/g, '\\|'), s.fm.phase || B.unscheduled, s.fm.target, `${glyphOf(s)} ${(C.status[s.status] || [])[1]}`]))
@@ -451,6 +461,57 @@
     }
     const blockSpoken = (n, id) => M().spoken(M().parse(blockMd(n, id)), { lines: C.say }).map((s) => s.text).join(' ')
 
+    // ── 11b. the map of the Lab and "where this fits": data only; map.js and reader.js draw it
+    let mapCache = null
+    function mapData() {
+      if (mapCache) return mapCache
+      const pub = (n) => n && (hidden || n.visibility === 'public')
+      const inPhase = phaseTopics(current), phaseDone = inPhase.filter((t) => t.status === 'done').length
+      const phaseShort = String(current || '').split(' · ')[0]
+      const tour = tours.find((w) => pub(w))
+      const builds = shown.filter((x) => x.type === 'build' && !x.fm.stub)
+      const entries = [
+        tour && { key: 'tour', note: tour, section: 'agent-reliability', title: C.start.tour, meta: C.start.tourMeta(totals(tour).read) },
+        byRoute.get(STUDY) && { key: 'study', note: byRoute.get(STUDY), section: 'agent-reliability', title: C.start.study, meta: C.start.studyMeta(phaseShort, phaseDone, inPhase.length) },
+        byRoute.get('builds') && { key: 'builds', note: byRoute.get('builds'), section: 'builds', title: C.start.builds, meta: C.start.buildsMeta(builds.slice(0, 2).map((b) => b.title.split(' ')[0])) },
+      ].filter(Boolean)
+      const keysOf = (sec) => {
+        if (sec === 'agent-reliability') {
+          const shop = byRoute.get('agent-reliability/shopkeeper'), spec = shown.find((x) => x.folder === 'agent-reliability/shopkeeper' && x.type === 'doc')
+          const stages = shown.filter((x) => x.type === 'stage' && x.fm.project === 'shopkeeper')
+          return [
+            shop && { note: shop, title: S_(shop), meta: C.start.shop(spec ? (C.status[spec.status] || [])[1] : '', stages.filter((x) => x.status === 'done').length, stages.length), status: shop.status },
+            byRoute.get(STUDY) && { note: byRoute.get(STUDY), title: S_(byRoute.get(STUDY)), meta: C.start.studyKey(phaseShort, phaseDone, inPhase.length), status: 'progress' },
+          ].filter(Boolean)
+        }
+        return shown.filter((x) => x.section === sec && !x.isHub && !x.fm.stub).slice(0, 3).map((x) => ({ note: x, title: x.title, meta: (C.status[x.status] || [])[1], status: x.status }))
+      }
+      const sections = SECTIONS.map((sec) => {
+        const hub = byRoute.get(sec)
+        return hub && { key: sec, hub, title: C.sections[sec], desc: hub.summary, keys: keysOf(sec), count: shown.filter((x) => x.section === sec).length }
+      }).filter(Boolean)
+      const phases = study.phases.map((p) => {
+        const ts = phaseTopics(p.name)
+        return { name: p.name, start: p.start, end: p.end, topics: ts.length, done: ts.filter((t) => t.status === 'done').length,
+          planned: round1(ts.reduce((a, t) => a + t.est_h, 0)), logged: round1(study.log.filter((r) => ts.some((t) => t.id === r.id)).reduce((a, r) => a + r.h, 0)), now: p.name === current }
+      })
+      const sf = findFolder(tree, STUDY)
+      const tracks = (sf ? sf.folders : []).map((f) => { const ts = f.notes.filter((x) => x.type === 'topic'); return { key: f.name, name: f.title, topics: ts.length, done: ts.filter((x) => x.status === 'done').length, first: ts[0] || null } }).filter((t) => t.topics)
+      mapCache = { entries, sections, phases, tracks }
+      return mapCache
+    }
+    const S_ = (n) => String(n.title).charAt(0).toUpperCase() + String(n.title).slice(1)
+    // where a note sits: its section and folder, its tour step, one next note, its links both ways
+    function fits(n, wid) {
+      const pn = prevNext(n, wid), up = []
+      for (let p = n.isHub ? n.route.split('/').slice(0, -1).join('/') : n.folder; p; p = p.split('/').slice(0, -1).join('/')) {
+        const h = byRoute.get(p)
+        up.unshift(h ? { note: h, title: h.route === n.section ? C.sections[n.section] || S_(h) : S_(h) } : { note: null, title: S_({ title: folderTitle(p) }) })
+      }
+      if (n.section === 'tours' && !up.length) up.push({ note: null, title: C.sections.tours })
+      return { partOf: up, step: pn.tour ? { i: pn.tour.i + 1, n: pn.tour.n, tour: pn.tour.tour } : null, next: pn.next, out: out.get(n).filter(vis), back: back.get(n).filter(vis) }
+    }
+
     // ── 12. the switcher's matcher ──────────────────────────────────────────────────────
     function match(input) {
       const q = String(input || '').trim()
@@ -484,7 +545,7 @@
       get: (route) => byRoute.get(String(route).replace(/^\/+|\/+$/g, '')) || null,
       resolve, href, rowIdsOf, rowHref: (n, id) => { const to = rowNote.get(`${n.folder}:${id}`); return to && visible(to) ? href(to, `a=${id.toLowerCase()}`) : null },
       out: (n) => out.get(n).filter(vis), back: (n) => back.get(n).filter(vis), neighbours, neighbourList,
-      tourStep, prevNext, hubOf, clock, totals, readBlocks, ledeOf, folderTitle, blockMd, blockSpoken, match, glyphOf, label, anchorsOf,
+      tourStep, prevNext, hubOf, clock, totals, readBlocks, ledeOf, mapData, fits, folderTitle, blockMd, blockSpoken, match, glyphOf, label, anchorsOf,
     }
   }
   // embeds whose id must name something the mockup knows how to draw

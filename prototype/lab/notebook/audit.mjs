@@ -40,6 +40,14 @@
 //     name in the text colour (01-spec and T02 agent reliability, Holt builds, the post writing)
 //   - narration playing (desktop): the spoken word's ink reaches 4.5:1 on its background
 //   - M9: at rest on a note no animation is running (the starfield is paused); on #/graph it runs
+//
+// Round 3 (graphs → maps) asserts, in night and in paper:
+//   - no svg.nb-g on any note page or on start-here, at both sizes (the local graph is gone)
+//   - #/graph at 1440×900: every visible label ≥ 12 px tall, 0 label overlaps (each label's box,
+//     every line of it), ≤ 35 nodes in the default (folded) view, a key naming the three sections
+//   - #/graph at 390×844: no SVG, and every row of the list map (notes and folders) ≥ 44 px tall
+//   - the study hub: no SVG chart; its progress text is ≥ 15 px
+//   - start-here's first phone screen holds "Aahil" and three entry links
 import { createRequire } from 'node:module'
 import { homedir } from 'node:os'
 import { join, resolve } from 'node:path'
@@ -120,6 +128,33 @@ function probe() {
   if (k) { const s = getComputedStyle(k); out.kicker = { text: k.innerText.replace(/\s+/g, ' '), lines: Math.round(k.getBoundingClientRect().height / parseFloat(s.lineHeight)), cut: k.scrollWidth > k.clientWidth + 1 } }
   const a = document.querySelector('.nb-body a'), p = a && a.closest('p, li, td')
   if (a) out.link = { link: getComputedStyle(a).color, text: getComputedStyle(p || a.parentElement).color }
+  return out
+}
+
+// in the page: the round-3 measurements
+function probe3() {
+  const shown = (e) => { const s = getComputedStyle(e); return s.visibility !== 'hidden' && s.display !== 'none' }
+  const out = { svgG: document.querySelectorAll('svg.nb-g').length, theme: document.documentElement.dataset.labTheme }
+  const svg = document.querySelector('.nb-g--full')
+  if (svg) {
+    const ls = [...svg.querySelectorAll('text')].filter((t) => shown(t) && t.getBoundingClientRect().width > 0)
+    const lines = ls.flatMap((t) => [...t.querySelectorAll(':scope > tspan')].map((x) => x.getBoundingClientRect()))
+    const boxes = ls.map((t) => t.getBoundingClientRect())
+    let ov = 0
+    for (let i = 0; i < boxes.length; i++) for (let j = i + 1; j < boxes.length; j++) { const a = boxes[i], b = boxes[j]; if (a.left < b.right - 0.5 && b.left < a.right - 0.5 && a.top < b.bottom - 0.5 && b.top < a.bottom - 0.5) ov++ }
+    const fs = ls.map((t) => parseFloat(getComputedStyle(t).fontSize) * (svg.querySelector('.nb-g__world').getCTM() || { a: 1 }).a)
+    out.graph = { labels: ls.length, minLine: Math.min(...lines.map((r) => r.height)), minPx: Math.min(...fs), overlaps: ov, nodes: svg.querySelectorAll('a.n').length, key: (document.querySelector('.nb-key') || {}).innerText || '' }
+  }
+  // a folded list: open every section and folder, so every row is measured
+  for (const d of document.querySelectorAll('.nb-maplist details')) d.open = true
+  const rows = [...document.querySelectorAll('.nb-maplist__row, .nb-maplist summary')]
+  out.list = rows.length ? { n: rows.length, minH: Math.min(...rows.map((r) => r.getBoundingClientRect().height)) } : null
+  const pr = [...document.querySelectorAll('.nb-progress *')].filter((e) => [...e.childNodes].some((c) => c.nodeType === 3 && c.textContent.trim()))
+  out.progress = pr.length ? { n: pr.length, minPx: Math.min(...pr.map((e) => parseFloat(getComputedStyle(e).fontSize))) } : null
+  out.chart = document.querySelectorAll('.nb-col svg').length
+  const inView = (e) => { const r = e.getBoundingClientRect(); return r.bottom <= innerHeight && r.top >= 0 && r.width > 0 }
+  out.entries = [...document.querySelectorAll('.nb-entry')].filter(inView).length
+  out.aahil = [...document.querySelectorAll('.nb-col h1, .nb-col p')].some((e) => inView(e) && /Aahil/.test(e.textContent))
   return out
 }
 
@@ -221,6 +256,7 @@ try {
         await pg.goto('about:blank'); await pg.goto(FILE + hash)
         await pg.evaluate(() => document.fonts.ready); await pg.waitForTimeout(400)
         res[`r2:${theme}:${k}@${sz}`] = await pg.evaluate(probe2)
+        res[`r3:${theme}:${k}@${sz}`] = await pg.evaluate(probe3)
       }
       if (!phone) {
         await pg.goto('about:blank'); await pg.goto(FILE + VIEWS2.tour3)
@@ -288,6 +324,28 @@ for (const theme of Object.keys(THEMES)) {
   }
   const wd = res[`r2:${theme}:word`]
   ok(wd && wd.r >= 4.5, `${theme}: the spoken word is ${wd && wd.fg} on ${wd && wd.bg}, ${wd && wd.r}:1 (≥ 4.5)`)
+}
+
+console.log('round 3: graphs → maps')
+for (const theme of Object.keys(THEMES)) {
+  console.log(` ${theme}`)
+  for (const sz of Object.keys(SIZES)) {
+    const notes = Object.keys(VIEWS2).filter((k) => k !== 'graph').filter((k) => res[`r3:${theme}:${k}@${sz}`].svgG)
+    ok(!notes.length, `${sz}: no svg.nb-g on any note page or on start-here${notes.length ? ' — on ' + notes.join(', ') : ''}`)
+  }
+  const g = res[`r3:${theme}:graph@desk`].graph
+  ok(g && g.minLine >= 12 && g.minPx >= 12, `#/graph, desktop: ${g && g.labels} visible labels, every line ≥ 12 px tall (smallest line ${g && g.minLine.toFixed(1)} px, type ${g && g.minPx.toFixed(1)} px on screen)`)
+  ok(g && g.overlaps === 0, `#/graph, desktop: ${g && g.overlaps} label overlaps (0)`)
+  ok(g && g.nodes <= 35, `#/graph, desktop: ${g && g.nodes} nodes in the default view (≤ 35)`)
+  ok(g && ['Agent reliability', 'Builds', 'Writing'].every((t) => g.key.includes(t)) && /dot is a note/.test(g.key), 'the key names the three sections and says what a dot and a line are')
+  const gp = res[`r3:${theme}:graph@phone`]
+  ok(!gp.graph && gp.chart === 0 && gp.list && gp.list.minH >= 44, `#/graph, phone: no SVG; ${gp.list && gp.list.n} list rows, the shortest ${gp.list && Math.round(gp.list.minH)} px (≥ 44)`)
+  for (const sz of Object.keys(SIZES)) {
+    const st = res[`r3:${theme}:study@${sz}`]
+    ok(st.chart === 0 && st.progress && st.progress.minPx >= 15, `study hub, ${sz}: no SVG chart; progress text ≥ 15 px (smallest ${st.progress && st.progress.minPx} px, ${st.progress && st.progress.n} pieces)`)
+  }
+  const h = res[`r3:${theme}:start@phone`]
+  ok(h.aahil && h.entries === 3, `start-here's first phone screen: "Aahil" ${h.aahil ? 'is there' : 'MISSING'}, ${h.entries} entry links in full view (3)`)
 }
 
 console.log(fails ? `\n${fails} of ${n} FAILED` : `\nall ${n} audit checks pass`)

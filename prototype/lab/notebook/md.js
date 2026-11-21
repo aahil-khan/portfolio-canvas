@@ -315,7 +315,10 @@
       if (k.t === 'wiki') {
         const r = ctx.resolve && ctx.resolve(k.target, k.anchor)
         const label = k.label || (r && r.label) || k.target
-        return r ? `<a class="nb-wl" href="${escape(r.href)}" data-to="${escape(r.id || '')}" title="${escape(r.title || '')}">${escape(label)}</a>`
+        // "T03 Error analysis": the ID mono and dim, the title in the text face (O7)
+        const lid = /^(T\d\d|PW\d|W\d)\s+(.+)$/.exec(label)
+        const text = lid ? `<span class="nb-lid">${escape(lid[1])}</span> ${escape(lid[2])}` : escape(label)
+        return r ? `<a class="nb-wl" href="${escape(r.href)}" data-to="${escape(r.id || '')}" title="${escape(r.title || '')}">${text}</a>`
           : `<span class="nb-wl is-broken" title="unresolved: ${escape(k.target)}">${escape(label)}</span>`
       }
       if (k.t === 'id') {

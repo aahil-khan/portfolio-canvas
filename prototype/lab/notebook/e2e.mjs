@@ -124,7 +124,7 @@ for (const size of Object.keys(SIZES).filter((x) => !ONLY || x === ONLY)) {
       const side = [...document.querySelectorAll('.nb-side a, .nb-side button')][0]
       return { hash: location.hash, live: NB.trip.live(), timing: NB.trip.timing.in, h1: document.querySelector('.nb-title').textContent, muted: NIGHT.sound.muted, playing: NIGHT.voice.state().playing, ac: window.__ac, first: first.className, firstLeft: first.getBoundingClientRect().left, sideFirst: side.className, strip: document.querySelector('.nb-strip').hidden }
     })
-    ok(r.hash === '#/' && r.live && r.timing === null && r.h1 === 'Start here', `no hash lands on start-here, in the Lab, with no trip (${r.hash})`)
+    ok(r.hash === '#/' && r.live && r.timing === null && r.h1 === "Aahil's Lab", `no hash lands on start-here, in the Lab, with no trip (${r.hash})`)
     ok(r.muted && !r.playing && r.ac === 0 && r.strip, 'muted, nothing playing, no AudioContext before a gesture, no strip')
     if (!phone) ok(/nb-bar__canvas/.test(r.first) && r.firstLeft <= 1, `← canvas is the leftmost item of the bar (${r.first} at ${r.firstLeft}px)`)
     else ok(/nb-bar__menu/.test(r.first) && /nb-side__canvas/.test(r.sideFirst), `☰ takes the bar's left slot; ← canvas is the drawer's first row`)
@@ -294,48 +294,72 @@ for (const size of Object.keys(SIZES).filter((x) => !ONLY || x === ONLY)) {
     await close(q)
   }
 
-  // ── the graphs ────────────────────────────────────────────────────────────────────────
+  // ── where this fits, and the map (round 3: no local graph; a phone gets the map as a list) ──
   {
     const p = await page(size, ROUTES.spec)
-    // the local graph lives in the note's end block on every width now (round 3 replaces it)
-    const sel = '.nb-end .nb-g--local'
-    const r = await p.evaluate((s) => {
-      const n = NB.shell.state.note, nb = NB.vault.neighbours(n, 1).length
-      const nodes = document.querySelectorAll(`${s} a.n`).length
-      const end = document.querySelector('.nb-end')
-      const listed = end ? new Set([...end.querySelectorAll('ul a[data-route]')].map((a) => a.dataset.route)).size : -1
-      return { nb, nodes, listed }
-    }, sel)
-    ok(r.nodes === Math.min(24, r.nb) + 1, `the local graph has the note plus its ${r.nb} neighbours (${r.nodes} nodes)`)
-    ok(r.listed === r.nb, `the note-end lists name the same ${r.nb} neighbours as its picture`)
+    const r = await p.evaluate(() => {
+      const n = NB.shell.state.note, want = new Set([...NB.vault.out(n), ...NB.vault.back(n)].map((l) => l.note.route))
+      const end = document.querySelector('.nb-fits')
+      const listed = end ? new Set([...end.querySelectorAll('ul a[data-route]')].map((a) => a.dataset.route)) : new Set()
+      return { want: [...want].sort(), listed: [...listed].sort(), svg: !!document.querySelector('svg.nb-g'), part: (end.querySelector('.nb-fits__row') || {}).textContent || '', next: !!end.querySelector('.nb-fits__next'), map: (end.querySelector('.nb-fits__map a') || {}).getAttribute?.('href') }
+    })
+    ok(r.want.length > 0 && JSON.stringify(r.want) === JSON.stringify(r.listed), `01-spec's "where this fits" lists exactly its links ∪ backlinks (${r.listed.length})`)
+    ok(!r.svg && /Agent reliability/.test(r.part) && /Shopkeeper/.test(r.part) && r.next && r.map === '#/graph?focus=agent-reliability/shopkeeper/01-spec', `no graph on the note; "Part of ${r.part.replace(/\s+/g, ' ').replace(/^Part of /, '')}", one Next →, and "see on the map →"`)
     ok(await p.evaluate(() => !document.querySelector('.nb-margin .nb-g, .nb-margin .nb-sec--back, .nb-margin .nb-sec--out')), 'the margin holds no graph and no link lists: only "on this page"')
-    await p.click(`${sel} a.n[data-route="agent-reliability/shopkeeper/05-scenarios"]`)
-    await wait(p, 200)
-    ok(await p.evaluate(() => location.hash === '#/agent-reliability/shopkeeper/05-scenarios'), 'clicking a local-graph node opens it')
+    await go(p, ROUTES.post)
+    ok(await p.evaluate(() => !/nothing links here/i.test(document.body.innerText) && ![...document.querySelectorAll('.nb-fits h3')].some((h) => !h.nextElementSibling || !h.nextElementSibling.querySelector('li'))), 'an empty list is not drawn ("nothing links here yet" is gone)')
     await go(p, '#/graph')
     await wait(p, 300)
-    const g = await p.evaluate(() => {
-      const svg = document.querySelector('.nb-g--full'), sr = svg.getBoundingClientRect()
-      const ns = [...svg.querySelectorAll('a.n')]
-      const inView = ns.every((a) => { const r = a.querySelector('.s').getBoundingClientRect(); return r.left >= sr.left - 1 && r.right <= sr.right + 1 && r.top >= sr.top - 1 && r.bottom <= sr.bottom + 1 && r.bottom <= innerHeight + 1 && r.right <= innerWidth + 1 })
-      return { count: ns.length, total: NB.vault.notes.length, inView }
-    })
-    ok(g.count === 71 && g.total === 71 && g.inView, `#/graph shows all ${g.count} notes, fitted fully in view`)
-    await p.click('.nb-graph__bar [data-filter="builds"]')
-    const dim = await p.evaluate(() => [...document.querySelectorAll('.nb-g--full a.n')].every((a) => a.classList.contains('is-dim') === (a.dataset.sec === 'builds')))
-    ok(dim, 'a section filter dims that section')
-    // pan and zoom write one element's transform, and nothing else
-    await p.evaluate(() => { window.__mut = new Set(); new MutationObserver((ms) => { for (const m of ms) window.__mut.add(m.target.getAttribute('class') + ':' + m.attributeName) }).observe(document.querySelector('.nb-g--full'), { attributes: true, subtree: true }) })
-    const box = await p.evaluate(() => { const r = document.querySelector('.nb-g--full').getBoundingClientRect(); return { x: r.left + r.width / 2, y: r.top + r.height / 2 } })
-    await p.mouse.move(box.x + 3, box.y + 3); await p.mouse.down(); await p.mouse.move(box.x + 60, box.y + 40, { steps: 6 }); await p.mouse.up()
-    if (!phone) await p.mouse.wheel(0, -200)
-    await wait(p, 100)
-    const mut = await p.evaluate(() => [...window.__mut])
-    ok(mut.length === 1 && mut[0] === 'nb-g__world:transform', `pan${phone ? '' : ' and zoom'} change only one element's transform (${mut.join(', ')})`)
-    await p.click('.nb-graph__bar [data-fit]')
-    await wait(p, 100)
-    const fit = await p.evaluate(() => { const sr = document.querySelector('.nb-g--full').getBoundingClientRect(); return [...document.querySelectorAll('.nb-g--full a.n .s')].every((s) => { const r = s.getBoundingClientRect(); return r.left >= sr.left - 1 && r.right <= sr.right + 1 && r.top >= sr.top - 1 && r.bottom <= sr.bottom + 1 }) })
-    ok(fit, 'Fit brings every node back into view')
+    if (!phone) {
+      const g = await p.evaluate(() => {
+        const svg = document.querySelector('.nb-g--full'), sr = svg.getBoundingClientRect()
+        const ns = [...svg.querySelectorAll('a.n')]
+        const inView = ns.every((a) => { const r = a.querySelector('.s').getBoundingClientRect(); return r.left >= sr.left - 1 && r.right <= sr.right + 1 && r.top >= sr.top - 1 && r.bottom <= sr.bottom + 1 })
+        return { count: ns.length, tracks: ns.filter((a) => a.dataset.type === 'track').length, inView, key: document.querySelector('.nb-key').innerText }
+      })
+      ok(g.count <= 35 && g.tracks === 7 && g.inView, `#/graph shows ${g.count} nodes (≤ 35), the topics folded into ${g.tracks} tracks, fitted fully in view`)
+      ok(/Each dot is a note/.test(g.key) && ['Agent reliability', 'Builds', 'Writing'].every((t) => g.key.includes(t)), 'the key says what a dot and a line mean and names the sections')
+      // clicking a track expands its topics: the count goes up by that track's size
+      const t = await p.evaluate(() => { const a = document.querySelector('.nb-g--full a.n[data-route="track:agent-reliability/study/evals"]'); const r = a.querySelector('.s').getBoundingClientRect(); return { x: r.left + r.width / 2, y: r.top + r.height / 2, before: document.querySelectorAll('.nb-g--full a.n').length, size: NB.vault.notes.filter((n) => n.folder === 'agent-reliability/study/evals').length } })
+      await p.mouse.click(t.x, t.y)
+      await wait(p, 200)
+      const after = await p.evaluate(() => ({ n: document.querySelectorAll('.nb-g--full a.n').length, card: (document.querySelector('.nb-card:not([hidden])') || {}).innerText || '' }))
+      ok(after.n === t.before + t.size && /Evals/.test(after.card), `clicking the Evals track expands its ${t.size} topics (${t.before} → ${after.n} nodes), and the card lists them`)
+      await p.evaluate(() => { NB.shell.graphToggle('track:agent-reliability/study/evals'); NB.shell.graphUnselect() })
+      await p.click('.nb-graph__bar [data-filter="builds"]')
+      const dim = await p.evaluate(() => [...document.querySelectorAll('.nb-g--full a.n')].every((a) => a.classList.contains('is-dim') === (a.dataset.sec === 'builds')))
+      ok(dim, 'a section filter dims that section')
+      // pan and zoom write one element's transform, and nothing else
+      await p.evaluate(() => { window.__mut = new Set(); new MutationObserver((ms) => { for (const m of ms) window.__mut.add(m.target.getAttribute('class') + ':' + m.attributeName) }).observe(document.querySelector('.nb-g--full'), { attributes: true, subtree: true }) })
+      const box = await p.evaluate(() => { const r = document.querySelector('.nb-g--full').getBoundingClientRect(); return { x: r.left + 12, y: r.top + 12 } })
+      await p.mouse.move(box.x, box.y); await p.mouse.down(); await p.mouse.move(box.x + 60, box.y + 40, { steps: 6 }); await p.mouse.up()
+      await p.mouse.wheel(0, -200)
+      await wait(p, 100)
+      const mut = await p.evaluate(() => [...window.__mut])
+      ok(mut.length === 1 && mut[0] === 'nb-g__world:transform', `pan and zoom change only one element's transform (${mut.join(', ')})`)
+      await p.click('.nb-graph__bar [data-fit]')
+      await wait(p, 100)
+      const fit = await p.evaluate(() => { const sr = document.querySelector('.nb-g--full').getBoundingClientRect(); return [...document.querySelectorAll('.nb-g--full a.n .s')].every((s) => { const r = s.getBoundingClientRect(); return r.left >= sr.left - 1 && r.right <= sr.right + 1 && r.top >= sr.top - 1 && r.bottom <= sr.bottom + 1 }) })
+      ok(fit, 'Fit brings every node back into view')
+      // ?focus= centres the note within 2 px, its neighbours lit, its card open
+      await go(p, '#/graph?focus=agent-reliability/shopkeeper/01-spec')
+      await wait(p, 300)
+      const f = await p.evaluate(() => {
+        const sr = document.querySelector('.nb-g--full').getBoundingClientRect(), a = document.querySelector('.nb-g--full a.n[data-route="agent-reliability/shopkeeper/01-spec"]'), r = a.querySelector('.s').getBoundingClientRect()
+        return { dx: r.left + r.width / 2 - (sr.left + sr.width / 2), dy: r.top + r.height / 2 - (sr.top + sr.height / 2), sel: a.classList.contains('is-sel'), lit: document.querySelectorAll('.nb-g--full a.n.is-lit').length, card: (document.querySelector('.nb-card:not([hidden]) .nb-card__open') || {}).getAttribute?.('href') }
+      })
+      ok(Math.abs(f.dx) <= 2 && Math.abs(f.dy) <= 2 && f.sel && f.lit > 0 && f.card === '#/agent-reliability/shopkeeper/01-spec', `?focus= centres 01-spec (off by ${f.dx.toFixed(1)}, ${f.dy.toFixed(1)} px), lights its ${f.lit} neighbours, and its card offers open →`)
+    } else {
+      const m = await p.evaluate(() => ({ svg: !!document.querySelector('.nb-col svg'), secs: document.querySelectorAll('.nb-maplist__sec').length, input: !!document.querySelector('.nb-maplist input') }))
+      ok(!m.svg && m.secs >= 3 && m.input, `#/graph on a phone is the map as a list: no SVG, ${m.secs} sections, a filter on top`)
+      await p.fill('.nb-maplist input', 'T02')
+      await wait(p, 150)
+      const hit = await p.evaluate(() => { const rows = [...document.querySelectorAll('.nb-maplist__row')].filter((a) => a.offsetParent !== null); return { rows: rows.map((a) => a.dataset.route), h: Math.min(...rows.map((a) => a.getBoundingClientRect().height)) } })
+      ok(hit.rows.includes('agent-reliability/study/evals/T02') && hit.rows.length <= 3 && hit.h >= 44, `the filter finds T02 (${hit.rows.length} row${hit.rows.length === 1 ? '' : 's'} shown, ${Math.round(hit.h)} px tall)`)
+      await p.click('.nb-maplist__row[data-route="agent-reliability/study/evals/T02"]')
+      await wait(p, 200)
+      ok(await p.evaluate(() => location.hash === '#/agent-reliability/study/evals/T02'), 'tapping a row opens the note')
+    }
     await close(p)
   }
 
@@ -569,7 +593,7 @@ if (!ONLY) {
   ok(!hitsAll.length, `${routes.length + 1} routes visited; no private term in document.body.innerText (HoneyHive only where T14 is shown, as decided)${hitsAll.length ? ': ' + [...new Set(hitsAll)].slice(0, 6).join(', ') : ''}`)
   const add = await page('desktop', '?add=1')
   const a = await add.evaluate(() => ({ text: (document.querySelector('.proof') || {}).textContent || '', n: NB.vault.notes.length, ok: (document.querySelector('.proof') || {}).dataset?.ok }))
-  ok(a.n === 72 && a.ok === 'true', `?add=1: ${a.text}`)
+  ok(a.n === 71 && a.ok === 'true', `?add=1: ${a.text}`)
   await close(add)
   const off = await page('desktop', '?autolink=0#/agent-reliability/study/log')
   ok(await off.evaluate(() => !document.querySelector('.nb-col .nb-id')), '?autolink=0: ID mentions stay plain text')

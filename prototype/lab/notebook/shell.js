@@ -43,18 +43,6 @@
   const S = (NB.shell = { el: {}, state: { route: null, view: 'note', note: null, q: new URLSearchParams() } })
   const el = S.el
 
-  // ── the graph layout, warm from the seed ──────────────────────────────────────────────
-  let layoutCache = null
-  function graphLayout() {
-    if (layoutCache) return layoutCache
-    const v = V()
-    const nodes = v.notes.map((n) => ({ key: n.route, section: n.section, type: n.type }))
-    const edges = v.edges.map((e) => ({ a: e.a.route, b: e.b.route, kind: e.kind }))
-    layoutCache = NB.graph.layout(nodes, edges, { seed: NB.graphSeed })
-    return layoutCache
-  }
-  S.relayout = () => { layoutCache = null; return graphLayout() }
-
   // ── glyphs and labels ─────────────────────────────────────────────────────────────────
   const glyph = (n) => { const g = C.status[n.status] || C.status.planned; return `<span class="nb-row__glyph" data-st="${esc(C.status[n.status] ? n.status : 'planned')}" aria-label="${esc(g[1])}" title="${esc(g[1])}">${esc(g[0])}</span>` }
   // a hub's 00 is an internal label: the tree shows it only in the author view (?hidden=1)
@@ -104,7 +92,7 @@
     addEventListener('keydown', onKey, true)
     addEventListener('hashchange', () => S.show())
     let rt = 0
-    addEventListener('resize', () => { clearTimeout(rt); rt = setTimeout(() => { if (!phone()) S.closeDrawer(true); S.renderAside(); if (S.state.view !== 'graph') NB.reader.tables() }, 120) })
+    addEventListener('resize', () => { clearTimeout(rt); rt = setTimeout(() => { if (!phone()) S.closeDrawer(true); if (S.state.view === 'graph') { if (S.graphPhone !== phone()) S.show(); return } S.renderAside(); NB.reader.tables() }, 120) })
     // the theme is already on <html> (NB.prefs.apply, before first paint); the stars follow it
     P.onTheme(() => { if (NB.trip && NB.trip.bakeStars) NB.trip.bakeStars(); flags() })
     if (q0.get('voice')) NIGHT.voice.use(q0.get('voice'))
@@ -156,7 +144,6 @@
       if (act === 'theme') return S.cycleTheme()
       if (act === 'help') return S.help(a)
       if (act === 'focus') return S.toggleFocus()
-      if (act === 'depth') { S.depth = S.depth === 2 ? 1 : 2; return S.renderAside() }
       if (act === 'fold') { e.preventDefault(); const li = a.closest('li[data-folder]'); li.dataset.open = li.dataset.open === 'false' ? 'true' : 'false'; syncFolds(); return }
     }
     // prev / next / up move focus to the new note's h1, as the trip does
@@ -427,20 +414,13 @@
   }
 
   // ── the margin: only "on this page", with scroll-spy, and only for ≥ 3 headings ─────────
-  // (start-here keeps the full graph beside it until round 3). No margin: the column centres.
-  S.depth = 1
+  // No margin: the column centres. Start-here is one centred column (round 3: no graph there).
   let spy = null
   S.renderAside = () => {
     const n = S.state.note
     if (!n || S.state.view === 'graph') return
     if (spy) { spy.disconnect(); spy = null }
-    if (S.state.view === 'home' && wide()) {
-      el.root.dataset.margin = 'graph'
-      el.margin.innerHTML = `<div class="nb-home-graph"></div>`
-      graphView(el.margin.querySelector('.nb-home-graph'), { compact: true })
-      return
-    }
-    const heads = NB.reader.outline()
+    const heads = S.state.view === 'home' ? [] : NB.reader.outline()
     el.root.dataset.margin = heads.length ? 'toc' : 'none'
     if (!wide() || !heads.length) { el.margin.innerHTML = ''; return }
     const w = S.state.q.get('w')
@@ -458,107 +438,215 @@
     for (const x of heads) { const t = el.col.querySelector(`#${CSS.escape(x.id)}`); if (t) spy.observe(t) }
     mark()
   }
-  const linkList = (ls, ctx) => ls.length ? `<ul>${ls.map((l) => `<li><a href="${esc(S.href(l.note.route))}" data-route="${esc(l.note.route)}">${esc(V().label(l.note))}${ctx && l.context ? `<span class="nb-ctx">“${esc(trimCtx(l.context))}”</span>` : ''}</a></li>`).join('')}</ul>` : `<p class="nb-ctx" style="color:var(--lab-dim)">${esc(C.noLinks)}</p>`
+  // a note's name in a list: "T03 Error analysis", the ID mono and dim, the title in sans (O7)
+  const nameHtml = (n) => (n.id ? `<span class="nb-lid">${esc(n.id)}</span> ${esc(n.title)}` : esc(n.isHub ? S.name(n) : n.title))
+  S.nameHtml = nameHtml
   const trimCtx = (s) => (s.length > 120 ? s.slice(0, 117) + '…' : s)
-  S.linkList = linkList
+  // links with the sentence around each; an empty list is not drawn at all
+  S.linkList = (ls) => (ls.length ? `<ul>${ls.map((l) => `<li><a href="${esc(S.href(l.note.route))}" data-route="${esc(l.note.route)}">${nameHtml(l.note)}${l.context ? `<span class="nb-ctx">“${esc(trimCtx(l.context))}”</span>` : ''}</a></li>`).join('')}</ul>` : '')
 
-  // the local graph: the note in the middle, its neighbours round it, in the list's order
-  const CAP = 24
-  function localGraph(n, w, hgt) {
-    const v = V()
-    const all = v.neighbours(n, S.depth)
-    const one = all.filter((x) => x.hop === 1)
-    const list = [...one.slice(0, CAP), ...all.filter((x) => x.hop === 2).slice(0, Math.max(0, CAP - one.length))]
-    const pos = NB.graph.radial(list, w, hgt)
-    const nodes = [{ note: n, hop: 0 }, ...list]
-    const R = (t) => Math.max(4, (NB.graph.R[t] || 5) * 0.9)
-    const edges = list.map((x, i) => {
-      if (x.hop === 1) return `<line class="e" x1="${pos[0][0]}" y1="${pos[0][1]}" x2="${pos[i + 1][0]}" y2="${pos[i + 1][1]}"/>`
-      const via = list.findIndex((y) => y.hop === 1 && v.neighbourList(y.note).includes(x.note))
-      return via >= 0 ? `<line class="e e--hop2" x1="${pos[via + 1][0]}" y1="${pos[via + 1][1]}" x2="${pos[i + 1][0]}" y2="${pos[i + 1][1]}"/>` : ''
-    }).join('')
-    const more = one.length > CAP ? `<p class="nb-ctx" style="color:var(--lab-dim)">${esc(C.more(one.length - CAP))}: ${one.slice(CAP).map((x) => `<a href="${esc(S.href(x.note.route))}">${esc(x.note.id || x.note.title)}</a>`).join(' · ')}</p>` : ''
-    return `<svg class="nb-g nb-g--local" viewBox="0 0 ${w} ${hgt}" width="${w}" height="${hgt}" role="group" aria-label="${esc(C.localGraph)}">${edges}${nodes.map((x, i) => nodeSvg(x.note, pos[i][0], pos[i][1], R(x.note.type), { here: i === 0, hop2: x.hop === 2, label: true, local: true, flip: pos[i][0] > w * 0.55 })).join('')}</svg>${more}`
-  }
-  S.localGraph = localGraph
+  // ── the map's nodes ───────────────────────────────────────────────────────────────────
   function shapeSvg(type, r) {
     if (type === 'doc') return `<rect class="s" x="${-r}" y="${-r}" width="${2 * r}" height="${2 * r}"/>`
     if (type === 'stage') return `<path class="s" d="M0 ${-r * 1.25}L${r * 1.25} 0L0 ${r * 1.25}L${-r * 1.25} 0Z"/>`
     if (type === 'post') return `<path class="s" d="M0 ${-r * 1.2}L${r * 1.1} ${r * 0.8}L${-r * 1.1} ${r * 0.8}Z"/>`
-    if (type === 'hub') return `<circle class="s" r="${r}"/><circle class="s" r="${r * 0.55}"/>`
+    if (type === 'hub') return `<circle class="s" r="${r}"/><circle class="s s--in" r="${r * 0.55}"/>`
     if (type === 'walkthrough') return `<circle class="s" r="${r}" style="fill:none"/>`
+    if (type === 'track') return `<circle class="s" r="${r}"/><circle class="s s--in" r="${(r * 0.45).toFixed(1)}"/>`
     return `<circle class="s" r="${r}"/>`
   }
-  const shortLabel = (n) => (n.type === 'topic' || n.type === 'stage' ? n.id : n.isHub ? n.title + '/' : n.type === 'walkthrough' ? n.id : n.title.length > 18 ? n.title.slice(0, 17) + '…' : n.title)
-  function nodeSvg(n, x, y, r, o = {}) {
-    const cls = ['n', o.here ? 'is-here' : '', o.hop2 ? 'is-hop2' : '', S.visited.has(n.route) ? 'is-visited' : ''].filter(Boolean).join(' ')
-    const label = o.label !== false
-    const full = V().label(n)
-    // a label on the right-hand side of a small graph reads leftwards, so it stays inside the frame
-    const lx = o.flip ? -(r + 3) : r + 3, anchor = o.flip ? ' text-anchor="end"' : ''
-    return `<a class="${cls}" href="${esc(S.href(n.route))}" data-route="${esc(n.route)}" data-sec="${n.section}" data-type="${n.type}" aria-label="${esc(full)}" transform="translate(${x} ${y})">${shapeSvg(n.type, r)}${label ? `<text class="short" x="${lx}" y="3.5"${anchor}>${esc(shortLabel(n))}</text><text class="full" x="${lx}" y="3.5"${anchor}>${esc(o.local ? shortLabel(n) : full)}</text>` : ''}<title>${esc(full)}</title></a>`
+  S.shapeSvg = shapeSvg
+  // a node's label as lines; a track's is its name and its progress
+  const trackNote = (t) => ({ name: S.cap(V().folderTitle(t.folder)), done: t.topics.filter((x) => x.status === 'done').length, of: t.topics.length })
+  const labelOf = (d) => {
+    if (d.type === 'track') { const t = trackNote(d.track); return [t.name, C.track.done(t.done, t.of)] }
+    const n = V().get(d.key)
+    // a section's own overview sits under the section's name on the map: it is "Overview" there
+    return NB.graph.wrap(n.id ? `${n.id} ${n.title}` : n.route === '' ? n.title : n.type === 'log' ? S.cap(C.shapes.log) : n.isHub && n.route === n.section ? S.cap(C.shapes.hub) : n.isHub ? S.name(n) : n.title)
   }
-  function bindLocal(root) {
-    for (const svg of root.querySelectorAll('.nb-g--local')) {
-      svg.addEventListener('keydown', (e) => {
-        if (!/^Arrow/.test(e.key)) return
-        const ns = [...svg.querySelectorAll('a.n')]
-        const i = ns.indexOf(document.activeElement)
-        if (i < 0) return
-        e.preventDefault()
-        ns[(i + (e.key === 'ArrowRight' || e.key === 'ArrowDown' ? 1 : -1) + ns.length) % ns.length].focus()
-      })
-    }
+  const LH = 1.2
+  let LF = 14, RF = 20
+  function labelSvg(d, x, y, at) {
+    if (!at) return ''
+    const lx = (at.x - x).toFixed(1), ly = (at.y - y).toFixed(1)
+    const id = d.type !== 'track' && (V().get(d.key) || {}).id
+    return `<text class="l${at.shown ? '' : ' is-off'}" x="${lx}" y="${ly}">${at.lines.map((line, i) => {
+      const body = i === 0 && id && line.startsWith(id + ' ') ? `<tspan class="lid">${esc(id)}</tspan>${esc(line.slice(id.length))}` : esc(line)
+      return `<tspan x="${lx}" dy="${i ? (LF * LH).toFixed(1) : (LF * 0.95).toFixed(1)}">${body}</tspan>`
+    }).join('')}</text>`
   }
-  S.bindLocal = bindLocal
+  function nodeSvg(d, x, y, at) {
+    const n = d.type === 'track' ? null : V().get(d.key)
+    const t = d.track && trackNote(d.track)
+    const cls = ['n', n && S.visited.has(n.route) ? 'is-visited' : '', d.type === 'track' && S.graphOpen.has(d.key) ? 'is-open' : ''].filter(Boolean).join(' ')
+    const label = n ? V().label(n) : C.track.label(t.name, t.done, t.of)
+    const href = n ? S.href(n.route) : S.href(V().get('agent-reliability/study') ? 'agent-reliability/study' : '')
+    return `<a class="${cls}" href="${esc(href)}" data-route="${esc(d.key)}" data-sec="${esc(d.section)}" data-type="${esc(d.type)}"${d.type === 'track' ? ` aria-expanded="${S.graphOpen.has(d.key)}"` : ''} aria-label="${esc(label)}" transform="translate(${x} ${y})">${shapeSvg(d.type, NB.graph.radius(d))}${labelSvg(d, x, y, at)}<title>${esc(label)}</title></a>`
+  }
 
-  // ── the full graph ────────────────────────────────────────────────────────────────────
+  // ── the full graph: desktop only (≥ 900 px); a phone gets the map as a list ────────────
+  S.graphOpen = new Set()
   function showGraph(q) {
     S.state = { ...S.state, view: 'graph', q, route: 'graph' }
     el.root.dataset.view = 'graph'
     el.root.dataset.sec = 'root'
     document.documentElement.classList.add('nb-graph')
     el.graphBtn.setAttribute('aria-pressed', 'true')
-    document.title = C.title(C.graphTitle)
+    document.title = C.title(S.cap(C.graphTitle))
     renderPath(null, true)
-    el.col.innerHTML = `<h1 class="nb-sr" tabindex="-1">${esc(C.graphTitle)}</h1><div class="nb-graph-host" style="height:100%"></div>`
-    graphView(el.col.querySelector('.nb-graph-host'), {})
-    if (phone()) scrollTo(0, 0)
+    S.graphPhone = phone()
+    if (S.graphPhone) {
+      el.col.innerHTML = mapList()
+      bindMapList(el.col.querySelector('.nb-maplist'))
+      scrollTo(0, 0)
+    } else {
+      el.col.innerHTML = `<h1 class="nb-sr" tabindex="-1">${esc(C.list.title)}</h1><div class="nb-graph-host" style="height:100%"></div>`
+      graphView(el.col.querySelector('.nb-graph-host'), q.get('focus'))
+    }
     popOnArrival(q)
   }
   S.graphFilters = { 'agent-reliability': true, builds: true, writing: true }
-  function graphView(host, { compact }) {
-    const v = V(), L = graphLayout()
-    const edges = v.edges.map((e) => { const a = L.pos[e.a.route], b = L.pos[e.b.route]; return a && b ? `<line class="e${e.kind === 'tour' ? ' e--tour' : ''}" data-a="${esc(e.a.route)}" data-b="${esc(e.b.route)}" x1="${a[0]}" y1="${a[1]}" x2="${b[0]}" y2="${b[1]}"/>` : '' }).join('')
-    const here = S.state.note && S.state.view !== 'graph' ? S.state.note : null
-    const nodes = v.notes.map((n) => { const p = L.pos[n.route]; return nodeSvg(n, p[0], p[1], NB.graph.R[n.type] || 5, { here: n === here, label: true }) }).join('')
+  // the layout for the open tracks, warm from the seed (cached per set of open tracks)
+  const views = new Map(), layouts = new Map()
+  // a label's real width: the text face at the label's weight, an ID at the start in mono
+  const pen = document.createElement('canvas').getContext('2d')
+  const measure = (line, size) => {
+    const sans = getComputedStyle(el.col).fontFamily, mono = getComputedStyle(el.root).getPropertyValue('--mono') || 'monospace'
+    const id = /^(T\d\d|PW\d|W\d)(?= )/.exec(line)
+    pen.font = `500 ${size}px ${sans}`
+    const rest = pen.measureText(id ? line.slice(id[0].length) : line).width
+    if (!id) return rest
+    pen.font = `400 ${size}px ${mono}`
+    return rest + pen.measureText(id[0]).width
+  }
+  // the labels are sized for the view they are drawn in (≥ 13.5 px once fitted)
+  function mapView(vw = 900, vh = 800) {
+    const v = V(), open = [...S.graphOpen].sort().join(',')
+    const g = NB.graph.view(v.notes, v.edges.map((e) => ({ a: e.a.route, b: e.b.route, kind: e.kind })), S.graphOpen)
+    const L0 = layouts.get(open)
+    const L = L0 && L0.vault === v ? L0.L : NB.graph.layout(g.nodes, g.edges, { seed: NB.graphSeed })
+    layouts.set(open, { vault: v, L })
+    const size = NB.graph.labelSize(g.nodes, L.pos, vw, vh, { lh: LH })
+    const k = `${open}@${size.F}`
+    if (views.has(k) && views.get(k).vault === v) return views.get(k)
+    const regions = Object.keys(S.graphFilters).map((sec) => ({ key: `region:${sec}`, section: sec, text: C.sections[sec] }))
+    const at = NB.graph.labels(g.nodes, L.pos, labelOf, { F: size.F, RF: size.F * 1.43, lh: LH, open: S.graphOpen, regions, margin: size.margin, measure })
+    const res = { vault: v, g, L, at, regions, F: size.F }
+    views.set(k, res)
+    return res
+  }
+  S.mapView = mapView
+  const keyHtml = () => `<section class="nb-key" aria-label="${esc(C.legend)}"><h2 class="nb-key__head">${esc(C.legend)}</h2>
+    <p>${esc(C.key.dot)} ${esc(C.key.line)} ${esc(C.key.dotted)}</p>
+    <h3 class="nb-key__head">${esc(C.key.colours)}</h3><ul class="nb-key__list">${Object.keys(S.graphFilters).map((s) => `<li data-sec="${s}"><span class="nb-key__sw" aria-hidden="true"></span>${esc(C.sections[s])}</li>`).join('')}<li data-sec="tours"><span class="nb-key__sw" aria-hidden="true"></span>${esc(C.sections.tours)}</li></ul>
+    <h3 class="nb-key__head">${esc(C.key.shapesHead)}</h3><ul class="nb-key__list nb-key__shapes">${['hub', 'doc', 'stage', 'track', 'topic', 'build', 'post', 'walkthrough'].map((t) => `<li><svg class="nb-key__shape" viewBox="-10 -10 20 20" width="20" height="20" aria-hidden="true">${shapeSvg(t, t === 'topic' ? 4.5 : 6.5)}</svg>${esc(C.shapes[t])}</li>`).join('')}</ul></section>`
+  function graphView(host, focus) {
     host.innerHTML = `<div class="nb-graph">
-      <div class="nb-graph__bar">${Object.keys(C.filters).map((s) => `<button type="button" data-filter="${s}" aria-pressed="${S.graphFilters[s]}" aria-label="${esc(C.filterLabel(C.filters[s], S.graphFilters[s]))}">${esc(C.filters[s])}</button>`).join('')}
-        <button type="button" data-fit aria-label="${esc(C.fitLabel)}">${esc(C.fit)}</button>${compact ? '' : `<span class="nb-graph__hint">${esc(C.graphHint)}</span>`}</div>
-      <div class="nb-graph__view"><svg class="nb-g nb-g--full${compact ? ' is-compact' : ''}" role="group" aria-label="${esc(C.graphLabel2)}"><g class="nb-g__world">${edges}${nodes}</g></svg></div>
-      <p class="nb-graph__pick" hidden></p>
-      <p class="nb-legend">${Object.entries(C.shapes).filter(([t]) => t !== 'log').map(([t, w]) => `<span>${esc({ hub: '◎', doc: '■', stage: '◆', topic: '•', build: '●', post: '▲', walkthrough: '○' }[t])} ${esc(w)}</span>`).join('')}</p>
+      <div class="nb-graph__bar">${Object.keys(S.graphFilters).map((s) => `<button type="button" data-filter="${s}" data-sec="${s}" aria-pressed="${S.graphFilters[s]}" aria-label="${esc(C.filterLabel(C.filters[s], S.graphFilters[s]))}"><span class="nb-key__sw" aria-hidden="true"></span>${esc(C.filters[s])}</button>`).join('')}
+        <button type="button" data-fit aria-label="${esc(C.fitLabel)}">${esc(C.fit)}</button><span class="nb-graph__hint">${esc(C.graphHint)}</span></div>
+      <div class="nb-graph__body">
+        <div class="nb-graph__view"><svg class="nb-g nb-g--full" role="group" aria-label="${esc(C.graphLabel2)}"><g class="nb-g__world"></g></svg></div>
+        <aside class="nb-graph__side"><section class="nb-card" aria-label="${esc(C.card.label)}" aria-live="polite" hidden></section>${keyHtml()}</aside>
+      </div>
     </div>`
-    const svg = host.querySelector('svg'), world = svg.querySelector('.nb-g__world'), pick = host.querySelector('.nb-graph__pick')
-    // one ref for the transform; written from rAF only
+    const svg = host.querySelector('svg'), world = svg.querySelector('.nb-g__world'), viewEl = host.querySelector('.nb-graph__view'), card = host.querySelector('.nb-card')
+    let M = null, sel = null
+    const draw = () => {
+      const vr = svg.getBoundingClientRect()
+      M = mapView(vr.width, vr.height)
+      LF = M.F; RF = M.F * 1.43
+      world.style.setProperty('--lf', `${LF}px`)
+      const { g, L, at, regions } = M
+      const edges = g.edges.map((e) => { const a = L.pos[e.a], b = L.pos[e.b]; return a && b ? `<line class="e${e.kind === 'tour' ? ' e--tour' : e.kind === 'track' ? ' e--track' : ''}" data-a="${esc(e.a)}" data-b="${esc(e.b)}" x1="${a[0]}" y1="${a[1]}" x2="${b[0]}" y2="${b[1]}"/>` : '' }).join('')
+      const regs = regions.map((r) => { const a = at[r.key]; return a ? `<text class="rg" data-sec="${r.section}" x="${a.x}" y="${(a.y + RF * 0.95).toFixed(1)}">${esc(r.text)}</text>` : '' }).join('')
+      world.innerHTML = `${regs}${edges}${g.nodes.map((d) => { const p = L.pos[d.key]; return nodeSvg(d, p[0], p[1], at[d.key]) }).join('')}`
+      filter()
+      if (sel) light(sel)
+    }
+    // one ref for the transform; written from rAF only. Labels under 12 px on screen are hidden,
+    // not drawn small: the flag sits on the view's box, outside the SVG
     const cam = { s: 1, x: 0, y: 0 }
-    let dirty = true, raf = 0
-    const frame = () => { raf = 0; if (dirty) { dirty = false; world.setAttribute('transform', `translate(${cam.x.toFixed(2)} ${cam.y.toFixed(2)}) scale(${cam.s.toFixed(4)})`) } }
+    let dirty = true, raf = 0, tiny = null
+    const frame = () => {
+      raf = 0
+      if (!dirty) return
+      dirty = false
+      world.setAttribute('transform', `translate(${cam.x.toFixed(2)} ${cam.y.toFixed(2)}) scale(${cam.s.toFixed(4)})`)
+      const t = (cam.s * LF < 12 ? 'l' : '') + (cam.s * RF < 12 ? 'r' : '')
+      if (t !== tiny) { tiny = t; viewEl.dataset.tiny = t }
+    }
     const kick = () => { dirty = true; if (!raf) raf = requestAnimationFrame(frame) }
-    const fit = () => { const r = svg.getBoundingClientRect(); const f = NB.graph.fit(L.pos, r.width, r.height, compact ? 12 : 24); Object.assign(cam, f); kick() }
+    // fit every node and every label that is shown
+    const bounds = () => {
+      const pts = { ...M.L.pos }
+      for (const [k, a] of Object.entries(M.at)) if (a.shown) { pts[k + ':0'] = [a.x, a.y]; pts[k + ':1'] = [a.x + a.w, a.y + a.h] }
+      return pts
+    }
+    const fit = () => { const r = svg.getBoundingClientRect(); Object.assign(cam, NB.graph.fit(bounds(), r.width, r.height, 20, 14)); kick() }
+    const centre = (key) => {
+      const p = M.L.pos[key], r = svg.getBoundingClientRect()
+      if (!p) return
+      const f = NB.graph.fit(bounds(), r.width, r.height, 20, 14)
+      cam.s = Math.min(6, Math.max(f.s, 1.15)); cam.x = r.width / 2 - p[0] * cam.s; cam.y = r.height / 2 - p[1] * cam.s
+      kick()
+    }
     S.graphCam = cam
     S.graphFit = fit
-    requestAnimationFrame(fit)
+    S.graphCentre = centre
+    // selection: the note, its neighbours lit, the rest faded, and the side card
+    const light = (key) => {
+      const nb = new Set([key])
+      for (const ln of world.querySelectorAll('line.e')) { const on = ln.dataset.a === key || ln.dataset.b === key; ln.classList.toggle('is-lit', on); if (on) { nb.add(ln.dataset.a); nb.add(ln.dataset.b) } }
+      for (const a of world.querySelectorAll('a.n')) { a.classList.toggle('is-sel', a.dataset.route === key); a.classList.toggle('is-lit', a.dataset.route !== key && nb.has(a.dataset.route)); a.classList.toggle('is-fade', !nb.has(a.dataset.route)) }
+      world.classList.add('has-sel')
+    }
+    const unselect = () => {
+      sel = null
+      for (const x of world.querySelectorAll('.is-sel, .is-lit, .is-fade')) x.classList.remove('is-sel', 'is-lit', 'is-fade')
+      world.classList.remove('has-sel')
+      card.hidden = true
+    }
+    S.graphUnselect = unselect
+    const select = (key) => {
+      const d = M.g.nodes.find((x) => x.key === key)
+      if (!d) return
+      sel = key
+      light(key)
+      card.hidden = false
+      if (d.type === 'track') {
+        const t = trackNote(d.track), open = S.graphOpen.has(key)
+        card.innerHTML = `<p class="nb-card__kicker" data-sec="${esc(d.section)}">${esc(C.sections[d.section])} · ${esc(C.shapes.track.split(' (')[0])}</p><h2 class="nb-card__title">${esc(t.name)}</h2><p class="nb-card__sum">${esc(C.track.done(t.done, t.of))}</p>
+          <ul class="nb-card__list">${d.track.topics.map((x) => `<li><a href="${esc(S.href(x.route))}">${glyph(x)} ${nameHtml(x)}</a></li>`).join('')}</ul>
+          <button type="button" class="nb-card__btn" data-track="${esc(key)}" aria-expanded="${open}">${esc(open ? C.track.collapse : C.track.expand(t.of))}</button>`
+      } else {
+        const n = V().get(key), st = C.status[n.status] || C.status.planned
+        card.innerHTML = `<p class="nb-card__kicker" data-sec="${esc(n.section)}">${esc(C.sections[n.section] || n.section)} · ${esc(C.shapes[n.type] || n.type)} · <span data-st="${esc(n.status)}" aria-hidden="true">${esc(st[0])}</span> ${esc(st[1])}</p><h2 class="nb-card__title">${nameHtml(n)}</h2>${n.summary ? `<p class="nb-card__sum">${esc(n.summary)}</p>` : ''}<p><a class="nb-card__open" href="${esc(S.href(n.route))}">${esc(C.nodeOpen)}</a></p>`
+      }
+    }
+    S.graphSelect = select
+    const toggleTrack = (key) => {
+      if (S.graphOpen.has(key)) S.graphOpen.delete(key); else S.graphOpen.add(key)
+      draw()
+      select(key)
+    }
+    S.graphToggle = toggleTrack
     const filter = () => {
       for (const a of svg.querySelectorAll('a.n')) a.classList.toggle('is-dim', a.dataset.sec in S.graphFilters && !S.graphFilters[a.dataset.sec])
       for (const b of host.querySelectorAll('[data-filter]')) { const on = S.graphFilters[b.dataset.filter]; b.setAttribute('aria-pressed', String(on)); b.setAttribute('aria-label', C.filterLabel(C.filters[b.dataset.filter], on)) }
     }
-    filter()
+    draw()
+    // labels are measured in the real face: if it was still loading, measure and draw again
+    if (document.fonts && document.fonts.status !== 'loaded') document.fonts.ready.then(() => { if (svg.isConnected) { views.clear(); draw() } })
+    // ?focus=<route>: a topic inside a folded track opens it first; then centre it, its neighbours lit
+    let fkey = focus && V().get(focus) ? focus : null
+    if (fkey && !M.L.pos[fkey]) { const t = M.g.groups.find((x) => x.topics.some((y) => y.route === fkey)); if (t) { S.graphOpen.add(t.key); draw() } }
+    requestAnimationFrame(() => { if (fkey && M.L.pos[fkey]) { centre(fkey); select(fkey) } else fit() })
     host.querySelector('.nb-graph__bar').addEventListener('click', (e) => {
       const f = e.target.closest('[data-filter]')
       if (f) { S.graphFilters[f.dataset.filter] = !S.graphFilters[f.dataset.filter]; filter() }
       if (e.target.closest('[data-fit]')) fit()
     })
+    card.addEventListener('click', (e) => { const b = e.target.closest('[data-track]'); if (b) toggleTrack(b.dataset.track) })
     // pan, zoom, pinch: pointer events → cam → one transform
     const pts = new Map()
     let moved = 0, last = null, pinch = null
@@ -568,8 +656,7 @@
       pts.set(e.pointerId, [e.clientX, e.clientY])
       if (pts.size === 2 && pinch) {
         const [a, b] = [...pts.values()], r = svg.getBoundingClientRect()
-        const mx = (a[0] + b[0]) / 2 - r.left, my = (a[1] + b[1]) / 2 - r.top
-        zoomAt(mx, my, pinch.s * Math.hypot(a[0] - b[0], a[1] - b[1]) / pinch.d)
+        zoomAt((a[0] + b[0]) / 2 - r.left, (a[1] + b[1]) / 2 - r.top, pinch.s * Math.hypot(a[0] - b[0], a[1] - b[1]) / pinch.d)
         moved = 99
         return
       }
@@ -584,19 +671,15 @@
     const zoomAt = (mx, my, s) => { s = Math.min(6, Math.max(0.2, s)); cam.x = mx - ((mx - cam.x) / cam.s) * s; cam.y = my - ((my - cam.y) / cam.s) * s; cam.s = s; kick() }
     S.graphZoomAt = zoomAt
     svg.addEventListener('wheel', (e) => { e.preventDefault(); const r = svg.getBoundingClientRect(); zoomAt(e.clientX - r.left, e.clientY - r.top, cam.s * Math.exp(-Math.max(-60, Math.min(60, e.deltaY)) * 0.003)) }, { passive: false })
-    let touchSel = null
+    // a click selects (the card says what it is and offers open →); a track opens or folds
     svg.addEventListener('click', (e) => {
       const a = e.target.closest('a.n')
       if (moved > 4) { e.preventDefault(); return }
-      if (!a) return
-      // a tap on a phone selects first and says what it is; a second tap (or open →) goes
-      if (phone() && touchSel !== a) {
-        e.preventDefault()
-        touchSel = a
-        const n = V().get(a.dataset.route)
-        pick.hidden = false
-        pick.innerHTML = `${esc(V().label(n))} · <a href="${esc(S.href(n.route))}">${esc(C.nodeOpen)}</a>`
-      }
+      if (!a) { unselect(); return }
+      e.preventDefault()
+      if (a.dataset.type === 'track') toggleTrack(a.dataset.route)
+      else select(a.dataset.route)
+      if (NIGHT.sound) NIGHT.sound.cue('select')
     })
     svg.addEventListener('keydown', (e) => {
       if (!/^Arrow/.test(e.key)) return
@@ -611,11 +694,45 @@
     for (const a of document.querySelectorAll('.nb-g--full a.n')) a.classList.toggle('is-match', !!notes && set.has(a.dataset.route))
   }
 
-  // ?add=1: a 72nd note, relaid out warm; the readout says how far the others moved
+  // ── the map as a list (phone): sections → folders → notes, with a filter on top ────────
+  function mapList() {
+    const t = V().tree
+    const row = (n, label) => `<li><a class="nb-maplist__row" href="${esc(S.href(n.route))}" data-route="${esc(n.route)}">${glyph(n)}<span class="nb-maplist__name">${label || nameHtml(n)}</span></a></li>`
+    const count = (f) => f.notes.length + (f.hub ? 1 : 0) + f.folders.reduce((a, s) => a + count(s), 0)
+    const folder = (f, top) => {
+      const name = top ? C.sections[f.path] || folderName(f.path) : folderName(f.path)
+      const kids = (f.hub ? row(f.hub, esc(top ? S.cap(f.hub.title) : S.name(f.hub))) : '') + f.notes.map((n) => row(n)).join('') + f.folders.map((s) => `<li>${folder(s, false)}</li>`).join('')
+      return `<details class="nb-maplist__${top ? 'sec' : 'folder'}" data-sec="${esc(secOf(f))}" data-folder="${esc(f.path)}"><summary><span class="nb-maplist__label">${esc(name)}</span><span class="nb-maplist__count">${esc(C.list.count(count(f)))}</span></summary><ul>${kids}</ul></details>`
+    }
+    return `<div class="nb-maplist"><h1 class="nb-title" tabindex="-1">${esc(C.list.title)}</h1>
+      <label class="nb-maplist__filter"><span class="nb-sr">${esc(C.list.filter)}</span><input type="search" autocomplete="off" spellcheck="false" placeholder="${esc(C.list.placeholder)}" aria-label="${esc(C.list.filter)}"></label>
+      <p class="nb-maplist__none" hidden>${esc(C.list.none)}</p>
+      ${t.folders.map((f) => folder(f, true)).join('')}</div>`
+  }
+  function bindMapList(box) {
+    const input = box.querySelector('input'), none = box.querySelector('.nb-maplist__none')
+    const all = [...box.querySelectorAll('details')]
+    const apply = () => {
+      const q = input.value.trim()
+      const hits = q ? new Set(V().match(q).map((n) => n.route)) : null
+      for (const a of box.querySelectorAll('.nb-maplist__row')) a.parentElement.hidden = !!hits && !hits.has(a.dataset.route)
+      for (const d of all.slice().reverse()) {
+        const any = !!d.querySelector('li:not([hidden]) > .nb-maplist__row')
+        const li = d.parentElement.closest('li')
+        if (li && box.contains(li)) li.hidden = !!hits && !any
+        if (hits) { d.hidden = !any; d.open = any } else { d.hidden = false; d.open = false }
+      }
+      none.hidden = !hits || !!box.querySelector('li:not([hidden]) > .nb-maplist__row')
+    }
+    input.addEventListener('input', apply)
+    S.mapFilter = (q) => { input.value = q; apply() }
+  }
+
+  // ?add=1: one more note, relaid out warm; the readout says how far the others moved
   S.addProof = () => {
-    const before = graphLayout().pos
+    const before = mapView().L.pos
     NB.vault = buildVault({ 'agent-reliability/shopkeeper/08-test-note.md': `---\ntitle: "test note"\ntype: doc\nstatus: planned\nupdated: 2026-11-21\nsummary: "the ?add=1 proof"\ntags: [shopkeeper]\naliases: []\nlisten: true\nvisibility: public\nproject: shopkeeper\n---\n\nSee [[shopkeeper/spec]].\n` })
-    const after = S.relayout().pos
+    const after = mapView().L.pos
     const mv = Object.keys(before).map((k) => Math.hypot(after[k][0] - before[k][0], after[k][1] - before[k][1])).sort((a, b) => a - b)
     renderTree()
     S.show()

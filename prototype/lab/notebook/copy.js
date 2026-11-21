@@ -22,7 +22,7 @@
     pathLabel: 'Where this note is',
     treeLabel: 'Notes',
     search: '⌕', searchWord: 'search', searchKey: '/', searchLabel: 'Search notes (/ or Ctrl+K)',
-    graph: '◎', graphWord: 'graph', graphLabel: 'Graph of every note (g)',
+    graph: '◎', graphWord: 'map', graphLabel: 'The map of every note (g)',
     listen: '▶', listenWord: 'listen', listenLabel: 'Listen to this note (l)', listenTour: (w) => `Listen to all of ${w}`,
     sndWord: (on) => `Interface sounds: ${on ? 'on' : 'off'}`, sndLabel: (on) => `Interface sounds ${on ? 'on' : 'off'}, press to change`,
     // the bar's theme toggle, until round 4's Aa panel: night ↔ paper
@@ -44,6 +44,8 @@
     proposalLabel: 'A draft line for Aahil to rewrite',
     stub: 'stub, to fill',
     stubSlot: 'empty: to fill',
+    // a stub shown to the public is one honest line; the slots are the author view's
+    stubPublic: 'Write-up coming.',
     updated: (d) => `updated ${d}`,
     months: ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'],
     // the words a reader sees for a section and for the folders that have no hub of their own
@@ -65,14 +67,13 @@
 
     // the reading column's furniture
     onPage: 'on this page',
-    localGraph: 'local graph',
-    depth: (d) => `depth ${d}`,
-    depthLabel: 'Show the second hop',
-    more: (n) => `+${n} more`,
-    linkedFrom: (n) => `linked from (${n})`,
-    linksOut: (n) => `links to (${n})`,
-    linksHead: 'links',
-    noLinks: 'nothing links here yet.',
+    // the note's end: where this fits (round 3: no local graph; an empty list is not shown)
+    linksHead: 'where this fits',
+    fits: {
+      partOf: 'Part of', next: 'Next', linksTo: 'Links to', linkedFrom: 'Linked from',
+      step: (i, n) => `step ${i} of ${n} in`,
+      onMap: 'see on the map →', onMapLabel: (t) => `${t} on the map of the Lab`,
+    },
     prev: '←', next: '→', up: '↑',
     prevLabel: (t) => `Previous: ${t}`, nextLabel: (t) => `Next: ${t}`, upLabel: (t) => `Up: ${t}`,
     tourBanner: (w, title, i, n) => `${w} ${title} · ${i} of ${n}`,
@@ -120,19 +121,53 @@
       tracksHead: ['track', 'topics', 'done', 'folder'],
       gallery: (name, i, n) => `${name}, screenshot ${i} of ${n}`,
       unscheduled: 'unscheduled',
+      // W1's intro names its stages before using them (O7): an author-view proposal
+      stagesGloss: "(the project's five stages)",
     },
 
-    // the graph
-    graphTitle: 'graph',
-    graphLabel2: 'Every note, and the links between them',
-    filters: { 'agent-reliability': 'agent-reliability', builds: 'builds', writing: 'writing' },
+    // start-here: the way in, then the map of the Lab (round 3: no graph on start-here)
+    start: {
+      ledeProposal: "Notes on what I'm studying and building in agent reliability, written as I go.",
+      entriesLabel: 'Where to start',
+      tour: 'Read the Shopkeeper tour', tourMeta: (min) => `${min} min`,
+      study: "What I'm studying now", studyMeta: (phase, done, of) => `${phase}, ${done} of ${of}`,
+      builds: "Things I've built", buildsMeta: (names) => names.join(', '),
+      mapLabel: 'The map of the Lab: its three sections',
+      count: (n) => `${n} ${n === 1 ? 'note' : 'notes'}`,
+      shop: (spec, done, of) => `spec ${spec}, ${done} of ${of} stages`,
+      studyKey: (phase, done, of) => `${phase}, ${done} of ${of} topics`,
+      allOf: (s) => `all of ${s} →`,
+    },
+    // the study hub: progress lists, not a chart (G6)
+    progress: {
+      phasesLabel: 'Phases, with topics done and hours logged',
+      tracksLabel: 'Tracks, with topics done',
+      dates: (a, b) => `${a} – ${b}`,
+      topics: (done, of) => `${done} of ${of} topics`,
+      hours: (logged, planned) => `${logged} of ${planned} h`,
+      done: (done, of) => `${done} of ${of} done`,
+      now: 'now',
+      bar: (done, of) => `${done} of ${of} topics done`,
+    },
+
+    // the graph (desktop, ≥ 900 px) and the map as a list (phone)
+    graphTitle: 'map',
+    graphLabel2: 'The map of the Lab: every note, with study topics grouped by track',
+    filters: { 'agent-reliability': 'Agent reliability', builds: 'Builds', writing: 'Writing' },
     filterLabel: (s, on) => `${s}: ${on ? 'shown' : 'dimmed'}`,
     fit: 'fit',
     fitLabel: 'Fit every note in view',
     nodeOpen: 'open →',
-    graphHint: 'drag to pan · wheel or pinch to zoom · tap a node',
-    shapes: { hub: 'hub', doc: 'doc', stage: 'stage', topic: 'topic', build: 'build', post: 'post', walkthrough: 'tour', log: 'log' },
-    legend: 'legend',
+    graphHint: 'drag to pan · scroll to zoom · click a dot',
+    shapes: { hub: 'overview', doc: 'spec', stage: 'project stage', topic: 'study topic', track: 'study track (click to show its topics)', build: 'build', post: 'post', walkthrough: 'guided tour', log: 'study log' },
+    legend: 'key',
+    key: {
+      dot: 'Each dot is a note.', line: 'A line means one note links to the other.', dotted: 'Dotted lines are the steps of a tour.',
+      colours: 'Colour is the section', shapesHead: 'Shape is the kind of note',
+    },
+    track: { done: (done, of) => `${done}/${of} done`, label: (name, done, of) => `${name}, a study track: ${done} of ${of} topics done`, expand: (n) => `show its ${n} topics`, collapse: 'hide its topics' },
+    card: { label: 'The selected note', close: 'close' },
+    list: { title: 'Map of the Lab', filter: 'Filter the map', placeholder: 'a title or an ID (T02)', none: 'nothing matches.', count: (n) => `${n}` },
 
     // the quick switcher
     switcher: {

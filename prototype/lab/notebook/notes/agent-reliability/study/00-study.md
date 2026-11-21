@@ -20,10 +20,6 @@ source: the study tracker (Topics, Log and Summary sheets)
 ```block phases
 ```
 
-```chart study-hours
-fig · chart · planned and logged hours per phase, topics done per track
-```
-
 ## tracks
 
 ```block tracks

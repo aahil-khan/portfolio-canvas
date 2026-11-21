@@ -4,11 +4,11 @@
 //
 // Loads the pure parts (copy.js, md.js, model.js, graph.js, vault.js, study.js, essay.js,
 // graph-seed.js, logic.js) in Node and checks, on the real vault:
-//   1. the vault: vault.js is current, every link resolves, names and numbers, fields, 71 notes,
+//   1. the vault: vault.js is current, every link resolves, names and numbers, fields, 70 public notes (a stub hidden by default),
 //      and the visibility switch
 //   2. verbatim: the seven spec notes are the spec's own lines (SKIP if the source is absent)
 //   3. the study: the allowlist, Aahil's 2026-11-21 calls, the private-term scan, the numbers
-//   4. the graph: deterministic, in bounds, no overlaps, warm relayout, the local graph
+//   4. the graph: deterministic, in bounds, no overlaps, warm relayout, tracks folded, "where this fits"
 //   5. walkthroughs and clocks: steps, totals, the read clock (every word: prose 200 wpm, table
 //      cells 120), the listen clock; and the TL;DR list (WARN: notes whose summary is missing or a
 //      list of their own headings; Aahil writes them)
@@ -43,7 +43,8 @@ const same = (a, b) => JSON.stringify(a) === JSON.stringify(b)
 const build = (o = {}) => NB.model.build({ files: NB.vaultFiles, study: NB.study, essays: NIGHT.imports, copy: C, ...o })
 const V = build()
 const at = (r) => V.get(r)
-const graphInput = (v) => ({ nodes: v.notes.map((n) => ({ key: n.route, section: n.section, type: n.type })), edges: v.edges.map((e) => ({ a: e.a.route, b: e.b.route, kind: e.kind })) })
+// the map's input: every note, the study topics grouped by track unless a track is expanded
+const graphInput = (v, open) => G.view(v.notes, v.edges.map((e) => ({ a: e.a.route, b: e.b.route, kind: e.kind })), new Set(open || []))
 
 // ── 1 ───────────────────────────────────────────────────────────────────────────────────────
 console.log('1. the vault')
@@ -56,12 +57,20 @@ ok(new Set(keys).size === keys.length && new Set(V.all.map((n) => n.route)).size
 const numClash = V.all.filter((n) => !n.isHub && V.all.some((o) => o !== n && !o.isHub && o.folder === n.folder && o.num === n.num))
 ok(!numClash.length, 'every number appears once per folder; 00 is only ever a hub')
 const counts = { root: 1, arHub: 1, shop: V.all.filter((n) => n.folder === 'agent-reliability/shopkeeper').length, study: V.all.filter((n) => n.folder.startsWith('agent-reliability/study')).length, builds: V.all.filter((n) => n.folder === 'builds').length, writing: V.all.filter((n) => n.folder === 'writing').length, tours: V.tours.length }
-ok(V.notes.length === 71 && counts.shop === 13 && counts.study === 46 && counts.builds === 5 && counts.writing === 3 && counts.tours === 2,
-  `71 notes: 1 + 1 + ${counts.shop} shopkeeper + ${counts.study} study (hub, log, ${NB.study.topics.length} topics, PW6) + ${counts.builds} + ${counts.writing} + ${counts.tours}`)
-const reqMiss = V.all.flatMap((n) => [...NB.model.REQUIRED.all, ...NB.model.REQUIRED[n.type]].filter((k) => n.fm[k] === undefined).map((k) => `${n.route}.${k}`))
+ok(V.notes.length === 70 && counts.shop === 13 && counts.study === 46 && counts.builds === 5 && counts.writing === 3 && counts.tours === 2,
+  `70 public notes of 71: 1 + 1 + ${counts.shop} shopkeeper + ${counts.study} study (hub, log, ${NB.study.topics.length} topics, PW6) + ${counts.builds} builds (one a hidden stub) + ${counts.writing} + ${counts.tours}`)
+const reqMiss = V.all.flatMap((n) => [...NB.model.REQUIRED.all, ...NB.model.REQUIRED[n.type]].filter((k) => n.fm[k] === undefined && !(k === 'visibility' && n.defaultHidden)).map((k) => `${n.route}.${k}`))
 ok(!reqMiss.length, `each type has its required fields${reqMiss.length ? ': ' + reqMiss.join(', ') : ''}`)
 ok(V.all.filter((n) => n.type === 'post').every((n) => n.fm.entry), 'every post sets entry (a note, or none)')
-ok(V.all.every((n) => ['public', 'hidden'].includes(n.fm.visibility)) && V.all.every((n) => n.visibility === 'public'), 'every note carries visibility (public | hidden); all public today')
+ok(V.all.every((n) => ['public', 'hidden'].includes(n.fm.visibility) || n.defaultHidden) && V.all.filter((n) => n.visibility !== 'public').map((n) => n.route).join() === 'builds/04-throw-catch', 'every note carries visibility (public | hidden), or is a stub that defaults to hidden; only throw-catch is hidden')
+{
+  // O6: a build or stage with no "what it is" defaults to hidden; shown publicly, it is one line
+  const tc = V.all.find((n) => n.route === 'builds/04-throw-catch'), dw = at('builds/01-drag-to-workspace')
+  const one = V.readBlocks(dw), A = build({ hidden: true })
+  ok(tc.defaultHidden && tc.visibility === 'hidden' && !at('builds/04-throw-catch') && !V.tree.folders.find((f) => f.path === 'builds').notes.includes(tc), 'a stub with nothing under "what it is" and no visibility of its own is hidden: not in the tree, the map or a link')
+  ok(dw.visibility === 'public' && one.length === 1 && one[0].t === 'p' && MD.plain(one[0].text) === C.stubPublic, `a stub shown publicly is one line ("${C.stubPublic}"), no empty slots`)
+  ok(A.get('builds/04-throw-catch') && A.readBlocks(A.get('builds/01-drag-to-workspace')).filter((b) => b.t === 'h').length === 6, '?hidden=1 shows the hidden stub and every slot of the shown one')
+}
 {
   // the visibility switch: hide T02 and see it leave everything
   const f2 = { ...NB.vaultFiles }
@@ -134,23 +143,34 @@ console.log('4. the graph')
 const gi = graphInput(V)
 const L1 = G.layout(gi.nodes, gi.edges, { seed: NB.graphSeed }), L2 = G.layout(gi.nodes, gi.edges, { seed: NB.graphSeed })
 ok(same(L1, L2) && same(G.layout(gi.nodes, gi.edges), G.layout(gi.nodes, gi.edges)), 'two runs are identical, warm and cold')
-ok(gi.nodes.every((n) => { const [x, y] = L1.pos[n.key], r = G.R[n.type]; return x - r >= 0 && y - r >= 0 && x + r <= G.W && y + r <= G.H }), `every node is in bounds (${G.W}×${G.H})`)
+ok(gi.nodes.every((n) => { const [x, y] = L1.pos[n.key], r = G.radius(n); return x - r >= 0 && y - r >= 0 && x + r <= G.W && y + r <= G.H }), `every node is in bounds (${G.W}×${G.H})`)
 let close = 0
-for (let i = 0; i < gi.nodes.length; i++) for (let j = i + 1; j < gi.nodes.length; j++) { const a = L1.pos[gi.nodes[i].key], b = L1.pos[gi.nodes[j].key]; if (Math.hypot(a[0] - b[0], a[1] - b[1]) < G.R[gi.nodes[i].type] + G.R[gi.nodes[j].type]) close++ }
+for (let i = 0; i < gi.nodes.length; i++) for (let j = i + 1; j < gi.nodes.length; j++) { const a = L1.pos[gi.nodes[i].key], b = L1.pos[gi.nodes[j].key]; if (Math.hypot(a[0] - b[0], a[1] - b[1]) < G.radius(gi.nodes[i]) + G.radius(gi.nodes[j])) close++ }
 ok(!close, 'no two nodes are closer than the sum of their radii')
+{
+  // G4: the topics fold into their tracks; T48 (open source's only topic) stays itself
+  const tracks = gi.nodes.filter((n) => n.type === 'track'), folded = gi.groups.reduce((a, t) => a + t.topics.length, 0)
+  ok(tracks.length === 7 && folded === 42 && gi.nodes.length <= 35 && gi.nodes.filter((n) => n.type === 'topic').length === 1, `the default map: ${gi.nodes.length} nodes (≤ 35), the 43 topics as 7 track nodes + T48`)
+  ok(gi.nodes.every((n) => NB.graphSeed[n.key]) && gi.groups.every((t) => t.topics.every((x) => NB.graphSeed[x.route])), 'graph-seed.js seats every node of the default map, and every topic round its track')
+  const ev = gi.groups.find((t) => t.folder.endsWith('/evals')), gx = graphInput(V, [ev.key]), Lx = G.layout(gx.nodes, gx.edges, { seed: NB.graphSeed })
+  const mv = gi.nodes.map((n) => Math.hypot(Lx.pos[n.key][0] - L1.pos[n.key][0], Lx.pos[n.key][1] - L1.pos[n.key][1])).sort((a, b) => a - b)
+  ok(gx.nodes.length === gi.nodes.length + ev.topics.length && mv[mv.length >> 1] < 4, `expanding Evals adds its ${ev.topics.length} topics, relaid out warm: the others move a median ${mv[mv.length >> 1].toFixed(2)} px (< 4)`)
+  ok(G.wrap('Chrome Already Built Our Idea. We Won the Hackathon Anyway.').every((l) => l.length <= 24) && G.wrap('Chrome Already Built Our Idea. We Won the Hackathon Anyway.').length === 2 && G.wrap('Holt').length === 1, 'a label wraps to at most 2 lines of 24 characters')
+}
 {
   const n2 = [...gi.nodes, { key: 'test/added', section: 'agent-reliability', type: 'doc' }], e2 = [...gi.edges, { a: 'test/added', b: 'agent-reliability/shopkeeper/01-spec', kind: 'link' }]
   const L3 = G.layout(n2, e2, { seed: NB.graphSeed })
   const mv = gi.nodes.map((n) => Math.hypot(L3.pos[n.key][0] - L1.pos[n.key][0], L3.pos[n.key][1] - L1.pos[n.key][1])).sort((a, b) => a - b)
-  ok(mv[mv.length >> 1] < 4 && mv[mv.length - 1] < 24, `?add=1: the 72nd note relayouts warm; median move ${mv[mv.length >> 1].toFixed(2)} px (< 4), max ${mv[mv.length - 1].toFixed(2)} px (< 24)`)
+  ok(mv[mv.length >> 1] < 4 && mv[mv.length - 1] < 24, `?add=1: a new note relayouts warm; median move ${mv[mv.length >> 1].toFixed(2)} px (< 4), max ${mv[mv.length - 1].toFixed(2)} px (< 24)`)
 }
 {
-  const spec = at('agent-reliability/shopkeeper/01-spec')
-  const local = new Set(V.neighbours(spec, 1).map((x) => x.note.route))
-  const lb = new Set([...V.out(spec), ...V.back(spec)].map((l) => l.note.route))
-  ok(local.size > 0 && same([...local].sort(), [...lb].sort()), `01-spec's depth-1 local graph is its links ∪ its backlinks (${local.size})`)
-  const d2 = V.neighbours(spec, 2)
-  ok(d2.filter((x) => x.hop === 1).length === local.size && d2.some((x) => x.hop === 2), 'depth 2 adds the second hop, marked')
+  // G3: "where this fits" replaces the local graph: links ∪ backlinks, one next, the tour step
+  const spec = at('agent-reliability/shopkeeper/01-spec'), f = V.fits(spec)
+  const listed = new Set([...f.out, ...f.back].map((l) => l.note.route)), lb = new Set([...V.out(spec), ...V.back(spec)].map((l) => l.note.route))
+  ok(listed.size > 0 && same([...listed].sort(), [...lb].sort()), `01-spec's "where this fits" lists its links ∪ its backlinks (${listed.size})`)
+  ok(f.partOf.map((x) => x.title).join(' › ') === 'Agent reliability › Shopkeeper' && f.next && f.next.route.endsWith('02-policy'), `01-spec is part of ${f.partOf.map((x) => x.title).join(' › ')}; next: ${f.next && f.next.title}`)
+  const t3 = V.fits(at('agent-reliability/shopkeeper/03-blind-agent'), 'W1')
+  ok(t3.step && t3.step.i === 3 && t3.step.n === 9 && t3.next.route.endsWith('02-policy'), 'on a tour it says "step 3 of 9 in W1", and next is the tour\'s next step')
 }
 ok(V.edges.every((e) => ['link', 'typed', 'tour'].includes(e.kind)) && !V.edges.some((e) => e.a.isHub && e.b.folder.startsWith(e.a.route) && e.kind === 'folder'), 'edges are links, typed frontmatter links and tour steps; the folder tree is not an edge')
 
@@ -176,7 +196,7 @@ for (const w of V.tours) {
 {
   // the summary is the TL;DR under the title: shown only when it is a real sentence
   const L = (r) => V.ledeOf(at(r)).why
-  ok(L('agent-reliability/shopkeeper/01-spec') === 'headings' && L('agent-reliability/shopkeeper/03-blind-agent') === 'headings' && L('builds/04-throw-catch') === 'missing' && L('builds/02-holt') === 'repeat' && L('walkthroughs/W1-shopkeeper-so-far') === 'ok',
+  ok(L('agent-reliability/shopkeeper/01-spec') === 'headings' && L('agent-reliability/shopkeeper/03-blind-agent') === 'headings' && V.ledeOf(V.all.find((n) => n.route === 'builds/04-throw-catch')).why === 'missing' && L('builds/02-holt') === 'repeat' && L('walkthroughs/W1-shopkeeper-so-far') === 'ok',
     'the lede: a ·-joined list of the note\'s own headings or an empty summary is not shown (a PROPOSAL slot under ?hidden=1); one the body already says is not repeated')
   const todo = V.notes.filter((n) => n.visibility === 'public' && ['missing', 'headings'].includes(V.ledeOf(n).why))
   if (todo.length) warn(`${todo.length} public notes need a one-sentence TL;DR (summary missing or a heading list): ${todo.map((n) => n.route || 'start-here').join(', ')}`)
@@ -198,7 +218,7 @@ ok(/class="nb-wl nb-id" href="#\/agent-reliability\/study\/evals\/T02"/.test(ren
   ok(!/nb-id/.test(MD.render(lg.blocks, { resolve: () => ({ href: '#', id: 'x' }), autolink: false }).html) && off.out(lg).length === 0, '?autolink=0 leaves ID mentions as plain text, and they make no edges')
 }
 const kinds = new Set(V.all.flatMap((n) => n.blocks.filter((b) => b.t === 'fence').map((b) => b.kind)))
-ok(MD.EMBEDS.every((k) => kinds.has(k)), `the 5 embed kinds are used in the vault: ${MD.EMBEDS.join(', ')}`)
+ok(MD.EMBEDS.every((k) => kinds.has(k) || k === 'chart') && !kinds.has('chart') && NB.model.REGISTERED.chart.includes('study-hours'), `the embed kinds are used in the vault: ${MD.EMBEDS.filter((k) => k !== 'chart').join(', ')}; chart stays registered (study-hours), unused since the study hub's progress list replaced it`)
 const emb = MD.render(MD.parse('```clip src=x dur=42\nfig · clip · c\n```\n\n```terminal\n$ ls\n```\n\n```try margin-capture\nfig · try it · t\n```\n\n```chart study-hours\n```\n\n```diagram sale-confirmation\n```'), {}).html
 ok(MD.EMBEDS.every((k) => emb.includes(`data-embed="${k}"`)) && (emb.match(/<figcaption class="nb-cap">fig \d · /g) || []).length === 5, 'each embed renders as a numbered figure with a mono caption')
 const broken = MD.render(MD.parse('see [[nowhere]] and <script>alert(1)</script> & [x](javascript:alert(1))'), { resolve: () => null }).html
@@ -291,7 +311,7 @@ const leaky = rules.filter(([sel, body]) => !(sel === ':root' && [...body.matchA
 ok(rules.length > 80 && !leaky.length, `notebook.css: all ${rules.length} rules paint only the notebook or the night${leaky.length ? ' — LEAKS: ' + leaky.map((r) => r[0]).slice(0, 6).join(' | ') : ''}`)
 const sentence = /(['"`])(?:(?!\1)[^\n]){0,6}\b[a-z]+ [a-z]+ [a-z]+ [a-z]+\b(?:(?!\1)[^\n])*\1/i
 const strip = (s) => code(s).replace(/(['"`])(?:\\.|(?!\1)[^\\\n])*\1/g, (m) => (/[<>=(){}$]|\.\w+\(|^.(\w+-)+\w+.$/.test(m) ? "''" : m))
-const UI = ['shell.js', 'reader.js', 'switcher.js', 'embeds.js', 'trip.js', 'model.js', 'graph.js', 'md.js', 'voice.js', 'sound.js']
+const UI = ['shell.js', 'reader.js', 'switcher.js', 'embeds.js', 'map.js', 'trip.js', 'model.js', 'graph.js', 'md.js', 'voice.js', 'sound.js']
 const prose = UI.filter((f) => text[f] && sentence.test(strip(text[f])))
 ok(UI.every((f) => text[f]) && !prose.length, `every UI word is in copy.js${prose.length ? ' — prose in ' + prose.join(', ') : ''}${UI.filter((f) => !text[f]).length ? ' — missing ' + UI.filter((f) => !text[f]).join(', ') : ''}`)
 {
