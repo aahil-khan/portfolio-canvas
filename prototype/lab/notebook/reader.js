@@ -4,7 +4,8 @@
  *   NB.reader.render(note, q)   the kicker (one line), the title, the TL;DR lede, the tour banner,
  *                               the body (md.js), the stub slots (author view), prev / next, and
  *                               "where this fits" at the note's end on every width
- *   NB.reader.toAnchor(id)      scroll to a heading or a table row (?a=p2) and mark it
+ *   NB.reader.toAnchor(id, o)   scroll to a heading or a table row (?a=p2) and flash it (o.smooth:
+ *                               a smooth scroll, for a jump inside the Lab)
  *   NB.reader.headings          the note's headings; .outline() the margin's (h2/h3, ≥ 3 or none)
  *   NB.reader.tables()          table furniture: edge fades, the scroll cue, the sticky ID column,
  *                               the phone's fold to 8 rows (re-run on resize)
@@ -185,7 +186,7 @@
     if (b) foldRows(b.closest('.nb-table-wrap'), b.closest('.nb-table-wrap').dataset.folded === 'true')
   })
 
-  R.toAnchor = (id) => {
+  R.toAnchor = (id, o = {}) => {
     const col = S().el.col
     const t = col.querySelector(`#${CSS.escape(id)}`)
     if (!t) return
@@ -193,10 +194,11 @@
     const w = t.closest('.nb-table-wrap[data-folded="true"]')
     if (w) foldRows(w, true)
     t.classList.add('is-target')
-    // M8: a smooth scroll, then the target flashes and lets go. Reduced motion: an instant jump,
-    // and the target keeps today's static mark (CSS)
+    // M8: inside the Lab, a smooth scroll, then the target flashes and lets go; arriving on a link,
+    // a jump, then the flash. Reduced motion: a jump, and today's static mark (CSS)
     const M = NB.motion
     if (M.reduced()) { t.scrollIntoView({ block: 'start' }); return }
+    if (!o.smooth) { t.scrollIntoView({ block: 'start' }); requestAnimationFrame(() => { if (t.isConnected) M.flash(t, col) }); return }
     const sc = NB.controls.scroller(), on = sc === document.scrollingElement ? document : sc, at = sc.scrollTop
     t.scrollIntoView({ block: 'start', behavior: 'smooth' })
     let done = false

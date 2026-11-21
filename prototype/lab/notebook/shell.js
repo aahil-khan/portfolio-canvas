@@ -224,7 +224,9 @@
       // resetting the scroll lays the note out: during a crossfade that waits for the frame (the
       // column shows nothing until then), so the router's own task stays short
       const reset = () => { el.main.scrollTop = 0; if (phone()) scrollTo(0, 0) }
-      if (a) requestAnimationFrame(() => NB.reader.toAnchor(a))
+      // a jump within the note on screen scrolls there smoothly (M8); a new note opened at a heading
+      // jumps there under its crossfade, as a link from outside does
+      if (a) requestAnimationFrame(() => NB.reader.toAnchor(a, { smooth: up && was.note === note }))
       else if (top && how) requestAnimationFrame(reset)
       else if (top) reset()
       S.keepScroll = false
