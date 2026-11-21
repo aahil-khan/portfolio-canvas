@@ -1,232 +1,206 @@
 /*
- * prototype/lab/night-mode/copy.js: every word the Lab's own UI says, in one object.
+ * prototype/lab/notebook/copy.js: every word the notebook's own UI says, in one object.
  *
- * Nothing in menu.js, intro.js, reader.js or night.js types a sentence: they read NIGHT.copy.
- * In the React build this moves to content/ (content/lab.ts, or a `lab` block in site.json if
- * the owner wants to edit it at /edit), exactly as CLAUDE.md asks of every string.
+ * Nothing in shell.js, reader.js, switcher.js, embeds.js, trip.js or model.js types a sentence:
+ * they read NB.copy (also NIGHT.copy, for the modules carried over from #21). The notes' own
+ * words live in notes/**.md and study.js, never here. In the React build this moves to content/.
  *
- * PROPOSAL FOR AAHIL: the welcome lines, the four categories' one-line descriptions and the ask
- * answers are drafts, in the voice of content/data/profile.json (lower case, plain, a smiley at
- * the end). Rewrite them freely; the screen shows whatever is here.
+ * PROPOSAL FOR AAHIL: the section hubs' one-liners are in the notes, flagged `proposal: true`, and
+ * the page shows a quiet PROPOSAL mark on them. Rewrite them in your voice.
  */
 ;(() => {
   const root_ = typeof window !== 'undefined' ? window : globalThis
   const NIGHT = (root_.NIGHT = root_.NIGHT || {})
-  NIGHT.copy = {
-    // ── the welcome (PROPOSAL), short enough to sit beside the toy ──
-    welcome: [
-      'welcome to the lab.',
-      "the serious end of the desk: things i've shipped, experiments still on the bench, studies in chapters, and the write-ups about all of it.",
-      'press ~ to go back to the canvas :)',
-    ],
-    // on a phone there is no ~ key: the last line says so
-    welcomeTouch: '← canvas, top left, goes back :)',
-
-    root: '~/lab',
-    entries: (n) => `${n} entries`,
-    canvas: 'canvas',
-    canvasKey: '~',
-    canvasLabel: 'Back to the canvas',
+  const C = {
+    lab: 'lab',
     labLabel: 'The Lab',
+    canvas: '← canvas',
+    canvasLabel: 'Back to the canvas (~)',
+    menu: '☰',
+    menuLabel: 'Open the notes (b)',
+    menuClose: 'Close the notes',
+    pathLabel: 'Where this note is',
+    treeLabel: 'Notes',
+    search: '⌕', searchWord: 'search', searchKey: '/', searchLabel: 'Search notes (/ or Ctrl+K)',
+    graph: '◎', graphWord: 'graph', graphLabel: 'Graph of every note (g)',
+    listen: '▶', listenWord: 'listen', listenLabel: 'Listen to this note (l)', listenTour: (w) => `Listen to all of ${w}`,
+    snd: 'snd', sndLabel: (on) => `Interface sounds ${on ? 'on' : 'off'}, press to change`,
+    pal: 'pal', palLabel: (p) => `Palette: ${p}, press to change`,
+    on: 'on', off: 'off',
+    help: '?', helpLabel: 'Keys (?)',
     palettes: { white: 'white', green: 'green', amber: 'amber' },
     palShort: { white: 'w', green: 'g', amber: 'a' },
 
-    // ── the home: an ls-style directory (PROPOSAL: the descriptions) ──
-    dirLabel: 'Lab directory',
-    updated: (m) => `updated ${m}`,
-    sections: {
-      work: { blurb: 'things that shipped and people use', unit: (n) => `${n} projects` },
-      experiments: { blurb: 'on the bench: half-built, and honest about it', unit: (n) => `${n} logs` },
-      research: { blurb: 'studies in chapters: long, measured, slow', unit: (n, ch) => `${n} series, ${ch} chapters`, short: (n, ch) => `${n} · ${ch}ch` },
-      writing: { blurb: 'essays, and the write-ups behind the projects', unit: (n) => `${n} posts` },
+    // the status column: one glyph, one meaning, always with words beside it for a screen reader
+    status: {
+      done: ['✓', 'done'], final: ['✓', 'final'], live: ['●', 'live'], progress: ['◐', 'in progress'], planned: ['○', 'planned'],
+      parked: ['◌', 'parked'], published: ['¶', 'published'], stub: ['⋯', 'stub, to fill'],
     },
-    start: 'not sure where to start?',
-    picks: [['work', 'holt'], ['research', 'reliability-study'], ['writing', 'old-laptop-cloud']],
-    keys: [['1–4', 'open'], ['←↑↓→', 'move'], ['↵', 'open'], ['/', 'command'], ['?', 'keys']],
+    types: { hub: 'hub', doc: 'doc', topic: 'topic', stage: 'stage', build: 'build', post: 'post', walkthrough: 'walkthrough', log: 'log' },
+    visibility: { public: 'public', hidden: 'hidden' },
+    visibilityLabel: (v) => `Visibility: ${v}. Every note and tracker item carries this switch; the React build's /edit sets it`,
+    proposal: 'PROPOSAL',
+    proposalLabel: 'A draft line for Aahil to rewrite',
+    stub: 'stub, to fill',
+    stubSlot: 'empty: to fill',
+    updated: (d) => `updated ${d}`,
+    minRead: (n) => `${n} min read`,
+    minListen: (n) => `${n} min listen`,
+    meta: { type: 'type', status: 'status', updated: 'updated', read: 'read', tags: 'tags', vis: 'visibility' },
 
-    // ── the living tiles (home.js, vignette.js) ──
-    tiles: {
-      label: 'What is in the Lab',
-      open: (id) => `open ${id}/`,
-      count: (n, unit) => `${n} · ${unit}`,
-      back: 'lab',
-      backLabel: 'Back to the four tiles',
-      preview: 'Preview',
-      empty: 'nothing here yet.',
+    // the reading column's furniture
+    onPage: 'on this page',
+    localGraph: 'local graph',
+    depth: (d) => `depth ${d}`,
+    depthLabel: 'Show the second hop',
+    more: (n) => `+${n} more`,
+    linkedFrom: (n) => `linked from (${n})`,
+    linksOut: (n) => `links to (${n})`,
+    linksHead: 'links',
+    noLinks: 'nothing links here yet.',
+    prev: '←', next: '→', up: '↑',
+    prevLabel: (t) => `Previous: ${t}`, nextLabel: (t) => `Next: ${t}`, upLabel: (t) => `Up: ${t}`,
+    tourBanner: (w, title, i, n) => `${w} ${title} · ${i} of ${n}`,
+    tourOf: (i, n) => `${i} of ${n}`,
+    totals: (n, r, l) => `${n} notes · ~${r} min read · ~${l} min listen`,
+    stepLine: (r, l) => `~${r} min read · ~${l} min listen`,
+    figure: (n) => `fig ${n}`,
+    figClose: 'Close the figure',
+    figOpen: (n) => `Enlarge figure ${n}`,
+    tableScroll: 'scrolls sideways',
+    sourceLine: (s) => `source: ${s}`,
+    external: '↗',
+    readOn: (host) => `read it on ${host}`,
+    noEntry: 'points to no Lab entry yet',
+
+    // the six parts of an entry, by type: number → heading. A stub shows every part as a slot.
+    parts: {
+      build: { 1: 'clip', 2: 'what it is', 3: 'try it', 4: 'what broke, what I measured', 5: "how it's built", 6: 'code' },
+      stage: { 2: 'what it ships', 4: 'results', 5: 'its topics', 6: 'code' },
+      topic: { 2: 'what to learn', 4: 'hours and log', 5: 'resource and proof' },
+      post: { 2: 'what it is', 5: 'the post' },
     },
-    // a row's tiny status glyph, said out loud
-    glyphs: { live: 'live', done: 'done', spin: 'in progress', shelf: 'shelved', plan: 'planned', out: 'elsewhere', post: 'published' },
+    partHead: (n, h) => `${n} · ${h}`,
+    noRuns: 'no runs yet: results appear here once this stage runs.',
+    hours: (spent, est) => `${spent} h logged of ${est} h planned`,
+    finishedOn: (d) => `finished ${d}`,
+    window: (a, b) => `planned ${a} → ${b}`,
+    noPhase: 'not scheduled in a public phase',
+    resource: 'resource',
+    proofOf: 'proof of work',
+    usedBy: 'stages that use it',
+    logHead: ['date', 'topic', 'hours', 'what I did'],
+    logRowsNone: 'nothing logged yet.',
+    myNotes: 'my notes',
 
-    // ── the compass (experimental: ?home=radial, or radial:on in the deck) ──
-    dial: {
-      name: 'dial',
-      flag: 'experimental',
-      flagLabel: 'Experimental dial, on or off',
-      how: 'hold space, right-click, or long-press; point; let go',
-      label: 'Dial: point at a category and let go to open it',
-      hint: 'let go to open · 1–4 · esc',
-      idle: 'point at one',
+    // computed blocks
+    blocks: {
+      studyingNow: (phase, done, of, h, last) => `**${phase}** · ${done} of ${of} topics done · ${h} h logged · last logged ${last}`,
+      inProgress: 'in progress',
+      tourLine: (n, r, l) => `${n} notes · ~${r} min read · ~${l} min listen`,
+      progress: (active, done, prog, parked, h) => `${active} active topics · ${done} done · ${prog} in progress · ${parked} parked · ${h} h logged`,
+      phasesHead: ['phase', 'dates', 'topics', 'done', 'planned h', 'logged h'],
+      stagesHead: ['stage', 'what', 'phase', 'target', 'status'],
+      tracksHead: ['track', 'topics', 'done', 'folder'],
+      gallery: (name, i, n) => `${name}, screenshot ${i} of ${n}`,
+      unscheduled: 'unscheduled',
     },
 
-    // ── the series ──
-    series: {
-      sample: 'sample content: placeholder',
-      sampleLong: 'sample content: placeholder. none of this is real writing or real data; it is here so the series can be judged with something in it.',
-      of: (n, planned) => `${n} of ~${planned}`,
-      chapters: 'Chapters',
-      planned: (t) => `planned: ${t}`,
-      label: 'research series',
-      status: 'status', started: 'started', updatedK: 'updated', total: 'total', progress: 'you',
-      totals: (m, l) => `~${m} min read · ~${l} listen`,
-      yours: (n, of) => `${n}/${of} read`,
-      partOf: (n, title) => `part ${n} of ${title}`,
-      up: 'study',
-      upLabel: 'Back to the study',
-      read: '✓ read',
-      started_: '½ started',
-      mine: 'kept in this browser only',
-      chMeta: (status, date, mins, listen) => `status: ${status} · published ${date} · ${mins} min · listen ${listen}`,
+    // the graph
+    graphTitle: 'graph',
+    graphLabel2: 'Every note, and the links between them',
+    filters: { 'agent-reliability': 'agent-reliability', builds: 'builds', writing: 'writing' },
+    filterLabel: (s, on) => `${s}: ${on ? 'shown' : 'dimmed'}`,
+    fit: 'fit',
+    fitLabel: 'Fit every note in view',
+    nodeOpen: 'open →',
+    graphHint: 'drag to pan · wheel or pinch to zoom · tap a node',
+    shapes: { hub: 'hub', doc: 'doc', stage: 'stage', topic: 'topic', build: 'build', post: 'post', walkthrough: 'tour', log: 'log' },
+    legend: 'legend',
+
+    // the quick switcher
+    switcher: {
+      label: 'Go to a note',
+      placeholder: 'a note, an ID (T02), #tag, or > a command',
+      none: 'no note matches.',
+      hint: '↑↓ move · ↵ open · esc close',
+      commands: [
+        { cmd: 'graph', label: 'open the graph' },
+        { cmd: 'voice ai', label: "your device's voice" }, { cmd: 'voice sam', label: 'sam, live' }, { cmd: 'voice synth', label: 'sam through effects' },
+        { cmd: 'palette white', label: 'white on black' }, { cmd: 'palette green', label: 'green phosphor' }, { cmd: 'palette amber', label: 'amber phosphor' },
+        { cmd: 'sound on', label: 'interface sounds on' }, { cmd: 'sound off', label: 'interface sounds off' },
+        { cmd: 'canvas', label: 'back to the canvas' }, { cmd: 'help', label: 'the keys' },
+      ],
+      ran: (c) => `ran: ${c}`,
+      unknown: (c) => `no command "${c}"`,
     },
 
-    // ── the deck: a status line, not navigation ──
-    deck: {
-      label: 'Lab deck',
-      modes: { lab: 'LAB', narrate: 'NARRATE', ask: 'ASK', cmd: 'CMD', dial: 'DIAL' },
-      modeLabel: (m) => `Mode: ${m}`,
-      prev: 'Back 15 seconds', play: 'Play narration', pause: 'Pause narration', next: 'Forward 15 seconds',
-      rate: 'Speed', rateLabel: (r) => `Speed ${r}×, press to change`,
-      idle: 'nothing loaded',
-      section: (i, n) => `¶${String(i).padStart(2, '0')}/${String(n).padStart(2, '0')}`,
-      voice: 'voice', voiceLabel: (v) => `Voice: ${v}. Choose a voice`,
-      knobs: 'knobs', knobsLabel: 'Synth knobs',
-      snd: 'snd', sndLabel: (on) => `Interface sounds ${on ? 'on' : 'off'}`,
-      pal: 'pal', palLabel: (p) => `Palette: ${p}, press to change`,
-      on: 'on', off: 'off',
-      toy: 'toy', toyNext: 'next',
-      ask: 'ask', askLabel: 'Ask the Lab',
-      cmd: 'cmd', cmdLabel: 'Command line (/)',
-      help: 'keys', helpLabel: 'Keys and help (?)',
-      more: 'More controls',
-      moreClose: 'Close',
-      canvasShort: '←',
+    // the keys sheet
+    helpTitle: 'keys',
+    keys: [
+      ['/ or Ctrl+K', 'search notes'], ['g', 'graph'], ['b', 'sidebar or drawer'], ['[ ]', 'previous, next (tour or folder)'], ['u', 'up to the hub'],
+      ['~', '← canvas'], ['l', 'listen'], ['space', 'play / pause while listening'], [', .', 'seek'], ['↑↓ ← →', 'move in the tree, fold'], ['esc', 'close the top layer'], ['?', 'this sheet'],
+    ],
+    close: 'close',
+
+    // the player strip
+    strip: {
+      label: 'Narration',
+      play: '▶', pause: '❚❚', back: '◂◂', fwd: '▸▸',
+      playLabel: 'Play', pauseLabel: 'Pause', backLabel: 'Back 10 seconds (,)', fwdLabel: 'Forward 10 seconds (.)',
+      rateLabel: (r) => `Speed ${r}×, press to change`,
+      voiceLabel: (v) => `Voice: ${v}, press to change`,
+      stop: '✕', stopLabel: 'Stop (esc)',
+      part: (i, n) => `¶${i}/${n}`,
+      tour: (w, i, n, t) => `${w} · ${i}/${n} · ${t}`,
+      resume: (w) => `resume ${w} ↩`,
+      resumeLabel: (w) => `Resume ${w} where it stopped`,
+      rendering: 'rendering…',
+      noTimings: "your device's voice: no word timings here",
     },
     voices: {
-      ai: { name: 'ai', note: "your browser's own voice for now; the real build pre-renders a free-tier voice (e.g. Google Chirp)" },
-      me: { name: 'me', note: 'a clone of my voice; how it gets made is not decided yet' },
-      synth: { name: 'synth', note: 'a pre-rendered file through web audio effects; turn the knobs' },
+      ai: { name: 'ai', note: "your device's voice" },
+      me: { name: 'me', note: 'a clone of my voice; soon' },
+      synth: { name: 'synth', note: 'sam, through web audio effects' },
       sam: { name: 'sam', note: 'the 1982 Software Automatic Mouth, rendered live' },
     },
     voiceSoon: (v) => `${v} — soon`,
     voicePending: (v) => `${v} — not loaded`,
-    voiceNone: 'no voice on this device: the text types out on its own',
-    synthLive: 'outside the one pre-rendered section, synth runs on a live sam render',
+    voiceNone: 'no voice on this device: the text follows a clock, silently',
+    synthLive: 'synth runs on a live sam render',
     knobs: {
       tape: ['tape', 'speed and pitch together'], pitch: ['pitch', 'semitones, speed unchanged'], robot: ['robot', 'ring modulation, Hz'],
       mono: ['monotone', 'vocoder mix'], crush: ['crush', 'bits'], reset: 'reset',
     },
-    narrated: 'narrated',
-    listen: 'listen',
-    listenLabel: 'Listen to this section',
-
-    // ── ?ask ──
-    ask: {
-      title: 'ask',
-      prompts: [
-        { id: 'now', q: 'what am i working on?' },
-        { id: 'interesting', q: 'tell me something interesting', chip: 'something interesting' },
-        { id: 'joke', q: 'tell me a joke', chip: 'a joke' },
-      ],
-      label: 'Ask the Lab',
-      stop: 'stop',
-      stopLabel: 'Stop the answer',
-      now: {
-        mark: 'sample: the real one is written by a model from my own posts, server-side, after every content change',
-        text: 'right now: a lab for this site, with a directory home, a deck that reads posts aloud, and a reliability study of the old laptop that runs everything at home. before that, holt shipped, a tool that tells you whether a repo is worth contributing to.',
-      },
-      authored: 'Aahil writes these',
-      interesting: [
-        'the laptop serving this lab has been running in a closet for months, and the thing that worries me most about it is the battery, not the disks.',
-        'the 1982 voice in the deck fits in about twenty kilobytes. it predates every phone, and still says most words well enough.',
-        'the toy in the corner is a few hundred characters of text redrawn about thirty times a second; nothing in it is an image.',
-      ],
-      joke: [
-        "i tried to make my home server highly available. now it's highly available to the power cuts.",
-        'there are 10 kinds of people: the ones who read binary, and the ones who wait for the narration.',
-        "my experiments folder is called 'bench' because that's where things sit for a very long time.",
-      ],
-      again: 'again',
-      close: 'close',
-      closeLabel: 'Close the answer',
+    // narration's one line for what it does not read aloud
+    say: {
+      table: (n) => `a table of ${n} rows, on the page.`,
+      figure: (c) => `a figure: ${c}.`,
+      formula: () => 'a formula, on the page.',
+      code: () => 'a code block, on the page.',
     },
 
-    // ── / the command line ──
-    cmd: {
-      prompt: '/',
-      label: 'Command',
-      empty: 'no match',
-      hint: '↑↓ choose · ↵ run · esc close',
-      list: {
-        open: (t) => `open ${t}`, voice: (v) => `voice ${v}`, pal: (p) => `pal ${p}`, toy: (t) => `toy ${t}`, ask: (a) => `ask ${a}`,
-        snd: 'snd', dial: 'dial', play: 'play', keys: 'keys', canvas: 'canvas',
-      },
-      what: { open: 'read it', voice: 'narration voice', pal: 'palette', toy: 'corner toy', ask: 'ask the lab', snd: 'sounds on / off', dial: 'experimental dial on / off', play: 'play / pause', keys: 'keyboard keys', canvas: 'back to the canvas' },
-    },
-    help: {
-      title: 'keys',
-      rows: [['1–4', 'open a category'], ['← ↑ ↓ →', 'move'], ['↵', 'open'], ['esc', 'back, close'], ['space', 'play / pause (when loaded)'], [', .', '−15 s / +15 s'], ['[ ]', 'slower / faster'], ['v', 'voice (while playing)'], ['n', 'next toy'], ['/', 'command line'], ['?', 'this list'], ['~', 'back to the canvas']],
-      close: 'close',
+    // embeds
+    embeds: {
+      clip: 'placeholder: a 15–60 s clip goes here',
+      clipPlay: (d) => `▶ ${d}`,
+      replay: '▶ replay', speed: (s) => `${s}×`, copy: 'copy', copied: 'copied',
+      replayLabel: 'Replay the commands', speedLabel: (s) => `Typing speed ${s}×, press to change`, copyLabel: 'Copy the commands',
+      tryFields: { unit: 'unit price', floor: 'floor', list: 'list', reservation: 'reservation' },
+      tryOut: { margin: 'margin capture', surplus: 'surplus captured', warn: 'below 0.1: a soft warning', ok: 'above the 0.1 line' },
+      tryPreset: 'preset CHG-20W',
+      chartHead: ['phase', 'planned h', 'logged h'],
+      chartTracks: ['track', 'done', 'topics'],
+      chartLegend: { planned: 'planned', logged: 'logged' },
+      chartTable: 'the numbers',
+      diagramTimeout: 'timeout',
     },
 
-    // ── the toy ──
-    toy: {
-      next: 'next',
-      nextLabel: 'Next toy',
-      label: (name, keys) => `${name}, an ASCII toy. ${keys}`,
-      hints: {
-        donut: { mouse: 'drag to spin', touch: 'drag to spin', keys: 'Drag it, or use the arrow keys, to spin it.' },
-        warp: { mouse: 'point to steer', touch: 'drag to steer', keys: 'Point at it, or use the arrow keys, to steer.' },
-        life: { mouse: 'click cells · r reseeds', touch: 'tap cells to flip', keys: 'Click a cell, or move with the arrow keys and press space, to flip it; r reseeds.' },
-        nebula: { mouse: 'move to stir', touch: 'drag to stir', keys: 'Move over it, or use the arrow keys, to stir it.' },
-        moon: { mouse: 'drag for the phase', touch: 'drag for the phase', keys: 'Drag sideways, or use the left and right keys, to change the phase.' },
-      },
-    },
-
-    // ── the directory's rows ──
-    treeLabel: 'Lab contents',
-    expand: 'Show more',
-    back: 'back',
-    backLabel: 'Back to the list',
-    enter: 'go in',
-    open: 'open',
-    read: 'read',
-    readOn: (host) => `read on ${host}`,
-    kv: { stack: 'stack', status: 'status', award: 'award', topic: 'topic', log: 'log' },
-    mins: (n) => `${n} min`,
-    minsRead: (n) => `${n} min read`,
-    out: (host) => `${host} ↗`,
-    noPreview: 'nothing more to show yet.',
-    home: 'home',
-
-    // ── the reader ──
-    close: 'close',
-    closeLabel: 'Close the post',
-    file: (section, slug) => `~/lab/${section}/${slug}.md`,
-    meta: { source: 'source', file: 'file', date: 'date', read: 'read', project: 'project', log: 'log', status: 'status', tags: 'tags' },
-    contents: 'contents',
-    // a write-up's parts, as its sections (the React build's `md` field can name its own with ##)
-    sec: { story: 'the story', what: 'what it is', highlights: 'highlights' },
-    figs: 'figures',
-    fig: (n) => `fig.${n}`,
-    enlarge: (n) => `Enlarge figure ${n}`,
-    figClose: 'Close the figure',
-    figOf: (i, n) => `${i} / ${n}`,
-    prev: 'prev',
-    next: 'next',
-    progress: 'Reading progress',
-    links: 'Links',
-    eof: 'EOF',
-
-    // ── the throwaway proof readouts ──
-    proof: { back: 'Back on the desk', round: 'Round trip, About dragged', trip: (a, b) => `desk → lab ${a} ms · lab → desk ${b} ms` },
+    trip: { tile: 'Lab', tileLabel: 'Open the Lab' },
+    proof: { round: 'Round trip, About dragged', back: 'Back on the desk', trip: (a, b) => `desk → lab ${a} ms · lab → desk ${b} ms`, add: (med, max) => `+1 note · relayout warm · median move ${med} px · max ${max} px` },
+    title: (t) => `${t} · lab`,
+    home: 'start here',
   }
+  NIGHT.copy = C
+  ;(root_.NB = root_.NB || {}).copy = C
 })()
