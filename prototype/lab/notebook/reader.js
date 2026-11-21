@@ -44,7 +44,7 @@
       k('sec', `<span class="nb-k__dot" aria-hidden="true">●</span> <span class="nb-k__name">${esc(C.sections[sec] || sec)}</span>`),
       folder ? k('folder', esc(S().cap(folder))) : '',
       note.id ? k('id', esc(note.id)) : '',
-      k('status', `<span aria-hidden="true">${esc(st[0])}</span> ${esc(st[1])}`),
+      k('status', `<span aria-hidden="true" data-st="${esc(C.status[note.status] ? note.status : 'planned')}">${esc(st[0])}</span> ${esc(st[1])}`),
       c.read ? k('read', `${esc(C.minShort(Math.max(1, Math.round(c.read))))}<span class="nb-k__unit">${esc(C.readUnit)}</span>`) : '',
       note.updated ? k('upd', esc(C.updated(day(note.updated)))) : '',
     ]
@@ -69,12 +69,14 @@
     R.figures = out.figures
     const stepText = (n) => n.id || (n.isHub ? S().cap(n.title) : `${n.num} ${n.title}`)
     const step = (n, dir) => n ? `<a href="${esc(S().href(n.route, ts && n.type !== 'walkthrough' ? `w=${w}` : ''))}" rel="${dir}" data-step="${dir}" aria-label="${esc((dir === 'prev' ? C.prevLabel : dir === 'next' ? C.nextLabel : C.upLabel)(v.label(n)))}">${dir === 'prev' ? esc(C.prev) + ' ' : dir === 'up' ? esc(C.up) + ' ' : ''}${esc(stepText(n))}${dir === 'next' ? ' ' + esc(C.next) : ''}</a>` : '<span></span>'
-    const banner = ts ? `<nav class="nb-tour" aria-label="${esc(C.tourBanner(ts.tour.id, ts.tour.title, ts.i + 1, ts.n))}"><b>${esc(ts.tour.id)} ${esc(ts.tour.title)}</b><span>${esc(C.tourOf(ts.i + 1, ts.n))}</span>${step(pn.prev, 'prev')}${step(pn.up, 'up')}${step(pn.next, 'next')}</nav>` : ''
+    const banner = ts ? `<nav class="nb-tour nb-callout" aria-label="${esc(C.tourBanner(ts.tour.id, ts.tour.title, ts.i + 1, ts.n))}"><b>${esc(ts.tour.id)} ${esc(ts.tour.title)}</b><span>${esc(C.tourOf(ts.i + 1, ts.n))}</span>${step(pn.prev, 'prev')}${step(pn.up, 'up')}${step(pn.next, 'next')}</nav>` : ''
     const outline = R.outline()
     const toc = outline.length ? `<details class="nb-toc-inline"><summary>${esc(C.onPage)}</summary><ul>${outline.map((x) => `<li><a href="${esc(S().href(note.route, `a=${x.id}${w ? '&w=' + w : ''}`))}">${esc(x.text)}</a></li>`).join('')}</ul></details>` : ''
     let body = out.html
     // a stub shows every part as a labelled empty slot, so what is left to fill is visible
     if (note.fm.stub) body = body.replace(/(<\/h2>)/g, `$1<p class="nb-slot">${esc(C.stubSlot)}</p>`)
+    // a decision record's verdict is a note callout: the paragraph that opens "Decision:"
+    if (note.fm.decision) body = body.replace(/<p((?: [^>]*)?)>(Decision:)/, '<p class="nb-callout nb-decision"$1>$2')
     const totals = note.type === 'walkthrough' ? (() => { const t = v.totals(note); return `<p class="nb-meta nb-totals">${esc(C.totals(t.n, t.read, t.listen))}</p>` })() : ''
     // the summary is the TL;DR, under the title; a missing or heading-list one is a slot for the author
     const L = v.ledeOf(note)
@@ -86,7 +88,7 @@
       <h1 class="nb-title" tabindex="-1" data-say="title">${esc(title)}</h1>
       ${lede}
       ${banner}
-      ${note.fm.stub ? `<p class="nb-stub">${esc(C.status.stub[0])} ${esc(C.stub)}</p>` : ''}
+      ${note.fm.stub ? `<p class="nb-stub nb-callout nb-callout--warn"><span data-st="stub" aria-hidden="true">${esc(C.status.stub[0])}</span> ${esc(C.stub)}</p>` : ''}
       ${totals}
       ${toc}
       <div class="nb-body">${body}</div>
@@ -95,11 +97,29 @@
     </article>`
     // a walkthrough's steps open inside the tour, so the banner and [ ] follow it
     if (note.type === 'walkthrough') for (const a of S().el.col.querySelectorAll('[data-block="steps"] a[href^="#/"]')) a.setAttribute('href', `${a.getAttribute('href')}?w=${note.id}`)
+    statusGlyphs(S().el.col)
     NB.embeds.hydrate(S().el.col, note)
     S().bindLocal(S().el.col)
     R.tables()
     S().el.listenBtn.setAttribute('aria-label', note.type === 'walkthrough' ? C.listenTour(note.id) : C.listenLabel)
   }
+  // a computed list (a tour's steps, a folder's contents, latest, stages) writes its status as a
+  // glyph in the text: give each its status, so it takes the status colour
+  const GLYPH = {}
+  for (const [k, [g]] of Object.entries(C.status)) if (!GLYPH[g]) GLYPH[g] = k
+  const GLYPHS = new RegExp(`(^|\\s)([${Object.keys(GLYPH).join('')}])(?=\\s)`, 'g')
+  function statusGlyphs(root) {
+    for (const blk of root.querySelectorAll('[data-block]')) {
+      const w = document.createTreeWalker(blk, NodeFilter.SHOW_TEXT), hits = []
+      while (w.nextNode()) { GLYPHS.lastIndex = 0; if (GLYPHS.test(w.currentNode.nodeValue)) hits.push(w.currentNode) }
+      for (const t of hits) {
+        const span = document.createElement('span')
+        span.innerHTML = esc(t.nodeValue).replace(GLYPHS, (m, pre, g) => `${pre}<span data-st="${GLYPH[g]}">${g}</span>`)
+        t.replaceWith(...span.childNodes)
+      }
+    }
+  }
+  R.statusGlyphs = statusGlyphs
   // the outline: h2 and h3 only, and only when there are at least three of them
   R.outline = () => { const hs = R.headings.filter((x) => x.level <= 3); return hs.length >= 3 ? hs : [] }
 

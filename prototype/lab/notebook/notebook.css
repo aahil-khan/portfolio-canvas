@@ -27,63 +27,154 @@
   --sans: var(--font, 'Space Grotesk', system-ui, sans-serif);
 }
 
-/* ── the palettes. check.mjs holds every text token to 4.5:1 on bg, pane and the hover surface,
-   --sel-ink to 4.5:1 on --sel-bg, and every frame and section colour to 3:1. --lab-faint is
-   decoration only (tree guides, dashed rules). ── */
-html[data-palette='white'], html:not([data-palette]) {
-  --lab-bg: #0a0a0a;
-  --lab-pane: #0f0f0e;
-  --lab-fg: #edeae0;
-  --lab-dim: #a3a097;
-  --lab-faint: #3a3935;
-  --lab-line: #6d6a62;
-  --lab-ar: #a9dcff;
-  --lab-builds: #a8e6a1;
-  --lab-writing: #d9c2ff;
-  --lab-neutral: #d6d1c4;
-  --lab-hi: #facc00;
+/* ── the themes. Every theme defines every token below (check.mjs §7 fails on a missing one).
+   check.mjs holds every TEXT token to 4.5:1 on bg, pane, hover and both callout tints, sel-ink to
+   4.5:1 on sel-bg, the word's ink to 4.5:1 on its background, and every MARK (lines, section
+   marks, status, "you are here", the focus ring) to 3:1 on bg and pane. --lab-faint is decoration
+   only (tree guides, dashed rules). The two reading themes are night (the Lab's own, and where the
+   trip lands) and paper (DIRECTION's cream, for daylight); green and amber are extras, through
+   "> palette" only. html[data-lab-theme] is set before first paint by NB.prefs (prefs.js).
+
+   The accent (--lab-hi, #facc00) is a highlight, not a surface (DIRECTION: ≤ ~5 %). It marks only
+   the focus ring and "you are here": the current tree row's rule and the word being spoken. On
+   paper yellow is 1.47:1 on the page, so there the ring is ink with a yellow halo, the row's rule
+   a dark gold (--lab-here) and the word sits on a pale yellow (--lab-word-bg). ── */
+html[data-lab-theme='night'], html:not([data-lab-theme]) {
+  --lab-bg: #141311;
+  --lab-pane: #1a1916;
+  --hov-bg: #26241f;
+  --lab-fg: #e9e5da;
+  --lab-dim: #aaa598;
+  --lab-faint: #3a3832;
+  --lab-line: #726e65;
   --lab-link: #8db8ff;
-  --hov-bg: #1d1c1a;
-  --sel-bg: #edeae0;
-  --sel-ink: #0a0a0a;
-  --lab-star: 237, 234, 224;
+  --lab-ar: #f2a65e;
+  --lab-builds: #5fd0b8;
+  --lab-writing: #c5a9ff;
+  --lab-neutral: #d6d1c4;
+  --lab-ar-mark: #f2a65e;
+  --lab-builds-mark: #5fd0b8;
+  --lab-writing-mark: #c5a9ff;
+  --lab-done: #86d38f;
+  --lab-doing: #f5cf52;
+  --lab-code: #e9c98f;
+  --lab-tint-note: #1f1d19;
+  --lab-tint-warn: #221f14;
+  --lab-hi: #facc00;
+  --lab-here: #facc00;
+  --lab-ring: #facc00;
+  --lab-halo: transparent;
+  --sel-bg: #e9e5da;
+  --sel-ink: #141311;
+  --lab-word-bg: #facc00;
+  --lab-word-ink: #141311;
+  --lab-star: 233, 229, 218;
+  --lab-scheme: dark;
 }
-html[data-palette='green'] {
+html[data-lab-theme='paper'] {
+  --lab-bg: #fbfaf6;
+  --lab-pane: #f3f1e9;
+  --hov-bg: #ebe8dc;
+  --lab-fg: #1b1a17;
+  --lab-dim: #5d5a52;
+  --lab-faint: #d9d5c8;
+  --lab-line: #8a8578;
+  --lab-link: #0b57b0;
+  --lab-ar: #9a4a00;
+  --lab-builds: #0b6e5e;
+  --lab-writing: #6741b8;
+  --lab-neutral: #4a4740;
+  --lab-ar-mark: #c26a1a;
+  --lab-builds-mark: #16917c;
+  --lab-writing-mark: #8a63e0;
+  --lab-done: #2b6e33;
+  --lab-doing: #7a5a00;
+  --lab-code: #7a3d00;
+  --lab-tint-note: #f1eee4;
+  --lab-tint-warn: #f8f0d4;
+  --lab-hi: #facc00;
+  --lab-here: #8a6a00;
+  --lab-ring: #1b1a17;
+  --lab-halo: #facc00;
+  --sel-bg: #1b1a17;
+  --sel-ink: #fbfaf6;
+  --lab-word-bg: #fbe58a;
+  --lab-word-ink: #1b1a17;
+  --lab-star: 233, 229, 218; /* the sky stays night on every theme: see .night below */
+  --lab-scheme: light;
+}
+html[data-lab-theme='green'] {
   --lab-bg: #030a05;
   --lab-pane: #06100a;
+  --hov-bg: #0d2214;
   --lab-fg: #8dffa6;
   --lab-dim: #4fb86a;
   --lab-faint: #173a22;
   --lab-line: #2f8048;
+  --lab-link: #a8f0ff;
   --lab-ar: #a8f0ff;
   --lab-builds: #c4ff7a;
   --lab-writing: #e2ffd8;
   --lab-neutral: #8dffa6;
+  --lab-ar-mark: #a8f0ff;
+  --lab-builds-mark: #c4ff7a;
+  --lab-writing-mark: #e2ffd8;
+  --lab-done: #c4ff7a;
+  --lab-doing: #f2ff9a;
+  --lab-code: #e2ffd8;
+  --lab-tint-note: #081710;
+  --lab-tint-warn: #10180a;
   --lab-hi: #f2ff9a;
-  --lab-link: #a8f0ff;
-  --hov-bg: #0d2214;
+  --lab-here: #f2ff9a;
+  --lab-ring: #f2ff9a;
+  --lab-halo: transparent;
   --sel-bg: #8dffa6;
   --sel-ink: #030a05;
+  --lab-word-bg: #f2ff9a;
+  --lab-word-ink: #030a05;
   --lab-star: 141, 255, 166;
+  --lab-scheme: dark;
 }
-html[data-palette='amber'] {
+html[data-lab-theme='amber'] {
   --lab-bg: #0a0603;
   --lab-pane: #110b05;
+  --hov-bg: #24170a;
   --lab-fg: #ffb547;
   --lab-dim: #c4893a;
   --lab-faint: #3f2a11;
   --lab-line: #8a6126;
+  --lab-link: #ffc98a;
   --lab-ar: #ffc98a;
   --lab-builds: #ffdb8a;
   --lab-writing: #ffecd0;
   --lab-neutral: #ffb547;
+  --lab-ar-mark: #ffc98a;
+  --lab-builds-mark: #ffdb8a;
+  --lab-writing-mark: #ffecd0;
+  --lab-done: #ffdb8a;
+  --lab-doing: #fff3c4;
+  --lab-code: #ffecd0;
+  --lab-tint-note: #160e06;
+  --lab-tint-warn: #1a1206;
   --lab-hi: #fff3c4;
-  --lab-link: #ffc98a;
-  --hov-bg: #24170a;
+  --lab-here: #fff3c4;
+  --lab-ring: #fff3c4;
+  --lab-halo: transparent;
   --sel-bg: #ffb547;
   --sel-ink: #0a0603;
+  --lab-word-bg: #fff3c4;
+  --lab-word-ink: #0a0603;
   --lab-star: 255, 181, 71;
+  --lab-scheme: dark;
 }
+/* the Lab's own form controls and scrollbars follow its theme; <html> keeps the desk's */
+.nb, .nb-layer { color-scheme: var(--lab-scheme); }
+/* the section's colour, for the note on screen: the kicker, the crumb, the ID column, callouts.
+   Never on body text. */
+.nb, .nb[data-sec='root'], .nb[data-sec='tours'] { --sec: var(--lab-neutral); --sec-mark: var(--lab-neutral); }
+.nb[data-sec='agent-reliability'], .nb [data-sec='agent-reliability'] { --sec: var(--lab-ar); --sec-mark: var(--lab-ar-mark); }
+.nb[data-sec='builds'], .nb [data-sec='builds'] { --sec: var(--lab-builds); --sec-mark: var(--lab-builds-mark); }
+.nb[data-sec='writing'], .nb [data-sec='writing'] { --sec: var(--lab-writing); --sec-mark: var(--lab-writing-mark); }
 
 /* ── the sky: in #deskBackdrop, behind the world ── */
 .night { position: absolute; inset: 0; overflow: hidden; visibility: hidden; pointer-events: none; }
@@ -96,6 +187,10 @@ html.has-night .night { visibility: visible; }
     #121014 72%, rgba(42, 30, 34, 0.82) 82%, rgba(255, 180, 162, 0.14) 92%, rgba(255, 180, 162, 0) 100%);
 }
 .night__field { position: absolute; inset: 0; opacity: 0; }
+/* the sky is the night on every theme: paper's Lab fades out onto it, never onto a cream blind */
+html[data-lab-theme='paper'] .night { --lab-bg: #141311; }
+/* M9: the stars twinkle only while they can be seen, during the trip or behind the full graph */
+html:not(.has-night) .lab-starfield__layer, html.nb-on:not(.nb-graph) .lab-starfield__layer { animation-play-state: paused; }
 .night__field::before { content: ''; position: absolute; inset: 0; background: radial-gradient(ellipse at 50% 0%, rgba(var(--lab-star), 0.05), transparent 55%); }
 html.is-turning .desk-card, html.is-turning .desk-hero { will-change: opacity, translate, scale; }
 html.has-night #deskViewport { pointer-events: none; cursor: default; }
@@ -114,7 +209,7 @@ html.is-night .nb { visibility: visible; pointer-events: auto; }
 .nb[inert] { pointer-events: none; }
 .nb * { box-sizing: border-box; }
 .nb a { color: inherit; }
-.nb :focus-visible { outline: 2px solid var(--lab-hi); outline-offset: 1px; }
+.nb :focus-visible, .nb-layer :focus-visible { outline: 2px solid var(--lab-ring); outline-offset: 1px; box-shadow: 0 0 0 5px var(--lab-halo); }
 .nb button { font: inherit; color: inherit; background: none; border: 0; padding: 0; cursor: pointer; }
 .nb-sr { position: absolute; width: 1px; height: 1px; overflow: hidden; clip-path: inset(50%); white-space: nowrap; }
 .nb-panes-bg { grid-row: 2; grid-column: 1 / -1; background: var(--lab-bg); }
@@ -143,9 +238,11 @@ html.is-night .nb { visibility: visible; pointer-events: auto; }
 .nb-bar__btn[aria-pressed='true'] { background: var(--sel-bg); color: var(--sel-ink); }
 .nb-bar__k { color: var(--lab-dim); }
 .nb .nb-bar__menu { display: none; }
-.nb-bar__flags { color: var(--lab-dim); }
-.nb-bar__flags button { color: var(--lab-dim); padding: 0 2px; }
-.nb-bar__flags button:hover { color: var(--lab-fg); background: var(--hov-bg); }
+.nb-bar__theme { color: var(--lab-fg); }
+.nb-bar__help { color: var(--lab-dim); }
+.nb-bar__help:hover { color: var(--lab-fg); }
+/* the crumb for the note's section wears its colour */
+.nb-bar__path li.is-sec a { color: var(--sec); }
 
 .nb-strip {
   height: var(--nb-strip); display: flex; align-items: center; gap: 2px; padding: 0 8px; background: var(--lab-bg);
@@ -156,7 +253,7 @@ html.is-night .nb { visibility: visible; pointer-events: auto; }
 .nb-strip button:hover, .nb-strip-menu button:hover { background: var(--hov-bg); }
 .nb-strip__where { flex: 1 1 auto; min-width: 0; overflow: hidden; text-overflow: ellipsis; padding: 0 8px; color: var(--lab-fg); }
 .nb-strip__time { color: var(--lab-dim); padding: 0 8px; }
-.nb-strip__resume, .nb-strip__follow { color: var(--lab-hi); }
+.nb-strip__resume, .nb-strip__follow { color: var(--lab-link); }
 .nb-strip__follow { border: 1px solid var(--lab-line) !important; }
 .nb-strip-menu { position: absolute; right: 8px; top: 100%; z-index: 4; display: flex; flex-wrap: wrap; align-items: center; gap: 2px 4px; max-width: min(420px, calc(100vw - 16px));
   padding: 6px; background: var(--lab-pane); border: 1px solid var(--lab-line); }
@@ -170,7 +267,9 @@ html.is-night .nb { visibility: visible; pointer-events: auto; }
    title. Glyphs, numbers and IDs keep the mono flavour; the titles are labels you read, so sans. Titles wrap to two lines rather than truncate; the full title is the row's tooltip. */
 .nb-side { grid-row: 2; grid-column: 1; overflow: auto; overscroll-behavior: contain; background: var(--lab-pane); border-right: 1px solid var(--lab-faint); padding: 10px 0 24px; font-size: 0.875rem; }
 .nb-side__canvas { display: none; }
-.nb-side__foot { display: none; }
+.nb-side__foot { display: flex; flex-wrap: wrap; gap: 4px 14px; padding: 12px 14px 0; margin-top: 14px; border-top: 1px solid var(--lab-faint); font-family: var(--sans); font-size: 0.875rem; }
+.nb-side__foot button { color: var(--lab-dim); min-height: 32px; padding: 0 2px; text-align: left; }
+.nb-side__foot button:hover { color: var(--lab-fg); }
 .nb-tree, .nb-tree ul { list-style: none; margin: 0; padding: 0; }
 .nb-tree ul { padding-left: 12px; border-left: 1px dashed var(--lab-faint); margin-left: 15px; }
 .nb-row {
@@ -179,12 +278,17 @@ html.is-night .nb { visibility: visible; pointer-events: auto; }
 }
 .nb-row--folder { grid-template-columns: 2.2ch minmax(0, 1fr); }
 .nb-row__glyph { color: var(--lab-dim); text-align: center; }
+/* status: colour on the glyph only, and the shape stays, so colour is never the only cue.
+   ✓ done/final and ● live in done; ◐ in progress and ⋯ stub in doing; ○ planned, ◌ parked dim */
+.nb [data-st='done'], .nb [data-st='final'], .nb [data-st='live'], .nb [data-st='published'] { color: var(--lab-done); }
+.nb [data-st='progress'], .nb [data-st='stub'] { color: var(--lab-doing); }
 .nb-row__num { color: var(--lab-dim); font-size: 0.8125rem; }
 .nb-row__chev { color: var(--lab-dim); text-align: center; cursor: pointer; }
+.nb-tree li[data-sec] > .nb-row > .nb-row__chev { color: var(--sec-mark); }
 .nb-row__title { font-family: var(--sans); overflow: hidden; display: -webkit-box; -webkit-box-orient: vertical; -webkit-line-clamp: 2; line-clamp: 2; }
 .nb-side:hover .nb-row, .nb-side:focus-within .nb-row { color: var(--lab-fg); }
 .nb-row:hover { background: var(--hov-bg); color: var(--lab-fg); }
-.nb-row[aria-current='page'] { color: var(--lab-fg); box-shadow: inset 2px 0 0 var(--lab-hi); }
+.nb-row[aria-current='page'] { color: var(--lab-fg); box-shadow: inset 2px 0 0 var(--lab-here); }
 .nb-row[data-hidden] .nb-row__title { text-decoration: line-through; }
 .nb-tree li[data-open='false'] > ul { display: none; }
 
@@ -206,19 +310,24 @@ html.is-night .nb { visibility: visible; pointer-events: auto; }
 .nb-kicker, .nb-totals { font-family: var(--mono); font-size: var(--fs-xs); color: var(--lab-dim); margin-bottom: 10px; line-height: 1.5; }
 .nb-kicker { display: flex; flex-wrap: nowrap; white-space: nowrap; overflow: hidden; }
 .nb-k { flex: 0 0 auto; }
-.nb-k + .nb-k::before { content: '·'; padding: 0 0.9ch; color: var(--lab-faint); }
+.nb-k + .nb-k::before { content: '·'; padding: 0 0.9ch; color: var(--lab-dim); }
+.nb-k__dot { color: var(--sec-mark); }
+.nb-k__name { color: var(--sec); }
 .nb-k--upd { flex-shrink: 1; overflow: hidden; text-overflow: ellipsis; }
 .nb-meta b { color: var(--lab-fg); font-weight: 500; }
 .nb-meta__vis { color: var(--lab-dim); border: 1px solid var(--lab-faint); padding: 0 5px; }
-.nb-proposal { font-family: var(--mono); font-size: var(--fs-xs); letter-spacing: 0.06em; color: var(--lab-hi); border: 1px solid var(--lab-hi); padding: 0 5px; }
+.nb-proposal { font-family: var(--mono); font-size: var(--fs-xs); letter-spacing: 0.06em; color: var(--lab-doing); border: 1px solid var(--lab-doing); padding: 0 5px; }
 
-.nb-title:focus { outline: none; }
+.nb-title:focus { outline: none; box-shadow: none; }
 .nb-title { font-family: var(--sans); font-size: var(--fs-xl); line-height: 1.15; letter-spacing: -0.015em; font-weight: 700; margin-top: 0; margin-bottom: 14px; outline: none; }
 .nb-lede { font-size: var(--fs-l); line-height: 1.4; color: var(--lab-fg); margin-top: 0; margin-bottom: 1.4rem; }
-.nb-tour { font-family: var(--sans); font-size: var(--fs-s); display: flex; flex-wrap: wrap; gap: 0 1.2ch; padding: 6px 10px; margin-bottom: 22px; border: 1px solid var(--lab-line); }
+.nb-callout { border-left: 3px solid var(--sec-mark); background: var(--lab-tint-note); padding: 8px 12px; }
+.nb-callout--warn { border-left-color: var(--lab-doing); background: var(--lab-tint-warn); }
+.nb-tour { font-family: var(--sans); font-size: var(--fs-s); display: flex; flex-wrap: wrap; gap: 0 1.2ch; padding: 8px 12px; margin-bottom: 22px; }
 .nb-tour a { text-decoration: none; }
 .nb-tour a:hover { text-decoration: underline; }
-.nb-stub { font-family: var(--mono); font-size: var(--fs-xs); color: var(--lab-hi); border: 1px dashed var(--lab-hi); padding: 6px 10px; margin-bottom: 22px; }
+.nb-stub { font-family: var(--sans); font-size: var(--fs-s); color: var(--lab-fg); margin-bottom: 22px; }
+.nb-stub [data-st] { font-family: var(--mono); }
 .nb-slot { font-family: var(--mono); font-size: var(--fs-xs); color: var(--lab-dim); border: 1px dashed var(--lab-line); padding: 10px 12px; margin-bottom: 18px; }
 .nb-toc-inline { display: none; font-size: var(--fs-s); margin-bottom: 18px; }
 .nb-toc-inline ul { margin: 4px 0 0; padding-left: 1.2em; }
@@ -230,17 +339,18 @@ html.is-night .nb { visibility: visible; pointer-events: auto; }
 .nb-body p, .nb-body ul, .nb-body ol, .nb-body blockquote { margin-top: 0; margin-bottom: 1.1em; }
 .nb-body ul, .nb-body ol { padding-left: 1.4em; }
 .nb-body li { margin: 0 0 0.45em; }
-.nb-body blockquote { border-left: 2px solid var(--lab-hi); padding: 2px 0 2px 14px; font-size: var(--fs-l); line-height: 1.4; }
+.nb-body blockquote { border-left: 3px solid var(--sec-mark); padding: 2px 0 2px 14px; font-size: var(--fs-l); line-height: 1.4; }
+.nb-body p.nb-callout { padding: 10px 14px; }
 .nb-body blockquote p { margin: 0; }
-.nb-body code { font-family: var(--mono); font-size: var(--fs-s); background: var(--lab-pane); border: 1px solid var(--lab-faint); padding: 0 3px; }
+.nb-body code { font-family: var(--mono); font-size: var(--fs-s); color: var(--lab-code); background: var(--lab-pane); border: 1px solid var(--lab-faint); padding: 0 3px; }
 /* links: their own colour, the underline at 40 % of it, full on hover. An auto-linked ID is
    coloured but not underlined until hover, so a dense spec is not a sea of underlines. */
 .nb-col a, .nb-margin a, .nb-strip a { color: var(--lab-link); }
 .nb-body a, .nb-end a { text-decoration: underline; text-decoration-color: color-mix(in srgb, var(--lab-link) 40%, transparent); text-underline-offset: 3px; text-decoration-thickness: 1px; }
 .nb-body a:hover, .nb-end a:hover { text-decoration-color: var(--lab-link); }
 .nb-wl { text-decoration-style: dotted !important; }
-.nb-body a.nb-id, .nb-body a.nb-row { text-decoration-color: transparent; }
-.nb-body a.nb-id:hover, .nb-body a.nb-row:hover { text-decoration-color: var(--lab-link); text-decoration-style: solid !important; }
+.nb-body a.nb-id, .nb-body a.nb-rowref { text-decoration-color: transparent; }
+.nb-body a.nb-id:hover, .nb-body a.nb-rowref:hover { text-decoration-color: var(--lab-link); text-decoration-style: solid !important; }
 .nb-wl.is-broken { color: var(--lab-dim); text-decoration: line-through; }
 .nb-id, .nb-td-id { font-family: var(--mono); }
 .nb-id { font-size: var(--fs-s); }
@@ -251,12 +361,13 @@ html.is-night .nb { visibility: visible; pointer-events: auto; }
 .nb-body > .nb-table-wrap { width: max-content; min-width: min(100%, var(--measure)); }
 .nb-table table { border-collapse: collapse; font-family: var(--sans); font-size: var(--fs-s); line-height: 1.5; min-width: 100%; }
 .nb-table th, .nb-table td { text-align: left; vertical-align: top; padding: 7px 10px; border-bottom: 1px solid var(--lab-faint); }
-.nb-table th { color: var(--lab-dim); font-weight: 500; background: var(--lab-pane); border-bottom: 2px solid var(--lab-line); }
+.nb-table th { color: var(--lab-fg); font-weight: 500; background: var(--lab-pane); border-bottom: 2px solid var(--lab-line); }
 .nb-table tbody tr:nth-child(even) td { background: color-mix(in srgb, var(--lab-pane) 55%, var(--hov-bg)); }
 .nb-table tbody tr:nth-child(odd) td { background: var(--lab-bg); }
 .nb-table tr:target td, .nb-table tr.is-target td { background: var(--hov-bg); }
 .nb-table td:first-child { white-space: nowrap; }
-.nb-table td.nb-td-id { position: sticky; left: 0; z-index: 1; color: var(--lab-fg); box-shadow: inset -1px 0 0 var(--lab-faint); }
+.nb-table td.nb-td-id { position: sticky; left: 0; z-index: 1; color: var(--sec); box-shadow: inset -1px 0 0 var(--lab-faint); }
+.nb-table td.nb-td-id a { color: var(--sec); }
 .nb-table-wrap::before, .nb-table-wrap::after { content: ''; position: absolute; top: 1px; bottom: 1px; width: 28px; pointer-events: none; opacity: 0; z-index: 2; }
 .nb-table-wrap::before { left: calc(var(--stick, 0px) + 1px); background: linear-gradient(90deg, var(--lab-bg), transparent); }
 .nb-table-wrap::after { right: 1px; background: linear-gradient(270deg, var(--lab-bg), transparent); }
@@ -277,8 +388,8 @@ html.is-night .nb { visibility: visible; pointer-events: auto; }
 .nb-fig__img img { display: block; width: 100%; height: auto; aspect-ratio: 16 / 10; object-fit: cover; }
 .nb-embed { margin-top: 0; margin-bottom: 1.6em; }
 .nb-embed__body { border: 1px solid var(--lab-line); position: relative; overflow: hidden; font-family: var(--mono); font-size: var(--fs-xs); }
-.nb-say-on { box-shadow: -10px 0 0 -8px var(--lab-hi); }
-.nb-word.is-on { background: var(--sel-bg); color: var(--sel-ink); }
+.nb-say-on { box-shadow: -10px 0 0 -8px var(--sec-mark); }
+.nb-word.is-on { background: var(--lab-word-bg); color: var(--lab-word-ink); }
 .nb-prevnext { display: flex; justify-content: space-between; gap: 12px; font-size: var(--fs-s); border-top: 1px solid var(--lab-faint); padding-top: 14px; margin-top: 3rem; }
 .nb-prevnext a { text-decoration: none; padding: 2px 4px; }
 .nb-prevnext a:hover { background: var(--hov-bg); }
@@ -302,7 +413,7 @@ html.is-night .nb { visibility: visible; pointer-events: auto; }
 .nb-sec ul { list-style: none; margin: 0; padding: 0; }
 .nb-sec li a { display: block; text-decoration: none; padding: 4px 8px; color: var(--lab-dim); border-left: 2px solid transparent; }
 .nb-sec li a:hover { background: var(--hov-bg); color: var(--lab-fg); }
-.nb-sec li a[aria-current] { color: var(--lab-fg); border-left-color: var(--lab-hi); }
+.nb-sec li a[aria-current] { color: var(--lab-fg); border-left-color: var(--sec-mark); }
 .nb-sec li.is-h3 a { padding-left: 20px; }
 .nb-ctx { color: var(--lab-dim); }
 
@@ -314,9 +425,9 @@ html.is-night .nb { visibility: visible; pointer-events: auto; }
 .nb-g .e--hop2 { opacity: 0.4; }
 .nb-g .n { cursor: pointer; outline: none; }
 .nb-g .n .s { stroke-width: 1.5; fill: var(--lab-bg); }
-.nb-g .n[data-sec='agent-reliability'] .s { stroke: var(--lab-ar); }
-.nb-g .n[data-sec='builds'] .s { stroke: var(--lab-builds); }
-.nb-g .n[data-sec='writing'] .s { stroke: var(--lab-writing); }
+.nb-g .n[data-sec='agent-reliability'] .s { stroke: var(--lab-ar-mark); }
+.nb-g .n[data-sec='builds'] .s { stroke: var(--lab-builds-mark); }
+.nb-g .n[data-sec='writing'] .s { stroke: var(--lab-writing-mark); }
 .nb-g .n[data-sec='root'] .s, .nb-g .n[data-sec='tours'] .s { stroke: var(--lab-neutral); }
 .nb-g .n[data-type='topic'] .s, .nb-g .n[data-type='log'] .s { fill: currentColor; }
 .nb-g .n[data-sec='agent-reliability'] { color: var(--lab-ar); }
@@ -326,9 +437,9 @@ html.is-night .nb { visibility: visible; pointer-events: auto; }
 .nb-g .n.is-visited .s { fill: color-mix(in srgb, currentColor 22%, var(--lab-bg)); }
 .nb-g .n.is-here .s { fill: currentColor; stroke-width: 3; }
 .nb-g .n:hover text, .nb-g .n:focus-visible text, .nb-g .n.is-here text { fill: var(--lab-fg); }
-.nb-g .n:focus-visible .s { stroke: var(--lab-hi); stroke-width: 3; }
+.nb-g .n:focus-visible .s { stroke: var(--lab-ring); stroke-width: 3; }
 .nb-g .n.is-dim { opacity: 0.18; }
-.nb-g .n.is-match .s { stroke: var(--lab-hi); stroke-width: 3; }
+.nb-g .n.is-match .s { stroke: var(--lab-fg); stroke-width: 3; }
 .nb-g .n.is-hop2 { opacity: 0.55; }
 .nb-g .n .full { visibility: hidden; }
 .nb-g .n:hover .full, .nb-g .n:focus-visible .full { visibility: visible; }
@@ -396,7 +507,7 @@ html[data-focus] .nb-bar:hover, html[data-focus] .nb-bar:focus-within { opacity:
 
 /* the proof readout (throwaway) */
 .proof { position: fixed; z-index: 95; left: 12px; top: 56px; margin: 0; padding: 4px 8px; font-family: var(--mono); font-size: 11.5px; color: var(--lab-bg); background: var(--lab-fg); pointer-events: none; }
-.proof[data-ok='false'] { background: var(--lab-hi); }
+.proof[data-ok='false'] { background: var(--lab-doing); }
 
 /* ── 900–1199: the margin folds into the note ── */
 @media (max-width: 1199px) {
@@ -415,7 +526,7 @@ html[data-focus] .nb-bar:hover, html[data-focus] .nb-bar:focus-within { opacity:
   .nb-panes-bg { display: none; }
   .nb-head { position: sticky; top: 0; padding-top: env(safe-area-inset-top); background: var(--lab-pane); }
   .nb .nb-bar__menu { display: flex; }
-  .nb .nb-bar__canvas, .nb .nb-bar__flags, .nb .nb-bar__focus, .nb-bar__word, .nb-bar__k { display: none; }
+  .nb .nb-bar__canvas, .nb .nb-bar__help, .nb .nb-bar__focus, .nb-bar__word, .nb-bar__k { display: none; }
   .nb .nb-bar__cell { padding: 0 11px; min-width: 42px; }
   /* the phone's path is one 44px target: "‹ parent" */
   .nb-bar__path ol { display: none; }
@@ -443,8 +554,8 @@ html[data-focus] .nb-bar:hover, html[data-focus] .nb-bar:focus-within { opacity:
   html.nb-drawer.nb-noside .nb-side { visibility: visible; }
   .nb-side__canvas { display: block; padding: 10px 14px; font-weight: 700; text-decoration: none; border-bottom: 1px solid var(--lab-faint); margin: -10px 0 8px; }
   .nb-side__canvas:hover { background: var(--hov-bg); }
-  .nb-side__foot { display: flex; gap: 10px; padding: 14px; color: var(--lab-dim); border-top: 1px solid var(--lab-faint); margin-top: 14px; }
-  .nb-side__foot button { color: var(--lab-dim); }
+  .nb-side__foot { padding: 12px 14px; }
+  .nb-side__foot button { min-height: 44px; }
   .nb-row { padding: 6px 10px 6px 8px; }
   .nb-scrim { display: block; position: fixed; inset: 0; z-index: 91; background: rgba(0, 0, 0, 0.6); }
   .nb-scrim[hidden] { display: none; }

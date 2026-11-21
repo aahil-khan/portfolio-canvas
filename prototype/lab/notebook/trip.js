@@ -20,6 +20,7 @@
  *              bar's cells decode 0.55–0.84. Nothing reflows; the bar's text never wraps.
  *   0.50–0.85  the sidebar slides in from the left (desktop; on phone the drawer stays shut)
  *   0.52–1.00  the note decodes in place
+ * THE THEME: the trip always lands in night (NB.prefs.trip); the sky is night on every theme.
  * REDUCED MOTION (LAB.sky.reduced, the one owner): a 0.32 s crossfade; the dock and the pill swap
  * at the midpoint; no decode.
  */
@@ -227,9 +228,10 @@
   }
   function setHash(hh) { try { history.replaceState(null, '', hh) } catch { location.hash = hh } }
 
-  T.enter = () => run(1)
+  // the trip lands in night, whatever was chosen (NB.prefs; not stored, so a reload keeps the choice)
+  T.enter = () => { if (st.t === 0 && !st.anim) NB.prefs.trip(); return run(1) }
   T.leave = () => run(0)
-  T.toggle = () => run(st.t > 0.5 || (st.anim && dir > 0) ? 0 : 1)
+  T.toggle = () => (st.t > 0.5 || (st.anim && dir > 0) ? run(0) : T.enter())
   T.scrub = (t, back = false) => { if (st.t === 0) { dir = back ? -1 : 1; beginEnter() } dir = back ? -1 : 1; apply(t) }
   T.live = () => st.t === 1 && !st.anim
   T.state = st

@@ -11,7 +11,8 @@
   A reader-first notebook: a top bar (← canvas, the note's path, ⌕ ◎ ▶ ◫), the vault tree on the
   left (a drawer on phone), a ~64-character reading column that scrolls, and a right margin with
   only "on this page" (≥ 3 headings; otherwise the column centres). Links, backlinks, the local
-  graph and the tags sit at each note's end. f is focus mode. Round 1 of the readability fixes:
+  graph and the tags sit at each note's end. f is focus mode. Two reading themes, night and
+  paper (◐ in the bar; a direct link follows prefers-color-scheme, the trip is night; prefs.js). Round 1 of the readability fixes:
   ~/.local/state/hq/plans/portfolio-canvas/lab-audit-readability-first/plan.md; audit.mjs measures it. Every note has a stable URL. The canvas trip is still
   here (#desk, then the Lab tile or L), and secondary.
 
@@ -21,16 +22,15 @@
     #desk                            start on the canvas          &pop=switcher|drawer|help
     ?freeze=<0..1>[&back=1]          hold the trip at t           ?enter=1  play it once
     ?roundtrip=1                     drag a card, pan, Lab and back, measure every card
-    ?palette=white|green|amber       ?voice=ai|sam|synth          ?autolink=0   ?hidden=1
+    ?theme=night|paper|green|amber   ?voice=ai|sam|synth          ?autolink=0   ?hidden=1
+    (one visit, not stored; ?palette= is the same switch)
     ?add=1                           a 72nd note, relaid out warm; the readout says how far
   Content: notes/**.md (vault.js), the tracker's public parts (study.js), the two essays
   (essay.js). Every UI word is in copy.js. sam.js is SAM (1982), vendored, no licence (see its
   header). One file to open: node bundle.mjs writes all of this, inlined, to one lab.html.
 -->
-<script>
-  /* focus mode before first paint: one owner (NB.shell.setFocus), one stored key */
-  try { if (JSON.parse(localStorage.getItem('nb-focus') || 'false')) document.documentElement.setAttribute('data-focus', '') } catch (e) { /* private window */ }
-</script>
+<!-- the reader's prefs (theme, focus) before first paint: one owner, NB.prefs; inlined by the bundle -->
+<script src="prefs.js"></script>
 <link rel="stylesheet" href="../shared/jet.css">
 <link rel="stylesheet" href="../shared/desk.css">
 <link rel="stylesheet" href="notebook.css">

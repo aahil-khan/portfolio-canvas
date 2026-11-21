@@ -27,6 +27,19 @@
 //   - Holt and the post: the first paragraph starts < 320 px (desktop) and < 420 px (phone)
 //   - narration playing (03-blind-agent in W1, voice sam), phone: every strip button ≥ 44 px tall;
 //     desktop: ≥ 32×32
+//
+// Round 2 (colour) asserts, in night and in paper (a fresh profile with prefers-color-scheme dark,
+// then light: the real way a theme is chosen), at both sizes, on the views above plus start-here,
+// 03-blind-agent in W1, the study hub, the Drag to Workspace stub and #/graph:
+//   - the computed colours of body text, links, the kicker, table cells and the tree (desktop)
+//     reach 4.5:1 on the background actually behind them (every ancestor's background, composited)
+//     (the section dot and the folder chevrons are marks, aria-hidden shapes: 3:1, as check.mjs §7)
+//   - at most 3 elements in view are painted with the accent (--lab-hi, and the two forms it takes
+//     on paper: --lab-here and --lab-word-bg). DIRECTION's ≤ ~5 % accent rule, made countable
+//   - a note in each section shows its section colour in the kicker: the dot in the mark, the
+//     name in the text colour (01-spec and T02 agent reliability, Holt builds, the post writing)
+//   - narration playing (desktop): the spoken word's ink reaches 4.5:1 on its background
+//   - M9: at rest on a note no animation is running (the starfield is paused); on #/graph it runs
 import { createRequire } from 'node:module'
 import { homedir } from 'node:os'
 import { join, resolve } from 'node:path'
@@ -110,6 +123,72 @@ function probe() {
   return out
 }
 
+// in the page: the round-2 measurements
+function probe2() {
+  const parse = (c) => {
+    let m = /^rgba?\(([\d.]+),\s*([\d.]+),\s*([\d.]+)(?:,\s*([\d.]+))?\)$/.exec(c)
+    if (m) return [+m[1], +m[2], +m[3], m[4] == null ? 1 : +m[4]]
+    m = /^color\(srgb ([\d.e-]+) ([\d.e-]+) ([\d.e-]+)(?: \/ ([\d.]+))?\)$/.exec(c)
+    if (m) return [+m[1] * 255, +m[2] * 255, +m[3] * 255, m[4] == null ? 1 : +m[4]]
+    return null
+  }
+  const over = (top, under) => { const a = top[3]; return [0, 1, 2].map((i) => top[i] * a + under[i] * (1 - a)).concat(1) }
+  const lum = (c) => { const [r, g, b] = c.slice(0, 3).map((v) => { v /= 255; return v <= 0.03928 ? v / 12.92 : Math.pow((v + 0.055) / 1.055, 2.4) }); return 0.2126 * r + 0.7152 * g + 0.0722 * b }
+  const ratio = (a, b) => { const [x, y] = [lum(a), lum(b)].sort((m, n) => n - m); return (x + 0.05) / (y + 0.05) }
+  // the background behind an element: every ancestor's background, composited from the page up
+  const bgOf = (e) => {
+    const layers = []
+    for (let a = e; a; a = a.parentElement) { const c = parse(getComputedStyle(a).backgroundColor); if (c && c[3] > 0) { layers.push(c); if (c[3] >= 1) break } }
+    let out = [255, 255, 255, 1]
+    for (const l of layers.reverse()) out = over(l, out)
+    return out
+  }
+  const vis = (e) => { const r = e.getBoundingClientRect(), s = getComputedStyle(e); return r.width > 0 && r.height > 0 && r.bottom > 0 && r.top < innerHeight && s.visibility !== 'hidden' && s.display !== 'none' }
+  const hasText = (e) => [...e.childNodes].some((c) => c.nodeType === 3 && c.textContent.trim())
+  const contrast = (e) => { const bg = bgOf(e), fg = over(parse(getComputedStyle(e).color), bg); return +ratio(fg, bg).toFixed(2) }
+  // the section dot and the folder chevron are marks (aria-hidden shapes, not words): 3:1, not 4.5
+  const MARKS = '.nb-k__dot, .nb-row__chev'
+  const group = (sel, all) => {
+    const es = [...document.querySelectorAll(sel)].filter((e) => vis(e) || all).filter((e) => !e.matches(MARKS) || sel === MARKS).filter((e) => hasText(e) || e.querySelector('*') === null).slice(0, 40)
+    const rs = es.map((e) => ({ r: contrast(e), what: (e.className || e.tagName) + ' "' + e.textContent.trim().slice(0, 24) + '"' }))
+    rs.sort((a, z) => a.r - z.r)
+    return { n: rs.length, min: rs.length ? rs[0].r : null, worst: rs[0] ? rs[0].what : '' }
+  }
+  const out = {
+    theme: document.documentElement.dataset.labTheme,
+    body: group('.nb-body > p, .nb-body li, .nb-lede'),
+    link: group('.nb-body a, .nb-end a, .nb-tour a'),
+    kicker: group('.nb-kicker .nb-k, .nb-kicker .nb-k *'),
+    table: group('.nb-table th, .nb-table td, .nb-table td a, .nb-dl dt, .nb-dl dd'),
+    tree: innerWidth >= 900 ? group('.nb-row__title, .nb-row__glyph') : null,
+  }
+  out.marks = group(MARKS)
+  // the accent, in each form it takes on this theme
+  const root = getComputedStyle(document.documentElement)
+  const hexRgb = (h) => { const m = /^#([0-9a-f]{6})$/i.exec(h.trim()); return m ? [0, 2, 4].map((i) => parseInt(m[1].slice(i, i + 2), 16)).join(', ') : null }
+  const accent = [...new Set(['--lab-hi', '--lab-here', '--lab-word-bg'].map((v) => hexRgb(root.getPropertyValue(v))).filter(Boolean))]
+  const painted = []
+  for (const e of document.querySelectorAll('.nb *, .nb')) {
+    if (!vis(e)) continue
+    const s = getComputedStyle(e)
+    const props = [s.color, s.backgroundColor, s.boxShadow, s.outlineStyle !== 'none' ? s.outlineColor : '', ...['Top', 'Right', 'Bottom', 'Left'].map((k) => (parseFloat(s[`border${k}Width`]) > 0 && s[`border${k}Style`] !== 'none' ? s[`border${k}Color`] : '')), s.textDecorationLine !== 'none' ? s.textDecorationColor : '']
+    if (props.some((v) => accent.some((a) => v && v.includes(`rgb(${a})`)))) painted.push(e.className || e.tagName)
+  }
+  out.accent = { n: painted.length, what: painted }
+  const k = document.querySelector('.nb-kicker')
+  if (k) {
+    const sec = document.querySelector('.nb').dataset.sec, tok = { 'agent-reliability': 'ar', builds: 'builds', writing: 'writing' }[sec]
+    out.sec = { sec, name: getComputedStyle(k.querySelector('.nb-k__name')).color, dot: getComputedStyle(k.querySelector('.nb-k__dot')).color, want: tok ? `rgb(${hexRgb(root.getPropertyValue(`--lab-${tok}`))})` : null, wantMark: tok ? `rgb(${hexRgb(root.getPropertyValue(`--lab-${tok}-mark`))})` : null }
+  }
+  out.running = document.getAnimations().filter((a) => a.playState === 'running').map((a) => a.animationName || a.id || 'anim')
+  return out
+}
+const VIEWS2 = {
+  start: '', spec01: VIEWS.spec01, tour3: '#/agent-reliability/shopkeeper/03-blind-agent?w=W1', scen05: VIEWS.scen05, T02: VIEWS.T02,
+  study: '#/agent-reliability/study', W1: VIEWS.W1, holt: VIEWS.holt, stub: '#/builds/01-drag-to-workspace', post: VIEWS.post, graph: '#/graph',
+}
+const THEMES = { night: 'dark', paper: 'light' }
+
 const b = await chromium.launch()
 const res = {}
 try {
@@ -131,6 +210,35 @@ try {
     res[`strip@${sz}`] = await pg.evaluate(() => [...document.querySelectorAll('.nb-strip button')].map((x) => { const r = x.getBoundingClientRect(); return { b: x.dataset.nb, w: Math.round(r.width), h: Math.round(r.height) } }))
     res[`stripText@${sz}`] = await pg.evaluate(() => document.querySelector('.nb-strip').innerText.replace(/\s+/g, ' '))
     await ctx.close()
+  }
+  // round 2: each theme, chosen the way a reader's browser chooses it
+  for (const [theme, scheme] of Object.entries(THEMES)) {
+    for (const [sz, [w, h]] of Object.entries(SIZES)) {
+      const phone = sz === 'phone'
+      const ctx = await b.newContext({ viewport: { width: w, height: h }, isMobile: phone, hasTouch: phone, colorScheme: scheme })
+      const pg = await ctx.newPage()
+      for (const [k, hash] of Object.entries(VIEWS2)) {
+        await pg.goto('about:blank'); await pg.goto(FILE + hash)
+        await pg.evaluate(() => document.fonts.ready); await pg.waitForTimeout(400)
+        res[`r2:${theme}:${k}@${sz}`] = await pg.evaluate(probe2)
+      }
+      if (!phone) {
+        await pg.goto('about:blank'); await pg.goto(FILE + VIEWS2.tour3)
+        await pg.waitForTimeout(400)
+        await pg.evaluate(() => { NIGHT.voice.use('sam'); NB.narrator.press() })
+        await pg.waitForFunction(() => document.querySelector('.nb-word.is-on'), null, { timeout: 8000 }).catch(() => {})
+        res[`r2:${theme}:word`] = await pg.evaluate(() => {
+          const w = document.querySelector('.nb-word.is-on')
+          if (!w) return null
+          const s = getComputedStyle(w), rgb = (c) => c.match(/[\d.]+/g).slice(0, 3).map(Number)
+          const lum = (c) => { const [r, g, b] = c.map((v) => { v /= 255; return v <= 0.03928 ? v / 12.92 : Math.pow((v + 0.055) / 1.055, 2.4) }); return 0.2126 * r + 0.7152 * g + 0.0722 * b }
+          const [x, y] = [lum(rgb(s.color)), lum(rgb(s.backgroundColor))].sort((m, n) => n - m)
+          return { fg: s.color, bg: s.backgroundColor, r: +((x + 0.05) / (y + 0.05)).toFixed(2) }
+        })
+        await pg.evaluate(() => NB.narrator.stop())
+      }
+      await ctx.close()
+    }
   }
 } finally { await b.close() }
 if (process.env.AUDIT_JSON) console.log(JSON.stringify(res, null, 1))
@@ -160,6 +268,27 @@ const sp = res['strip@phone'], sd = res['strip@desk']
 ok(sp.length >= 3 && sp.every((x) => x.h >= 44 && x.w >= 44), `narration, phone: ${sp.length} strip buttons, all ≥ 44×44 (${sp.map((x) => `${x.b} ${x.w}×${x.h}`).join(', ')})`)
 ok(sd.length >= 3 && sd.every((x) => x.h >= 32 && x.w >= 32), `narration, desktop: ${sd.length} strip buttons, all ≥ 32×32 (${sd.map((x) => `${x.b} ${x.w}×${x.h}`).join(', ')})`)
 ok(/left/.test(res['stripText@desk']) && !/¶/.test(res['stripText@desk']), `the strip says the whole note's time left, no paragraph counter ("${res['stripText@desk']}")`)
+
+console.log('round 2: colour')
+for (const theme of Object.keys(THEMES)) {
+  for (const sz of Object.keys(SIZES)) {
+    console.log(` ${theme} · ${sz}`)
+    for (const k of Object.keys(VIEWS2)) {
+      const m = res[`r2:${theme}:${k}@${sz}`]
+      ok(m.theme === theme, `${k}: the page is in ${m.theme}`)
+      const parts = ['body', 'link', 'kicker', 'table', 'tree'].filter((g) => m[g] && m[g].n)
+      const low = parts.filter((g) => m[g].min < 4.5)
+      if (k !== 'graph') ok(parts.length >= 2 && !low.length, `${k}: text reaches 4.5:1 on what is behind it · ${parts.map((g) => `${g} ${m[g].min} (${m[g].n})`).join(' · ')}${low.length ? ' — LOW: ' + low.map((g) => `${g} ${m[g].worst}`).join('; ') : ''}`)
+      if (k !== 'graph' && m.marks.n) ok(m.marks.min >= 3, `${k}: the section dot and folder chevrons reach 3:1 as marks (lowest ${m.marks.min}, ${m.marks.n})`)
+      if (k !== 'graph' && k !== 'start') ok(m.accent.n <= 3, `${k}: ${m.accent.n} elements in view wear the accent (≤ 3)${m.accent.n ? ': ' + m.accent.what.join(', ') : ''}`)
+      if (['spec01', 'T02', 'holt', 'post'].includes(k)) ok(m.sec && m.sec.name === m.sec.want && m.sec.dot === m.sec.wantMark, `${k}: the kicker is in ${m.sec && m.sec.sec}'s colour (name ${m.sec && m.sec.name}, dot ${m.sec && m.sec.dot})`)
+      if (k === 'spec01') ok(!m.running.length, `${k}: no animation runs at rest (${m.running.join(', ') || 'none'}): the starfield is paused`)
+      if (k === 'graph') ok(m.running.includes('lab-twinkle'), `#/graph: the starfield twinkles behind it (${m.running.join(', ') || 'none'})`)
+    }
+  }
+  const wd = res[`r2:${theme}:word`]
+  ok(wd && wd.r >= 4.5, `${theme}: the spoken word is ${wd && wd.fg} on ${wd && wd.bg}, ${wd && wd.r}:1 (≥ 4.5)`)
+}
 
 console.log(fails ? `\n${fails} of ${n} FAILED` : `\nall ${n} audit checks pass`)
 process.exit(fails ? 1 : 0)

@@ -324,7 +324,7 @@
       }
       if (k.t === 'row') {
         const href = ctx.row && ctx.row(k.id)
-        return href ? `<a class="nb-wl nb-row" href="${escape(href)}">${escape(k.id)}</a>` : escape(k.id)
+        return href ? `<a class="nb-wl nb-rowref" href="${escape(href)}">${escape(k.id)}</a>` : escape(k.id)
       }
       return ''
     }).join('')

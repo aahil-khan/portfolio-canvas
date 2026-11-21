@@ -8,6 +8,7 @@
  *   NB.shell.show()             render whatever the hash says (the router)
  *   NB.shell.el                 { root, head, bar, strip, side, main, col, margin, … }
  *   NB.shell.setPalette(id), .toggleSide(), .openDrawer(), .closeDrawer(), .layer()
+ *   (the theme itself is NB.prefs's: prefs.js, applied before first paint)
  *   NB.vault                    the vault, built once from vault.js + study.js + essay.js
  *
  * ROUTES (hash): '' or '#/' start-here · '#/graph' the full graph · '#/<path>' a note ·
@@ -26,11 +27,8 @@
   const h = (tag, cls, html) => { const e = document.createElement(tag); if (cls) e.className = cls; if (html != null) e.innerHTML = html; return e }
   const phone = () => innerWidth < 900
   const wide = () => innerWidth >= 1200
-  const PALETTES = Object.keys(C.palettes)
-  const store = {
-    get(k) { try { return JSON.parse(localStorage.getItem(k) || 'null') } catch { return null } },
-    set(k, v) { try { localStorage.setItem(k, JSON.stringify(v)) } catch { /* private window */ } },
-  }
+  const P = NB.prefs
+  const store = { get: P.get, set: P.set }
 
   // ── the vault ──────────────────────────────────────────────────────────────────────────
   function buildVault(extraFiles) {
@@ -58,7 +56,7 @@
   S.relayout = () => { layoutCache = null; return graphLayout() }
 
   // ── glyphs and labels ─────────────────────────────────────────────────────────────────
-  const glyph = (n) => { const g = C.status[n.status] || C.status.planned; return `<span class="nb-row__glyph" aria-label="${esc(g[1])}" title="${esc(g[1])}">${esc(g[0])}</span>` }
+  const glyph = (n) => { const g = C.status[n.status] || C.status.planned; return `<span class="nb-row__glyph" data-st="${esc(C.status[n.status] ? n.status : 'planned')}" aria-label="${esc(g[1])}" title="${esc(g[1])}">${esc(g[0])}</span>` }
   // a hub's 00 is an internal label: the tree shows it only in the author view (?hidden=1)
   const numOf = (n) => (n.id || (n.isHub ? (q0.get('hidden') === '1' ? '00' : '') : /^\d\d$/.test(n.num) ? n.num : ''))
   S.glyph = glyph
@@ -80,18 +78,15 @@
           <button type="button" class="nb-bar__cell nb-bar__btn" data-act="graph" aria-label="${esc(C.graphLabel)}" aria-pressed="false">${esc(C.graph)}<span class="nb-bar__word"> ${esc(C.graphWord)}</span></button>
           <button type="button" class="nb-bar__cell nb-bar__btn" data-act="listen" aria-label="${esc(C.listenLabel)}">${esc(C.listen)}<span class="nb-bar__word"> ${esc(C.listenWord)}</span></button>
           <button type="button" class="nb-bar__cell nb-bar__btn nb-bar__focus" data-act="focus" aria-label="${esc(C.focusLabel)}" aria-pressed="false">${esc(C.focus)}<span class="nb-bar__word"> ${esc(C.focusWord)}</span> <span class="nb-bar__k">${esc(C.focusKey)}</span></button>
-          <div class="nb-bar__cell nb-bar__flags">
-            <button type="button" data-act="snd"></button>
-            <button type="button" data-act="pal"></button>
-            <button type="button" data-act="help" aria-label="${esc(C.helpLabel)}">${esc(C.help)}</button>
-          </div>
+          <button type="button" class="nb-bar__cell nb-bar__btn nb-bar__theme" data-act="theme"></button>
+          <button type="button" class="nb-bar__cell nb-bar__btn nb-bar__help" data-act="help" aria-label="${esc(C.helpLabel)}">${esc(C.help)}</button>
         </nav>
         <div class="nb-strip" role="region" aria-label="${esc(C.strip.label)}" hidden></div>
       </header>
       <aside class="nb-side" id="nbSide" aria-label="${esc(C.treeLabel)}">
         <a class="nb-side__canvas" href="#desk" data-act="canvas">${esc(C.canvas)}</a>
         <ul class="nb-tree" role="tree" aria-label="${esc(C.treeLabel)}"></ul>
-        <div class="nb-side__foot"><button type="button" data-act="snd"></button><button type="button" data-act="pal"></button><button type="button" data-act="help">${esc(C.help)} ${esc(C.helpTitle)}</button></div>
+        <div class="nb-side__foot"><button type="button" data-act="snd"></button><button type="button" data-act="help">${esc(C.help)} ${esc(C.helpTitle)}</button></div>
       </aside>
       <main class="nb-main" id="nbMain" tabindex="-1"><div class="nb-col"></div></main>
       <aside class="nb-margin" aria-label="${esc(C.linksHead)}"></aside>
@@ -110,7 +105,8 @@
     addEventListener('hashchange', () => S.show())
     let rt = 0
     addEventListener('resize', () => { clearTimeout(rt); rt = setTimeout(() => { if (!phone()) S.closeDrawer(true); S.renderAside(); if (S.state.view !== 'graph') NB.reader.tables() }, 120) })
-    S.setPalette(q0.get('palette') && PALETTES.includes(q0.get('palette')) ? q0.get('palette') : 'white')
+    // the theme is already on <html> (NB.prefs.apply, before first paint); the stars follow it
+    P.onTheme(() => { if (NB.trip && NB.trip.bakeStars) NB.trip.bakeStars(); flags() })
     if (q0.get('voice')) NIGHT.voice.use(q0.get('voice'))
     flags()
     if (NIGHT.sound && NIGHT.sound.on) NIGHT.sound.on(flags)
@@ -121,7 +117,7 @@
 
   // ── focus mode: html[data-focus], one owner. The tree and the margin go, the column centres,
   // the bar dims until it is pointed at. Stored (try/catch); the narrator turns it on unstored.
-  const FOCUS_KEY = 'nb-focus'
+  const FOCUS_KEY = P.KEY.focus
   S.isFocus = () => document.documentElement.hasAttribute('data-focus')
   S.setFocus = (on, persist = true) => {
     document.documentElement.toggleAttribute('data-focus', !!on)
@@ -137,19 +133,14 @@
 
   function flags() {
     const muted = !NIGHT.sound || NIGHT.sound.muted
-    for (const b of el.root.querySelectorAll('[data-act="snd"]')) { b.textContent = `${C.snd}:${muted ? C.off : C.on}`; b.setAttribute('aria-label', C.sndLabel(!muted)); b.setAttribute('aria-pressed', String(!muted)) }
-    const p = document.documentElement.dataset.palette || 'white'
-    for (const b of el.root.querySelectorAll('[data-act="pal"]')) { b.textContent = `${C.pal}:${C.palShort[p]}`; b.setAttribute('aria-label', C.palLabel(C.palettes[p])) }
+    for (const b of el.root.querySelectorAll('[data-act="snd"]')) { b.textContent = C.sndWord(!muted); b.setAttribute('aria-label', C.sndLabel(!muted)); b.setAttribute('aria-pressed', String(!muted)) }
+    const t = P.theme()
+    for (const b of el.root.querySelectorAll('[data-act="theme"]')) { b.innerHTML = `${esc(C.theme)}<span class="nb-bar__word"> ${esc(C.themeWord(C.palettes[t]))}</span>`; b.setAttribute('aria-label', C.themeLabel(C.palettes[t])) }
   }
   S.flags = flags
-  S.setPalette = (id) => {
-    if (!PALETTES.includes(id)) return false
-    document.documentElement.dataset.palette = id
-    if (NB.trip && NB.trip.bakeStars) NB.trip.bakeStars()
-    if (el.root) flags()
-    return true
-  }
-  S.cyclePalette = () => S.setPalette(PALETTES[(PALETTES.indexOf(document.documentElement.dataset.palette || 'white') + 1) % PALETTES.length])
+  // "> palette <id>" and the bar's ◐ are stored choices; NB.prefs owns the attribute
+  S.setPalette = (id) => P.setTheme(id)
+  S.cycleTheme = () => P.cycle()
   S.toggleSound = (on) => { if (!NIGHT.sound) return; NIGHT.sound.setMuted(on == null ? !NIGHT.sound.muted : !on); flags() }
 
   // ── clicks ────────────────────────────────────────────────────────────────────────────
@@ -162,7 +153,7 @@
       if (act === 'graph') return S.state.view === 'graph' ? history.back() : S.go('graph')
       if (act === 'listen') return NB.narrator.press()
       if (act === 'snd') return S.toggleSound()
-      if (act === 'pal') return S.cyclePalette()
+      if (act === 'theme') return S.cycleTheme()
       if (act === 'help') return S.help(a)
       if (act === 'focus') return S.toggleFocus()
       if (act === 'depth') { S.depth = S.depth === 2 ? 1 : 2; return S.renderAside() }
@@ -203,6 +194,8 @@
     if (S.state.note && S.state.note !== note && NB.narrator) NB.narrator.navigated(note, q)
     S.state = { ...S.state, route: note.route, view: note.route === '' ? 'home' : 'note', note, q }
     el.root.dataset.view = S.state.view
+    el.root.dataset.sec = note.section
+    document.documentElement.classList.remove('nb-graph')
     el.graphBtn.setAttribute('aria-pressed', 'false')
     document.title = C.title(note.title)
     S.visited.add(note.route)
@@ -241,7 +234,7 @@
       const text = graph ? S.cap(C.graphTitle) : last ? S.name(note) : hub ? S.name(hub) : folderName(acc)
       crumbs.push({ href, text, last })
     })
-    el.path.innerHTML = crumbs.map((c, i) => `<li>${i ? `<span class="nb-crumb-sep" aria-hidden="true">${esc(C.crumbSep)}</span>` : ''}<a href="${esc(c.href)}"${c.last ? ' aria-current="page"' : ''}>${esc(c.text)}</a></li>`).join('')
+    el.path.innerHTML = crumbs.map((c, i) => `<li${i === 1 && !graph ? ' class="is-sec"' : ''}>${i ? `<span class="nb-crumb-sep" aria-hidden="true">${esc(C.crumbSep)}</span>` : ''}<a href="${esc(c.href)}"${c.last ? ' aria-current="page"' : ''}>${esc(c.text)}</a></li>`).join('')
     const up = crumbs.length > 1 ? crumbs[crumbs.length - 2] : null
     el.up.innerHTML = up ? `<a class="nb-up" href="${esc(up.href)}" aria-label="${esc(C.crumbUpLabel(up.text))}">${esc(C.crumbUp(up.text))}</a>` : `<span class="nb-up">${esc(crumbs[0].text)}</span>`
   }
@@ -263,8 +256,10 @@
     const label = f.hub
       ? `<a class="nb-row nb-row--folder" role="treeitem" tabindex="-1" aria-expanded="false" href="${esc(S.href(f.hub.route))}" data-route="${esc(f.hub.route)}" title="${esc(name)}">${chev}<span class="nb-row__title">${esc(name)}</span></a>`
       : `<button type="button" class="nb-row nb-row--folder" role="treeitem" tabindex="-1" data-act="fold" aria-expanded="false" title="${esc(name)}">${chev}<span class="nb-row__title">${esc(name)}</span></button>`
-    return `<li data-folder="${esc(f.path)}" data-open="false" role="none">${label}<ul role="group">${kids}</ul></li>`
+    return `<li data-folder="${esc(f.path)}" data-sec="${esc(secOf(f))}" data-open="false" role="none">${label}<ul role="group">${kids}</ul></li>`
   }
+  // a folder's section: its hub's, or its first note's
+  const secOf = (f) => (f.hub ? f.hub.section : f.notes[0] ? f.notes[0].section : f.folders[0] ? secOf(f.folders[0]) : 'root')
   function renderTree() {
     const t = V().tree
     el.tree.innerHTML = (t.hub ? `<li role="none">${rowHtml(t.hub, S.name(t.hub))}</li>` : '') + t.notes.map((n) => `<li role="none">${rowHtml(n)}</li>`).join('') + t.folders.map(folderHtml).join('')
@@ -521,6 +516,8 @@
   function showGraph(q) {
     S.state = { ...S.state, view: 'graph', q, route: 'graph' }
     el.root.dataset.view = 'graph'
+    el.root.dataset.sec = 'root'
+    document.documentElement.classList.add('nb-graph')
     el.graphBtn.setAttribute('aria-pressed', 'true')
     document.title = C.title(C.graphTitle)
     renderPath(null, true)

@@ -24,13 +24,13 @@
     search: '⌕', searchWord: 'search', searchKey: '/', searchLabel: 'Search notes (/ or Ctrl+K)',
     graph: '◎', graphWord: 'graph', graphLabel: 'Graph of every note (g)',
     listen: '▶', listenWord: 'listen', listenLabel: 'Listen to this note (l)', listenTour: (w) => `Listen to all of ${w}`,
-    snd: 'snd', sndLabel: (on) => `Interface sounds ${on ? 'on' : 'off'}, press to change`,
-    pal: 'pal', palLabel: (p) => `Palette: ${p}, press to change`,
+    sndWord: (on) => `Interface sounds: ${on ? 'on' : 'off'}`, sndLabel: (on) => `Interface sounds ${on ? 'on' : 'off'}, press to change`,
+    // the bar's theme toggle, until round 4's Aa panel: night ↔ paper
+    theme: '◐', themeWord: (t) => t, themeLabel: (t) => `Theme: ${t}, press to change`,
     on: 'on', off: 'off',
     help: '?', helpLabel: 'Keys (?)',
     focus: '◫', focusWord: 'focus', focusKey: 'f', focusLabel: 'Focus mode: hide the notes and the outline (f)',
-    palettes: { white: 'white', green: 'green', amber: 'amber' },
-    palShort: { white: 'w', green: 'g', amber: 'a' },
+    palettes: { night: 'night', paper: 'paper', green: 'green', amber: 'amber' },
 
     // the status column: one glyph, one meaning, always with words beside it for a screen reader
     status: {
@@ -143,7 +143,7 @@
       commands: [
         { cmd: 'graph', label: 'open the graph' },
         { cmd: 'voice ai', label: "your device's voice" }, { cmd: 'voice sam', label: 'sam, live' }, { cmd: 'voice synth', label: 'sam through effects' },
-        { cmd: 'palette white', label: 'white on black' }, { cmd: 'palette green', label: 'green phosphor' }, { cmd: 'palette amber', label: 'amber phosphor' },
+        { cmd: 'palette night', label: 'night: light text on a soft dark' }, { cmd: 'palette paper', label: 'paper: dark text on warm white' }, { cmd: 'palette green', label: 'green phosphor' }, { cmd: 'palette amber', label: 'amber phosphor' },
         { cmd: 'sound on', label: 'interface sounds on' }, { cmd: 'sound off', label: 'interface sounds off' },
         { cmd: 'canvas', label: 'back to the canvas' }, { cmd: 'help', label: 'the keys' },
       ],

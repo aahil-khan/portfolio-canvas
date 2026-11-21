@@ -13,7 +13,9 @@
 //      cells 120), the listen clock; and the TL;DR list (WARN: notes whose summary is missing or a
 //      list of their own headings; Aahil writes them)
 //   6. the renderer: tables, fences, embeds, anchors, auto-links, broken links, escaping
-//   7. the palettes: text ≥ 4.5:1 on every surface, selection and hover included; frames ≥ 3:1
+//   7. the themes: every token in every theme; text ≥ 4.5:1 on bg, pane, hover and the callout
+//      tints; the selection and the spoken word ≥ 4.5:1; marks ≥ 3:1; the accent only through its
+//      three jobs; the starfield paused at rest; how a theme is chosen
 //   8. the switcher's matcher
 //   9. the files: CSS scope, no backdrop-filter, no lorem, no CDN, every UI word in copy.js, the
 //      dropped modules gone, only this folder changed
@@ -29,7 +31,7 @@ import * as tracker from './tools/import-tracker.mjs'
 
 const here = dirname(fileURLToPath(import.meta.url))
 const require = createRequire(import.meta.url)
-for (const f of ['copy.js', 'md.js', 'model.js', 'graph.js', 'vault.js', 'study.js', 'essay.js', 'graph-seed.js', 'logic.js']) require(join(here, f))
+for (const f of ['prefs.js', 'copy.js', 'md.js', 'model.js', 'graph.js', 'vault.js', 'study.js', 'essay.js', 'graph-seed.js', 'logic.js']) require(join(here, f))
 const { NB, NIGHT } = globalThis
 const C = NB.copy, MD = NB.md, G = NB.graph
 
@@ -188,7 +190,7 @@ const pol = rendered('agent-reliability/shopkeeper/02-policy'), sce = rendered('
 ok(/<table>/.test(pol) && /class="nb-table"/.test(sce), 'tables render, each in its own scrolling region')
 const pIds = Array.from({ length: 13 }, (_, i) => `p${i + 1}`), sIds = [...Array.from({ length: 10 }, (_, i) => `a${i + 1}`), ...Array.from({ length: 13 }, (_, i) => `b${i + 1}`), ...Array.from({ length: 12 }, (_, i) => `c${i + 1}`)]
 ok(pIds.every((id) => pol.includes(`<tr id="${id}">`)) && sIds.every((id) => sce.includes(`<tr id="${id}">`)), 'table rows P1–P13 and A1–C12 carry their IDs as anchors')
-ok(/class="nb-wl nb-row" href="#\/agent-reliability\/shopkeeper\/02-policy\?a=p\d+"/.test(sce) || /nb-row" href="#\/agent-reliability\/shopkeeper\/02-policy/.test(rendered('agent-reliability/shopkeeper/03-blind-agent') + sce), 'a P or A–C mention in the Shopkeeper links to its row')
+ok(/class="nb-wl nb-rowref" href="#\/agent-reliability\/shopkeeper\/02-policy\?a=p\d+"/.test(sce) || /nb-rowref" href="#\/agent-reliability\/shopkeeper\/02-policy/.test(rendered('agent-reliability/shopkeeper/03-blind-agent') + sce), 'a P or A–C mention in the Shopkeeper links to its row')
 ok(/class="nb-wl nb-id" href="#\/agent-reliability\/study\/evals\/T02"/.test(rendered('builds/02-holt')) || /nb-id" href="#\/agent-reliability\/study\/evals\/T0/.test(rendered('agent-reliability/study/log')), 'ID mentions (T02) auto-link to their notes')
 {
   const off = NB.model.build({ files: NB.vaultFiles, study: NB.study, essays: NIGHT.imports, copy: C, autolink: false })
@@ -213,27 +215,51 @@ ok(/nb-wl is-broken/.test(broken) && broken.includes('&lt;script&gt;') && !/<scr
 }
 ok(MD.latexText('\\text{margin capture} = \\frac{\\text{unit price} - \\text{floor}}{\\text{list} - \\text{floor}}') === 'margin capture = (unit price − floor) / (list − floor)', "the spec's formula renders as text")
 
+const rules0 = (src) => [...src.replace(/\/\*[\s\S]*?\*\//g, '').replace(/@import[^;]+;/g, '').replace(/@media[^{]+\{/g, '').replace(/@supports[^{]+\{/g, '').matchAll(/([^{}]+)\{([^{}]*)\}/g)].map((m) => [m[1].trim(), m[2]])
 // ── 7 ───────────────────────────────────────────────────────────────────────────────────────
-console.log('7. the palettes')
+console.log('7. the themes')
 const css = readFileSync(join(here, 'notebook.css'), 'utf8')
 const hex = (v) => { const m = /^#([0-9a-f]{6})$/i.exec(String(v).trim()); return m ? [0, 2, 4].map((i) => parseInt(m[1].slice(i, i + 2), 16)) : null }
 const lum = (c) => { const [r, g, b] = c.map((v) => { v /= 255; return v <= 0.03928 ? v / 12.92 : Math.pow((v + 0.055) / 1.055, 2.4) }); return 0.2126 * r + 0.7152 * g + 0.0722 * b }
 const ratio = (a, b) => { const [x, y] = [lum(a), lum(b)].sort((m, n) => n - m); return (x + 0.05) / (y + 0.05) }
-const palettes = {}
-for (const m of css.matchAll(/html\[data-palette='(\w+)'\][^{]*\{([^}]*)\}/g)) palettes[m[1]] = Object.fromEntries([...m[2].matchAll(/--([\w-]+):\s*([^;]+);/g)].map((x) => [x[1], hex(x[2])]).filter((x) => x[1]))
-ok(same(Object.keys(palettes), ['white', 'green', 'amber']), `three palettes: ${Object.keys(palettes).join(', ')}`)
-const TEXT = ['lab-fg', 'lab-dim', 'lab-link', 'lab-ar', 'lab-builds', 'lab-writing', 'lab-neutral', 'lab-hi'], SURF = ['lab-bg', 'lab-pane', 'hov-bg']
-for (const [name, P] of Object.entries(palettes)) {
-  const missing = [...TEXT, ...SURF, 'sel-bg', 'sel-ink', 'lab-line', 'lab-faint'].filter((t) => !P[t])
+const themes = {}, raw = {}
+for (const m of css.matchAll(/html\[data-lab-theme='(\w+)'\](?:,\s*html:not\(\[data-lab-theme\]\))?\s*\{([^}]*)\}/g)) {
+  raw[m[1]] = Object.fromEntries([...m[2].matchAll(/--([\w-]+):\s*([^;]+);/g)].map((x) => [x[1], x[2].trim()]))
+  themes[m[1]] = Object.fromEntries(Object.entries(raw[m[1]]).map(([k, v]) => [k, hex(v)]).filter((x) => x[1]))
+}
+ok(same(Object.keys(themes), NB.prefs.THEMES), `four themes, the prefs owner's list: ${Object.keys(themes).join(', ')}`)
+// the contract: every theme defines every one of these, so a theme can never inherit a colour
+const TEXT = ['lab-fg', 'lab-dim', 'lab-link', 'lab-ar', 'lab-builds', 'lab-writing', 'lab-neutral', 'lab-done', 'lab-doing', 'lab-code']
+const SURF = ['lab-bg', 'lab-pane', 'hov-bg', 'lab-tint-note', 'lab-tint-warn']
+const MARK = ['lab-line', 'lab-ar-mark', 'lab-builds-mark', 'lab-writing-mark', 'lab-neutral', 'lab-done', 'lab-doing', 'lab-here', 'lab-ring']
+const TOKENS = [...new Set([...TEXT, ...SURF, ...MARK, 'lab-scheme', 'lab-faint', 'lab-hi', 'lab-halo', 'sel-bg', 'sel-ink', 'lab-word-bg', 'lab-word-ink', 'lab-star'])]
+const table = []
+for (const [name, P] of Object.entries(themes)) {
+  const missing = TOKENS.filter((t) => !(t in raw[name]))
   const pairs = []
   for (const t of TEXT) for (const s of SURF) pairs.push([`${t} on ${s}`, P[t], P[s], 4.5])
-  pairs.push(['sel-ink on sel-bg (the selected row, the spoken word)', P['sel-ink'], P['sel-bg'], 4.5])
-  pairs.push(['lab-bg on lab-hi (the focus ring\'s inverse)', P['lab-bg'], P['lab-hi'], 4.5])
-  for (const t of ['lab-line', 'lab-ar', 'lab-builds', 'lab-writing', 'lab-neutral']) for (const s of ['lab-bg', 'lab-pane']) pairs.push([`${t} frame on ${s}`, P[t], P[s], 3])
-  const low = missing.length ? [] : pairs.map(([w, a, b, min]) => [w, ratio(a, b), min]).filter(([, r, min]) => r < min)
-  const worst = missing.length ? 0 : Math.min(...pairs.filter((p) => p[3] === 4.5).map(([, a, b]) => ratio(a, b)))
-  ok(!missing.length && !low.length, `${name}: ${pairs.length} pairs, lowest text pair ${worst.toFixed(2)}:1${missing.length ? ' — MISSING ' + missing.join(', ') : ''}${low.length ? ' (' + low.map(([w, r]) => `${w} ${r.toFixed(2)}`).join('; ') + ')' : ''}`)
+  pairs.push(['sel-ink on sel-bg (the selected row)', P['sel-ink'], P['sel-bg'], 4.5])
+  pairs.push(['lab-word-ink on lab-word-bg (the spoken word)', P['lab-word-ink'], P['lab-word-bg'], 4.5])
+  for (const t of MARK) for (const s of ['lab-bg', 'lab-pane']) pairs.push([`${t} mark on ${s}`, P[t], P[s], 3])
+  const bad = pairs.filter(([, a, b]) => !a || !b)
+  const low = missing.length || bad.length ? [] : pairs.map(([w, a, b, min]) => [w, ratio(a, b), min]).filter(([, r, min]) => r < min)
+  const lowest = (min) => (missing.length || bad.length ? 0 : Math.min(...pairs.filter((p) => p[3] === min).map(([, a, b]) => ratio(a, b))))
+  ok(!missing.length && !bad.length && !low.length, `${name}: ${pairs.length} pairs, lowest text ${lowest(4.5).toFixed(2)}:1, lowest mark ${lowest(3).toFixed(2)}:1${missing.length ? ' — MISSING ' + missing.join(', ') : ''}${bad.length ? ' — NOT A HEX ' + bad.map((x) => x[0]).join(', ') : ''}${low.length ? ' (' + low.map(([w, r]) => `${w} ${r.toFixed(2)}`).join('; ') + ')' : ''}`)
+  if (!missing.length) for (const t of TOKENS) table.push([name, t, raw[name][t], P[t] && P['lab-bg'] ? ratio(P[t], P['lab-bg']) : null])
 }
+{
+  const N = themes.night, Pp = themes.paper
+  ok(N && Pp && same(N['lab-hi'], hex('#facc00')) && same(Pp['lab-halo'], hex('#facc00')) && same(Pp['lab-ring'], Pp['lab-fg']), "the accent is DIRECTION's #facc00; on paper the ring is ink with a yellow halo")
+  // the accent marks only the focus ring and "you are here": count the rules that paint it
+  const hiRules = rules0(css).filter(([, body]) => /var\(--lab-hi\)/.test(body)).map(([sel]) => sel)
+  ok(!hiRules.length, `no rule paints --lab-hi directly: it reaches the page only through --lab-here, --lab-ring and --lab-word-bg${hiRules.length ? ' — ' + hiRules.join(' | ') : ''}`)
+  const stars = rules0(css).filter(([sel, body]) => /lab-starfield__layer/.test(sel) && /animation-play-state:\s*paused/.test(body))
+  ok(stars.length === 1 && /html:not\(\.has-night\)/.test(stars[0][0]) && /html\.nb-on:not\(\.nb-graph\)/.test(stars[0][0]), 'the starfield pauses unless the trip or the full graph is showing (M9)')
+  const R = NB.prefs.resolve
+  ok(R({ light: true }) === 'paper' && R({ light: false }) === 'night' && R({ light: true, trip: true }) === 'night' && R({ stored: 'paper', trip: true }) === 'paper' && R({ stored: 'paper', light: false }) === 'paper' && R({ stored: 'night', light: true }) === 'night' && R({ asked: 'amber', stored: 'paper' }) === 'amber' && R({ stored: 'bogus', light: true }) === 'paper',
+    'NB.prefs.resolve: a stored choice wins; else a direct link follows prefers-color-scheme and the trip is night; ?theme= holds one visit')
+}
+if (process.env.CHECK_THEMES) console.log(JSON.stringify(table))
 
 // ── 8 ───────────────────────────────────────────────────────────────────────────────────────
 console.log('8. the switcher')
@@ -244,7 +270,7 @@ ok(ev.length > 5 && ev.every((n) => n.tags.includes('evals')), `"#evals" filters
 ok(V.match('#evals pass')[0] === at('agent-reliability/study/evals/T02') && V.match('#evals pass').every((n) => n.tags.includes('evals')), '"#evals pass" narrows within the tag, T02 first')
 const cmd = NB.model.command('> voice sam', C.switcher.commands)
 ok(cmd && cmd.cmd === 'voice sam' && cmd.head === 'voice' && cmd.arg === 'sam' && cmd.known && NB.model.command('T02', C.switcher.commands) === null, '"> voice sam" parses as a command; "T02" does not')
-ok(NIGHT.logic.commands(C.switcher.commands, 'pal')[0].cmd === 'palette white', "the > list reuses #21's logic.commands for matching")
+ok(NIGHT.logic.commands(C.switcher.commands, 'pal')[0].cmd === 'palette night', "the > list reuses #21's logic.commands for matching")
 
 // ── 9 ───────────────────────────────────────────────────────────────────────────────────────
 console.log('9. the files')
@@ -259,7 +285,7 @@ const DROPPED = ['vignette.js', 'deck.js', 'dial.js', 'home.js', 'toy.js', 'fx.j
 ok(DROPPED.every((f) => !existsSync(join(here, f))) && !existsSync(join(here, 'narration/sample-audio.js')) && !scripts.some((s) => DROPPED.includes(s)), `the dropped modules are gone (${DROPPED.length}, and the 0.8 MB pre-rendered sample: sam renders live)`)
 ok(same(Object.keys(NIGHT.imports).sort(), ['chrome-hackathon', 'old-laptop-cloud']) && V.all.filter((n) => n.type === 'post').length === 2, 'the two essays are the only Medium content')
 // every painting rule is scoped to the notebook, so the day desk is untouched
-const SCOPED = /^(html\.(has-night|is-night|is-turning|nb-[\w-]+)|html:not\(\.nb-on\)|html\[data-palette|html\[data-focus\]|html:not\(\[data-palette\]\)|\.nb|\.night|\.lab-sky|\.lab-starfield|\.proof|@keyframes|from|to|\d+%)/
+const SCOPED = /^(html\.(has-night|is-night|is-turning|nb-[\w-]+)|html:not\(\.(nb-on|has-night)\)|html\[data-lab-theme|html\[data-focus\]|html:not\(\[data-lab-theme\]\)|\.nb|\.night|\.lab-sky|\.lab-starfield|\.proof|@keyframes|from|to|\d+%)/
 const rules = [...code(css).replace(/'[^'\n]*'/g, "''").replace(/@import[^;]+;/g, '').replace(/@media[^{]+\{/g, '').replace(/@supports[^{]+\{/g, '').matchAll(/([^{}]+)\{([^{}]*)\}/g)].map((m) => [m[1].trim(), m[2]])
 const leaky = rules.filter(([sel, body]) => !(sel === ':root' && [...body.matchAll(/([\w-]+)\s*:/g)].every((m) => m[1].startsWith('--'))) && sel.split(',').map((s) => s.trim()).some((s) => !SCOPED.test(s)))
 ok(rules.length > 80 && !leaky.length, `notebook.css: all ${rules.length} rules paint only the notebook or the night${leaky.length ? ' — LEAKS: ' + leaky.map((r) => r[0]).slice(0, 6).join(' | ') : ''}`)

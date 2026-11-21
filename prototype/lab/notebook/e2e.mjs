@@ -33,12 +33,19 @@ const AUDIO_SPY = () => {
   class Spy extends A { constructor(...a) { super(...a); window.__ac++ } createOscillator() { window.__osc++; return super.createOscillator() } }
   window.AudioContext = Spy; window.webkitAudioContext = Spy
 }
+// records the Lab's theme attribute the moment <body> exists (before anything below it is parsed,
+// so before first paint) and at DOMContentLoaded: "no flash" is testable
+const THEME_SPY = () => {
+  window.__theme = {}
+  const at = (k) => { if (!(k in window.__theme)) window.__theme[k] = document.documentElement.getAttribute('data-lab-theme') }
+  new MutationObserver((_, mo) => { if (document.body) { at('body'); mo.disconnect() } }).observe(document, { childList: true, subtree: true })
+  document.addEventListener('DOMContentLoaded', () => at('dcl'))
+}
 const contexts = []
 async function page(size, url, opts = {}) {
   const phone = PHONES.includes(size)
-  const ctx = await b.newContext({ viewport: SIZES[size], isMobile: phone, hasTouch: phone, reducedMotion: opts.reduce ? 'reduce' : 'no-preference' })
-  contexts.push(ctx)
-  await ctx.addInitScript(AUDIO_SPY)
+  const ctx = opts.ctx || await b.newContext({ viewport: SIZES[size], isMobile: phone, hasTouch: phone, reducedMotion: opts.reduce ? 'reduce' : 'no-preference', colorScheme: opts.scheme || 'dark' })
+  if (!opts.ctx) { contexts.push(ctx); await ctx.addInitScript(AUDIO_SPY); await ctx.addInitScript(THEME_SPY) }
   const p = await ctx.newPage()
   p.setDefaultTimeout(6000)
   p.on('pageerror', (e) => errors.push(`${size} ${url}: ${e.message}`))
@@ -124,6 +131,8 @@ for (const size of Object.keys(SIZES).filter((x) => !ONLY || x === ONLY)) {
     // the bar's cells stay on one line
     const one = await p.evaluate(() => { const cs = [...document.querySelectorAll('.nb-bar__cell')].filter((c) => c.offsetParent !== null); return cs.every((c) => c.getBoundingClientRect().height <= 44.5) && new Set(cs.map((c) => Math.round(c.getBoundingClientRect().top))).size === 1 })
     ok(one, "the bar's cells sit on one line")
+    const cells = await p.evaluate(() => ({ text: document.querySelector('.nb-bar').innerText, snd: !!document.querySelector('.nb-bar [data-act="snd"], .nb-bar [data-act="pal"]'), theme: (() => { const t = document.querySelector('.nb-bar [data-act="theme"]'); return t && t.offsetParent !== null ? t.getAttribute('aria-label') : null })(), foot: (document.querySelector('.nb-side [data-act="snd"]') || {}).textContent }))
+    ok(!cells.snd && !/snd:|pal:/.test(cells.text) && /^Theme: night/.test(cells.theme || '') && /^Interface sounds: off$/.test(cells.foot || ''), `no snd:/pal: cells in the bar; ◐ says "${cells.theme}"; the tree's footer says "${cells.foot}"`)
     await close(p)
   }
 
@@ -273,7 +282,7 @@ for (const size of Object.keys(SIZES).filter((x) => !ONLY || x === ONLY)) {
     await p.keyboard.type('> palette amber')
     await p.keyboard.press('Enter')
     await wait(p, 100)
-    ok(await p.evaluate(() => document.documentElement.dataset.palette === 'amber' && !NB.switcher.isOpen()), 'Ctrl+K opens it; > palette amber switches the palette')
+    ok(await p.evaluate(() => document.documentElement.dataset.labTheme === 'amber' && !NB.switcher.isOpen()), 'Ctrl+K opens it; > palette amber switches to the amber theme')
     await p.keyboard.press('Control+k')
     await wait(p, 100)
     await p.keyboard.press('Escape')
@@ -421,10 +430,10 @@ for (const size of Object.keys(SIZES).filter((x) => !ONLY || x === ONLY)) {
     await wait(p, 150)
     const quiet = await p.evaluate(() => ({ muted: NIGHT.sound.muted, osc: window.__osc }))
     ok(quiet.muted && quiet.osc === 0, 'muted on arrival; no cue sounds while muted')
-    await p.click('.nb-bar [data-act="snd"]')
+    await p.click('.nb-side [data-act="snd"]')
     await p.click('.nb-row[data-route="agent-reliability/shopkeeper/03-blind-agent"]')
     await wait(p, 150)
-    const loud = await p.evaluate(() => ({ muted: NIGHT.sound.muted, osc: window.__osc, label: document.querySelector('.nb-bar [data-act="snd"]').textContent }))
+    const loud = await p.evaluate(() => ({ muted: NIGHT.sound.muted, osc: window.__osc, label: document.querySelector('.nb-side [data-act="snd"]').textContent }))
     ok(!loud.muted && loud.osc > 0 && /on/.test(loud.label), `the one toggle unmutes (${loud.label}), and cues play`)
     await close(p)
   }
@@ -489,6 +498,35 @@ for (const size of Object.keys(SIZES).filter((x) => !ONLY || x === ONLY)) {
     const rr = await rt.evaluate(() => NB.trip.roundtrip || {})
     ok(rr.delta === 0 && rr.in >= 1100 && rr.in <= 1300 && rr.out >= 1100 && rr.out <= 1300, `?roundtrip=1: max Δ ${rr.delta != null ? rr.delta.toFixed(2) : '?'} px, desk → lab ${rr.in} ms, lab → desk ${rr.out} ms`)
     await close(rt)
+  }
+}
+
+// ── the themes: how one is chosen, and no flash ────────────────────────────────────────────
+console.log('\nthemes')
+if (!ONLY) {
+  for (const size of ['desktop', 'phone']) {
+    const light = await page(size, ROUTES.spec, { scheme: 'light' })
+    const dark = await page(size, ROUTES.spec, { scheme: 'dark' })
+    const lt = await light.evaluate(() => ({ t: document.documentElement.dataset.labTheme, bg: getComputedStyle(document.querySelector('.nb-main')).backgroundColor, spy: window.__theme }))
+    const dt = await dark.evaluate(() => document.documentElement.dataset.labTheme)
+    ok(lt.t === 'paper' && lt.spy.body === 'paper' && /251, 250, 246/.test(lt.bg) && dt === 'night', `${size}: a direct link follows prefers-color-scheme: light gives paper (${lt.bg}), dark gives night`)
+    await close(dark)
+    // the trip lands in night, even in light mode, even with paper stored; and it stores nothing
+    await light.evaluate(() => NB.prefs.setTheme('paper'))
+    const trip = await page(size, '#desk', { scheme: 'light', ctx: light.context() })
+    await trip.evaluate(() => NB.trip.enter())
+    await wait(trip, 200)
+    const tr = await trip.evaluate(() => ({ t: document.documentElement.dataset.labTheme, live: NB.trip.live(), stored: NB.prefs.stored(), hash: location.hash }))
+    ok(tr.live && tr.t === 'night' && tr.stored === 'paper', `${size}: the trip from the canvas lands in night (${tr.t}, at ${tr.hash}); the stored choice (${tr.stored}) is untouched`)
+    await trip.close()
+    // a stored choice survives a reload, with the attribute on <html> before <body> is parsed
+    await light.click('.nb-bar [data-act="theme"]')
+    const picked = await light.evaluate(() => document.documentElement.dataset.labTheme)
+    await light.reload()
+    await light.evaluate(() => document.fonts.ready)
+    const again = await light.evaluate(() => ({ t: document.documentElement.dataset.labTheme, spy: window.__theme, label: document.querySelector('.nb-bar [data-act="theme"]').getAttribute('aria-label') }))
+    ok(picked === 'night' && again.t === 'night' && again.spy.body === 'night' && again.spy.dcl === 'night' && /night/.test(again.label), `${size}: ◐ on paper picks ${picked}; after a reload in light mode it is still ${again.t}, set before <body> (${again.spy.body}) and before DOMContentLoaded (${again.spy.dcl})`)
+    await close(light)
   }
 }
 
