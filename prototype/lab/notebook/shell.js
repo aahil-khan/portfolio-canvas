@@ -59,7 +59,8 @@
 
   // ── glyphs and labels ─────────────────────────────────────────────────────────────────
   const glyph = (n) => { const g = C.status[n.status] || C.status.planned; return `<span class="nb-row__glyph" aria-label="${esc(g[1])}" title="${esc(g[1])}">${esc(g[0])}</span>` }
-  const numOf = (n) => (n.id || (n.isHub ? '00' : /^\d\d$/.test(n.num) ? n.num : ''))
+  // a hub's 00 is an internal label: the tree shows it only in the author view (?hidden=1)
+  const numOf = (n) => (n.id || (n.isHub ? (q0.get('hidden') === '1' ? '00' : '') : /^\d\d$/.test(n.num) ? n.num : ''))
   S.glyph = glyph
   S.visited = new Set(store.get('nb-visited') || [])
 
@@ -74,10 +75,11 @@
         <nav class="nb-bar" aria-label="${esc(C.labLabel)}">
           <button type="button" class="nb-bar__cell nb-bar__menu" aria-label="${esc(C.menuLabel)}" aria-expanded="false" aria-controls="nbSide">${esc(C.menu)}</button>
           <a class="nb-bar__cell nb-bar__canvas" href="#desk" data-act="canvas" aria-label="${esc(C.canvasLabel)}">${esc(C.canvas)}</a>
-          <div class="nb-bar__cell nb-bar__path" aria-label="${esc(C.pathLabel)}"><ol></ol></div>
+          <div class="nb-bar__cell nb-bar__path" aria-label="${esc(C.pathLabel)}"><ol></ol><span class="nb-bar__up"></span></div>
           <button type="button" class="nb-bar__cell nb-bar__btn" data-act="search" aria-label="${esc(C.searchLabel)}">${esc(C.search)}<span class="nb-bar__word"> ${esc(C.searchWord)}</span> <span class="nb-bar__k">${esc(C.searchKey)}</span></button>
           <button type="button" class="nb-bar__cell nb-bar__btn" data-act="graph" aria-label="${esc(C.graphLabel)}" aria-pressed="false">${esc(C.graph)}<span class="nb-bar__word"> ${esc(C.graphWord)}</span></button>
           <button type="button" class="nb-bar__cell nb-bar__btn" data-act="listen" aria-label="${esc(C.listenLabel)}">${esc(C.listen)}<span class="nb-bar__word"> ${esc(C.listenWord)}</span></button>
+          <button type="button" class="nb-bar__cell nb-bar__btn nb-bar__focus" data-act="focus" aria-label="${esc(C.focusLabel)}" aria-pressed="false">${esc(C.focus)}<span class="nb-bar__word"> ${esc(C.focusWord)}</span> <span class="nb-bar__k">${esc(C.focusKey)}</span></button>
           <div class="nb-bar__cell nb-bar__flags">
             <button type="button" data-act="snd"></button>
             <button type="button" data-act="pal"></button>
@@ -96,7 +98,7 @@
       <div class="nb-scrim" hidden></div>`
     document.body.appendChild(root)
     Object.assign(el, {
-      root, head: root.querySelector('.nb-head'), bar: root.querySelector('.nb-bar'), strip: root.querySelector('.nb-strip'), path: root.querySelector('.nb-bar__path ol'),
+      root, head: root.querySelector('.nb-head'), bar: root.querySelector('.nb-bar'), strip: root.querySelector('.nb-strip'), path: root.querySelector('.nb-bar__path ol'), up: root.querySelector('.nb-bar__up'), focusBtn: root.querySelector('[data-act="focus"]'),
       menu: root.querySelector('.nb-bar__menu'), canvas: root.querySelector('.nb-bar__canvas'), side: root.querySelector('.nb-side'), tree: root.querySelector('.nb-tree'),
       main: root.querySelector('.nb-main'), col: root.querySelector('.nb-col'), margin: root.querySelector('.nb-margin'), scrim: root.querySelector('.nb-scrim'),
       graphBtn: root.querySelector('[data-act="graph"]'), listenBtn: root.querySelector('.nb-bar [data-act="listen"]'),
@@ -107,13 +109,31 @@
     addEventListener('keydown', onKey, true)
     addEventListener('hashchange', () => S.show())
     let rt = 0
-    addEventListener('resize', () => { clearTimeout(rt); rt = setTimeout(() => { if (!phone()) S.closeDrawer(true); S.renderAside() }, 120) })
+    addEventListener('resize', () => { clearTimeout(rt); rt = setTimeout(() => { if (!phone()) S.closeDrawer(true); S.renderAside(); if (S.state.view !== 'graph') NB.reader.tables() }, 120) })
     S.setPalette(q0.get('palette') && PALETTES.includes(q0.get('palette')) ? q0.get('palette') : 'white')
     if (q0.get('voice')) NIGHT.voice.use(q0.get('voice'))
     flags()
     if (NIGHT.sound && NIGHT.sound.on) NIGHT.sound.on(flags)
+    // the inline script in index.html has already set html[data-focus] before first paint
+    S.setFocus(S.isFocus(), false)
     renderTree()
   }
+
+  // ── focus mode: html[data-focus], one owner. The tree and the margin go, the column centres,
+  // the bar dims until it is pointed at. Stored (try/catch); the narrator turns it on unstored.
+  const FOCUS_KEY = 'nb-focus'
+  S.isFocus = () => document.documentElement.hasAttribute('data-focus')
+  S.setFocus = (on, persist = true) => {
+    document.documentElement.toggleAttribute('data-focus', !!on)
+    if (persist) store.set(FOCUS_KEY, !!on)
+    if (el.focusBtn) el.focusBtn.setAttribute('aria-pressed', String(!!on))
+  }
+  S.toggleFocus = () => { if (NB.narrator) NB.narrator.focusTouched(); S.setFocus(!S.isFocus()) }
+
+  // a hub's title and a section's name, as words: "Agent reliability", not "agent-reliability/"
+  S.cap = (t) => String(t).charAt(0).toUpperCase() + String(t).slice(1)
+  S.name = (n) => (n.route === '' ? C.sections.root : n.isHub ? S.cap(n.title) : n.title)
+  const folderName = (path) => C.folderNames[path] || S.cap(V().folderTitle(path))
 
   function flags() {
     const muted = !NIGHT.sound || NIGHT.sound.muted
@@ -144,9 +164,12 @@
       if (act === 'snd') return S.toggleSound()
       if (act === 'pal') return S.cyclePalette()
       if (act === 'help') return S.help(a)
+      if (act === 'focus') return S.toggleFocus()
       if (act === 'depth') { S.depth = S.depth === 2 ? 1 : 2; return S.renderAside() }
-      if (act === 'fold') { const li = a.closest('li[data-folder]'); li.dataset.open = li.dataset.open === 'false' ? 'true' : 'false'; syncFolds(); return }
+      if (act === 'fold') { e.preventDefault(); const li = a.closest('li[data-folder]'); li.dataset.open = li.dataset.open === 'false' ? 'true' : 'false'; syncFolds(); return }
     }
+    // prev / next / up move focus to the new note's h1, as the trip does
+    if (e.target.closest('a[data-step]')) S.focusTitle = true
     if (e.target.closest('.nb-bar__menu')) return el.root.classList.contains('nb-drawer-open') ? S.closeDrawer() : S.openDrawer()
     if (e.target.closest('.nb-bar__path') && phone() && !e.target.closest('a')) return S.openDrawer()
     // a note link inside the drawer closes it (the hashchange renders the note)
@@ -192,6 +215,7 @@
     if (a) requestAnimationFrame(() => NB.reader.toAnchor(a))
     else if (!S.keepScroll) { el.main.scrollTop = 0; if (phone()) scrollTo(0, 0) }
     S.keepScroll = false
+    if (S.focusTitle) { S.focusTitle = false; const t = el.col.querySelector('.nb-title'); if (t) t.focus({ preventScroll: true }) }
     popOnArrival(q)
   }
   let popped = false
@@ -203,22 +227,23 @@
     setTimeout(() => { if (pop === 'switcher') NB.switcher.open(el.root.querySelector('[data-act="search"]')); else if (pop === 'drawer') S.openDrawer(); else if (pop === 'help') S.help() }, 60)
   }
 
-  // ── the bar's path: every segment is a link ───────────────────────────────────────────
+  // ── the bar's path: titles, every segment a link. A phone shows "‹ parent" only ────────
   function renderPath(note, graph) {
     const v = V(), segs = graph ? ['graph'] : note.route ? note.route.split('/') : []
-    const parts = [`<li><a href="#/">${esc(C.lab)}</a></li>`]
+    const crumbs = [{ href: '#/', text: C.sections.root, last: !segs.length }]
     let acc = ''
     segs.forEach((s, i) => {
       acc = acc ? `${acc}/${s}` : s
       const last = i === segs.length - 1
       const hub = graph ? null : v.get(acc)
       // a folder with no hub of its own (a study track) links to the nearest hub above it
-      const to = last ? (graph ? '#/graph' : S.href(note.route)) : hub ? S.href(hub.route) : S.href(nearestHub(acc).route, `a=${MD.slugify(C.blocks.tracksHead[0])}`)
-      parts.push(`<li${last ? '' : ''}><a href="${esc(to)}"${last ? ' aria-current="page"' : ''}>${esc(s)}</a></li>`)
+      const href = last ? (graph ? '#/graph' : S.href(note.route)) : hub ? S.href(hub.route) : S.href(nearestHub(acc).route, `a=${MD.slugify(C.blocks.tracksHead[0])}`)
+      const text = graph ? S.cap(C.graphTitle) : last ? S.name(note) : hub ? S.name(hub) : folderName(acc)
+      crumbs.push({ href, text, last })
     })
-    // on phone the path truncates from the left: … then the last segment
-    if (segs.length > 1) parts.splice(parts.length - 1, 0, '<li class="nb-ell" aria-hidden="true">…/</li>')
-    el.path.innerHTML = parts.join('')
+    el.path.innerHTML = crumbs.map((c, i) => `<li>${i ? `<span class="nb-crumb-sep" aria-hidden="true">${esc(C.crumbSep)}</span>` : ''}<a href="${esc(c.href)}"${c.last ? ' aria-current="page"' : ''}>${esc(c.text)}</a></li>`).join('')
+    const up = crumbs.length > 1 ? crumbs[crumbs.length - 2] : null
+    el.up.innerHTML = up ? `<a class="nb-up" href="${esc(up.href)}" aria-label="${esc(C.crumbUpLabel(up.text))}">${esc(C.crumbUp(up.text))}</a>` : `<span class="nb-up">${esc(crumbs[0].text)}</span>`
   }
   function nearestHub(path) {
     let p = path
@@ -226,25 +251,37 @@
     return V().get('')
   }
 
-  // ── the tree ──────────────────────────────────────────────────────────────────────────
+  // ── the tree: one tab stop (the current row); arrows move, → and ← fold ─────────────────
+  // Rows recede (dim) until the pane is hovered or focused. A folder is a chevron and a title.
   function rowHtml(n, label) {
-    return `<a class="nb-row" role="treeitem" href="${esc(S.href(n.route))}" data-route="${esc(n.route)}"${n.visibility === 'hidden' ? ' data-hidden' : ''}>${glyph(n)}<span class="nb-row__num">${esc(numOf(n))}</span><span class="nb-row__title">${esc(label || n.title)}</span></a>`
+    const t = label || n.title
+    return `<a class="nb-row" role="treeitem" tabindex="-1" href="${esc(S.href(n.route))}" data-route="${esc(n.route)}" title="${esc(t)}"${n.visibility === 'hidden' ? ' data-hidden' : ''}>${glyph(n)}<span class="nb-row__num">${esc(numOf(n))}</span><span class="nb-row__title">${esc(t)}</span></a>`
   }
   function folderHtml(f) {
     const kids = f.notes.map((n) => `<li role="none">${rowHtml(n)}</li>`).join('') + f.folders.map(folderHtml).join('')
-    const label = f.hub ? rowHtml(f.hub, f.name + '/') : `<button type="button" class="nb-row" data-act="fold" aria-expanded="false"><span class="nb-row__glyph"></span><span class="nb-row__num"></span><span class="nb-row__title">${esc(f.name)}/</span></button>`
-    return `<li data-folder="${esc(f.path)}" data-open="false" role="none"><div class="nb-frow"><button type="button" class="nb-fold" data-act="fold" aria-expanded="false" aria-label="${esc(f.title)}" tabindex="-1">▸</button>${label}</div><ul role="group">${kids}</ul></li>`
+    const name = folderName(f.path), chev = `<span class="nb-row__chev" data-act="fold" aria-hidden="true">▸</span>`
+    const label = f.hub
+      ? `<a class="nb-row nb-row--folder" role="treeitem" tabindex="-1" aria-expanded="false" href="${esc(S.href(f.hub.route))}" data-route="${esc(f.hub.route)}" title="${esc(name)}">${chev}<span class="nb-row__title">${esc(name)}</span></a>`
+      : `<button type="button" class="nb-row nb-row--folder" role="treeitem" tabindex="-1" data-act="fold" aria-expanded="false" title="${esc(name)}">${chev}<span class="nb-row__title">${esc(name)}</span></button>`
+    return `<li data-folder="${esc(f.path)}" data-open="false" role="none">${label}<ul role="group">${kids}</ul></li>`
   }
   function renderTree() {
     const t = V().tree
-    el.tree.innerHTML = (t.hub ? `<li role="none">${rowHtml(t.hub)}</li>` : '') + t.notes.map((n) => `<li role="none">${rowHtml(n)}</li>`).join('') + t.folders.map(folderHtml).join('')
+    el.tree.innerHTML = (t.hub ? `<li role="none">${rowHtml(t.hub, S.name(t.hub))}</li>` : '') + t.notes.map((n) => `<li role="none">${rowHtml(n)}</li>`).join('') + t.folders.map(folderHtml).join('')
+    rove(el.tree.querySelector('.nb-row'))
   }
   const syncFolds = () => {
     for (const li of el.tree.querySelectorAll('li[data-folder]')) {
-      const open = li.dataset.open === 'true'
-      for (const b of li.querySelectorAll(':scope > .nb-frow [data-act="fold"]')) b.setAttribute('aria-expanded', String(open))
-      li.querySelector(':scope > .nb-frow > .nb-fold').textContent = open ? '▾' : '▸'
+      const open = li.dataset.open === 'true', row = li.querySelector(':scope > .nb-row')
+      row.setAttribute('aria-expanded', String(open))
+      row.querySelector('.nb-row__chev').textContent = open ? '▾' : '▸'
     }
+  }
+  // the roving tab stop
+  function rove(row) {
+    if (!row) return
+    for (const r of el.tree.querySelectorAll('.nb-row[tabindex="0"]')) if (r !== row) r.setAttribute('tabindex', '-1')
+    row.setAttribute('tabindex', '0')
   }
   S.renderTree = renderTree
   function markTree(note) {
@@ -252,6 +289,7 @@
     const a = el.tree.querySelector(`a[data-route="${CSS.escape(note.route)}"]`)
     if (!a) return
     a.setAttribute('aria-current', 'page')
+    rove(a)
     // open every folder on the way down
     let li = a.closest('li[data-folder]')
     while (li) { li.dataset.open = 'true'; li = li.parentElement.closest('li[data-folder]') }
@@ -263,10 +301,14 @@
     const rows = [...el.tree.querySelectorAll('.nb-row')].filter((x) => x.offsetParent !== null)
     const i = rows.indexOf(document.activeElement)
     if (i < 0) return
-    if (e.key === 'ArrowDown' || e.key === 'ArrowUp') { e.preventDefault(); const n = rows[Math.min(rows.length - 1, Math.max(0, i + (e.key === 'ArrowDown' ? 1 : -1)))]; n.focus(); if (NIGHT.sound) NIGHT.sound.cue('cursor') }
+    if (e.key === 'ArrowDown' || e.key === 'ArrowUp' || e.key === 'Home' || e.key === 'End') {
+      e.preventDefault()
+      const n = e.key === 'Home' ? rows[0] : e.key === 'End' ? rows[rows.length - 1] : rows[Math.min(rows.length - 1, Math.max(0, i + (e.key === 'ArrowDown' ? 1 : -1)))]
+      rove(n); n.focus(); if (NIGHT.sound) NIGHT.sound.cue('cursor')
+    }
     if (e.key === 'ArrowRight' || e.key === 'ArrowLeft') {
       const li = document.activeElement.closest('li[data-folder]')
-      if (!li) return
+      if (!li || (li.querySelector(':scope > .nb-row') !== document.activeElement && e.key === 'ArrowRight')) return
       e.preventDefault()
       li.dataset.open = e.key === 'ArrowRight' ? 'true' : 'false'
       syncFolds()
@@ -329,7 +371,7 @@
     const top = S.topLayer()
     const box = top ? top.node : el.root.classList.contains('nb-drawer-open') ? el.side : null
     if (!box || e.key !== 'Tab') return
-    const f = [...box.querySelectorAll('a[href], button:not([disabled]), input, [tabindex="0"]')].filter((x) => x.offsetParent !== null || x === document.activeElement)
+    const f = [...box.querySelectorAll('a[href], button:not([disabled]), input, [tabindex="0"]')].filter((x) => x.getAttribute('tabindex') !== '-1' && (x.offsetParent !== null || x === document.activeElement))
     if (!f.length) return
     const i = f.indexOf(document.activeElement)
     if (e.shiftKey && i <= 0) { e.preventDefault(); f[f.length - 1].focus() }
@@ -377,6 +419,7 @@
     else if (k === 'b') { if (!phone()) S.toggleSide(); else if (el.root.classList.contains('nb-drawer-open')) S.closeDrawer(); else S.openDrawer() }
     else if (k === '~' || k === '`') NB.trip.leave()
     else if (k === '?') S.help()
+    else if (k === 'f') S.toggleFocus()
     else if (k === 'l') NB.narrator.press()
     else if (k === ' ' && NB.narrator.active() && !e.target.closest('button, a')) { e.preventDefault(); NB.narrator.toggle() }
     else if (k === ',' && NB.narrator.active()) NB.narrator.seek(-10)
@@ -384,30 +427,41 @@
     else if ((k === '[' || k === ']' || k === 'u') && n && S.state.view !== 'graph') {
       const w = S.state.q.get('w'), pn = V().prevNext(n, w)
       const to = k === '[' ? pn.prev : k === ']' ? pn.next : pn.up
-      if (to) S.go(to.route, pn.tour && to.type !== 'walkthrough' ? `w=${w}` : '')
+      if (to) { S.focusTitle = true; S.go(to.route, pn.tour && to.type !== 'walkthrough' ? `w=${w}` : '') }
     } else return
   }
 
-  // ── the margin: local graph, outline, backlinks (or the full graph on start-here) ───────
+  // ── the margin: only "on this page", with scroll-spy, and only for ≥ 3 headings ─────────
+  // (start-here keeps the full graph beside it until round 3). No margin: the column centres.
   S.depth = 1
+  let spy = null
   S.renderAside = () => {
     const n = S.state.note
     if (!n || S.state.view === 'graph') return
+    if (spy) { spy.disconnect(); spy = null }
     if (S.state.view === 'home' && wide()) {
+      el.root.dataset.margin = 'graph'
       el.margin.innerHTML = `<div class="nb-home-graph"></div>`
       graphView(el.margin.querySelector('.nb-home-graph'), { compact: true })
       return
     }
-    if (!wide()) { el.margin.innerHTML = ''; return }
-    const v = V()
-    const heads = NB.reader.headings || []
-    const back = v.back(n), out = v.out(n)
-    el.margin.innerHTML = `
-      <section class="nb-sec nb-sec--graph"><h2><span>${esc(C.localGraph)}</span><button type="button" class="nb-depth" data-act="depth" aria-pressed="${S.depth === 2}" aria-label="${esc(C.depthLabel)}">${esc(C.depth(2))}</button></h2>${localGraph(n, 260, 200)}</section>
-      ${heads.length ? `<section class="nb-sec nb-sec--toc"><h2>${esc(C.onPage)}</h2><ul>${heads.filter((x) => x.level <= 3).map((x) => `<li class="${x.level === 3 ? 'is-h3' : ''}"><a href="${esc(S.href(n.route, `a=${x.id}${S.state.q.get('w') ? '&w=' + S.state.q.get('w') : ''}`))}" data-anchor="${esc(x.id)}">${esc(x.text)}</a></li>`).join('')}</ul></section>` : ''}
-      <section class="nb-sec nb-sec--back"><h2>${esc(C.linkedFrom(back.length))}</h2>${linkList(back, true)}</section>
-      <section class="nb-sec nb-sec--out"><h2>${esc(C.linksOut(out.length))}</h2>${linkList(out, false)}</section>`
-    bindLocal(el.margin)
+    const heads = NB.reader.outline()
+    el.root.dataset.margin = heads.length ? 'toc' : 'none'
+    if (!wide() || !heads.length) { el.margin.innerHTML = ''; return }
+    const w = S.state.q.get('w')
+    el.margin.innerHTML = `<nav class="nb-sec nb-sec--toc" aria-label="${esc(C.onPage)}"><h2>${esc(C.onPage)}</h2><ul>${heads.map((x) => `<li class="${x.level === 3 ? 'is-h3' : ''}"><a href="${esc(S.href(n.route, `a=${x.id}${w ? '&w=' + w : ''}`))}" data-anchor="${esc(x.id)}">${esc(x.text)}</a></li>`).join('')}</ul></nav>`
+    // scroll-spy: the last heading above the top third of the column is "here"
+    const links = new Map([...el.margin.querySelectorAll('[data-anchor]')].map((a) => [a.dataset.anchor, a]))
+    const seen = new Map()
+    const mark = () => {
+      let cur = null
+      for (const x of heads) if (seen.get(x.id)) cur = x.id
+      if (!cur) cur = heads[0].id
+      for (const [id, a] of links) { if (id === cur) a.setAttribute('aria-current', 'location'); else a.removeAttribute('aria-current') }
+    }
+    spy = new IntersectionObserver((es) => { for (const e of es) seen.set(e.target.id, e.boundingClientRect.top < (e.rootBounds ? e.rootBounds.top + e.rootBounds.height * 0.33 : innerHeight / 3)); mark() }, { root: el.main, rootMargin: '0px 0px -66% 0px', threshold: [0, 1] })
+    for (const x of heads) { const t = el.col.querySelector(`#${CSS.escape(x.id)}`); if (t) spy.observe(t) }
+    mark()
   }
   const linkList = (ls, ctx) => ls.length ? `<ul>${ls.map((l) => `<li><a href="${esc(S.href(l.note.route))}" data-route="${esc(l.note.route)}">${esc(V().label(l.note))}${ctx && l.context ? `<span class="nb-ctx">“${esc(trimCtx(l.context))}”</span>` : ''}</a></li>`).join('')}</ul>` : `<p class="nb-ctx" style="color:var(--lab-dim)">${esc(C.noLinks)}</p>`
   const trimCtx = (s) => (s.length > 120 ? s.slice(0, 117) + '…' : s)

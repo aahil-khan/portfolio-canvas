@@ -41,7 +41,8 @@
     post: ['date', 'source', 'href', 'entry'], walkthrough: ['id', 'steps'], hub: [], log: [],
   }
   const FILE = /^(\d{2}-[a-z0-9-]+|T\d{2}|PW\d|W\d(-[a-z0-9-]+)?)\.md$/
-  const WPM_READ = 230, WPM_LISTEN = 150, ROW_S = 2
+  // read: every word counts, prose at 200 wpm and table cells at 120 (a table is read slower)
+  const WPM_READ = 200, WPM_CELL = 120, WPM_LISTEN = 150
   // the Shopkeeper's row IDs: rules P1–P13 and scenarios A1–C12
   const ROW_SCOPES = { 'agent-reliability/shopkeeper': /P\d{1,2}|[ABC]\d{1,2}/ }
   // where a track's folder sits, and the study's own folder
@@ -49,6 +50,7 @@
   const TRACK_ORDER = ['evals', 'observability', 'reliability', 'latency', 'voice', 'guardrails', 'fde', 'open-source']
   const ROOT_ORDER = ['agent-reliability', 'builds', 'writing', 'walkthroughs']
 
+  const PART_NUM = /^\d+\s*·\s*/
   const iso = (s) => /^\d{4}-\d{2}-\d{2}$/.test(String(s))
   const round1 = (n) => Math.round(n * 10) / 10
   const minutes = (n) => Math.max(1, Math.round(n))
@@ -146,7 +148,8 @@
       return note({ file: null, folder: STUDY, num: 'log', slug: 'log', id: '', route: `${STUDY}/log`, fm, body: study.log.length ? lines.join('\n') : C.logRowsNone, generated: 'study' })
     }
     function note({ file, folder, num, slug, id, route, isHub, fm, body, generated }) {
-      const blocks = M().parse(body)
+      // a part's number is a schema the reader never sees: the heading keeps its name only
+      const blocks = M().parse(body).map((b) => (b.t === 'h' && PART_NUM.test(b.text) ? { ...b, text: b.text.replace(PART_NUM, '') } : b))
       const section = route === '' ? 'root' : SECTIONS.includes(route.split('/')[0]) ? route.split('/')[0] : route.split('/')[0] === 'walkthroughs' ? 'tours' : 'root'
       return {
         file, folder, num, slug, id, route, isHub: !!isHub || (fm.type === 'hub'), fm, body, blocks, generated: generated || '', section,
@@ -277,13 +280,25 @@
     }
     for (const n of all) for (const l of out.get(n)) addEdge(n, l.note, l.kind)
 
-    // ── 7. the clocks ───────────────────────────────────────────────────────────────────
+    // ── 7. what a reader is shown, and the clocks ───────────────────────────────────────
+    // the public view drops a placeholder clip and a heading left with nothing under it, so a
+    // build opens on what it is; the author view (?hidden=1) keeps every slot
+    const reads = new Map()
+    const readBlocks = (n) => {
+      if (hidden) return n.blocks
+      if (reads.has(n)) return reads.get(n)
+      const B = n.blocks, isClip = (b) => b && b.t === 'fence' && b.kind === 'clip'
+      // a heading whose only content is the clip goes with it (a stub's empty parts stay)
+      const kept = B.filter((b, i) => !isClip(b) && !(b.t === 'h' && isClip(B[i + 1]) && (!B[i + 2] || (B[i + 2].t === 'h' && B[i + 2].level <= b.level))))
+      reads.set(n, kept)
+      return kept
+    }
     const clocks = new Map()
     const clock = (n) => {
       if (clocks.has(n)) return clocks.get(n)
-      const s = M().stats(n.blocks, { lines: C.say, block: (id) => blockSpoken(n, id) })
-      const read = s.prose / WPM_READ + (s.rows * ROW_S) / 60
-      const v = { read: round1(read), listen: round1(s.spoken / WPM_LISTEN), prose: s.prose, rows: s.rows, spoken: s.spoken }
+      const s = M().stats(readBlocks(n), { lines: C.say, block: (id) => blockSpoken(n, id) })
+      const read = s.prose / WPM_READ + s.cells / WPM_CELL
+      const v = { read: round1(read), listen: round1(s.spoken / WPM_LISTEN), prose: s.prose, rows: s.rows, cells: s.cells, spoken: s.spoken }
       clocks.set(n, v)
       return v
     }
@@ -305,6 +320,10 @@
       return { path, name, title: hub ? hub.title : trackName[name] || name, hub, notes: kids, folders: subs.map((s) => folderNode(path ? `${path}/${s}` : s)) }
     }
     const tree = folderNode('')
+    const folderTitles = new Map()
+    const titles = (f) => { folderTitles.set(f.path, f.title); f.folders.forEach(titles) }
+    titles(tree)
+    const folderTitle = (path) => folderTitles.get(path) || path.split('/').pop()
     const order = []
     const walk = (f) => { if (f.hub) order.push(f.hub); for (const n of f.notes) order.push(n); for (const s of f.folders) walk(s) }
     walk(tree)
@@ -416,6 +435,20 @@
       return ''
     }
     function findFolder(f, path) { if (f.path === path) return f; for (const s of f.folders) { const r = findFolder(s, path); if (r) return r } return null }
+    // the summary as a TL;DR: shown only when it is a real sentence the body does not already say.
+    // why: ok | missing | headings (a ·-joined list of the note's own headings) | repeat
+    function ledeOf(n) {
+      const s = String(n.summary || '').trim()
+      if (!s) return { text: '', why: 'missing' }
+      // a part names a heading when it is that heading, or how it starts ("Architecture decision: …")
+      const heads = n.blocks.filter((b) => b.t === 'h').map((b) => M().plain(b.text).trim().toLowerCase())
+      const names = (x) => heads.some((h) => h === x || (h.startsWith(x) && /^[\s:(—–-]/.test(h.slice(x.length))))
+      if (s.split(/\s+·\s+/).every((x) => names(x.trim().toLowerCase()))) return { text: s, why: 'headings' }
+      const first = s.split(/(?<=[.!?])\s/)[0].trim().toLowerCase()
+      const said = n.blocks.filter((b) => b.t === 'p' || b.t === 'quote').map((b) => M().plain(b.text).toLowerCase()).join(' ')
+      if (said.includes(first.replace(/[.!?]$/, ''))) return { text: s, why: 'repeat' }
+      return { text: s, why: 'ok' }
+    }
     const blockSpoken = (n, id) => M().spoken(M().parse(blockMd(n, id)), { lines: C.say }).map((s) => s.text).join(' ')
 
     // ── 12. the switcher's matcher ──────────────────────────────────────────────────────
@@ -451,7 +484,7 @@
       get: (route) => byRoute.get(String(route).replace(/^\/+|\/+$/g, '')) || null,
       resolve, href, rowIdsOf, rowHref: (n, id) => { const to = rowNote.get(`${n.folder}:${id}`); return to && visible(to) ? href(to, `a=${id.toLowerCase()}`) : null },
       out: (n) => out.get(n).filter(vis), back: (n) => back.get(n).filter(vis), neighbours, neighbourList,
-      tourStep, prevNext, hubOf, clock, totals, blockMd, blockSpoken, match, glyphOf, label, anchorsOf,
+      tourStep, prevNext, hubOf, clock, totals, readBlocks, ledeOf, folderTitle, blockMd, blockSpoken, match, glyphOf, label, anchorsOf,
     }
   }
   // embeds whose id must name something the mockup knows how to draw
@@ -466,5 +499,5 @@
     return { cmd, head, arg: rest.join(' '), known: list.some((c) => c.cmd === cmd) }
   }
 
-  NB.model = { build, command, SECTIONS, TYPES, STATUSES, REQUIRED, FILE, REGISTERED, WPM_READ, WPM_LISTEN, ROW_S }
+  NB.model = { build, command, SECTIONS, TYPES, STATUSES, REQUIRED, FILE, REGISTERED, WPM_READ, WPM_CELL, WPM_LISTEN }
 })()

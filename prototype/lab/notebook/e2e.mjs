@@ -117,7 +117,7 @@ for (const size of Object.keys(SIZES).filter((x) => !ONLY || x === ONLY)) {
       const side = [...document.querySelectorAll('.nb-side a, .nb-side button')][0]
       return { hash: location.hash, live: NB.trip.live(), timing: NB.trip.timing.in, h1: document.querySelector('.nb-title').textContent, muted: NIGHT.sound.muted, playing: NIGHT.voice.state().playing, ac: window.__ac, first: first.className, firstLeft: first.getBoundingClientRect().left, sideFirst: side.className, strip: document.querySelector('.nb-strip').hidden }
     })
-    ok(r.hash === '#/' && r.live && r.timing === null && r.h1 === 'start here', `no hash lands on start-here, in the Lab, with no trip (${r.hash})`)
+    ok(r.hash === '#/' && r.live && r.timing === null && r.h1 === 'Start here', `no hash lands on start-here, in the Lab, with no trip (${r.hash})`)
     ok(r.muted && !r.playing && r.ac === 0 && r.strip, 'muted, nothing playing, no AudioContext before a gesture, no strip')
     if (!phone) ok(/nb-bar__canvas/.test(r.first) && r.firstLeft <= 1, `← canvas is the leftmost item of the bar (${r.first} at ${r.firstLeft}px)`)
     else ok(/nb-bar__menu/.test(r.first) && /nb-side__canvas/.test(r.sideFirst), `☰ takes the bar's left slot; ← canvas is the drawer's first row`)
@@ -142,6 +142,55 @@ for (const size of Object.keys(SIZES).filter((x) => !ONLY || x === ONLY)) {
     await go(p, '#/T02')
     const t = await p.evaluate(() => location.hash)
     ok(t === '#/agent-reliability/study/evals/T02', `#/T02 redirects to the full path (${t})`)
+    await close(p)
+  }
+
+  // ── the path: titles; a phone shows "‹ parent" as one 44 px target, no doubled separator ──
+  {
+    const p = await page(size, ROUTES.longest)
+    const r = await p.evaluate(() => {
+      const path = document.querySelector('.nb-bar__path'), up = document.querySelector('.nb-up')
+      return { text: path.innerText.replace(/\s*›\s*/g, ' › ').replace(/\s+/g, ' ').trim(), upH: up.getBoundingClientRect().height, href: up.getAttribute('href') }
+    })
+    if (phone) ok(/^‹ Shopkeeper$/.test(r.text) && r.upH >= 44 && r.href === '#/agent-reliability/shopkeeper' && !/[/›‹]\s*[/›‹]/.test(r.text), `the phone's path is "${r.text}", one ${r.upH} px target up to the hub, no doubled separator`)
+    else ok(r.text === 'Lab › Agent reliability › Shopkeeper › Scenarios' && !/[/›]\s*[/›]/.test(r.text), `the path is titles, not slugs: "${r.text}"`)
+    await close(p)
+  }
+
+  // ── prev / next move focus to the new note's h1 ──────────────────────────────────────
+  {
+    const p = await page(size, ROUTES.spec)
+    await p.click('.nb-prevnext a[rel="next"]')
+    await wait(p, 250)
+    const a = await p.evaluate(() => ({ hash: location.hash, focus: document.activeElement.classList.contains('nb-title') && document.activeElement.closest('.nb-note').dataset.route }))
+    await p.evaluate(() => document.activeElement.blur())
+    await p.keyboard.press('[')
+    await wait(p, 250)
+    const k = await p.evaluate(() => document.activeElement.classList.contains('nb-title') && document.activeElement.closest('.nb-note').dataset.route)
+    ok(/02-policy$/.test(a.hash) && a.focus === 'agent-reliability/shopkeeper/02-policy' && k === 'agent-reliability/shopkeeper/01-spec', `next → focuses 02-policy's h1; [ back focuses 01-spec's h1`)
+    await close(p)
+  }
+
+  // ── focus mode: f hides the tree and the margin, centres the column, survives a reload ──
+  if (!phone) {
+    const p = await page(size, ROUTES.spec)
+    const panes = () => {
+      const side = getComputedStyle(document.querySelector('.nb-side')), margin = getComputedStyle(document.querySelector('.nb-margin'))
+      const col = document.querySelector('.nb-col').getBoundingClientRect()
+      return { on: document.documentElement.hasAttribute('data-focus'), side: side.visibility === 'hidden', margin: margin.display === 'none', centred: Math.abs((col.left + col.right) / 2 - innerWidth / 2) < 2, pressed: document.querySelector('[data-act="focus"]').getAttribute('aria-pressed') }
+    }
+    const before = await p.evaluate(panes)
+    await p.keyboard.press('f')
+    await wait(p, 100)
+    const on = await p.evaluate(panes)
+    await p.reload()
+    await p.evaluate(() => document.fonts.ready)
+    await wait(p, 500)
+    const again = await p.evaluate(panes)
+    await p.click('[data-act="focus"]')
+    const off = await p.evaluate(panes)
+    ok(!before.on && !before.side && on.on && on.side && on.margin && on.centred && on.pressed === 'true', 'f turns focus mode on: the tree and the margin go, the column centres, the bar button says so')
+    ok(again.on && again.side && again.margin && again.centred && !off.on && !off.side, 'focus mode survives a reload, and the bar button turns it off')
     await close(p)
   }
 
@@ -239,7 +288,8 @@ for (const size of Object.keys(SIZES).filter((x) => !ONLY || x === ONLY)) {
   // ── the graphs ────────────────────────────────────────────────────────────────────────
   {
     const p = await page(size, ROUTES.spec)
-    const sel = phone || size !== 'desktop' ? '.nb-end .nb-g--local' : '.nb-margin .nb-g--local'
+    // the local graph lives in the note's end block on every width now (round 3 replaces it)
+    const sel = '.nb-end .nb-g--local'
     const r = await p.evaluate((s) => {
       const n = NB.shell.state.note, nb = NB.vault.neighbours(n, 1).length
       const nodes = document.querySelectorAll(`${s} a.n`).length
@@ -248,7 +298,8 @@ for (const size of Object.keys(SIZES).filter((x) => !ONLY || x === ONLY)) {
       return { nb, nodes, listed }
     }, sel)
     ok(r.nodes === Math.min(24, r.nb) + 1, `the local graph has the note plus its ${r.nb} neighbours (${r.nodes} nodes)`)
-    if (phone) ok(r.listed === r.nb, `the note-end lists name the same ${r.nb} neighbours as its picture`)
+    ok(r.listed === r.nb, `the note-end lists name the same ${r.nb} neighbours as its picture`)
+    ok(await p.evaluate(() => !document.querySelector('.nb-margin .nb-g, .nb-margin .nb-sec--back, .nb-margin .nb-sec--out')), 'the margin holds no graph and no link lists: only "on this page"')
     await p.click(`${sel} a.n[data-route="agent-reliability/shopkeeper/05-scenarios"]`)
     await wait(p, 200)
     ok(await p.evaluate(() => location.hash === '#/agent-reliability/shopkeeper/05-scenarios'), 'clicking a local-graph node opens it')
@@ -322,6 +373,28 @@ for (const size of Object.keys(SIZES).filter((x) => !ONLY || x === ONLY)) {
     await p.keyboard.press('Escape')
     await wait(p, 150)
     ok(await p.evaluate(() => document.querySelector('.nb-strip').hidden && !NIGHT.voice.state().playing), 'Esc stops, and the strip leaves')
+    // the narrator never yanks the page: scrolled away, it waits and offers to come back
+    await go(p, ROUTES.longest)
+    await p.click('.nb-bar [data-act="listen"]')
+    await p.waitForFunction(() => NIGHT.voice.state().playing, null, { timeout: 8000 }).catch(() => {})
+    const focusOn = await p.evaluate(() => document.documentElement.hasAttribute('data-focus'))
+    await p.evaluate(() => NB.narrator.part(Math.floor(NB.narrator.state.parts.length / 2)))
+    await p.waitForFunction(() => NIGHT.voice.state().playing, null, { timeout: 8000 }).catch(() => {})
+    await wait(p, 2600)
+    const pos = () => (innerWidth < 900 ? window.scrollY : document.querySelector('.nb-main').scrollTop)
+    const followed = await p.evaluate(pos)
+    if (phone) await p.evaluate(() => scrollTo(0, 0))
+    else { await p.mouse.move(700, 450); await p.mouse.wheel(0, -200000) }
+    await wait(p, 3000)
+    const stay = { y: await p.evaluate(pos), ...(await p.evaluate(() => ({ playing: NB.narrator.active(), chip: !!document.querySelector('.nb-strip__follow') }))) }
+    if (process.env.E2E_DEBUG) console.log('   ', JSON.stringify({ focusOn, followed, stay }))
+    ok(focusOn && followed > 400 && stay.y < 60 && stay.playing && stay.chip, `while it plays, the page follows (to ${Math.round(followed)} px) until the reader scrolls; scrolled to the top it stays there 3 s later (${Math.round(stay.y)} px), and the strip offers "↓ back to narration"; focus mode is on`)
+    await p.click('.nb-strip__follow')
+    await wait(p, 1200)
+    const back = await p.evaluate(pos)
+    await p.keyboard.press('Escape')
+    await wait(p, 150)
+    ok(back > 400 && !(await p.evaluate(() => document.documentElement.hasAttribute('data-focus'))), `"↓ back to narration" scrolls back (${Math.round(back)} px); stopping restores focus mode to off`)
     // a walkthrough plays note by note
     await go(p, '#/W1')
     await p.click('.nb-bar [data-act="listen"]')
@@ -332,8 +405,8 @@ for (const size of Object.keys(SIZES).filter((x) => !ONLY || x === ONLY)) {
     const s2 = await p.evaluate(() => ({ hash: location.hash, playing: NIGHT.voice.state().playing, strip: document.querySelector('.nb-strip__where').textContent }))
     ok(/agent-reliability\/shopkeeper\?w=W1$/.test(s1.hash) && /W1 · 1\/9/.test(s1.strip), `▶ on W1 opens step 1 and plays (${s1.strip})`)
     ok(/01-spec\?w=W1$/.test(s2.hash) && s2.playing && /W1 · 2\/9/.test(s2.strip), `seeking to the end of step 1 moves to step 2, and playback continues (${s2.strip})`)
-    await p.click(phone ? '.nb-bar__menu' : '.nb-row[data-route="builds"]')
-    if (phone) { await wait(p, 300); await p.click('.nb-side .nb-row[data-route="builds"]') }
+    // focus mode is on while it plays, so the tree is put away on desktop: navigate by the hash
+    if (phone) { await p.click('.nb-bar__menu'); await wait(p, 300); await p.click('.nb-side .nb-row[data-route="builds"]') } else await go(p, '#/builds')
     await wait(p, 300)
     const res = await p.evaluate(() => ({ playing: NIGHT.voice.state().playing, resume: (document.querySelector('.nb-strip__resume') || {}).textContent || '' }))
     ok(!res.playing && /resume W1/.test(res.resume), `a manual navigation pauses it, and the strip offers "${res.resume}"`)
@@ -429,7 +502,7 @@ if (!ONLY) {
   const mid = await p.evaluate(() => [...document.querySelectorAll('.nb-bar__path a')].map((a) => a.textContent).join('/'))
   await wait(p, 600)
   const r = await p.evaluate(() => ({ ms: NB.trip.timing.in, live: NB.trip.live() }))
-  ok(r.live && r.ms >= 250 && r.ms <= 450 && mid === 'lab', `a ${r.ms} ms crossfade, with no decode (mid-trip the bar reads "${mid}")`)
+  ok(r.live && r.ms >= 250 && r.ms <= 450 && mid === 'Lab', `a ${r.ms} ms crossfade, with no decode (mid-trip the bar reads "${mid}")`)
   await go(p, '#/builds/03-datesheet-generator')
   await p.click('[data-term="replay"]')
   const whole = await p.evaluate(() => { const pre = document.querySelector('.nb-term__out'); return pre.textContent === pre.dataset.src })

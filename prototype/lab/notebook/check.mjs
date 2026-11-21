@@ -9,7 +9,9 @@
 //   2. verbatim: the seven spec notes are the spec's own lines (SKIP if the source is absent)
 //   3. the study: the allowlist, Aahil's 2026-11-21 calls, the private-term scan, the numbers
 //   4. the graph: deterministic, in bounds, no overlaps, warm relayout, the local graph
-//   5. walkthroughs: steps, totals, the listen clock
+//   5. walkthroughs and clocks: steps, totals, the read clock (every word: prose 200 wpm, table
+//      cells 120), the listen clock; and the TL;DR list (WARN: notes whose summary is missing or a
+//      list of their own headings; Aahil writes them)
 //   6. the renderer: tables, fences, embeds, anchors, auto-links, broken links, escaping
 //   7. the palettes: text ≥ 4.5:1 on every surface, selection and hover included; frames ≥ 3:1
 //   8. the switcher's matcher
@@ -34,6 +36,7 @@ const C = NB.copy, MD = NB.md, G = NB.graph
 let fails = 0
 const ok = (cond, msg) => { console.log((cond ? '  ok   ' : '  FAIL ') + msg); if (!cond) fails++ }
 const skip = (msg) => console.log('  SKIP ' + msg)
+const warn = (msg) => console.log('  WARN ' + msg)
 const same = (a, b) => JSON.stringify(a) === JSON.stringify(b)
 const build = (o = {}) => NB.model.build({ files: NB.vaultFiles, study: NB.study, essays: NIGHT.imports, copy: C, ...o })
 const V = build()
@@ -163,6 +166,18 @@ for (const w of V.tours) {
   const cells = sc.blocks.filter((b) => b.t === 'table').reduce((a, b) => a + b.rows.flat().join(' ').split(/\s+/).length, 0)
   const tableLine = C.say.table(10).split(/\s+/).length
   ok(c.spoken <= c.prose + tables * tableLine + 40 && c.spoken < c.prose + cells / 4, `the listen clock says one line per table, not its cells (05-scenarios: ${tables} tables, ${cells} cell words, ${c.spoken} spoken)`)
+  // the read clock counts every word a reader reads, table cells included (the old one gave 4 min)
+  const bad = V.notes.filter((n) => { const k = V.clock(n); return Math.abs(k.read - Math.round((k.prose / 200 + k.cells / 120) * 10) / 10) > 0.01 })
+  ok(!bad.length && NB.model.WPM_READ === 200 && NB.model.WPM_CELL === 120, `every note's read clock is prose ÷ 200 wpm + table-cell words ÷ 120 wpm${bad.length ? ' — off: ' + bad.map((n) => n.route).join(', ') : ''}`)
+  ok(c.cells >= cells && Math.round(c.read) >= 10, `05-scenarios reads in ${Math.round(c.read)} min (${c.prose} prose words, ${c.cells} table-cell words), not 4`)
+}
+{
+  // the summary is the TL;DR under the title: shown only when it is a real sentence
+  const L = (r) => V.ledeOf(at(r)).why
+  ok(L('agent-reliability/shopkeeper/01-spec') === 'headings' && L('agent-reliability/shopkeeper/03-blind-agent') === 'headings' && L('builds/04-throw-catch') === 'missing' && L('builds/02-holt') === 'repeat' && L('walkthroughs/W1-shopkeeper-so-far') === 'ok',
+    'the lede: a ·-joined list of the note\'s own headings or an empty summary is not shown (a PROPOSAL slot under ?hidden=1); one the body already says is not repeated')
+  const todo = V.notes.filter((n) => n.visibility === 'public' && ['missing', 'headings'].includes(V.ledeOf(n).why))
+  if (todo.length) warn(`${todo.length} public notes need a one-sentence TL;DR (summary missing or a heading list): ${todo.map((n) => n.route || 'start-here').join(', ')}`)
 }
 
 // ── 6 ───────────────────────────────────────────────────────────────────────────────────────
@@ -186,6 +201,16 @@ const emb = MD.render(MD.parse('```clip src=x dur=42\nfig · clip · c\n```\n\n`
 ok(MD.EMBEDS.every((k) => emb.includes(`data-embed="${k}"`)) && (emb.match(/<figcaption class="nb-cap">fig \d · /g) || []).length === 5, 'each embed renders as a numbered figure with a mono caption')
 const broken = MD.render(MD.parse('see [[nowhere]] and <script>alert(1)</script> & [x](javascript:alert(1))'), { resolve: () => null }).html
 ok(/nb-wl is-broken/.test(broken) && broken.includes('&lt;script&gt;') && !/<script/.test(broken) && !/javascript:/.test(broken), 'an unresolved link renders as marked text; input is escaped; javascript: hrefs are refused')
+{
+  const t2 = MD.render(MD.parse('| Field | Example (A1) |\n| --- | --- |\n| a | b |'), { rowIds: /A\d/, row: () => '#x' }).html
+  ok(/<th scope="col">Example \(A1\)<\/th>/.test(t2) && /class="nb-table-wrap is-two"/.test(t2) && /<dl class="nb-dl"/.test(t2), 'a header cell is never auto-linked ("Example (A1)" stays one line); a two-column table also carries its phone stack (<dl>)')
+  const ids = rendered('agent-reliability/shopkeeper/02-policy')
+  ok(/nb-table-wrap has-ids/.test(ids) && /<td class="nb-td-id">P1<\/td>/.test(ids) && !/nb-table-wrap is-two has-ids/.test(ids), 'a table with row IDs keeps its table (and its anchors) on a phone, with the ID column marked for the sticky mono column')
+  const holt = at('builds/02-holt'), hb = V.readBlocks(holt)
+  ok(holt.blocks.some((b) => b.t === 'fence' && b.kind === 'clip') && !hb.some((b) => b.t === 'fence' && b.kind === 'clip') && hb[0].t === 'h' && /what it is/i.test(hb[0].text) && build({ hidden: true }).readBlocks(build({ hidden: true }).get('builds/02-holt')).some((b) => b.kind === 'clip'),
+    'the public view drops the placeholder clip and its heading, so a build opens on "what it is"; ?hidden=1 keeps the slot')
+  ok(V.all.every((n) => n.blocks.every((b) => b.t !== 'h' || !/^\d+\s*·/.test(b.text))), 'no heading shows a part number ("2 · what it is" reads "what it is")')
+}
 ok(MD.latexText('\\text{margin capture} = \\frac{\\text{unit price} - \\text{floor}}{\\text{list} - \\text{floor}}') === 'margin capture = (unit price − floor) / (list − floor)', "the spec's formula renders as text")
 
 // ── 7 ───────────────────────────────────────────────────────────────────────────────────────
@@ -197,7 +222,7 @@ const ratio = (a, b) => { const [x, y] = [lum(a), lum(b)].sort((m, n) => n - m);
 const palettes = {}
 for (const m of css.matchAll(/html\[data-palette='(\w+)'\][^{]*\{([^}]*)\}/g)) palettes[m[1]] = Object.fromEntries([...m[2].matchAll(/--([\w-]+):\s*([^;]+);/g)].map((x) => [x[1], hex(x[2])]).filter((x) => x[1]))
 ok(same(Object.keys(palettes), ['white', 'green', 'amber']), `three palettes: ${Object.keys(palettes).join(', ')}`)
-const TEXT = ['lab-fg', 'lab-dim', 'lab-ar', 'lab-builds', 'lab-writing', 'lab-neutral', 'lab-hi'], SURF = ['lab-bg', 'lab-pane', 'hov-bg']
+const TEXT = ['lab-fg', 'lab-dim', 'lab-link', 'lab-ar', 'lab-builds', 'lab-writing', 'lab-neutral', 'lab-hi'], SURF = ['lab-bg', 'lab-pane', 'hov-bg']
 for (const [name, P] of Object.entries(palettes)) {
   const missing = [...TEXT, ...SURF, 'sel-bg', 'sel-ink', 'lab-line', 'lab-faint'].filter((t) => !P[t])
   const pairs = []
@@ -234,7 +259,7 @@ const DROPPED = ['vignette.js', 'deck.js', 'dial.js', 'home.js', 'toy.js', 'fx.j
 ok(DROPPED.every((f) => !existsSync(join(here, f))) && !existsSync(join(here, 'narration/sample-audio.js')) && !scripts.some((s) => DROPPED.includes(s)), `the dropped modules are gone (${DROPPED.length}, and the 0.8 MB pre-rendered sample: sam renders live)`)
 ok(same(Object.keys(NIGHT.imports).sort(), ['chrome-hackathon', 'old-laptop-cloud']) && V.all.filter((n) => n.type === 'post').length === 2, 'the two essays are the only Medium content')
 // every painting rule is scoped to the notebook, so the day desk is untouched
-const SCOPED = /^(html\.(has-night|is-night|is-turning|nb-[\w-]+)|html:not\(\.nb-on\)|html\[data-palette|html:not\(\[data-palette\]\)|\.nb|\.night|\.lab-sky|\.lab-starfield|\.proof|@keyframes|from|to|\d+%)/
+const SCOPED = /^(html\.(has-night|is-night|is-turning|nb-[\w-]+)|html:not\(\.nb-on\)|html\[data-palette|html\[data-focus\]|html:not\(\[data-palette\]\)|\.nb|\.night|\.lab-sky|\.lab-starfield|\.proof|@keyframes|from|to|\d+%)/
 const rules = [...code(css).replace(/'[^'\n]*'/g, "''").replace(/@import[^;]+;/g, '').replace(/@media[^{]+\{/g, '').replace(/@supports[^{]+\{/g, '').matchAll(/([^{}]+)\{([^{}]*)\}/g)].map((m) => [m[1].trim(), m[2]])
 const leaky = rules.filter(([sel, body]) => !(sel === ':root' && [...body.matchAll(/([\w-]+)\s*:/g)].every((m) => m[1].startsWith('--'))) && sel.split(',').map((s) => s.trim()).some((s) => !SCOPED.test(s)))
 ok(rules.length > 80 && !leaky.length, `notebook.css: all ${rules.length} rules paint only the notebook or the night${leaky.length ? ' — LEAKS: ' + leaky.map((r) => r[0]).slice(0, 6).join(' | ') : ''}`)

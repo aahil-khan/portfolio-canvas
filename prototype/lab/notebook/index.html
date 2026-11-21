@@ -8,9 +8,11 @@
   DESIGN GATE: prototype/lab/notebook/index.html, the Lab as a notebook ("Obsidian, my own
   flavour"). Supersedes #21. Plan: ~/.local/state/hq/plans/portfolio-canvas/lab-notebook-plan-the/.
 
-  A reader-first notebook: a top bar (← canvas, the note's path, ⌕ ◎ ▶), the vault tree on the
-  left (a drawer on phone), a 64ch reading column that scrolls, and a right margin with the local
-  graph, the outline and the backlinks. Every note has a stable URL. The canvas trip is still
+  A reader-first notebook: a top bar (← canvas, the note's path, ⌕ ◎ ▶ ◫), the vault tree on the
+  left (a drawer on phone), a ~64-character reading column that scrolls, and a right margin with
+  only "on this page" (≥ 3 headings; otherwise the column centres). Links, backlinks, the local
+  graph and the tags sit at each note's end. f is focus mode. Round 1 of the readability fixes:
+  ~/.local/state/hq/plans/portfolio-canvas/lab-audit-readability-first/plan.md; audit.mjs measures it. Every note has a stable URL. The canvas trip is still
   here (#desk, then the Lab tile or L), and secondary.
 
   URL switches (throwaway, for checking):
@@ -25,6 +27,10 @@
   (essay.js). Every UI word is in copy.js. sam.js is SAM (1982), vendored, no licence (see its
   header). One file to open: node bundle.mjs writes all of this, inlined, to one lab.html.
 -->
+<script>
+  /* focus mode before first paint: one owner (NB.shell.setFocus), one stored key */
+  try { if (JSON.parse(localStorage.getItem('nb-focus') || 'false')) document.documentElement.setAttribute('data-focus', '') } catch (e) { /* private window */ }
+</script>
 <link rel="stylesheet" href="../shared/jet.css">
 <link rel="stylesheet" href="../shared/desk.css">
 <link rel="stylesheet" href="notebook.css">

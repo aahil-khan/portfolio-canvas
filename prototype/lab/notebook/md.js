@@ -8,7 +8,7 @@
  *   .inline(text, opt)          → tokens           text, code, strong, em, link, wiki, id, br
  *   .render(blocks, ctx)        → { html, headings, figures }
  *   .links(blocks, opt)         → [{ kind, target, anchor, label, context }]  what the note links to
- *   .stats(blocks, opt)         → { prose, rows, spoken }   word counts for the read / listen clocks
+ *   .stats(blocks, opt)         → { prose, rows, cells, spoken }   word counts for the read / listen clocks
  *   .spoken(blocks, opt)        → [{ i, text }]    what narration says, block by block
  *   .plain(text)                → text with link markup stripped (the verbatim check)
  *   .slugify(text), .escape(text), .ROW_ID, .FENCES, .EMBEDS
@@ -233,7 +233,7 @@
       if (x.t === 'p' || x.t === 'quote' || x.t === 'h') yield { b, text: x.text }
       else if (x.t === 'ul' || x.t === 'ol') for (const it of x.items) yield { b, text: it }
       else if (x.t === 'table') {
-        for (const c of x.head) yield { b, text: c }
+        for (const c of x.head) yield { b, text: c, head: true }
         for (const r of x.rows) for (let k = 0; k < r.length; k++) yield { b, text: r[k], rowDef: k === 0 && ROW_ID.test(r[0]) }
       }
     }
@@ -251,9 +251,9 @@
         if (k.children) walk(k.children, whole)
       }
     }
-    for (const { text, rowDef } of allTexts(blocks)) {
+    for (const { text, rowDef, head } of allTexts(blocks)) {
       if (rowDef) continue
-      const toks = inline(text, opt)
+      const toks = inline(text, head ? { ...opt, noAuto: true } : opt)
       walk(toks, textOf(toks))
     }
     return out
@@ -282,15 +282,15 @@
     return out
   }
   function stats(blocks, opt = {}) {
-    let prose = 0, rows = 0
+    let prose = 0, rows = 0, cells = 0
     for (const x of blocks) {
       if (x.t === 'p' || x.t === 'quote' || x.t === 'h') prose += count(plain(x.text))
       else if (x.t === 'ul' || x.t === 'ol') prose += x.items.reduce((a, it) => a + count(plain(it)), 0)
-      else if (x.t === 'table') rows += x.rows.length
+      else if (x.t === 'table') { rows += x.rows.length; cells += [...x.head, ...x.rows.flat()].reduce((a, c) => a + count(plain(c)), 0) }
       else if (x.t === 'fence' && x.kind === 'block' && opt.blockWords) prose += opt.blockWords(x.id) || 0
     }
     const said = spoken(blocks, opt).reduce((a, s) => a + count(s.text), 0)
-    return { prose, rows, spoken: said }
+    return { prose, rows, cells, spoken: said }
   }
 
   // ── render ───────────────────────────────────────────────────────────────────────────────
@@ -343,13 +343,20 @@
       if (x.t === 'ul') return `<ul${say}>${x.items.map((it) => `<li>${il(it)}</li>`).join('')}</ul>`
       if (x.t === 'ol') return `<ol${say}${x.start !== 1 ? ` start="${x.start}"` : ''}>${x.items.map((it) => `<li>${il(it)}</li>`).join('')}</ol>`
       if (x.t === 'table') {
-        const head = `<tr>${x.head.map((c) => `<th scope="col">${il(c)}</th>`).join('')}</tr>`
+        // a header cell is never auto-linked: "Example (A1)" stays one line
+        const th = (c) => tokHtml(inline(c, { ...opt, noAuto: true }))
+        const head = `<tr>${x.head.map((c) => `<th scope="col">${th(c)}</th>`).join('')}</tr>`
+        const ids = x.rows.some((r) => ROW_ID.test(r[0]))
         const body = x.rows.map((r) => {
           const def = ROW_ID.test(r[0]) ? r[0].toLowerCase() : ''
           if (def) used.add(def)
-          return `<tr${def ? ` id="${def}"` : ''}>${r.map((c, k) => (k === 0 && def ? `<td>${escape(r[0])}</td>` : `<td>${il(c)}</td>`)).join('')}</tr>`
+          return `<tr${def ? ` id="${def}"` : ''}>${r.map((c, k) => (k === 0 && def ? `<td class="nb-td-id">${escape(r[0])}</td>` : `<td>${il(c)}</td>`)).join('')}</tr>`
         }).join('')
-        return `<div class="nb-table" role="region" tabindex="0" aria-label="${escape(plain(x.head.join(' · ')))}"${say}><table><thead>${head}</thead><tbody>${body}</tbody></table></div>`
+        const label = escape(plain(x.head.join(' · ')))
+        // two columns and no row anchors: on a phone it reads as a stack of definitions instead
+        const two = x.head.length === 2 && !ids
+        const dl = two ? `<dl class="nb-dl" aria-label="${label}">${x.rows.map((r) => `<div><dt>${il(r[0] || '')}</dt><dd>${il(r[1] || '')}</dd></div>`).join('')}</dl>` : ''
+        return `<div class="nb-table-wrap${two ? ' is-two' : ''}${ids ? ' has-ids' : ''}" data-rows="${x.rows.length}"${say}><div class="nb-table" role="region" tabindex="0" aria-label="${label}"><table><thead>${head}</thead><tbody>${body}</tbody></table></div>${dl}</div>`
       }
       if (x.t === 'img') {
         fig++
