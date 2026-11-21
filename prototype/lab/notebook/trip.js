@@ -298,6 +298,10 @@
     apply(1)
     finish(1)
     if (q.get('add')) NB.shell.addProof()
+    // a direct landing never painted the desk: decode its images while idle, so the way back
+    // does not decode them mid-trip
+    const idle = window.requestIdleCallback || ((f) => setTimeout(f, 200))
+    idle(() => { for (const img of DESK.world.querySelectorAll('img')) if (img.decode) img.decode().catch(() => {}) })
   }
 
   T.mount = () => {
