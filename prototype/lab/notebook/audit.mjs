@@ -365,8 +365,10 @@ try {
         await pg.waitForTimeout(400)
         await pg.evaluate(() => { NIGHT.voice.use('sam'); NB.narrator.press() })
         await pg.waitForFunction(() => document.querySelector('.nb-word.is-on'), null, { timeout: 8000 }).catch(() => {})
-        res[`r2:${theme}:word`] = await pg.evaluate(() => {
-          const w = document.querySelector('.nb-word.is-on')
+        res[`r2:${theme}:word`] = await pg.evaluate(async () => {
+          // round 5: the highlight fades in over 120 ms; read a word whose fade has finished
+          let w = null
+          for (let i = 0; i < 100 && !w; i++) { const x = document.querySelector('.nb-word.is-on'); if (x && !x.getAnimations().length) w = x; else await new Promise((r) => setTimeout(r, 10)) }
           if (!w) return null
           const s = getComputedStyle(w), rgb = (c) => c.match(/[\d.]+/g).slice(0, 3).map(Number)
           const lum = (c) => { const [r, g, b] = c.map((v) => { v /= 255; return v <= 0.03928 ? v / 12.92 : Math.pow((v + 0.055) / 1.055, 2.4) }); return 0.2126 * r + 0.7152 * g + 0.0722 * b }
