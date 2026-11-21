@@ -234,9 +234,9 @@ const DROPPED = ['vignette.js', 'deck.js', 'dial.js', 'home.js', 'toy.js', 'fx.j
 ok(DROPPED.every((f) => !existsSync(join(here, f))) && !existsSync(join(here, 'narration/sample-audio.js')) && !scripts.some((s) => DROPPED.includes(s)), `the dropped modules are gone (${DROPPED.length}, and the 0.8 MB pre-rendered sample: sam renders live)`)
 ok(same(Object.keys(NIGHT.imports).sort(), ['chrome-hackathon', 'old-laptop-cloud']) && V.all.filter((n) => n.type === 'post').length === 2, 'the two essays are the only Medium content')
 // every painting rule is scoped to the notebook, so the day desk is untouched
-const SCOPED = /^(html\.(has-night|is-night|is-turning|nb-on)|html\[data-palette|html:not\(\[data-palette\]\)|\.nb|\.night|\.lab-sky|\.lab-starfield|\.proof|@keyframes|from|to|\d+%)/
+const SCOPED = /^(html\.(has-night|is-night|is-turning|nb-[\w-]+)|html:not\(\.nb-on\)|html\[data-palette|html:not\(\[data-palette\]\)|\.nb|\.night|\.lab-sky|\.lab-starfield|\.proof|@keyframes|from|to|\d+%)/
 const rules = [...code(css).replace(/'[^'\n]*'/g, "''").replace(/@import[^;]+;/g, '').replace(/@media[^{]+\{/g, '').replace(/@supports[^{]+\{/g, '').matchAll(/([^{}]+)\{([^{}]*)\}/g)].map((m) => [m[1].trim(), m[2]])
-const leaky = rules.filter(([sel]) => sel.split(',').map((s) => s.trim()).some((s) => !SCOPED.test(s)))
+const leaky = rules.filter(([sel, body]) => !(sel === ':root' && [...body.matchAll(/([\w-]+)\s*:/g)].every((m) => m[1].startsWith('--'))) && sel.split(',').map((s) => s.trim()).some((s) => !SCOPED.test(s)))
 ok(rules.length > 80 && !leaky.length, `notebook.css: all ${rules.length} rules paint only the notebook or the night${leaky.length ? ' — LEAKS: ' + leaky.map((r) => r[0]).slice(0, 6).join(' | ') : ''}`)
 const sentence = /(['"`])(?:(?!\1)[^\n]){0,6}\b[a-z]+ [a-z]+ [a-z]+ [a-z]+\b(?:(?!\1)[^\n])*\1/i
 const strip = (s) => code(s).replace(/(['"`])(?:\\.|(?!\1)[^\\\n])*\1/g, (m) => (/[<>=(){}$]|\.\w+\(|^.(\w+-)+\w+.$/.test(m) ? "''" : m))

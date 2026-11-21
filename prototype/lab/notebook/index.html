@@ -3,75 +3,59 @@
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
-<title>Lab: living tiles</title>
+<title>lab</title>
 <!--
-  DESIGN GATE: prototype/lab/night-mode/index.html (Direction 2, "Night mode", sixth round: living
-  tiles, a quiet deck, the ask hero, a small dial). Supersedes #20.
+  DESIGN GATE: prototype/lab/notebook/index.html, the Lab as a notebook ("Obsidian, my own
+  flavour"). Supersedes #21. Plan: ~/.local/state/hq/plans/portfolio-canvas/lab-notebook-plan-the/.
 
-  The Lab tile turns the desk to night in 1.2 s (and back in 1.2 s). The Lab is a fixed screen of
-  its own, with nothing to pan, zoom or drag: ← canvas top left; the welcome beside the ASCII toy
-  (its [next] beside it); the ask hero, ▶ what am i working on?, with two smaller prompts; then
-  THE LIVING TILES, work/ experiments/ research/ writing/, each with a small looping vignette.
-  THE DECK is the desk's dock, morphed into one short line: LAB │ snd pal │ / ? at rest, with the
-  transport and the voice sliding in only while something plays. The deck is not navigation.
+  A reader-first notebook: a top bar (← canvas, the note's path, ⌕ ◎ ▶), the vault tree on the
+  left (a drawer on phone), a 64ch reading column that scrolls, and a right margin with the local
+  graph, the outline and the backlinks. Every note has a stable URL. The canvas trip is still
+  here (#desk, then the Lab tile or L), and secondary.
 
-  What is being judged:
-    - the tiles: vignettes, wake on hover / focus, the peek; an open category (glyphs, preview)
-    - the ask hero, and the deck at rest and while it talks
-    - the dial, EXPERIMENTAL: ?dial=1, or `experimental dial:on` under ?
-    - the series: research/the reliability study (SAMPLE CONTENT: PLACEHOLDER), hub and chapters
-    - narration: one section of one essay, word by word, in ai / synth / sam (me — soon)
-  Throwaway: the ✓ readout and the URL switches that make screenshots repeatable:
-    ?mode=night (or ?lab=1, or #lab)   land in the Lab, as /lab would
-    &palette=green|amber      &fx=<id>  donut | warp | life | nebula | moon
-    &dial=1                   the experimental dial     &voice=ai|synth|sam    the voice picked
-    &sel=<category/slug>      open a category (and show an entry)
-    &pop=voice|knobs|cmd|help a popover open on arrival (never ▸: nothing autoplays)
-    #/writing/<slug>, #/experiments/<slug>, #/research/<slug>   a post, a log, a hub or a chapter
-    &toc=<section>  scroll the post to a section    &fig=<n>  enlarge figure n
-    &then=desk                land in the Lab, go back, measure every day card
-    ?freeze=<0..1>[&back=1]   hold the transition there (the way in, or the way back)
-    ?enter=1                  play it once on load
-    ?roundtrip=1              drag a card, pan, Lab and back, measure every card and both trips
-    &add=1                    the 20th-piece proof. By hand: LAB.pieces.push({...}); renderLab()
-  Content: ../shared/pieces.js (filtered: no kit edit), work.js, essay.js (the two Medium essays)
-  and series.js (the placeholder study); every UI word is in copy.js. desk.js is the canvas
-  engine, sky.js the reduced-motion owner, sound.js the one mute, voice.js the one narrator.
-  sam.js is SAM (1982), vendored, no licence (see its header): https://github.com/discordier/sam
-  One file to open: node bundle.mjs writes all of this, inlined, to a single lab.html.
+  URL switches (throwaway, for checking):
+    #/<path>, #/T02, #/PW1, #/W1     a note, a short link        #/graph   the full graph
+    ?w=W1                            tour context                 ?a=p2     a heading or row
+    #desk                            start on the canvas          &pop=switcher|drawer|help
+    ?freeze=<0..1>[&back=1]          hold the trip at t           ?enter=1  play it once
+    ?roundtrip=1                     drag a card, pan, Lab and back, measure every card
+    ?palette=white|green|amber       ?voice=ai|sam|synth          ?autolink=0   ?hidden=1
+    ?add=1                           a 72nd note, relaid out warm; the readout says how far
+  Content: notes/**.md (vault.js), the tracker's public parts (study.js), the two essays
+  (essay.js). Every UI word is in copy.js. sam.js is SAM (1982), vendored, no licence (see its
+  header). One file to open: node bundle.mjs writes all of this, inlined, to one lab.html.
 -->
 <link rel="stylesheet" href="../shared/jet.css">
 <link rel="stylesheet" href="../shared/desk.css">
-<link rel="stylesheet" href="night.css">
+<link rel="stylesheet" href="notebook.css">
 <script src="../shared/pieces.js"></script>
-<script src="../shared/body.js"></script>
 <script src="../shared/sky.js"></script>
-<script src="moon.js"></script>
 </head>
 <body>
 <script src="../shared/desk.js"></script>
-<script src="work.js"></script>
 <script src="copy.js"></script>
 <script src="decode.js"></script>
-<script src="fx.js"></script>
-<script src="essay.js"></script>
-<script src="series.js"></script>
 <script src="logic.js"></script>
+<script src="md.js"></script>
 <script src="model.js"></script>
+<script src="graph.js"></script>
+<script src="graph-seed.js"></script>
+<script src="vault.js"></script>
+<script src="study.js"></script>
+<script src="essay.js"></script>
 <script src="sam.js"></script>
-<script src="narration/sample-timings.js"></script>
 <script src="sound.js"></script>
 <script src="voice.js"></script>
-<script src="toy.js"></script>
-<script src="vignette.js"></script>
-<script src="dial.js"></script>
-<script src="home.js"></script>
+<script src="embeds.js"></script>
+<script src="shell.js"></script>
 <script src="reader.js"></script>
-<script src="deck.js"></script>
-<script src="night.js"></script>
+<script src="switcher.js"></script>
+<script src="trip.js"></script>
 <script>
-  DESK.mount({ theme: 'cream', publicRoot: '../../../public', onLab: () => NIGHT.toggle() })
-  NIGHT.mount()
+  NB.publicRoot = '../../../public'
+  DESK.mount({ theme: 'cream', publicRoot: NB.publicRoot, onLab: () => NB.trip.enter() })
+  NB.shell.mount()
+  NB.trip.mount()
 </script>
 </body>
 </html>

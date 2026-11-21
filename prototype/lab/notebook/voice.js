@@ -1,5 +1,5 @@
 /*
- * prototype/lab/night-mode/voice.js: narration. ONE owner for what is loaded, what is playing, in
+ * prototype/lab/notebook/voice.js: narration. ONE owner for what is loaded, what is playing, in
  * which voice, at what speed, through which knobs. The deck shows it, the reader highlights its
  * words, the ask list types in time with it. None of them keeps a copy.
  *
@@ -21,9 +21,8 @@
  *          waveform; words light from its boundary events. A device with no voice gets the text on
  *          an estimated clock, silently, and says so.
  *   me     a clone of Aahil's voice: shown, disabled ("me — soon"). The route is not decided.
- *   synth  research Tier 1: Web Audio effects on a PRE-RENDERED FILE. The sample section plays
- *          narration/sample-audio.js (SAM, rendered offline by render-sample.mjs) with its timings
- *          file; anything else gets a live SAM render through the same chain. Knobs: tape (speed and
+ *   synth  research Tier 1: Web Audio effects on a live SAM render, one paragraph at a time (the
+ *          notebook dropped #21's 0.8 MB pre-rendered sample: a paragraph renders in milliseconds). Knobs: tape (speed and
  *          pitch together), pitch (a dual-delay shifter, speed unchanged), robot (ring modulation),
  *          monotone (a 12-band channel vocoder with a fixed carrier), crush (bit depth).
  *   sam    SAM itself, live (sam.js; no licence, approved by Aahil: see its header), dry.
@@ -46,7 +45,7 @@
   V.state = () => ({
     voice: st.voice, loaded: !!st.target, playing: st.playing, t: st.t, dur: st.dur, word: st.word, rate: st.rate, peaks: st.peaks, perSec: st.perSec,
     title: st.target ? st.target.title : '', index: st.target ? st.target.index : 0, of: st.target ? st.target.of : 0, note: st.note, kind: st.target ? st.target.kind || 'section' : null,
-    id: st.target ? st.target.id : null, sample: !!(st.target && st.target.sample),
+    id: st.target ? st.target.id : null,
   })
   const emit = () => { const s = V.state(); for (const f of subs) f(s) }
   V.timingsOf = () => (st.timings ? st.timings.words : null)
@@ -109,18 +108,8 @@
   }
 
   // ── sources ──────────────────────────────────────────────────────────────────────────────
-  const fromB64 = (b) => { const s = atob(b), a = new Uint8Array(s.length); for (let i = 0; i < s.length; i++) a[i] = s.charCodeAt(i); return a.buffer }
-  const sampleBuffer = {}
-  const script = (src) => new Promise((ok, no) => { const n = document.createElement('script'); n.src = src; n.onload = ok; n.onerror = no; document.head.appendChild(n) })
   async function bufferFor(ac) {
     const t = st.target
-    // the sample's audio (~0.8 MB) loads on the first press that needs it, never with the page
-    if (st.voice === 'synth' && t.sample && NIGHT.narration && !NIGHT.narrationWav) await script('narration/sample-audio.js').catch(() => {})
-    if (st.voice === 'synth' && t.sample && NIGHT.narration && NIGHT.narrationWav) {
-      if (!sampleBuffer.b) sampleBuffer.b = await ac.decodeAudioData(fromB64(NIGHT.narrationWav))
-      const n = NIGHT.narration
-      return { buf: sampleBuffer.b, words: n.words, peaks: n.peaks, perSec: n.perSec, dur: n.dur }
-    }
     // a live render: SAM, a word at a time (the same code as the sample's)
     const r = G().samWords(window.SamJs, t.words)
     const buf = ac.createBuffer(1, r.samples.length, r.sr)
@@ -196,7 +185,7 @@
     V.stop()
     st.target = target
     st.timings = G().estimate(target.words)
-    st.dur = target.sample && st.voice === 'synth' && NIGHT.narration ? NIGHT.narration.dur : st.timings.dur
+    st.dur = st.timings.dur
     st.t = 0; st.word = -1; st.peaks = null; st.note = ''
     src = null
     emit()
@@ -231,7 +220,7 @@
         src = { kind: 'buffer', buf: b.buf, off: st.t }
         st.timings = { words: b.words, dur: b.dur }
         st.dur = b.dur; st.peaks = b.peaks; st.perSec = b.perSec
-        st.note = st.voice === 'synth' && !st.target.sample ? NIGHT.copy.synthLive : ''
+        st.note = ''
       }
       startBuffer(ac, st.t)
     }
