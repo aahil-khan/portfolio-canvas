@@ -1,0 +1,61 @@
+<!doctype html>
+<html lang="en" data-theme="cream">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>lab</title>
+<!--
+  DESIGN GATE: prototype/lab/notebook/index.html, the Lab as a notebook ("Obsidian, my own
+  flavour"). Supersedes #21. Plan: ~/.local/state/hq/plans/portfolio-canvas/lab-notebook-plan-the/.
+
+  A reader-first notebook: a top bar (← canvas, the note's path, ⌕ ◎ ▶), the vault tree on the
+  left (a drawer on phone), a 64ch reading column that scrolls, and a right margin with the local
+  graph, the outline and the backlinks. Every note has a stable URL. The canvas trip is still
+  here (#desk, then the Lab tile or L), and secondary.
+
+  URL switches (throwaway, for checking):
+    #/<path>, #/T02, #/PW1, #/W1     a note, a short link        #/graph   the full graph
+    ?w=W1                            tour context                 ?a=p2     a heading or row
+    #desk                            start on the canvas          &pop=switcher|drawer|help
+    ?freeze=<0..1>[&back=1]          hold the trip at t           ?enter=1  play it once
+    ?roundtrip=1                     drag a card, pan, Lab and back, measure every card
+    ?palette=white|green|amber       ?voice=ai|sam|synth          ?autolink=0   ?hidden=1
+    ?add=1                           a 72nd note, relaid out warm; the readout says how far
+  Content: notes/**.md (vault.js), the tracker's public parts (study.js), the two essays
+  (essay.js). Every UI word is in copy.js. sam.js is SAM (1982), vendored, no licence (see its
+  header). One file to open: node bundle.mjs writes all of this, inlined, to one lab.html.
+-->
+<link rel="stylesheet" href="../shared/jet.css">
+<link rel="stylesheet" href="../shared/desk.css">
+<link rel="stylesheet" href="notebook.css">
+<script src="../shared/pieces.js"></script>
+<script src="../shared/sky.js"></script>
+</head>
+<body>
+<script src="../shared/desk.js"></script>
+<script src="copy.js"></script>
+<script src="decode.js"></script>
+<script src="logic.js"></script>
+<script src="md.js"></script>
+<script src="model.js"></script>
+<script src="graph.js"></script>
+<script src="graph-seed.js"></script>
+<script src="vault.js"></script>
+<script src="study.js"></script>
+<script src="essay.js"></script>
+<script src="sam.js"></script>
+<script src="sound.js"></script>
+<script src="voice.js"></script>
+<script src="embeds.js"></script>
+<script src="shell.js"></script>
+<script src="reader.js"></script>
+<script src="switcher.js"></script>
+<script src="trip.js"></script>
+<script>
+  NB.publicRoot = '../../../public'
+  DESK.mount({ theme: 'cream', publicRoot: NB.publicRoot, onLab: () => NB.trip.enter() })
+  NB.shell.mount()
+  NB.trip.mount()
+</script>
+</body>
+</html>
