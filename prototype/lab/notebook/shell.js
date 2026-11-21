@@ -373,8 +373,8 @@
     const n = S.state.note
     const k = e.key
     if (k === '/') { e.preventDefault(); NB.switcher.open(document.activeElement) }
-    else if (k === 'g') S.state.view === 'graph' ? history.back() : S.go('graph')
-    else if (k === 'b') phone() ? (el.root.classList.contains('nb-drawer-open') ? S.closeDrawer() : S.openDrawer()) : S.toggleSide()
+    else if (k === 'g') { if (S.state.view === 'graph') history.back(); else S.go('graph') }
+    else if (k === 'b') { if (!phone()) S.toggleSide(); else if (el.root.classList.contains('nb-drawer-open')) S.closeDrawer(); else S.openDrawer() }
     else if (k === '~' || k === '`') NB.trip.leave()
     else if (k === '?') S.help()
     else if (k === 'l') NB.narrator.press()

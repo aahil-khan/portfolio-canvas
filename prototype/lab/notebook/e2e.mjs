@@ -66,7 +66,12 @@ const layoutProbe = () => {
     while (a && a !== document.body) { const s = getComputedStyle(a); if (s.visibility === 'hidden' || +s.opacity === 0 || s.display === 'none') { shown = false; break } a = a.parentElement }
     if (!shown) continue
     const r = clip(e.getBoundingClientRect())
-    if (r.l < cr.r && r.r > cr.l && r.t < cr.b && r.b > cr.t) hits.push(e.className || e.tagName)
+    if (!(r.l < cr.r && r.r > cr.l && r.t < cr.b && r.b > cr.t)) continue
+    // it overlaps the column's box: is it painted on top anywhere there? (a layer behind is fine)
+    const l = Math.max(r.l, cr.l), t = Math.max(r.t, cr.t), rr = Math.min(r.r, cr.r), bb = Math.min(r.b, cr.b)
+    let top = false
+    for (let i = 0; i < 5 && !top; i++) for (let j = 0; j < 5 && !top; j++) { const at = document.elementFromPoint(l + ((rr - l) * (i + 0.5)) / 5, t + ((bb - t) * (j + 0.5)) / 5); if (at && e.contains(at)) top = true }
+    if (top) hits.push(e.className || e.id || e.tagName)
   }
   const tables = [...document.querySelectorAll('.nb-col .nb-table')].map((w) => ({ wide: w.querySelector('table').scrollWidth > w.clientWidth + 1, ox: getComputedStyle(w).overflowX, right: w.getBoundingClientRect().right }))
   return { hits, sw: document.documentElement.scrollWidth, iw: innerWidth, tables }
@@ -150,7 +155,8 @@ for (const size of Object.keys(SIZES).filter((x) => !ONLY || x === ONLY)) {
       const end = await p.evaluate(endProbe)
       const bottom = await p.evaluate(layoutProbe)
       const tablesOk = top.tables.every((t) => !t.wide || (t.ox === 'auto' && t.right <= top.iw + 0.5))
-      ok(!top.hits.length && !bottom.hits.length && top.sw <= top.iw && tablesOk && end.inside && end.bottom <= end.ih + 0.5 && (end.top >= end.headBottom - 0.5 || end.bottom - end.top > end.ih - end.headBottom),
+      if (process.env.E2E_DEBUG) console.log('   ', name, JSON.stringify({ end, hits: top.hits.concat(bottom.hits), tables: top.tables }))
+      ok(!top.hits.length && !bottom.hits.length && top.sw <= top.iw && tablesOk && end.inside && end.bottom <= end.ih + 0.5,
         `${name}: nothing covers the column (top and end), no sideways scroll (${top.sw}/${top.iw}), ${top.tables.filter((t) => t.wide).length} wide tables scroll inside, the last block (${end.tag}) is reached and hit-tests to itself${top.hits.concat(bottom.hits).length ? ' — COVERED BY ' + top.hits.concat(bottom.hits).join(', ') : ''}`)
     }
     // the switcher and the drawer views

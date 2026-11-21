@@ -12,7 +12,7 @@
   const NB = (window.NB = window.NB || {})
   const C = NB.copy, esc = NB.md.escape, W = C.switcher
   const S = () => NB.shell
-  let box = null, input = null, list = null, foot = null, items = [], sel = 0
+  let box = null, input = null, list = null, items = [], sel = 0
   const X = (NB.switcher = {})
 
   function build() {
@@ -24,7 +24,7 @@
       <ul class="nb-dialog__list" id="nbSwList" role="listbox"></ul>
       <p class="nb-dialog__foot">${esc(W.hint)}</p></div>`
     document.body.appendChild(box)
-    input = box.querySelector('input'); list = box.querySelector('ul'); foot = box.querySelector('.nb-dialog__foot')
+    input = box.querySelector('input'); list = box.querySelector('ul')
     box.addEventListener('click', (e) => { if (e.target === box) S().closeLayer(box) })
     list.addEventListener('click', (e) => { const li = e.target.closest('li'); if (li) { sel = +li.dataset.i; run() } })
     list.addEventListener('mousemove', (e) => { const li = e.target.closest('li'); if (li && +li.dataset.i !== sel) { sel = +li.dataset.i; mark() } })

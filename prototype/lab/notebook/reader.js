@@ -171,7 +171,7 @@
     start(r.note, { tour: r.tour, step: r.step, k: r.k, navigate: S().state.note !== r.note })
   }
   // a navigation the narrator did not make pauses it, and the strip offers to resume
-  N.navigated = (note) => {
+  N.navigated = () => {
     if (st.auto) { st.auto = false; return }
     if (!st.on) return
     voice().pause()

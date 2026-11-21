@@ -94,8 +94,8 @@ html.is-turning .desk-card, html.is-turning .desk-hero { will-change: opacity, t
 html.has-night #deskViewport { pointer-events: none; cursor: default; }
 /* once the Lab is up the document may scroll (phone), and the desk below takes nothing */
 html.nb-on, html.nb-on body { height: auto; min-height: 100%; overflow: visible; overscroll-behavior: auto; }
-html.nb-on #deskViewport { visibility: hidden; }
-html.nb-on .desk-pill, html.nb-on .desk-zoom, html.nb-on #deskDock { visibility: hidden; }
+/* the desk stays painted under the Lab (every card is already hidden by the trip at t = 1), so the
+   way back starts without a full repaint of the desk on its first frame */
 
 /* ── the shell ── */
 .nb {
