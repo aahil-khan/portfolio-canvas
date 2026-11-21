@@ -58,6 +58,23 @@
 //     from the top on a phone (its top is the bar's foot), under the bar on a desktop
 //   - the progress hairline's scale at the end of 05-scenarios is ≥ 0.99 (both sizes), 0 at the top
 //   - every glossary term in 05-scenarios' visible text has a popover target (.nb-gl) in view's DOM
+//
+// Round 5 (motion) asserts, with motion and again under reducedMotion: 'reduce', at 1440×900,
+// 390×844 and 390×664, navigating in the app (a hash change, as a link does) from start-here
+// through every view of the plan's table and back:
+//   - every animation that runs during a note navigation (document.getAnimations(), read every
+//     frame for 700 ms) has keyframes on opacity and transform only, on DIRECTION's easing
+//   - the navigation's longest task is < 50 ms (PerformanceObserver 'longtask')
+//   - with no graph or trip showing, getAnimations() is empty at rest (900 ms after arriving)
+//   - and, beyond navigation, while focus mode, the sidebar, the drawer, the strip, the word, an
+//     anchor jump, a tree folder, a hover and the graph (open, filter) move: every animation is on
+//     the one easing and one of DIRECTION's durations (120 / 180 / 220 / 320 / 450 / 600 ms; the
+//     graph's 40 ms stagger is a delay). The shared starfield's twinkle, behind the graph, is the
+//     sky's own and is listed, not held to the easing
+//   - under reduce: no animation has a transform keyframe, and none runs longer than 120 ms
+//   - a 2-second scroll of 05-scenarios at 1440×900 runs at ≥ 55 fps median (rAF deltas)
+// Every animation seen is listed at the end (what, duration, delay, easing): the PR's table.
+// AUDIT_ROUND=5 runs this round alone (for iterating; the check runs every round).
 import { createRequire } from 'node:module'
 import { homedir } from 'node:os'
 import { join, resolve } from 'node:path'
@@ -75,6 +92,7 @@ const VIEWS = {
   W1: '#/W1',
 }
 const SIZES = { desk: [1440, 900], phone: [390, 844] }
+const ONLY5 = process.env.AUDIT_ROUND === '5'
 let fails = 0, n = 0
 const ok = (cond, msg) => { n++; console.log((cond ? '  ok   ' : '  FAIL ') + msg); if (!cond) fails++ }
 
@@ -259,9 +277,58 @@ function probeGloss() {
   return { used: used.map((e) => e.term), missing: used.filter((e) => !marked(e.id)).map((e) => e.term), total: body.querySelectorAll('.nb-gl').length }
 }
 
+// ── round 5, in the page ──────────────────────────────────────────────────────────────────
+const EASE = 'cubic-bezier(0.16, 1, 0.3, 1)'
+const DURS = [120, 180, 220, 320, 450, 600]
+// watch everything that animates while `act` runs and for `ms` after (every frame), and the long
+// tasks; then what is still animating `rest` ms later. Runs in the page.
+async function watch({ act, ms = 700, rest = 200 }) {
+  const META = new Set(['offset', 'computedOffset', 'easing', 'composite'])
+  const seen = new Map(), lt = []
+  const desc = (a) => {
+    const e = a.effect, t = e.getTiming(), kf = e.getKeyframes(), tg = e.target
+    const cls = tg ? (typeof tg.className === 'string' ? tg.className : tg.className.baseVal || tg.tagName.toLowerCase()) : ''
+    return {
+      name: a.id || a.transitionProperty || a.animationName || 'anim', kind: a.constructor.name,
+      props: [...new Set(kf.flatMap((f) => Object.keys(f)).filter((k) => !META.has(k)))],
+      dur: t.duration, delay: t.delay, iter: t.iterations, easing: t.easing, kfEase: [...new Set(kf.map((f) => f.easing))].join(','),
+      target: String(cls).split(' ')[0] || (tg && tg.tagName.toLowerCase()),
+    }
+  }
+  const rec = () => { for (const a of document.getAnimations()) if (!seen.has(a)) seen.set(a, desc(a)) }
+  const po = new PerformanceObserver((l) => { for (const e of l.getEntries()) lt.push(Math.round(e.duration)) })
+  po.observe({ type: 'longtask' })
+  const raf = () => new Promise((r) => requestAnimationFrame(r))
+  const t0 = performance.now()
+  await act()
+  rec()
+  while (performance.now() - t0 < ms) { await raf(); rec() }
+  po.disconnect()
+  await new Promise((r) => setTimeout(r, rest))
+  return { anims: [...seen.values()], lt, rest: document.getAnimations().map(desc), title: (document.querySelector('.nb-title') || {}).textContent || '' }
+}
+// run `src` (an async body) in the page under watch(); the watcher goes in as source
+const inPage = (pg, src, o = {}) => pg.evaluate(({ w, src, o }) => (0, eval)(`(${w})`)({ act: new Function(`return (async () => { ${src} })()`), ...o }), { w: watch.toString(), src, o })
+const navTo = (pg, hash) => inPage(pg, `await new Promise((r) => { addEventListener('hashchange', () => r(), { once: true }); location.hash = ${JSON.stringify(hash || '#/')} })`)
+// in the page: a 2 s scroll of the column, one step a frame; the frame deltas
+async function scrollFps() {
+  const sc = NB.controls.scroller(), d = []
+  sc.scrollTop = 0
+  await new Promise((r) => requestAnimationFrame(() => requestAnimationFrame(r)))
+  let last = null
+  const t0 = performance.now()
+  await new Promise((done) => {
+    const step = (t) => { if (last != null) d.push(t - last); last = t; sc.scrollTop += 14; if (t - t0 < 2000) requestAnimationFrame(step); else done() }
+    requestAnimationFrame(step)
+  })
+  d.sort((a, b) => a - b)
+  return { frames: d.length, median: +d[d.length >> 1].toFixed(2), p95: +d[Math.floor(d.length * 0.95)].toFixed(2), moved: Math.round(sc.scrollTop) }
+}
+
 const b = await chromium.launch()
 const res = {}
 try {
+  if (!ONLY5) {
   for (const [sz, [w, h]] of Object.entries(SIZES)) {
     const phone = sz === 'phone'
     const ctx = await b.newContext({ viewport: { width: w, height: h }, isMobile: phone, hasTouch: phone })
@@ -353,9 +420,75 @@ try {
       await ctx.close()
     }
   }
+  }
+  // round 5: motion, and then reduced motion
+  for (const motion of ['motion', 'reduce']) {
+    for (const [sz, [w, h]] of Object.entries(SIZES4)) {
+      const phone = sz !== 'desk'
+      const ctx = await b.newContext({ viewport: { width: w, height: h }, isMobile: phone, hasTouch: phone, reducedMotion: motion === 'reduce' ? 'reduce' : 'no-preference', colorScheme: 'dark' })
+      const pg = await ctx.newPage()
+      const out = (res[`r5:${motion}@${sz}`] = { navs: [], acts: [] })
+      await pg.goto(FILE + '#/'); await pg.evaluate(() => document.fonts.ready); await pg.waitForTimeout(700)
+      // the load's own tail (a direct landing decodes the desk's images while idle) is not a
+      // navigation: start measuring once 500 ms pass with no long task (at most 5 s)
+      out.loadTail = await pg.evaluate(() => new Promise((done) => {
+        const seen = []; let last = performance.now()
+        const po = new PerformanceObserver((l) => { for (const e of l.getEntries()) { seen.push(Math.round(e.duration)); last = performance.now() } })
+        po.observe({ type: 'longtask' })
+        const t0 = performance.now()
+        const tick = () => { if (performance.now() - last >= 500 || performance.now() - t0 > 5000) { po.disconnect(); done(seen) } else setTimeout(tick, 50) }
+        tick()
+      }))
+      out.startRest = await pg.evaluate(() => document.getAnimations().map((a) => a.id || a.transitionProperty || a.animationName))
+      // through every view of the plan's table, in the app, and back to start-here
+      for (const [k, hash] of [...Object.entries(VIEWS2).filter(([k]) => k !== 'start'), ['start', '#/']]) out.navs.push({ k, ...(await navTo(pg, hash)) })
+      const act = async (k, src, o) => out.acts.push({ k, ...(await inPage(pg, src, o)) })
+      // the rest of what moves: hover, a folder, an anchor jump, focus mode and the sidebar or the
+      // drawer, the strip and the word, the graph
+      await navTo(pg, VIEWS.scen05)
+      if (!phone) {
+        const row = await pg.evaluate(() => { const r = document.querySelector('.nb-tree .nb-row:not([aria-current])').getBoundingClientRect(); return [r.left + 20, r.top + r.height / 2] })
+        await pg.mouse.move(row[0], row[1])
+        await act('hover', '', { ms: 300 })
+        await pg.mouse.move(5, 300)
+      }
+      await act('fold', "document.querySelector('.nb-tree li[data-folder][data-open=\"false\"] > .nb-row--folder .nb-row__chev').click()")
+      await act('anchor', "const a = NB.reader.outline()[2] || NB.reader.headings[2]; location.hash = NB.shell.href(NB.shell.state.route, 'a=' + a.id)", { ms: 1600 })
+      if (phone) { await act('drawer open', 'NB.shell.openDrawer()'); await act('drawer close', 'NB.shell.closeDrawer()') }
+      else for (const [k, src] of [['focus on', 'NB.shell.toggleFocus()'], ['focus off', 'NB.shell.toggleFocus()'], ['sidebar off', 'NB.shell.toggleSide()'], ['sidebar on', 'NB.shell.toggleSide()']]) await act(k, src, { ms: 500 })
+      // narration: the strip's row, its contents, the paragraph mark and the word
+      await navTo(pg, VIEWS2.tour3)
+      await act('strip in', "NIGHT.voice.use('sam'); NB.narrator.press(); await new Promise((r) => { const t = setInterval(() => { if (NIGHT.voice.state().playing) { clearInterval(t); r() } }, 20); setTimeout(() => { clearInterval(t); r() }, 8000) })", { ms: 1500, rest: 0 })
+      await act('strip out', 'NB.narrator.stop()', { ms: 500 })
+      await pg.waitForTimeout(300)
+      out.stripRest = await pg.evaluate(() => document.getAnimations().length)
+      // the graph (desktop): a filter, then Fit (the camera is rAF, so it is timed, not listed)
+      if (!phone) {
+        await navTo(pg, VIEWS2.graph)
+        await act('graph filter', "document.querySelector('.nb-graph__bar [data-filter=\"builds\"]').click()", { ms: 400 })
+        out.camera = await pg.evaluate(async () => {
+          NB.shell.graphZoomAt(400, 300, NB.shell.graphCam.s * 2)
+          await new Promise((r) => requestAnimationFrame(() => requestAnimationFrame(r)))
+          const t0 = performance.now(), before = { ...NB.shell.graphCam }
+          NB.shell.graphFit()
+          const moving = NB.shell.graphMoving()
+          await new Promise((r) => { const t = () => (NB.shell.graphMoving() ? requestAnimationFrame(t) : r()); requestAnimationFrame(t) })
+          return { moving, ms: Math.round(performance.now() - t0), moved: Math.abs(NB.shell.graphCam.s - before.s) > 0.01 }
+        })
+        await pg.evaluate(() => { NB.shell.graphFilters.builds = true })
+      }
+      if (sz === 'desk') {
+        await navTo(pg, VIEWS.scen05)
+        await pg.waitForTimeout(300)
+        out.fps = await pg.evaluate(scrollFps)
+      }
+      await ctx.close()
+    }
+  }
 } finally { await b.close() }
 if (process.env.AUDIT_JSON) console.log(JSON.stringify(res, null, 1))
 
+if (!ONLY5) {
 console.log('round 1: reading')
 for (const sz of Object.keys(SIZES)) {
   console.log(` ${sz}`)
@@ -450,6 +583,66 @@ for (const theme of Object.keys(THEMES)) {
     ok(big.every(([, m]) => !m.kickerCut), `at 23 px, no kicker is cut off (it wraps; the clock stays whole)${big.filter(([, m]) => m.kickerCut).map(([k]) => ' — ' + k).join('')}`)
     ok(big.every(([, m]) => m.barOne), `at 23 px, the bar's cells stay on one line on all ${big.length} views (the chrome does not grow)`)
   }
+}
+
+}
+
+console.log('round 5: motion')
+{
+  const inv = new Map()
+  const keyOf = (a) => `${a.kind === 'CSSTransition' ? 'css ' + a.name : a.kind === 'CSSAnimation' ? 'css @' + a.name : a.name} · ${a.target}`
+  const twinkle = (a) => a.kind === 'CSSAnimation' && a.name === 'lab-twinkle'
+  const NAV_OK = new Set(['opacity', 'transform'])
+  for (const motion of ['motion', 'reduce']) {
+    for (const sz of Object.keys(SIZES4)) {
+      const r = res[`r5:${motion}@${sz}`]
+      console.log(` ${motion} · ${sz}`)
+      const all = [...r.navs.flatMap((x) => x.anims.map((a) => ({ ...a, at: x.k }))), ...r.acts.flatMap((x) => x.anims.map((a) => ({ ...a, at: x.k })))]
+      for (const a of all) { const k = keyOf(a); const e = inv.get(k) || { ...a, motion: new Set(), at: new Set() }; e.motion.add(motion); e.at.add(a.at); if (motion === 'motion') Object.assign(e, { dur: a.dur, delay: Math.max(e.delay || 0, a.delay), easing: a.easing }); inv.set(k, e) }
+      const notes = r.navs.filter((x) => x.k !== 'graph')
+      const bad = notes.flatMap((x) => x.anims.filter((a) => !twinkle(a) && a.props.some((p) => !NAV_OK.has(p))).map((a) => `${x.k}: ${keyOf(a)} [${a.props}]`))
+      ok(!bad.length, `${notes.length} note navigations: every animation touches only opacity and transform (${new Set(notes.flatMap((x) => x.anims.map(keyOf))).size} kinds)${bad.length ? ' — ' + bad.slice(0, 4).join(' | ') : ''}`)
+      const lts = notes.map((x) => [x.k, Math.max(0, ...x.lt)])
+      ok(lts.every(([, v]) => v < 50), `the longest task of any note navigation is under 50 ms (${lts.map(([k, v]) => (v ? `${k} ${v}` : '')).filter(Boolean).join(', ') || 'none over 50 at all'})`)
+      const rest = notes.filter((x) => x.rest.length).map((x) => `${x.k}: ${x.rest.map(keyOf).join(', ')}`)
+      ok(!r.startRest.length && !rest.length && r.stripRest === 0, `with no graph or trip showing, getAnimations() is empty at rest (on start-here, after each of ${notes.length} arrivals, after the strip)${rest.length ? ' — ' + rest.join(' | ') : ''}${r.startRest.length ? ' — start: ' + r.startRest.join(', ') : ''}`)
+      const moved = all.filter((a) => !twinkle(a))
+      if (motion === 'motion') {
+        const offEase = moved.filter((a) => a.easing !== EASE || a.kfEase !== 'linear').map((a) => `${keyOf(a)} ${a.easing}/${a.kfEase}`)
+        ok(!offEase.length, `all ${new Set(moved.map(keyOf)).size} kinds of animation run on ${EASE}${offEase.length ? ' — ' + [...new Set(offEase)].slice(0, 4).join(' | ') : ''}`)
+        // a 0 s transition is a hold, not a motion: the drawer's visibility waits out its slide
+        const hold = (a) => a.dur === 0 && a.props.every((p) => p === 'visibility') && DURS.includes(a.delay)
+        const offDur = moved.filter((a) => !DURS.includes(a.dur) && !hold(a)).map((a) => `${keyOf(a)} ${a.dur}`)
+        ok(!offDur.length, `every duration is one of ${DURS.join(' / ')} ms (the drawer's visibility holds for its slide)${offDur.length ? ' — ' + [...new Set(offDur)].slice(0, 4).join(' | ') : ''}`)
+        const m1 = notes.filter((x) => x.k !== 'start' || true).filter((x) => x.anims.some((a) => a.name === 'm1-out') && x.anims.some((a) => a.name === 'm1-in'))
+        ok(m1.length >= notes.length - 1, `note to note crossfades (out 120, in 220 rising 8 px) on ${m1.length} of ${notes.length} arrivals (the one from the graph rises in only)`)
+        const acts = Object.fromEntries(r.acts.map((x) => [x.k, x.anims.map(keyOf)]))
+        const has = (k, re) => (acts[k] || []).some((x) => re.test(x))
+        if (sz === 'desk') ok(has('focus on', /m7-out/) && has('focus off', /m7-in/) && has('sidebar off', /m7-out/) && has('sidebar on', /m7-in/), 'focus mode and the sidebar: the panes leave and come back (320 ms)')
+        else ok(has('drawer open', /css transform · nb-side/) && has('drawer open', /fade · nb-scrim/), 'the drawer slides in (320 ms) and its scrim fades (180 ms)')
+        ok(has('strip in', /m3-row/) && has('strip in', /m3-in/) && has('strip in', /css box-shadow/) && has('strip out', /m3-row/), 'the strip: its row grows (180) and its contents fade in (120); the paragraph mark fades in (180); the row folds away on stop')
+        ok(has('anchor', /m8-flash/) && has('fold', /css transform · nb-row__chev/), 'an anchor jump flashes its target (600); a folder\'s chevron turns (180)')
+        if (sz === 'desk') {
+          ok(has('hover', /css (background-color|color)/) && has('graph filter', /css opacity · n/), 'hover fades colour (180); a graph filter dims over 180')
+          ok(r.camera && r.camera.moving && r.camera.moved && r.camera.ms >= 430 && r.camera.ms <= 700, `Fit tweens the camera through the one transform (${r.camera && r.camera.ms} ms; 450 planned)`)
+          const g = r.navs.find((x) => x.k === 'graph')
+          const ds = [...new Set(g.anims.filter((a) => a.name === 'm5-in').map((a) => a.delay))].sort((x, y) => x - y)
+          ok(ds.length >= 3 && ds.every((d, i) => d === i * 40), `the graph's sections fade in one after another, ${ds.join(' / ')} ms apart (320 ms each)`)
+          ok(r.fps && r.fps.median <= 1000 / 55, `a 2 s scroll of 05-scenarios: median frame ${r.fps && r.fps.median} ms (≥ 55 fps; p95 ${r.fps && r.fps.p95} ms, ${r.fps && r.fps.frames} frames, ${r.fps && r.fps.moved} px)`)
+        }
+      } else {
+        const tf = moved.filter((a) => a.props.includes('transform')).map(keyOf)
+        ok(!tf.length, `no animation has a transform keyframe (${new Set(moved.map(keyOf)).size} kinds seen)${tf.length ? ' — ' + [...new Set(tf)].join(' | ') : ''}`)
+        const long = moved.filter((a) => (a.delay || 0) + a.dur * (a.iter || 1) > 120).map((a) => `${keyOf(a)} ${a.delay}+${a.dur}`)
+        ok(!long.length, `none runs longer than 120 ms${long.length ? ' — ' + [...new Set(long)].slice(0, 5).join(' | ') : ''}`)
+        if (sz === 'desk') ok(r.camera && !r.camera.moving, 'Fit jumps (no camera tween)')
+        ok(!(r.navs.find((x) => x.k === 'graph') || { anims: [] }).anims.some((a) => a.name === 'm5-in'), 'the graph shows whole')
+        ok((r.acts.find((x) => x.k === 'anchor') || { anims: [] }).anims.every((a) => a.name !== 'm8-flash'), 'an anchor jump is instant and keeps its static mark (no flash)')
+      }
+    }
+  }
+  console.log('\n  every animation seen (with motion; reduced motion runs the ones marked R, at ≤ 120 ms):')
+  for (const [k, a] of [...inv.entries()].sort()) console.log(`    ${k.padEnd(44)} ${String(a.dur).padStart(5)} ms${a.delay ? ` +${a.delay} delay` : ''}  ${twinkle(a) ? 'ease-in-out (the sky)' : a.easing === EASE ? 'the easing' : a.easing}  ${a.motion.has('reduce') ? 'R' : ' '}  ${[...a.at].slice(0, 4).join(', ')}`)
 }
 
 console.log(fails ? `\n${fails} of ${n} FAILED` : `\nall ${n} audit checks pass`)

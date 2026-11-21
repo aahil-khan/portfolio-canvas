@@ -57,7 +57,7 @@
     return `<p class="nb-meta nb-kicker">${items.filter(Boolean).join('')}</p>`
   }
 
-  R.render = (note, q) => {
+  R.render = (note, q, opts) => {
     const v = V(), w = q.get('w'), pn = v.prevNext(note, w), ts = pn.tour
     const ctx = {
       resolve: (t) => { const n = v.resolve(t); return n && { href: v.href(n), id: n.id, title: v.label(n), label: n.title } },
@@ -109,7 +109,11 @@
     NB.gloss.mark(S().el.col, note)
     NB.controls.rendered(note)
     NB.embeds.hydrate(S().el.col, note)
-    R.tables()
+    // the tables' furniture measures them, which forces the new note's first layout. While the
+    // column is still invisible (a crossfade, M1) it waits two frames: the first lays the note out
+    // in its own time, the second measures a clean layout. Otherwise it runs now, before any paint
+    if (opts && opts.later) requestAnimationFrame(() => requestAnimationFrame(() => { if (S().el.col.querySelector(`.nb-note[data-route="${CSS.escape(note.route)}"]`)) R.tables() }))
+    else R.tables()
     S().el.listenBtn.setAttribute('aria-label', note.type === 'walkthrough' ? C.listenTour(note.id) : C.listenLabel)
   }
   // a computed list (a tour's steps, a folder's contents, latest, stages) writes its status as a
@@ -189,7 +193,18 @@
     const w = t.closest('.nb-table-wrap[data-folded="true"]')
     if (w) foldRows(w, true)
     t.classList.add('is-target')
-    t.scrollIntoView({ block: 'start' })
+    // M8: a smooth scroll, then the target flashes and lets go. Reduced motion: an instant jump,
+    // and the target keeps today's static mark (CSS)
+    const M = NB.motion
+    if (M.reduced()) { t.scrollIntoView({ block: 'start' }); return }
+    const sc = NB.controls.scroller(), on = sc === document.scrollingElement ? document : sc, at = sc.scrollTop
+    t.scrollIntoView({ block: 'start', behavior: 'smooth' })
+    let done = false
+    const go = () => { if (done) return; done = true; on.removeEventListener('scrollend', go); if (t.isConnected) M.flash(t, col) }
+    on.addEventListener('scrollend', go)
+    // already in place (no scroll to end): flash now; and never later than the longest scroll
+    requestAnimationFrame(() => requestAnimationFrame(() => { if (sc.scrollTop === at) go() }))
+    setTimeout(go, 900)
   }
 
   // ── the lightbox ──────────────────────────────────────────────────────────────────────
@@ -409,10 +424,17 @@
   }
   N.left = () => left(voice().state())
   function strip() {
-    const el = S().el.strip, s = voice().state()
+    const strip = S().el.strip, s = voice().state()
+    // the strip's contents sit in one box, so they can fade in while its row grows (M3)
+    const el = strip.firstElementChild || strip.appendChild(document.createElement('div'))
+    el.className = 'nb-strip__in'
     const show = st.on || !!st.resume
-    if (el.hidden === show) el.hidden = !show
-    if (!show) { el.innerHTML = ''; el.dataset.key = ''; closeMenu(); return }
+    if (!show) {
+      closeMenu()
+      NB.motion.strip(strip, false, () => { if (!st.on && !st.resume) { el.innerHTML = ''; el.dataset.key = '' } })
+      return
+    }
+    NB.motion.strip(strip, true)
     if (!st.on && st.resume) {
       el.dataset.key = 'resume'
       el.innerHTML = `<button type="button" class="nb-strip__resume" data-nb="resume" aria-label="${esc(T.resumeLabel(st.resume.tour ? st.resume.tour.id : st.resume.note.title))}">${esc(T.resume(st.resume.tour ? st.resume.tour.id : st.resume.note.title))}</button><span class="nb-strip__where"></span><button type="button" class="nb-strip__stop" data-nb="stop" aria-label="${esc(T.stopLabel)}">${esc(T.stop)}</button>`

@@ -310,8 +310,8 @@ for (const [name, P] of Object.entries(themes)) {
   // the accent marks only the focus ring and "you are here": count the rules that paint it
   const hiRules = rules0(css).filter(([, body]) => /var\(--lab-hi\)/.test(body)).map(([sel]) => sel)
   ok(!hiRules.length, `no rule paints --lab-hi directly: it reaches the page only through --lab-here, --lab-ring and --lab-word-bg${hiRules.length ? ' — ' + hiRules.join(' | ') : ''}`)
-  const stars = rules0(css).filter(([sel, body]) => /lab-starfield__layer/.test(sel) && /animation-play-state:\s*paused/.test(body))
-  ok(stars.length === 1 && /html:not\(\.has-night\)/.test(stars[0][0]) && /html\.nb-on:not\(\.nb-graph\)/.test(stars[0][0]), 'the starfield pauses unless the trip or the full graph is showing (M9)')
+  const stars = rules0(css).filter(([sel, body]) => /lab-starfield__layer/.test(sel) && /animation-name:\s*none/.test(body))
+  ok(stars.length === 1 && /html:not\(\.has-night\)/.test(stars[0][0]) && /html\.nb-on:not\(\.nb-graph\)/.test(stars[0][0]), 'the starfield twinkles only while the trip or the full graph is showing (M9; removed, not paused, so nothing animates at rest)')
   const R = NB.prefs.resolve
   ok(R({ light: true }) === 'paper' && R({ light: false }) === 'night' && R({ light: true, trip: true }) === 'night' && R({ stored: 'paper', trip: true }) === 'paper' && R({ stored: 'paper', light: false }) === 'paper' && R({ stored: 'night', light: true }) === 'night' && R({ asked: 'amber', stored: 'paper' }) === 'amber' && R({ stored: 'bogus', light: true }) === 'paper',
     'NB.prefs.resolve: a stored choice wins; else a direct link follows prefers-color-scheme and the trip is night; ?theme= holds one visit')

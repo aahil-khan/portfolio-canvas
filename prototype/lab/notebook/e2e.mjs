@@ -66,7 +66,9 @@ async function page(size, url, opts = {}) {
   return p
 }
 const close = async (p) => { await p.context().close(); contexts.splice(contexts.indexOf(p.context()), 1) }
-const go = async (p, hash) => { await p.evaluate((h) => { location.hash = h }, hash); await wait(p, 160) }
+// a navigation crossfades (round 5, M1: 120 out, 220 in): wait for it to land before measuring
+const settled = (p) => p.waitForFunction(() => !document.getAnimations().some((a) => /^m[0-9]/.test(a.id)) && !(NB.shell.graphMoving && NB.shell.graphMoving()), null, { timeout: 3000 }).catch(() => {})
+const go = async (p, hash) => { await p.evaluate((h) => { location.hash = h }, hash); await wait(p, 160); await settled(p) }
 
 // in the page: is the reading column covered, cut off or scrolling sideways?
 const layoutProbe = () => {
@@ -205,7 +207,9 @@ for (const size of Object.keys(SIZES).filter((x) => !ONLY || x === ONLY)) {
     }
     const before = await p.evaluate(panes)
     await p.keyboard.press('f')
+    // the panes leave over 320 ms, then the grid switches (M7)
     await wait(p, 100)
+    await settled(p)
     const on = await p.evaluate(panes)
     await p.reload()
     await p.evaluate(() => document.fonts.ready)
@@ -354,11 +358,13 @@ for (const size of Object.keys(SIZES).filter((x) => !ONLY || x === ONLY)) {
       ok(mut.length === 1 && mut[0] === 'nb-g__world:transform', `pan and zoom change only one element's transform (${mut.join(', ')})`)
       await p.click('.nb-graph__bar [data-fit]')
       await wait(p, 100)
+      await settled(p)
       const fit = await p.evaluate(() => { const sr = document.querySelector('.nb-g--full').getBoundingClientRect(); return [...document.querySelectorAll('.nb-g--full a.n .s')].every((s) => { const r = s.getBoundingClientRect(); return r.left >= sr.left - 1 && r.right <= sr.right + 1 && r.top >= sr.top - 1 && r.bottom <= sr.bottom + 1 }) })
-      ok(fit, 'Fit brings every node back into view')
+      ok(fit, 'Fit brings every node back into view (the camera moves there over 450 ms)')
       // ?focus= centres the note within 2 px, its neighbours lit, its card open
       await go(p, '#/graph?focus=agent-reliability/shopkeeper/01-spec')
       await wait(p, 300)
+      await settled(p)
       const f = await p.evaluate(() => {
         const sr = document.querySelector('.nb-g--full').getBoundingClientRect(), a = document.querySelector('.nb-g--full a.n[data-route="agent-reliability/shopkeeper/01-spec"]'), r = a.querySelector('.s').getBoundingClientRect()
         return { dx: r.left + r.width / 2 - (sr.left + sr.width / 2), dy: r.top + r.height / 2 - (sr.top + sr.height / 2), sel: a.classList.contains('is-sel'), lit: document.querySelectorAll('.nb-g--full a.n.is-lit').length, card: (document.querySelector('.nb-card:not([hidden]) .nb-card__open') || {}).getAttribute?.('href') }
@@ -420,7 +426,8 @@ for (const size of Object.keys(SIZES).filter((x) => !ONLY || x === ONLY)) {
     ok(await p.evaluate(() => !NIGHT.voice.state().playing && !document.querySelector('.nb-strip').hidden), 'space pauses, and the strip stays')
     await p.keyboard.press('Escape')
     await wait(p, 150)
-    ok(await p.evaluate(() => document.querySelector('.nb-strip').hidden && !NIGHT.voice.state().playing), 'Esc stops, and the strip leaves')
+    await settled(p)
+    ok(await p.evaluate(() => document.querySelector('.nb-strip').hidden && !NIGHT.voice.state().playing), 'Esc stops, and the strip leaves (its row folds away over 180 ms)')
     // the narrator never yanks the page: scrolled away, it waits and offers to come back
     await go(p, ROUTES.longest)
     await p.click('.nb-bar [data-act="listen"]')
@@ -487,8 +494,10 @@ for (const size of Object.keys(SIZES).filter((x) => !ONLY || x === ONLY)) {
     await p.focus('.desk-dock__item[data-id="lab"]')
     await p.keyboard.press('Enter')
     await wait(p, 1700)
-    const r = await p.evaluate(() => ({ live: NB.trip.live(), ms: NB.trip.timing.in, hash: location.hash, focus: document.activeElement.className }))
-    ok(r.live && r.ms >= 1100 && r.ms <= 1300 && r.hash === '#/' && /nb-title/.test(r.focus), `Enter on the Lab tile lands on start-here in ${r.ms} ms, focus on the note's h1`)
+    // the trip is timed on its own frame clock (trip.js: first frame to the frame at t = 1), so a
+    // loaded machine adds at most a frame; the wall clock is printed beside it, not held to the window
+    const r = await p.evaluate(() => ({ live: NB.trip.live(), ms: NB.trip.timing.in, wall: NB.trip.timing.wall.in, hash: location.hash, focus: document.activeElement.className }))
+    ok(r.live && r.ms >= 1100 && r.ms <= 1300 && r.hash === '#/' && /nb-title/.test(r.focus), `Enter on the Lab tile lands on start-here in ${r.ms} ms (wall ${r.wall}), focus on the note's h1`)
     // frozen frames, both ways: the bar's clip shrinks on every edge, the dock leaves, the sidebar stays under the bar
     for (const back of [false, true]) {
       const frames = await p.evaluate((bk) => { const out = []; for (let k = 0; k <= 26; k++) { NB.trip.scrub(k / 26, bk); out.push(NB.trip.frame()) } return out }, back)
@@ -530,14 +539,14 @@ for (const size of Object.keys(SIZES).filter((x) => !ONLY || x === ONLY)) {
     await wait(d, 1700)
     const back = await d.evaluate((before) => {
       const now = NB.trip.rects()
-      return { delta: Math.max(...Object.keys(before).map((id) => Math.max(...before[id].map((v, i) => Math.abs(v - now[id][i]))))), hash: location.hash, ms: NB.trip.timing.out, t: NB.trip.state.t }
+      return { delta: Math.max(...Object.keys(before).map((id) => Math.max(...before[id].map((v, i) => Math.abs(v - now[id][i]))))), hash: location.hash, ms: NB.trip.timing.out, wall: NB.trip.timing.wall.out, t: NB.trip.state.t }
     }, desk.rects)
-    ok(back.t === 0 && back.hash === '#desk' && back.delta < 0.01 && back.ms >= 1100 && back.ms <= 1300, `from a direct link, ← canvas lands on the desk in ${back.ms} ms with every card on its default spot (max Δ ${back.delta.toFixed(2)} px)`)
+    ok(back.t === 0 && back.hash === '#desk' && back.delta < 0.01 && back.ms >= 1100 && back.ms <= 1300, `from a direct link, ← canvas lands on the desk in ${back.ms} ms (wall ${back.wall}) with every card on its default spot (max Δ ${back.delta.toFixed(2)} px)`)
     await close(d)
     const rt = await page(size, '?roundtrip=1#desk', { settle: 600 })
     await rt.waitForFunction(() => NB.trip.roundtrip, null, { timeout: 9000 }).catch(() => {})
     const rr = await rt.evaluate(() => NB.trip.roundtrip || {})
-    ok(rr.delta === 0 && rr.in >= 1100 && rr.in <= 1300 && rr.out >= 1100 && rr.out <= 1300, `?roundtrip=1: max Δ ${rr.delta != null ? rr.delta.toFixed(2) : '?'} px, desk → lab ${rr.in} ms, lab → desk ${rr.out} ms`)
+    ok(rr.delta === 0 && rr.in >= 1100 && rr.in <= 1300 && rr.out >= 1100 && rr.out <= 1300, `?roundtrip=1: max Δ ${rr.delta != null ? rr.delta.toFixed(2) : '?'} px, desk → lab ${rr.in} ms, lab → desk ${rr.out} ms (wall ${rr.wall ? rr.wall.in + ' / ' + rr.wall.out : '?'})`)
     await close(rt)
   }
 }

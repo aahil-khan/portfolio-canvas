@@ -5,7 +5,8 @@
  *   NB.trip.enter() / .leave() → Promise   the Lab tile (or L), ← canvas (or ~)
  *   NB.trip.scrub(t, back) hold the trip at t ∈ [0, 1] (?freeze=)
  *   NB.trip.live()         the Lab is up and still (keys work only then)
- *   NB.trip.timing         { in, out }: how long the last trip each way took, measured (ms)
+ *   NB.trip.timing         { in, out }: how long the last trip each way took on its own frame clock
+ *                          (first frame to the frame at t = 1, ms); .wall the wall clock, for comparison
  *   NB.trip.frame()        what a frozen frame shows: the bar's clip, the dock's top, … (e2e)
  *
  * ONE TIMELINE, a pure function of t: 0 → 1 over 1.2 s in, 1 → 0 over 1.2 s back, with
@@ -50,7 +51,7 @@
   const W = { dock: [0.1, 0.45], pill: [0.3, 0.78], pillFade: [0.3, 0.42], bar: [0.55, 0.84], side: [0.5, 0.85], note: [0.52, 1] }
   const nightAt = (b, y) => Math.min(1, Math.max(0, (1.6 * b - y) / 0.6))
   const phone = () => innerWidth < 900
-  const T = (NB.trip = { timing: { in: null, out: null }, W })
+  const T = (NB.trip = { timing: { in: null, out: null, wall: { in: null, out: null } }, W })
   const st = { t: 0, anim: 0, queue: [], cards: [], pill: null, bar: null, dockDrop: 0, frame: null }
   let el = {}
 
@@ -172,14 +173,22 @@
       dir = to > st.t ? 1 : -1
       if (dir > 0) beginEnter(); else beginLeave()
       document.documentElement.classList.add('is-turning')
-      const from = st.t, ms = (R() ? MS.calm : dir > 0 ? MS.in : MS.out) * Math.abs(to - from), t0 = performance.now()
+      // the trip's clock is its own frames: t0 is the first frame's timestamp, so a slow first frame
+      // (the shell drawing) neither skips the start nor counts as trip; timing is that clock from
+      // the first frame to the one that drew t = 1, so a busy machine adds at most one frame.
+      // T.timing.wall keeps the wall clock from the call to the end of finish(), for comparison.
+      const from = st.t, ms = (R() ? MS.calm : dir > 0 ? MS.in : MS.out) * Math.abs(to - from), w0 = performance.now()
+      let t0 = null
       const step = (now) => {
+        if (t0 == null) t0 = now
         const p = ms ? Math.min(1, (now - t0) / ms) : 1
         apply(from + (to - from) * p)
         if (p < 1) { st.anim = requestAnimationFrame(step); return }
         st.anim = 0
         finish(to)
-        T.timing[to === 1 ? 'in' : 'out'] = Math.round(performance.now() - t0)
+        const k = to === 1 ? 'in' : 'out'
+        T.timing[k] = Math.round(now - t0)
+        T.timing.wall[k] = Math.round(performance.now() - w0)
         resolve()
         const next = st.queue.shift()
         if (next) run(next[0]).then(next[1])
@@ -333,7 +342,7 @@
         return T.enter().then(() => new Promise((ok) => setTimeout(ok, 400))).then(() => T.leave()).then(settled).then(() => {
           proof(C.proof.round, before)
           document.querySelector('.proof').textContent += ' · ' + C.proof.trip(T.timing.in, T.timing.out)
-          T.roundtrip = { delta: T.lastDelta, in: T.timing.in, out: T.timing.out }
+          T.roundtrip = { delta: T.lastDelta, in: T.timing.in, out: T.timing.out, wall: { ...T.timing.wall } }
         })
       })
       return

@@ -26,7 +26,11 @@
   const esc = MD.escape
   const h = (tag, cls, html) => { const e = document.createElement(tag); if (cls) e.className = cls; if (html != null) e.innerHTML = html; return e }
   const phone = () => innerWidth < 900
-  const wide = () => innerWidth >= 1200
+  // the width, read once and on resize: innerWidth on a phone's viewport forces a layout, and the
+  // router asks right after drawing a note (that layout belongs to the next frame)
+  let vw = innerWidth
+  addEventListener('resize', () => { vw = innerWidth })
+  const wide = () => vw >= 1200
   const P = NB.prefs
   const store = { get: P.get, set: P.set }
 
@@ -73,6 +77,7 @@
       </header>
       <aside class="nb-side" id="nbSide" aria-label="${esc(C.treeLabel)}">
         <a class="nb-side__canvas" href="#desk" data-act="canvas">${esc(C.canvas)}</a>
+        <div class="nb-here" aria-hidden="true" hidden></div>
         <ul class="nb-tree" role="tree" aria-label="${esc(C.treeLabel)}"></ul>
         <div class="nb-side__foot"><button type="button" class="nb-side__share" data-act="share">${esc(C.share)}</button><button type="button" class="nb-side__keys" data-act="help">${esc(C.keysHint)}</button></div>
       </aside>
@@ -82,7 +87,7 @@
     document.body.appendChild(root)
     Object.assign(el, {
       root, head: root.querySelector('.nb-head'), bar: root.querySelector('.nb-bar'), strip: root.querySelector('.nb-strip'), path: root.querySelector('.nb-bar__path ol'), up: root.querySelector('.nb-bar__up'), focusBtn: root.querySelector('[data-act="focus"]'),
-      menu: root.querySelector('.nb-bar__menu'), canvas: root.querySelector('.nb-bar__canvas'), side: root.querySelector('.nb-side'), tree: root.querySelector('.nb-tree'),
+      menu: root.querySelector('.nb-bar__menu'), canvas: root.querySelector('.nb-bar__canvas'), side: root.querySelector('.nb-side'), tree: root.querySelector('.nb-tree'), here: root.querySelector('.nb-here'),
       main: root.querySelector('.nb-main'), col: root.querySelector('.nb-col'), margin: root.querySelector('.nb-margin'), scrim: root.querySelector('.nb-scrim'),
       graphBtn: root.querySelector('[data-act="graph"]'), listenBtn: root.querySelector('.nb-bar [data-act="listen"]'),
     })
@@ -92,27 +97,37 @@
     addEventListener('keydown', onKey, true)
     addEventListener('hashchange', () => S.show())
     let rt = 0
-    addEventListener('resize', () => { clearTimeout(rt); rt = setTimeout(() => { if (!phone()) S.closeDrawer(true); if (S.state.view === 'graph') { if (S.graphPhone !== phone()) S.show(); return } S.renderAside(); NB.reader.tables() }, 120) })
+    addEventListener('resize', () => { clearTimeout(rt); rt = setTimeout(() => { if (!phone()) S.closeDrawer(true); if (S.state.view === 'graph') { if (S.graphPhone !== phone()) S.show(); return } S.renderAside(); NB.reader.tables(); placeHere(false) }, 120) })
     // the theme is already on <html> (NB.prefs.apply, before first paint); the stars follow it
-    P.onTheme(() => { if (NB.trip && NB.trip.bakeStars) NB.trip.bakeStars(); flags() })
+    P.onTheme(() => { NB.motion.snap(() => {}); if (NB.trip && NB.trip.bakeStars) NB.trip.bakeStars(); flags() })
     NB.controls.mount()
     if (q0.get('voice')) NIGHT.voice.use(q0.get('voice'))
     flags()
     if (NIGHT.sound && NIGHT.sound.on) NIGHT.sound.on(flags)
     // the inline script in index.html has already set html[data-focus] before first paint
-    S.setFocus(S.isFocus(), false)
+    S.setFocus(S.isFocus(), false, false)
     renderTree()
+    if (document.fonts) document.fonts.ready.then(() => placeHere(false))
   }
 
   // ── focus mode: html[data-focus], one owner. The tree and the margin go, the column centres,
   // the bar dims until it is pointed at. Stored (try/catch); the narrator turns it on unstored.
+  // M7: the panes leave (opacity and 12 px aside, 320 ms) and then the grid switches, once, so no
+  // frame reflows the column's text; turning it off switches the grid first and the panes come
+  // back. The state is the reader's at once (isFocus, aria-pressed); the attribute is the layout.
   const FOCUS_KEY = P.KEY.focus
-  S.isFocus = () => document.documentElement.hasAttribute('data-focus')
-  S.setFocus = (on, persist = true) => {
-    document.documentElement.toggleAttribute('data-focus', !!on)
-    if (persist) store.set(FOCUS_KEY, !!on)
-    if (el.focusBtn) el.focusBtn.setAttribute('aria-pressed', String(!!on))
+  let focusState = null
+  S.isFocus = () => (focusState == null ? document.documentElement.hasAttribute('data-focus') : focusState)
+  S.setFocus = (on, persist = true, animate = true) => {
+    on = !!on
+    const was = S.isFocus()
+    focusState = on
+    if (persist) store.set(FOCUS_KEY, on)
+    if (el.focusBtn) el.focusBtn.setAttribute('aria-pressed', String(on))
     if (NB.controls && NB.controls.syncAa) NB.controls.syncAa()
+    const apply = () => { document.documentElement.toggleAttribute('data-focus', on); if (!on) placeHere(false) }
+    if (!animate || was === on || !live()) return apply()
+    NB.motion.panes(apply, on, [[el.side, -1], [el.margin, 1]])
   }
   S.toggleFocus = () => { if (NB.narrator) NB.narrator.focusTouched(); S.setFocus(!S.isFocus()) }
 
@@ -184,22 +199,38 @@
     }
     if (!note) note = v.get('')
     if (S.state.note && S.state.note !== note && NB.narrator) NB.narrator.navigated(note, q)
-    S.state = { ...S.state, route: note.route, view: note.route === '' ? 'home' : 'note', note, q }
-    el.root.dataset.view = S.state.view
-    el.root.dataset.sec = note.section
-    document.documentElement.classList.remove('nb-graph')
-    el.graphBtn.setAttribute('aria-pressed', 'false')
-    document.title = C.title(note.title)
-    S.visited.add(note.route)
-    store.set('nb-visited', [...S.visited])
-    renderPath(note)
-    markTree(note)
-    NB.reader.render(note, q)
-    S.renderAside()
-    const a = q.get('a')
-    if (a) requestAnimationFrame(() => NB.reader.toAnchor(a))
-    else if (!S.keepScroll) { el.main.scrollTop = 0; if (phone()) scrollTo(0, 0) }
-    S.keepScroll = false
+    // M1: a new note crossfades in (motion.js); the same note again (an anchor, a resize) and
+    // anything before the Lab is up (a direct link, the trip) draw at once
+    const was = S.state, up = !!NB.trip && NB.trip.live()
+    const how = !up || !was.note ? null : was.view === 'graph' ? 'arrive' : was.note !== note ? 'swap' : null
+    const prevSec = el.root.dataset.sec
+    const draw = () => {
+      S.state = { ...S.state, route: note.route, view: note.route === '' ? 'home' : 'note', note, q }
+      el.root.dataset.view = S.state.view
+      el.root.dataset.sec = note.section
+      document.documentElement.classList.remove('nb-graph')
+      // leaving the graph, ◎ stops being pressed at once, like the tree's rows (markTree flushes)
+      el.graphBtn.style.transition = 'none'
+      el.graphBtn.setAttribute('aria-pressed', 'false')
+      document.title = C.title(note.title)
+      S.visited.add(note.route)
+      store.set('nb-visited', [...S.visited])
+      renderPath(note)
+      markTree(note)
+      el.graphBtn.style.transition = ''
+      NB.reader.render(note, q, { later: !!how })
+      S.renderAside()
+      const a = q.get('a'), top = !a && !S.keepScroll
+      // resetting the scroll lays the note out: during a crossfade that waits for the frame (the
+      // column shows nothing until then), so the router's own task stays short
+      const reset = () => { el.main.scrollTop = 0; if (phone()) scrollTo(0, 0) }
+      if (a) requestAnimationFrame(() => NB.reader.toAnchor(a))
+      else if (top && how) requestAnimationFrame(reset)
+      else if (top) reset()
+      S.keepScroll = false
+    }
+    if (how === 'swap') NB.motion.swap({ root: el.root, col: el.col, clip: phone() ? { getBoundingClientRect: () => ({ left: 0, top: el.head.getBoundingClientRect().bottom, width: innerWidth, bottom: innerHeight }) } : el.main, sec: prevSec, render: draw })
+    else { draw(); if (how === 'arrive') NB.motion.arrive(el.col) }
     if (S.focusTitle) { S.focusTitle = false; const t = el.col.querySelector('.nb-title'); if (t) t.focus({ preventScroll: true }) }
     NB.controls.arrived(note, q)
     popOnArrival(q)
@@ -262,8 +293,8 @@
     for (const li of el.tree.querySelectorAll('li[data-folder]')) {
       const open = li.dataset.open === 'true', row = li.querySelector(':scope > .nb-row')
       row.setAttribute('aria-expanded', String(open))
-      row.querySelector('.nb-row__chev').textContent = open ? '▾' : '▸'
     }
+    placeHere()
   }
   // the roving tab stop
   function rove(row) {
@@ -272,19 +303,41 @@
     row.setAttribute('tabindex', '0')
   }
   S.renderTree = renderTree
+  // the rows that stop and start being "here" change colour at once: only the bar moves (M1), and
+  // a colour the reader did not point at never fades (the style is flushed below, with the
+  // transition off on just those rows)
   function markTree(note) {
-    for (const a of el.tree.querySelectorAll('[aria-current]')) a.removeAttribute('aria-current')
+    const quiet = [...el.tree.querySelectorAll('[aria-current]')]
     const a = el.tree.querySelector(`a[data-route="${CSS.escape(note.route)}"]`)
-    if (!a) return
+    if (a) quiet.push(a)
+    for (const x of quiet) x.style.transition = 'none'
+    for (const x of el.tree.querySelectorAll('[aria-current]')) x.removeAttribute('aria-current')
+    if (!a) { void el.tree.offsetWidth; for (const x of quiet) x.style.transition = ''; placeHere(); return }
     a.setAttribute('aria-current', 'page')
     rove(a)
     // open every folder on the way down
     let li = a.closest('li[data-folder]')
     while (li) { li.dataset.open = 'true'; li = li.parentElement.closest('li[data-folder]') }
     syncFolds()
+    for (const x of quiet) x.style.transition = ''
     const r = a.getBoundingClientRect(), sr = el.side.getBoundingClientRect()
     if (r.top < sr.top || r.bottom > sr.bottom) a.scrollIntoView({ block: 'nearest' })
   }
+  // M1: "you are here" is one 2 px bar beside the current row, sliding to the next one over
+  // 180 ms (a transform: translate to the row, scaleY to its height). CSS owns the transition.
+  function placeHere(animate = true) {
+    const bar = el.here, a = el.tree && el.tree.querySelector('.nb-row[aria-current="page"]')
+    if (!bar) return
+    const on = !!a && a.getClientRects().length > 0
+    if (!on) { bar.hidden = true; return }
+    const first = bar.hidden || !animate
+    if (first) bar.style.transition = 'none'
+    bar.hidden = false
+    const sr = el.side.getBoundingClientRect(), r = a.getBoundingClientRect()
+    bar.style.transform = `translate(${(r.left - sr.left + el.side.scrollLeft).toFixed(1)}px, ${(r.top - sr.top + el.side.scrollTop).toFixed(1)}px) scaleY(${(r.height / 100).toFixed(4)})`
+    if (first) { void bar.offsetWidth; bar.style.transition = '' }
+  }
+  S.placeHere = placeHere
   function treeKeys(e) {
     const rows = [...el.tree.querySelectorAll('.nb-row')].filter((x) => x.offsetParent !== null)
     const i = rows.indexOf(document.activeElement)
@@ -311,6 +364,9 @@
     document.documentElement.classList.add('nb-drawer')
     el.root.classList.add('nb-drawer-open')
     el.scrim.hidden = false
+    el.scrim.style.pointerEvents = ''
+    NB.motion.fadeIn(el.scrim, NB.motion.D.scrim)
+    placeHere(false)
     el.menu.setAttribute('aria-expanded', 'true')
     el.side.setAttribute('role', 'dialog')
     el.side.setAttribute('aria-modal', 'true')
@@ -323,7 +379,9 @@
     if (!el.root.classList.contains('nb-drawer-open')) return false
     document.documentElement.classList.remove('nb-drawer')
     el.root.classList.remove('nb-drawer-open')
-    el.scrim.hidden = true
+    // the scrim fades as the drawer slides; it takes no click while it goes
+    el.scrim.style.pointerEvents = 'none'
+    NB.motion.play(el.scrim, [{ opacity: 1 }, { opacity: 0 }], NB.motion.cap(NB.motion.D.scrim)).then(() => { if (!el.root.classList.contains('nb-drawer-open')) el.scrim.hidden = true })
     el.menu.setAttribute('aria-expanded', 'false')
     el.side.removeAttribute('role'); el.side.removeAttribute('aria-modal')
     el.main.inert = false; el.head.inert = false
@@ -332,7 +390,10 @@
     if (NIGHT.sound) NIGHT.sound.cue('chirp-close')
     return true
   }
-  S.toggleSide = () => { document.documentElement.classList.toggle('nb-noside') }
+  S.toggleSide = () => {
+    const h = document.documentElement, out = !h.classList.contains('nb-noside')
+    NB.motion.panes(() => { h.classList.toggle('nb-noside', out); if (!out) placeHere(false) }, out, [[el.side, -1]])
+  }
   // focus stays inside the drawer while it is open
   addEventListener('focusin', (e) => {
     if (!el.root || !el.root.classList.contains('nb-drawer-open')) return
@@ -592,17 +653,30 @@
       for (const [k, a] of Object.entries(M.at)) if (a.shown) { pts[k + ':0'] = [a.x, a.y]; pts[k + ':1'] = [a.x + a.w, a.y + a.h] }
       return pts
     }
-    const fit = () => { const r = svg.getBoundingClientRect(); Object.assign(cam, NB.graph.fit(bounds(), r.width, r.height, 20, 14)); kick() }
-    const centre = (key) => {
+    // M5: Fit and focus move the camera over 450 ms on the one easing (NB.motion.camera), still
+    // through this one transform; a drag, a wheel or a pinch takes over at once
+    let tw = null
+    const write = (c) => { Object.assign(cam, c); dirty = true; frame() }
+    const stopTween = () => { if (tw) { tw.stop(); tw = null } }
+    const moveTo = (to, animate) => {
+      stopTween()
+      if (!animate) { Object.assign(cam, to); kick(); return }
+      const r = svg.getBoundingClientRect()
+      let t = null
+      t = NB.motion.camera({ ...cam }, to, r.width, r.height, write, () => { if (tw === t) tw = null })
+      if (t.on()) tw = t
+    }
+    const fit = (animate = true) => { const r = svg.getBoundingClientRect(); moveTo(NB.graph.fit(bounds(), r.width, r.height, 20, 14), animate) }
+    const centre = (key, animate = true) => {
       const p = M.L.pos[key], r = svg.getBoundingClientRect()
       if (!p) return
-      const f = NB.graph.fit(bounds(), r.width, r.height, 20, 14)
-      cam.s = Math.min(6, Math.max(f.s, 1.15)); cam.x = r.width / 2 - p[0] * cam.s; cam.y = r.height / 2 - p[1] * cam.s
-      kick()
+      const f = NB.graph.fit(bounds(), r.width, r.height, 20, 14), s = Math.min(6, Math.max(f.s, 1.15))
+      moveTo({ s, x: r.width / 2 - p[0] * s, y: r.height / 2 - p[1] * s }, animate)
     }
     S.graphCam = cam
     S.graphFit = fit
     S.graphCentre = centre
+    S.graphMoving = () => !!(tw && tw.on())
     // selection: the note, its neighbours lit, the rest faded, and the side card
     const light = (key) => {
       const nb = new Set([key])
@@ -650,7 +724,21 @@
     // ?focus=<route>: a topic inside a folded track opens it first; then centre it, its neighbours lit
     let fkey = focus && V().get(focus) ? focus : null
     if (fkey && !M.L.pos[fkey]) { const t = M.g.groups.find((x) => x.topics.some((y) => y.route === fkey)); if (t) { S.graphOpen.add(t.key); draw() } }
-    requestAnimationFrame(() => { if (fkey && M.L.pos[fkey]) { centre(fkey); select(fkey) } else fit() })
+    // M5: on open the sections fade in one after another (40 ms apart, 320 ms each; opacity only,
+    // every position already final). ?focus= starts fitted and then moves to its note.
+    // Reduced motion: the graph shows whole, and the camera jumps.
+    intro()
+    requestAnimationFrame(() => { fit(false); if (fkey && M.L.pos[fkey]) { centre(fkey); select(fkey) } })
+    function intro() {
+      if (NB.motion.reduced()) return
+      const order = ['root', 'agent-reliability', 'builds', 'writing', 'tours'], D = NB.motion.D
+      const at = (sec) => Math.max(0, order.indexOf(sec))
+      const idx = new Map()
+      const fade = (e, i) => NB.motion.play(e, [{ opacity: 0, offset: 0 }], D.cluster, { delay: i * D.stagger, fill: 'backwards', id: 'm5-in' })
+      for (const a of world.querySelectorAll('a.n')) { const i = at(a.dataset.sec); idx.set(a.dataset.route, i); fade(a, i) }
+      for (const t of world.querySelectorAll('.rg')) fade(t, at(t.dataset.sec))
+      for (const ln of world.querySelectorAll('line.e')) fade(ln, Math.max(idx.get(ln.dataset.a) || 0, idx.get(ln.dataset.b) || 0))
+    }
     host.querySelector('.nb-graph__bar').addEventListener('click', (e) => {
       const f = e.target.closest('[data-filter]')
       if (f) { S.graphFilters[f.dataset.filter] = !S.graphFilters[f.dataset.filter]; filter() }
@@ -660,7 +748,7 @@
     // pan, zoom, pinch: pointer events → cam → one transform
     const pts = new Map()
     let moved = 0, last = null, pinch = null
-    svg.addEventListener('pointerdown', (e) => { pts.set(e.pointerId, [e.clientX, e.clientY]); moved = 0; last = [e.clientX, e.clientY]; if (pts.size === 2) { const [a, b] = [...pts.values()]; pinch = { d: Math.hypot(a[0] - b[0], a[1] - b[1]), s: cam.s } } })
+    svg.addEventListener('pointerdown', (e) => { stopTween(); pts.set(e.pointerId, [e.clientX, e.clientY]); moved = 0; last = [e.clientX, e.clientY]; if (pts.size === 2) { const [a, b] = [...pts.values()]; pinch = { d: Math.hypot(a[0] - b[0], a[1] - b[1]), s: cam.s } } })
     svg.addEventListener('pointermove', (e) => {
       if (!pts.has(e.pointerId)) return
       pts.set(e.pointerId, [e.clientX, e.clientY])
@@ -680,7 +768,7 @@
     svg.addEventListener('pointercancel', up)
     const zoomAt = (mx, my, s) => { s = Math.min(6, Math.max(0.2, s)); cam.x = mx - ((mx - cam.x) / cam.s) * s; cam.y = my - ((my - cam.y) / cam.s) * s; cam.s = s; kick() }
     S.graphZoomAt = zoomAt
-    svg.addEventListener('wheel', (e) => { e.preventDefault(); const r = svg.getBoundingClientRect(); zoomAt(e.clientX - r.left, e.clientY - r.top, cam.s * Math.exp(-Math.max(-60, Math.min(60, e.deltaY)) * 0.003)) }, { passive: false })
+    svg.addEventListener('wheel', (e) => { e.preventDefault(); stopTween(); const r = svg.getBoundingClientRect(); zoomAt(e.clientX - r.left, e.clientY - r.top, cam.s * Math.exp(-Math.max(-60, Math.min(60, e.deltaY)) * 0.003)) }, { passive: false })
     // a click selects (the card says what it is and offers open →); a track opens or folds
     svg.addEventListener('click', (e) => {
       const a = e.target.closest('a.n')
