@@ -484,7 +484,7 @@
     host.innerHTML = `<div class="nb-graph">
       <div class="nb-graph__bar">${Object.keys(C.filters).map((s) => `<button type="button" data-filter="${s}" aria-pressed="${S.graphFilters[s]}" aria-label="${esc(C.filterLabel(C.filters[s], S.graphFilters[s]))}">${esc(C.filters[s])}</button>`).join('')}
         <button type="button" data-fit aria-label="${esc(C.fitLabel)}">${esc(C.fit)}</button>${compact ? '' : `<span class="nb-graph__hint">${esc(C.graphHint)}</span>`}</div>
-      <div class="nb-graph__view"><svg class="nb-g nb-g--full" role="group" aria-label="${esc(C.graphLabel2)}"><g class="nb-g__world">${edges}${nodes}</g></svg></div>
+      <div class="nb-graph__view"><svg class="nb-g nb-g--full${compact ? ' is-compact' : ''}" role="group" aria-label="${esc(C.graphLabel2)}"><g class="nb-g__world">${edges}${nodes}</g></svg></div>
       <p class="nb-graph__pick" hidden></p>
       <p class="nb-legend">${Object.entries(C.shapes).filter(([t]) => t !== 'log').map(([t, w]) => `<span>${esc({ hub: '◎', doc: '■', stage: '◆', topic: '•', build: '●', post: '▲', walkthrough: '○' }[t])} ${esc(w)}</span>`).join('')}</p>
     </div>`

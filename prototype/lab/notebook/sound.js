@@ -1,12 +1,12 @@
 /*
- * prototype/lab/night-mode/sound.js: the Lab's ears. ONE AudioContext and ONE mute, both owned here.
+ * prototype/lab/notebook/sound.js: the Lab's ears. ONE AudioContext and ONE mute, both owned here.
  *
  * Self-contained for the mockup (lib/audio.ts is not touched). In the React build this becomes a
  * "terminal" patch on lib/audio.ts's existing chain (research ★7A): a per-cue flag, LP ~3 kHz,
  * no wobble, drier, and narration as a voice bus on the same context.
  *
  *   NIGHT.sound.muted               true on arrival: nothing makes a sound until snd:on is pressed
- *   NIGHT.sound.setMuted(on), .toggle()   the ONLY place the cue mute changes (the deck calls it)
+ *   NIGHT.sound.setMuted(on), .toggle()   the ONLY place the cue mute changes (the bar's snd: toggle calls it)
  *   NIGHT.sound.cue(name, i)        key · cursor · enter · chirp-open · chirp-close · select · boot
  *   NIGHT.sound.ctx()               the one AudioContext, created on the first gesture that needs it
  *   NIGHT.sound.voiceBus()          where narration plays (voice.js). It does not follow the cue mute:

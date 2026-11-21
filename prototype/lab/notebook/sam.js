@@ -1,5 +1,5 @@
 /*
- * prototype/lab/night-mode/sam.js: SAM, the Software Automatic Mouth (1982), vendored unchanged.
+ * prototype/lab/notebook/sam.js: SAM, the Software Automatic Mouth (1982), vendored unchanged.
  *
  * ATTRIBUTION. SAM was published for the Commodore 64 in 1982 by Don't Ask Software (now
  * SoftVoice, Inc., the copyright holder). This is the vanilla JavaScript port by Christian

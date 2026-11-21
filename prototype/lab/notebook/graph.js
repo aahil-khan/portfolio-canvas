@@ -23,6 +23,7 @@
   const R = { hub: 9, build: 8, doc: 6, stage: 6.5, topic: 3.5, post: 6.5, walkthrough: 7, log: 4.5 }
   const ANCHOR = { 'agent-reliability': [430, 420], builds: [930, 250], writing: [950, 620], root: [700, 420], tours: [640, 180] }
   const SPREAD = { 'agent-reliability': 300, builds: 120, writing: 90, root: 40, tours: 60 }
+  const LABELLED = ['hub', 'doc', 'build', 'post', 'walkthrough']
   const fnv = (s) => { let h = 0x811c9dc5; for (let i = 0; i < s.length; i++) { h ^= s.charCodeAt(i); h = Math.imul(h, 0x01000193) >>> 0 } return h >>> 0 }
   const r1 = (v) => Math.round(v * 10) / 10
 
@@ -30,6 +31,8 @@
     const n = nodes.length
     const idx = new Map(nodes.map((d, i) => [d.key, i]))
     const x = new Float64Array(n), y = new Float64Array(n), r = nodes.map((d) => R[d.type] || 5)
+    // a node that carries a title on the graph pushes harder, so the titles have room
+    const wgt = nodes.map((d) => (LABELLED.includes(d.type) ? 1.9 : 1))
     const tether = new Float64Array(n), tx = new Float64Array(n), ty = new Float64Array(n)
     nodes.forEach((d, i) => {
       const s = seed && seed[d.key]
@@ -57,8 +60,8 @@
       for (let i = 0; i < n; i++) for (let j = i + 1; j < n; j++) {
         let dx = x[i] - x[j], dy = y[i] - y[j], d2 = dx * dx + dy * dy
         if (d2 < 0.01) { dx = ((i * 7 + j * 13) % 11) / 10 - 0.5; dy = ((i * 3 + j * 5) % 9) / 9 - 0.5; d2 = dx * dx + dy * dy }
-        if (d2 > 160000) continue
-        const f = 900 / d2, d = Math.sqrt(d2)
+        if (d2 > 250000) continue
+        const f = (900 * wgt[i] * wgt[j]) / d2, d = Math.sqrt(d2)
         fx[i] += (dx / d) * f; fy[i] += (dy / d) * f; fx[j] -= (dx / d) * f; fy[j] -= (dy / d) * f
       }
       for (const [a, b, k] of E) {
@@ -108,12 +111,13 @@
     return pos.map(([px, py]) => [Math.min(w - 8, Math.max(8, px)), Math.min(h - 8, Math.max(8, py))])
   }
 
-  function fit(pos, vw, vh, pad = 24) {
+  // labels hang to the right of their nodes: `label` world units of room on that side
+  function fit(pos, vw, vh, pad = 24, label = 110) {
     const xs = Object.values(pos).map((p) => p[0]), ys = Object.values(pos).map((p) => p[1])
-    const x0 = Math.min(...xs) - 14, x1 = Math.max(...xs) + 14, y0 = Math.min(...ys) - 14, y1 = Math.max(...ys) + 14
+    const x0 = Math.min(...xs) - 14, x1 = Math.max(...xs) + label, y0 = Math.min(...ys) - 14, y1 = Math.max(...ys) + 14
     const s = Math.min((vw - pad * 2) / (x1 - x0), (vh - pad * 2) / (y1 - y0))
     return { s, x: (vw - (x1 - x0) * s) / 2 - x0 * s, y: (vh - (y1 - y0) * s) / 2 - y0 * s }
   }
 
-  NB.graph = { layout, radial, fit, R, W, H, ANCHOR, fnv }
+  NB.graph = { layout, radial, fit, R, W, H, ANCHOR, LABELLED, fnv }
 })()

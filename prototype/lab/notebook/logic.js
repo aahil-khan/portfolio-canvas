@@ -1,11 +1,11 @@
 /*
- * prototype/lab/night-mode/logic.js: the deck's, the compass's and the narration's arithmetic.
+ * prototype/lab/notebook/logic.js: the switcher's matcher and the narration's arithmetic (from #21).
  * Pure: no DOM, no audio, no clock. check.mjs and render-sample.mjs run all of it in Node.
  *
  *   NIGHT.logic.tokens(text)                 words with their character offsets: [{ w, o }]
  *   .align(page, spoken)                     page tokens → spoken-word index (tags split words)
  *   .wordAt(words, t)                        which word is being spoken at media time t (−1: none)
- *   .wave(peaks, perSec, t, n, still)        the deck's ASCII waveform: n of ▁▂▃▄▅▆▇ around t
+ *   .wave(peaks, perSec, t, n, still)        the strip's ASCII waveform: n of ▁▂▃▄▅▆▇ around t
  *   .clock(s)                                1:05
  *   .wedge(dx, dy, prev, opt)                the compass: which of 4 wedges the pointer is in
  *   .commands(list, input)                   the / command line: what matches, best first

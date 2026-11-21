@@ -1,5 +1,5 @@
 /*
- * prototype/lab/night-mode/decode.js: the "decode" effect, as a pure function of progress.
+ * prototype/lab/notebook/decode.js: the "decode" effect, as a pure function of progress.
  *
  *   NIGHT.decode(text, p, seed) → string
  *     p = 0: blank (every character a no-break space; real spaces stay spaces)
