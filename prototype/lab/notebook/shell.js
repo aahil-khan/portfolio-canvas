@@ -66,7 +66,7 @@
           <button type="button" class="nb-bar__cell nb-bar__btn" data-act="graph" aria-label="${esc(C.graphLabel)}" aria-pressed="false">${esc(C.graph)}<span class="nb-bar__word"> ${esc(C.graphWord)}</span></button>
           <button type="button" class="nb-bar__cell nb-bar__btn" data-act="listen" aria-label="${esc(C.listenLabel)}">${esc(C.listen)}<span class="nb-bar__word"> ${esc(C.listenWord)}</span></button>
           <button type="button" class="nb-bar__cell nb-bar__btn nb-bar__focus" data-act="focus" aria-label="${esc(C.focusLabel)}" aria-pressed="false">${esc(C.focus)}<span class="nb-bar__word"> ${esc(C.focusWord)}</span> <span class="nb-bar__k">${esc(C.focusKey)}</span></button>
-          <button type="button" class="nb-bar__cell nb-bar__btn nb-bar__theme" data-act="theme"></button>
+          <button type="button" class="nb-bar__cell nb-bar__btn nb-bar__aa" data-act="aa" aria-label="${esc(C.aaLabel)}" aria-expanded="false" aria-controls="nbAa">${esc(C.aa)}</button>
           <button type="button" class="nb-bar__cell nb-bar__btn nb-bar__help" data-act="help" aria-label="${esc(C.helpLabel)}">${esc(C.help)}</button>
         </nav>
         <div class="nb-strip" role="region" aria-label="${esc(C.strip.label)}" hidden></div>
@@ -74,7 +74,7 @@
       <aside class="nb-side" id="nbSide" aria-label="${esc(C.treeLabel)}">
         <a class="nb-side__canvas" href="#desk" data-act="canvas">${esc(C.canvas)}</a>
         <ul class="nb-tree" role="tree" aria-label="${esc(C.treeLabel)}"></ul>
-        <div class="nb-side__foot"><button type="button" data-act="snd"></button><button type="button" data-act="help">${esc(C.help)} ${esc(C.helpTitle)}</button></div>
+        <div class="nb-side__foot"><button type="button" class="nb-side__share" data-act="share">${esc(C.share)}</button><button type="button" class="nb-side__keys" data-act="help">${esc(C.keysHint)}</button></div>
       </aside>
       <main class="nb-main" id="nbMain" tabindex="-1"><div class="nb-col"></div></main>
       <aside class="nb-margin" aria-label="${esc(C.linksHead)}"></aside>
@@ -95,6 +95,7 @@
     addEventListener('resize', () => { clearTimeout(rt); rt = setTimeout(() => { if (!phone()) S.closeDrawer(true); if (S.state.view === 'graph') { if (S.graphPhone !== phone()) S.show(); return } S.renderAside(); NB.reader.tables() }, 120) })
     // the theme is already on <html> (NB.prefs.apply, before first paint); the stars follow it
     P.onTheme(() => { if (NB.trip && NB.trip.bakeStars) NB.trip.bakeStars(); flags() })
+    NB.controls.mount()
     if (q0.get('voice')) NIGHT.voice.use(q0.get('voice'))
     flags()
     if (NIGHT.sound && NIGHT.sound.on) NIGHT.sound.on(flags)
@@ -111,6 +112,7 @@
     document.documentElement.toggleAttribute('data-focus', !!on)
     if (persist) store.set(FOCUS_KEY, !!on)
     if (el.focusBtn) el.focusBtn.setAttribute('aria-pressed', String(!!on))
+    if (NB.controls && NB.controls.syncAa) NB.controls.syncAa()
   }
   S.toggleFocus = () => { if (NB.narrator) NB.narrator.focusTouched(); S.setFocus(!S.isFocus()) }
 
@@ -122,13 +124,10 @@
   function flags() {
     const muted = !NIGHT.sound || NIGHT.sound.muted
     for (const b of el.root.querySelectorAll('[data-act="snd"]')) { b.textContent = C.sndWord(!muted); b.setAttribute('aria-label', C.sndLabel(!muted)); b.setAttribute('aria-pressed', String(!muted)) }
-    const t = P.theme()
-    for (const b of el.root.querySelectorAll('[data-act="theme"]')) { b.innerHTML = `${esc(C.theme)}<span class="nb-bar__word"> ${esc(C.themeWord(C.palettes[t]))}</span>`; b.setAttribute('aria-label', C.themeLabel(C.palettes[t])) }
   }
   S.flags = flags
-  // "> palette <id>" and the bar's ◐ are stored choices; NB.prefs owns the attribute
+  // "> palette <id>" and the Aa panel's theme are stored choices; NB.prefs owns the attribute
   S.setPalette = (id) => P.setTheme(id)
-  S.cycleTheme = () => P.cycle()
   S.toggleSound = (on) => { if (!NIGHT.sound) return; NIGHT.sound.setMuted(on == null ? !NIGHT.sound.muted : !on); flags() }
 
   // ── clicks ────────────────────────────────────────────────────────────────────────────
@@ -141,7 +140,9 @@
       if (act === 'graph') return S.state.view === 'graph' ? history.back() : S.go('graph')
       if (act === 'listen') return NB.narrator.press()
       if (act === 'snd') return S.toggleSound()
-      if (act === 'theme') return S.cycleTheme()
+      if (act === 'aa') return NB.controls.toggleAa(a)
+      if (act === 'share') return NB.controls.share()
+      if (act === 'top') return NB.controls.top()
       if (act === 'help') return S.help(a)
       if (act === 'focus') return S.toggleFocus()
       if (act === 'fold') { e.preventDefault(); const li = a.closest('li[data-folder]'); li.dataset.open = li.dataset.open === 'false' ? 'true' : 'false'; syncFolds(); return }
@@ -149,7 +150,10 @@
     // prev / next / up move focus to the new note's h1, as the trip does
     if (e.target.closest('a[data-step]')) S.focusTitle = true
     if (e.target.closest('.nb-bar__menu')) return el.root.classList.contains('nb-drawer-open') ? S.closeDrawer() : S.openDrawer()
-    if (e.target.closest('.nb-bar__path') && phone() && !e.target.closest('a')) return S.openDrawer()
+    // the bar's title goes back to the top (Q12, the iOS convention): the current crumb on a
+    // desktop, the bar's free space beside "‹ parent" on a phone
+    if (e.target.closest('.nb-bar__path [aria-current="page"]') && S.state.view === 'note') { e.preventDefault(); return NB.controls.top() }
+    if (e.target.closest('.nb-bar__path') && phone() && !e.target.closest('a')) return S.state.view === 'note' ? NB.controls.top() : S.openDrawer()
     // a note link inside the drawer closes it (the hashchange renders the note)
     if (e.target.closest('.nb-side a[href^="#/"]') && phone()) setTimeout(() => S.closeDrawer(true), 0)
     const row = e.target.closest('a[href^="#/"]')
@@ -169,6 +173,7 @@
 
   S.show = () => {
     if (location.hash === '#desk') return
+    NB.controls.save()
     let { route, q } = parse()
     const v = V()
     if (route === 'graph') return showGraph(q)
@@ -196,6 +201,7 @@
     else if (!S.keepScroll) { el.main.scrollTop = 0; if (phone()) scrollTo(0, 0) }
     S.keepScroll = false
     if (S.focusTitle) { S.focusTitle = false; const t = el.col.querySelector('.nb-title'); if (t) t.focus({ preventScroll: true }) }
+    NB.controls.arrived(note, q)
     popOnArrival(q)
   }
   let popped = false
@@ -393,7 +399,8 @@
     if (typing) return
     if ((e.key === 'k' || e.key === 'K') && (e.ctrlKey || e.metaKey)) { e.preventDefault(); NB.switcher.open(document.activeElement); return }
     if (e.ctrlKey || e.metaKey || e.altKey) return
-    if (S.topLayer()) return
+    // the Aa panel and a popover are not modal: + − and a still work while they are open
+    if (S.topLayer() && !S.topLayer().node.matches('.nb-aa, .nb-pop')) return
     const n = S.state.note
     const k = e.key
     if (k === '/') { e.preventDefault(); NB.switcher.open(document.activeElement) }
@@ -402,6 +409,8 @@
     else if (k === '~' || k === '`') NB.trip.leave()
     else if (k === '?') S.help()
     else if (k === 'f') S.toggleFocus()
+    else if (k === 'a') NB.controls.toggleAa(document.activeElement)
+    else if ((k === '+' || k === '=' || k === '-' || k === '−') && S.state.view !== 'graph') { NB.controls.markPlace(); P.bump(k === '-' || k === '−' ? -1 : 1) }
     else if (k === 'l') NB.narrator.press()
     else if (k === ' ' && NB.narrator.active() && !e.target.closest('button, a')) { e.preventDefault(); NB.narrator.toggle() }
     else if (k === ',' && NB.narrator.active()) NB.narrator.seek(-10)
@@ -503,6 +512,7 @@
       el.col.innerHTML = `<h1 class="nb-sr" tabindex="-1">${esc(C.list.title)}</h1><div class="nb-graph-host" style="height:100%"></div>`
       graphView(el.col.querySelector('.nb-graph-host'), q.get('focus'))
     }
+    NB.controls.arrived(null, q)
     popOnArrival(q)
   }
   S.graphFilters = { 'agent-reliability': true, builds: true, writing: true }

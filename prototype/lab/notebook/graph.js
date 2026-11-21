@@ -108,6 +108,8 @@
   // notes [{ route, section, type, folder }]; a track is a folder of ≥ 2 topics. Edges to a
   // collapsed topic go to its track; duplicates and self-loops go.
   function view(notes, edges, expanded = new Set()) {
+    // a note kept out of the tree (the glossary, `tree: false`) is kept off the map too
+    notes = notes.filter((n) => !n.fm || n.fm.tree !== false)
     const byFolder = new Map()
     for (const n of notes) if (n.type === 'topic') { const g = byFolder.get(n.folder) || []; g.push(n); byFolder.set(n.folder, g) }
     const groups = [...byFolder].filter(([, g]) => g.length >= 2).map(([folder, g]) => ({ key: `track:${folder}`, folder, topics: g, open: expanded.has(`track:${folder}`) }))
@@ -116,8 +118,9 @@
     const nodes = []
     for (const n of notes) { if (!into.has(n.route)) nodes.push({ key: n.route, section: n.section, type: n.type }) }
     for (const t of groups) nodes.push({ key: t.key, section: t.topics[0].section, type: 'track', r: r1(5 + 1.6 * Math.sqrt(t.topics.length)), track: t })
-    const seen = new Map(), out = []
+    const seen = new Map(), out = [], keep = new Set(notes.map((n) => n.route))
     for (const e of edges) {
+      if (!keep.has(e.a) || !keep.has(e.b)) continue
       const a = into.get(e.a) || e.a, b = into.get(e.b) || e.b
       if (a === b) continue
       const k = a < b ? `${a}|${b}` : `${b}|${a}`

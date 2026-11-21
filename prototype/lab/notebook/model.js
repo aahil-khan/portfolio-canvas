@@ -314,10 +314,13 @@
     }
 
     // ── 8. the tree ─────────────────────────────────────────────────────────────────────
+    // a note with `tree: false` (the glossary) is reached by the switcher and by its popovers only:
+    // not in the tree, prev / next, latest or the map, but in vault.notes (last) and the switcher
+    const listed = (n) => n.fm.tree !== false
     const ORDER = (n) => (n.isHub ? '0' : /^\d\d$/.test(n.num) ? '1' + n.num : /^W\d/.test(n.num) ? '2' + n.num : /^PW\d/.test(n.num) ? '3' + n.num : /^T\d\d/.test(n.num) ? '4' + n.num : '5' + n.num)
     const trackName = Object.fromEntries(study.topics.map((t) => [t.track, t.trackName]))
     function folderNode(path) {
-      const kids = shown.filter((n) => n.folder === path && !(n.isHub && n.route === path)).sort((a, b) => ORDER(a).localeCompare(ORDER(b)))
+      const kids = shown.filter((n) => n.folder === path && !(n.isHub && n.route === path) && listed(n)).sort((a, b) => ORDER(a).localeCompare(ORDER(b)))
       const hub = shown.find((n) => n.isHub && n.route === path) || null
       const subs = [...new Set(shown.filter((n) => n.folder.startsWith(path ? path + '/' : '') && n.folder !== path).map((n) => n.folder.slice(path ? path.length + 1 : 0).split('/')[0]))]
       const order = path === '' ? ROOT_ORDER : path === STUDY ? TRACK_ORDER : []
@@ -333,6 +336,7 @@
     const order = []
     const walk = (f) => { if (f.hub) order.push(f.hub); for (const n of f.notes) order.push(n); for (const s of f.folders) walk(s) }
     walk(tree)
+    for (const n of shown) if (!listed(n)) order.push(n)
 
     // ── 9. prev / next / up ─────────────────────────────────────────────────────────────
     const hubOf = (n) => {
@@ -353,7 +357,7 @@
     function prevNext(n, wid) {
       const ts = wid && tourStep(n, wid)
       if (ts) return { prev: ts.tour.steps[ts.i - 1] || null, next: ts.tour.steps[ts.i + 1] || null, up: ts.tour, tour: ts }
-      const list = order.filter((x) => x.folder === n.folder)
+      const list = order.filter((x) => x.folder === n.folder && listed(x))
       const i = list.indexOf(n)
       return { prev: i > 0 ? list[i - 1] : null, next: i >= 0 && i < list.length - 1 ? list[i + 1] : null, up: hubOf(n), tour: null }
     }
@@ -397,7 +401,7 @@
       }
       if (id === 'tours') return tours.filter((w) => hidden || w.visibility === 'public').map((w) => { const t = totals(w); return `- ${linkTo(w, `${w.id} ${w.title}`)} · ${B.tourLine(t.n, t.read, t.listen)}` }).join('\n')
       if (id === 'latest') {
-        return shown.filter((x) => !x.isHub && x.type !== 'walkthrough' && x.type !== 'log' && x.status !== 'stub' && iso(x.updated))
+        return shown.filter((x) => listed(x) && !x.isHub && x.type !== 'walkthrough' && x.type !== 'log' && x.status !== 'stub' && iso(x.updated))
           .sort((a, b) => b.updated.localeCompare(a.updated) || order.indexOf(a) - order.indexOf(b)).slice(0, 5)
           .map((x) => `- ${x.updated} · ${glyphOf(x)} ${linkTo(x)}`).join('\n')
       }

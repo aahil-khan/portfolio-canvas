@@ -7,6 +7,12 @@
 // Playwright (playwright-core from ~/.local/share/cx-tools/node_modules, or $PLAYWRIGHT_CORE), at
 // 1440×900, 390×844 and 390×664 (an in-app browser's real viewport), plus reduced motion. One
 // browser, closed at the end. Exits 1 if anything fails.
+//
+// Round 4 (reader controls), at 1440×900 and 390×844: text size and line width persist across a
+// reload with the attribute set before DOMContentLoaded; copy-link (desktop) and share (phone)
+// write a URL that lands there; resume restores the scroll within 40 px and start-here offers the
+// last tour step; ▶ after scrolling mid-note starts on that paragraph; the glossary popover and
+// the hover preview; emulateMedia print hides the bar and the tree; the bar's title goes to the top.
 import { createRequire } from 'node:module'
 import { dirname, join, resolve } from 'node:path'
 import { fileURLToPath, pathToFileURL } from 'node:url'
@@ -37,7 +43,12 @@ const AUDIO_SPY = () => {
 // so before first paint) and at DOMContentLoaded: "no flash" is testable
 const THEME_SPY = () => {
   window.__theme = {}
-  const at = (k) => { if (!(k in window.__theme)) window.__theme[k] = document.documentElement.getAttribute('data-lab-theme') }
+  window.__prefs = {}
+  const at = (k) => {
+    const h = document.documentElement
+    if (!(k in window.__theme)) window.__theme[k] = h.getAttribute('data-lab-theme')
+    if (!(k in window.__prefs)) window.__prefs[k] = { size: h.getAttribute('data-lab-size'), width: h.getAttribute('data-lab-width') }
+  }
   new MutationObserver((_, mo) => { if (document.body) { at('body'); mo.disconnect() } }).observe(document, { childList: true, subtree: true })
   document.addEventListener('DOMContentLoaded', () => at('dcl'))
 }
@@ -131,8 +142,12 @@ for (const size of Object.keys(SIZES).filter((x) => !ONLY || x === ONLY)) {
     // the bar's cells stay on one line
     const one = await p.evaluate(() => { const cs = [...document.querySelectorAll('.nb-bar__cell')].filter((c) => c.offsetParent !== null); return cs.every((c) => c.getBoundingClientRect().height <= 44.5) && new Set(cs.map((c) => Math.round(c.getBoundingClientRect().top))).size === 1 })
     ok(one, "the bar's cells sit on one line")
-    const cells = await p.evaluate(() => ({ text: document.querySelector('.nb-bar').innerText, snd: !!document.querySelector('.nb-bar [data-act="snd"], .nb-bar [data-act="pal"]'), theme: (() => { const t = document.querySelector('.nb-bar [data-act="theme"]'); return t && t.offsetParent !== null ? t.getAttribute('aria-label') : null })(), foot: (document.querySelector('.nb-side [data-act="snd"]') || {}).textContent }))
-    ok(!cells.snd && !/snd:|pal:/.test(cells.text) && /^Theme: night/.test(cells.theme || '') && /^Interface sounds: off$/.test(cells.foot || ''), `no snd:/pal: cells in the bar; ◐ says "${cells.theme}"; the tree's footer says "${cells.foot}"`)
+    // round 4: the theme and the sounds moved into the Aa panel (O11); the bar holds one Aa cell
+    const cells = await p.evaluate(() => {
+      const aa = document.querySelector('.nb-bar [data-act="aa"]'), foot = [...document.querySelectorAll('.nb-side__foot button')].filter((x) => getComputedStyle(x).display !== 'none').map((x) => x.textContent)
+      return { text: document.querySelector('.nb-bar').innerText, snd: !!document.querySelector('.nb-bar [data-act="snd"], .nb-bar [data-act="pal"], .nb-bar [data-act="theme"], .nb-side [data-act="snd"]'), aa: aa && aa.offsetParent !== null ? aa.getAttribute('aria-label') : null, foot }
+    })
+    ok(!cells.snd && !/snd:|pal:|◐/.test(cells.text) && /^Reading settings/.test(cells.aa || '') && (phone ? cells.foot.join() === 'Share this note' : cells.foot.join() === '? keys'), `no theme, sound or palette cell in the bar; Aa says "${cells.aa}"; the tree's footer: ${cells.foot.join(', ')}`)
     await close(p)
   }
 
@@ -454,10 +469,12 @@ for (const size of Object.keys(SIZES).filter((x) => !ONLY || x === ONLY)) {
     await wait(p, 150)
     const quiet = await p.evaluate(() => ({ muted: NIGHT.sound.muted, osc: window.__osc }))
     ok(quiet.muted && quiet.osc === 0, 'muted on arrival; no cue sounds while muted')
-    await p.click('.nb-side [data-act="snd"]')
+    await p.click('.nb-bar [data-act="aa"]')
+    await p.click('.nb-aa [data-act="snd"]')
+    await p.keyboard.press('Escape')
     await p.click('.nb-row[data-route="agent-reliability/shopkeeper/03-blind-agent"]')
     await wait(p, 150)
-    const loud = await p.evaluate(() => ({ muted: NIGHT.sound.muted, osc: window.__osc, label: document.querySelector('.nb-side [data-act="snd"]').textContent }))
+    const loud = await p.evaluate(() => ({ muted: NIGHT.sound.muted, osc: window.__osc, label: document.querySelector('.nb-aa [data-act="snd"]').textContent }))
     ok(!loud.muted && loud.osc > 0 && /on/.test(loud.label), `the one toggle unmutes (${loud.label}), and cues play`)
     await close(p)
   }
@@ -544,13 +561,174 @@ if (!ONLY) {
     ok(tr.live && tr.t === 'night' && tr.stored === 'paper', `${size}: the trip from the canvas lands in night (${tr.t}, at ${tr.hash}); the stored choice (${tr.stored}) is untouched`)
     await trip.close()
     // a stored choice survives a reload, with the attribute on <html> before <body> is parsed
-    await light.click('.nb-bar [data-act="theme"]')
+    // (round 4: the choice is made in the Aa panel; auto goes back to following the device)
+    await light.click('.nb-bar [data-act="aa"]')
+    await light.click('.nb-aa [data-mode="night"]')
     const picked = await light.evaluate(() => document.documentElement.dataset.labTheme)
     await light.reload()
     await light.evaluate(() => document.fonts.ready)
-    const again = await light.evaluate(() => ({ t: document.documentElement.dataset.labTheme, spy: window.__theme, label: document.querySelector('.nb-bar [data-act="theme"]').getAttribute('aria-label') }))
-    ok(picked === 'night' && again.t === 'night' && again.spy.body === 'night' && again.spy.dcl === 'night' && /night/.test(again.label), `${size}: ◐ on paper picks ${picked}; after a reload in light mode it is still ${again.t}, set before <body> (${again.spy.body}) and before DOMContentLoaded (${again.spy.dcl})`)
+    await light.click('.nb-bar [data-act="aa"]')
+    const again = await light.evaluate(() => ({ t: document.documentElement.dataset.labTheme, spy: window.__theme, pressed: (document.querySelector('.nb-aa [data-mode][aria-pressed="true"]') || {}).dataset?.mode }))
+    ok(picked === 'night' && again.t === 'night' && again.spy.body === 'night' && again.spy.dcl === 'night' && again.pressed === 'night', `${size}: Aa → Night on paper picks ${picked}; after a reload in light mode it is still ${again.t}, set before <body> (${again.spy.body}) and before DOMContentLoaded (${again.spy.dcl}); the panel shows ${again.pressed}`)
+    await light.click('.nb-aa [data-mode="auto"]')
+    const auto = await light.evaluate(() => ({ t: document.documentElement.dataset.labTheme, stored: NB.prefs.stored() }))
+    ok(auto.t === 'paper' && auto.stored === null, `${size}: Aa → Auto stores nothing and follows the device again (${auto.t})`)
     await close(light)
+  }
+}
+
+// ── round 4: the reader's controls ─────────────────────────────────────────────────────────
+console.log('\nreader controls')
+if (!ONLY || ONLY === 'desktop' || ONLY === 'phone') {
+  for (const size of ['desktop', 'phone']) {
+    const phone = PHONES.includes(size)
+    // text size and line width persist across a reload, on <html> before DOMContentLoaded
+    {
+      const p = await page(size, ROUTES.spec)
+      const px = () => parseFloat(getComputedStyle(document.querySelector('.nb-body p')).fontSize)
+      const before = await p.evaluate(px)
+      if (phone) { await p.click('.nb-bar [data-act="aa"]'); await p.click('.nb-aa [data-size="4"]'); await p.keyboard.press('Escape') }
+      else { await p.keyboard.press('+'); await p.keyboard.press('+'); await p.keyboard.press('='); await p.keyboard.press('-'); await p.click('.nb-bar [data-act="aa"]'); await p.click('.nb-aa [data-width="wide"]'); await p.keyboard.press('Escape') }
+      await p.reload()
+      await p.evaluate(() => document.fonts.ready)
+      await wait(p, 300)
+      const r = await p.evaluate((pxs) => ({ spy: window.__prefs, px: eval(pxs)(), sw: document.documentElement.scrollWidth, iw: innerWidth, measure: getComputedStyle(document.querySelector('.nb-col')).getPropertyValue('--measure') }), `(${px})`)
+      const want = phone ? { size: '4', width: 'narrow', px: 23 } : { size: '3', width: 'wide', px: 21 }
+      ok(before === 17 && r.spy.body.size === want.size && r.spy.dcl.size === want.size && r.spy.body.width === want.width && r.spy.dcl.width === want.width && r.px === want.px,
+        `${size}: text size ${want.px} px${phone ? '' : ' and the wide line'} survive a reload, set on <html> before <body> (${JSON.stringify(r.spy.body)}) and before DOMContentLoaded; the body reads ${r.px} px (was ${before})`)
+      if (phone) ok(r.sw <= 390 && r.iw <= 390, `phone at 23 px: no sideways scroll (${r.sw} px of content in a ${r.iw} px viewport, ≤ 390)`)
+      await close(p)
+    }
+    // copy a link to a heading (desktop) or share the note (phone): the URL lands there
+    {
+      const ctx = await b.newContext({ viewport: SIZES[size], isMobile: phone, hasTouch: phone, colorScheme: 'dark' })
+      contexts.push(ctx)
+      const p = await page(size, ROUTES.longest, { ctx })
+      let url, head = null
+      if (!phone) {
+        head = await p.evaluate(() => { const hs = [...document.querySelectorAll('.nb-body h2[id], .nb-body h3[id]')]; return hs[Math.floor(hs.length / 2)].id })
+        await p.evaluate((id) => document.getElementById(id).scrollIntoView({ block: 'center' }), head)
+        await p.hover(`#${head}`)
+        await wait(p, 60)
+        const shown = await p.evaluate((id) => getComputedStyle(document.querySelector(`#${id} .nb-hlink`)).opacity, head)
+        await p.click(`#${head} .nb-hlink`)
+        url = await p.evaluate(() => NB.controls.last)
+        ok(shown === '1' && url.endsWith(`?a=${head}`), `desktop: # appears on hovering a heading and copies a link to it (…${url.slice(-36)})`)
+      } else {
+        await p.evaluate(() => NB.controls.scroller().scrollTo(0, 1e6))
+        await wait(p, 100)
+        await p.click('.nb-endbar [data-act="share"]')
+        url = await p.evaluate(() => NB.controls.last)
+        ok(/05-scenarios$/.test(url || ''), `phone: Share at the note's end hands over the note's URL (…${(url || '').slice(-30)})`)
+      }
+      await p.waitForFunction(() => !document.querySelector('.nb-toast').hidden, null, { timeout: 2000 }).catch(() => {})
+      const toast = await p.evaluate(() => { const t = document.querySelector('.nb-toast'); return { shown: !t.hidden, text: t.textContent, top: t.getBoundingClientRect().top } })
+      ok(toast.shown && /copied|copy/i.test(toast.text) && toast.top < 120, `a toast at the top says "${toast.text}"`)
+      const q = await page(size, '', { ctx })
+      await q.goto(url)
+      await q.evaluate(() => document.fonts.ready)
+      await wait(q, 500)
+      const land = await q.evaluate((id) => {
+        const hb = document.querySelector('.nb-head').getBoundingClientRect().bottom
+        const t = id ? document.getElementById(id) : document.querySelector('.nb-title')
+        const r = t.getBoundingClientRect()
+        return { top: Math.round(r.top - hb), y: NB.controls.scrollTop(), route: NB.shell.state.route, target: !id || t.classList.contains('is-target') }
+      }, head)
+      ok(land.route === 'agent-reliability/shopkeeper/05-scenarios' && land.target && (head ? land.top >= -2 && land.top < 60 : land.y === 0), `the copied URL lands on ${head ? 'that heading' : 'the note'} (${land.top} px under the bar)`)
+      await q.close()
+      await close(p)
+    }
+    // resume: the scroll position per note, within 40 px; start-here offers the last tour step
+    {
+      const p = await page(size, ROUTES.longest)
+      await p.evaluate(() => NB.controls.scroller().scrollTo(0, 2400))
+      await wait(p, 700)
+      const at = await p.evaluate(() => NB.controls.scrollTop())
+      await go(p, '#/agent-reliability/shopkeeper/01-spec')
+      await go(p, ROUTES.longest)
+      await wait(p, 200)
+      const back = await p.evaluate(() => ({ y: NB.controls.scrollTop(), toast: document.querySelector('.nb-toast').textContent }))
+      await p.goto('about:blank')
+      await p.goto(base + ROUTES.longest)
+      await p.evaluate(() => document.fonts.ready)
+      await wait(p, 500)
+      const fresh = await p.evaluate(() => NB.controls.scrollTop())
+      ok(Math.abs(back.y - at) <= 40 && Math.abs(fresh - at) <= 40 && /top/.test(back.toast), `resume: back at ${back.y} and after a reload at ${fresh} (left at ${at}, ±40), with "${back.toast}" offered`)
+      await go(p, ROUTES.tour3)
+      await go(p, '#/')
+      const cont = await p.evaluate(() => { const a = document.querySelector('.nb-resume a'); return a ? { text: a.textContent, href: a.getAttribute('href') } : null })
+      ok(cont && /^Continue W1 at step 3/.test(cont.text) && /03-blind-agent\?w=W1$/.test(cont.href), `start-here: "${cont && cont.text}"`)
+      await close(p)
+    }
+    // ▶ after scrolling to a mid-note paragraph starts on that paragraph
+    {
+      const p = await page(size, ROUTES.tour3)
+      const say = await p.evaluate(() => {
+        const ps = [...document.querySelectorAll('.nb-body p[data-say]')]
+        const t = ps[Math.floor(ps.length / 2)]
+        const hb = document.querySelector('.nb-head').getBoundingClientRect().bottom
+        NB.controls.scroller().scrollBy(0, t.getBoundingClientRect().top - hb - 12)
+        return t.dataset.say
+      })
+      await wait(p, 200)
+      await p.evaluate(() => { NIGHT.voice.use('sam'); NB.narrator.press() })
+      await p.waitForFunction(() => document.querySelector('.nb-say-on'), null, { timeout: 8000 }).catch(() => {})
+      const r = await p.evaluate(() => ({ k: NB.narrator.state.k, part: NB.narrator.state.parts[NB.narrator.state.k].i, on: (document.querySelector('.nb-say-on') || {}).dataset?.say }))
+      ok(String(r.part) === say && r.on === say && r.k > 0, `▶ mid-note starts on the paragraph in view (part ${r.k}, block ${r.part}; the highlight is on ${r.on}; wanted ${say})`)
+      await p.evaluate(() => NB.narrator.stop())
+      await close(p)
+    }
+    // the glossary: the first use is marked; a tap shows ≤ 2 lines and "more →" to the glossary
+    {
+      const p = await page(size, ROUTES.longest)
+      await p.evaluate(() => document.querySelector('.nb-gl').scrollIntoView({ block: 'center' }))
+      await wait(p, 100)
+      await p.click('.nb-gl')
+      await wait(p, 60)
+      const g = await p.evaluate(() => {
+        const pop = document.querySelector('.nb-pop'), d = pop.querySelector('.nb-pop__def'), r = pop.getBoundingClientRect()
+        return { shown: !pop.hidden, n: document.querySelectorAll('.nb-body .nb-gl[data-gloss="zopa"]').length, lines: Math.round(d.getBoundingClientRect().height / parseFloat(getComputedStyle(d).lineHeight)), more: pop.querySelector('.nb-pop__more').getAttribute('href'), inside: r.left >= 0 && r.right <= innerWidth }
+      })
+      ok(g.shown && g.lines <= 2 && g.inside && /01-glossary\?a=zopa$/.test(g.more), `ZOPA: a tap shows ${g.lines} line(s) inside the screen, and more → ${g.more}`)
+      await p.click('.nb-pop__more')
+      await wait(p, 300)
+      const gl = await p.evaluate(() => ({ route: NB.shell.state.route, inTree: !!document.querySelector('.nb-tree [data-route="01-glossary"]'), target: (document.querySelector('.is-target') || {}).id }))
+      ok(gl.route === '01-glossary' && !gl.inTree && gl.target === 'zopa', `more → opens the glossary at ZOPA; the glossary is not in the tree`)
+      if (!phone) {
+        // Q9: a hover preview after 350 ms: a 320 px card with the title, the kicker and the summary
+        await go(p, ROUTES.holt)
+        const a = await p.evaluate(() => { const l = document.querySelector('.nb-body a.nb-wl:not(.nb-rowref)'); l.scrollIntoView({ block: 'center' }); return l.getAttribute('href') })
+        await p.hover(`.nb-body a.nb-wl[href="${a}"]`)
+        await wait(p, 150)
+        const early = await p.evaluate(() => !document.querySelector('.nb-pop').hidden)
+        await wait(p, 400)
+        const card = await p.evaluate(() => { const c = document.querySelector('.nb-pop'); return { shown: !c.hidden, w: Math.round(c.getBoundingClientRect().width), title: (c.querySelector('.nb-pop__title') || {}).textContent, kicker: (c.querySelector('.nb-pop__kicker') || {}).textContent } })
+        ok(!early && card.shown && card.w === 320 && card.title && card.kicker, `a wikilink previews after 350 ms, not before: a ${card.w} px card, "${card.title}" (${card.kicker})`)
+      }
+      await close(p)
+    }
+    // print: no chrome, paper colours, tables whole
+    {
+      const p = await page(size, ROUTES.longest)
+      await p.emulateMedia({ media: 'print' })
+      const r = await p.evaluate(() => {
+        const shown = (s) => { const e = document.querySelector(s); if (!e) return false; for (let a = e; a; a = a.parentElement) { const st = getComputedStyle(a); if (st.display === 'none' || st.visibility === 'hidden') return false } return e.getBoundingClientRect().height > 0 }
+        return { bar: shown('.nb-bar'), tree: shown('.nb-side'), bg: getComputedStyle(document.querySelector('.nb-main')).backgroundColor, table: getComputedStyle(document.querySelector('.nb-table')).overflowX, rows: [...document.querySelectorAll('.nb-table tbody tr')].every((tr) => getComputedStyle(tr).display !== 'none'), body: shown('.nb-body') }
+      })
+      ok(!r.bar && !r.tree && r.body && /251, 250, 246/.test(r.bg) && r.table === 'visible' && r.rows, `print: the bar and the tree are hidden, the page is paper (${r.bg}), tables are unclipped with every row`)
+      await close(p)
+    }
+  }
+  // Q12: the bar's title goes back to the top
+  {
+    const p = await page('desktop', ROUTES.longest)
+    await p.evaluate(() => NB.controls.scroller().scrollTo(0, 1500))
+    await wait(p, 100)
+    await p.click('.nb-bar__path [aria-current="page"]')
+    await wait(p, 900)
+    const y = await p.evaluate(() => ({ y: NB.controls.scrollTop(), hash: location.hash }))
+    ok(y.y < 4 && y.hash === ROUTES.longest, `the bar's title scrolls back to the top (${y.y} px) and stays on the note`)
+    await close(p)
   }
 }
 
@@ -593,7 +771,7 @@ if (!ONLY) {
   ok(!hitsAll.length, `${routes.length + 1} routes visited; no private term in document.body.innerText (HoneyHive only where T14 is shown, as decided)${hitsAll.length ? ': ' + [...new Set(hitsAll)].slice(0, 6).join(', ') : ''}`)
   const add = await page('desktop', '?add=1')
   const a = await add.evaluate(() => ({ text: (document.querySelector('.proof') || {}).textContent || '', n: NB.vault.notes.length, ok: (document.querySelector('.proof') || {}).dataset?.ok }))
-  ok(a.n === 71 && a.ok === 'true', `?add=1: ${a.text}`)
+  ok(a.n === 72 && a.ok === 'true', `?add=1: ${a.text} (${a.n} notes: 71 and the test note)`)
   await close(add)
   const off = await page('desktop', '?autolink=0#/agent-reliability/study/log')
   ok(await off.evaluate(() => !document.querySelector('.nb-col .nb-id')), '?autolink=0: ID mentions stay plain text')

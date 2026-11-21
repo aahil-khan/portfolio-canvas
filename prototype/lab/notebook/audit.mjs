@@ -48,6 +48,16 @@
 //   - #/graph at 390×844: no SVG, and every row of the list map (notes and folders) ≥ 44 px tall
 //   - the study hub: no SVG chart; its progress text is ≥ 15 px
 //   - start-here's first phone screen holds "Aahil" and three entry links
+//
+// Round 4 (reader controls) asserts, in night and in paper:
+//   - at each text-size step (15 / 17 / 19 / 21 / 23 px), on 05-scenarios at 1440×900 and 390×844:
+//     the body's px is the step, the h2 is the step × 1.294 (it scales with it), and at 390 px no
+//     sideways scroll; at 23 px, every view of the plan's table has no sideways scroll at 390×844
+//     and 390×664 (the shell's in-app height), and the bar's cells stay on one line
+//   - the Aa panel's controls are ≥ 44 px tall on a phone (≥ 32 on a desktop), and the panel opens
+//     from the top on a phone (its top is the bar's foot), under the bar on a desktop
+//   - the progress hairline's scale at the end of 05-scenarios is ≥ 0.99 (both sizes), 0 at the top
+//   - every glossary term in 05-scenarios' visible text has a popover target (.nb-gl) in view's DOM
 import { createRequire } from 'node:module'
 import { homedir } from 'node:os'
 import { join, resolve } from 'node:path'
@@ -223,6 +233,31 @@ const VIEWS2 = {
   study: '#/agent-reliability/study', W1: VIEWS.W1, holt: VIEWS.holt, stub: '#/builds/01-drag-to-workspace', post: VIEWS.post, graph: '#/graph',
 }
 const THEMES = { night: 'dark', paper: 'light' }
+const SIZES4 = { desk: [1440, 900], phone: [390, 844], inapp: [390, 664] }
+
+// in the page: the round-4 measurements, at whatever text size is on <html>
+function probe4() {
+  const px = (e) => (e ? parseFloat(getComputedStyle(e).fontSize) : null)
+  const cells = [...document.querySelectorAll('.nb-bar__cell')].filter((c) => c.offsetParent !== null && c.getBoundingClientRect().width > 0)
+  return {
+    size: document.documentElement.dataset.labSize, body: px(document.querySelector('.nb-body p')), h2: px(document.querySelector('.nb-body h2')),
+    aaIn: (() => { const a = document.querySelector('.nb-bar [data-act="aa"]'); if (!a) return false; const r = a.getBoundingClientRect(), bar = document.querySelector('.nb-bar').getBoundingClientRect(); return r.width >= 40 && r.left >= bar.left && r.right <= Math.min(innerWidth, bar.right) + 0.5 })(),
+    kickerCut: (() => { const k = document.querySelector('.nb-kicker'); return !!k && k.offsetParent !== null && k.scrollWidth > k.clientWidth + 1 })(),
+    sw: document.documentElement.scrollWidth, iw: innerWidth, barOne: new Set(cells.map((c) => Math.round(c.getBoundingClientRect().top))).size === 1 && cells.every((c) => c.getBoundingClientRect().height <= 44.5),
+  }
+}
+// in the page: every glossary term in the visible text has its marked first use
+function probeGloss() {
+  const body = document.querySelector('.nb-body')
+  const clone = body.cloneNode(true)
+  for (const x of clone.querySelectorAll('a, code, pre, h1, h2, h3, h4, .nb-formula, .nb-code, .nb-embed')) x.remove()
+  const host = document.createElement('div'); host.style.cssText = 'position:absolute;left:-9999px;width:600px'; host.appendChild(clone); document.body.appendChild(host)
+  const text = clone.innerText
+  host.remove()
+  const used = NB.gloss.entries().filter((e) => { const re = NB.reading.termRe(e); return re && re.test(text) })
+  const marked = (id) => [...body.querySelectorAll(`.nb-gl[data-gloss="${id}"]`)].some((x) => x.getClientRects().length > 0)
+  return { used: used.map((e) => e.term), missing: used.filter((e) => !marked(e.id)).map((e) => e.term), total: body.querySelectorAll('.nb-gl').length }
+}
 
 const b = await chromium.launch()
 const res = {}
@@ -272,6 +307,48 @@ try {
           return { fg: s.color, bg: s.backgroundColor, r: +((x + 0.05) / (y + 0.05)).toFixed(2) }
         })
         await pg.evaluate(() => NB.narrator.stop())
+      }
+      await ctx.close()
+    }
+  }
+  // round 4: the reader's controls, in each theme
+  for (const [theme, scheme] of Object.entries(THEMES)) {
+    for (const [sz, [w, h]] of Object.entries(SIZES4)) {
+      const phone = sz !== 'desk'
+      const ctx = await b.newContext({ viewport: { width: w, height: h }, isMobile: phone, hasTouch: phone, colorScheme: scheme })
+      const pg = await ctx.newPage()
+      const open = async (hash) => { await pg.goto('about:blank'); await pg.goto(FILE + hash); await pg.evaluate(() => document.fonts.ready); await pg.waitForTimeout(350) }
+      if (sz !== 'inapp') {
+        await open(VIEWS.scen05)
+        res[`r4:${theme}:theme@${sz}`] = await pg.evaluate(() => document.documentElement.dataset.labTheme)
+        for (let i = 0; i < 5; i++) {
+          await pg.evaluate((k) => NB.prefs.setSize(k), i)
+          await pg.waitForTimeout(80)
+          res[`r4:${theme}:step${i}@${sz}`] = await pg.evaluate(probe4)
+        }
+        await pg.evaluate(() => NB.prefs.setSize(1))
+        // the hairline at the top and at the end
+        await pg.evaluate(() => NB.controls.scroller().scrollTo(0, 0)); await pg.waitForTimeout(120)
+        const top = await pg.evaluate(() => NB.controls.progress)
+        await pg.evaluate(() => NB.controls.scroller().scrollTo(0, 1e7)); await pg.waitForTimeout(150)
+        res[`r4:${theme}:bar@${sz}`] = await pg.evaluate((t) => { const i = document.querySelector('.nb-readbar i'), m = new DOMMatrix(getComputedStyle(i).transform); return { top: t, end: +m.a.toFixed(4), h: Math.round(i.getBoundingClientRect().height), shown: !document.querySelector('.nb-readbar').hidden } }, top)
+        await pg.evaluate(() => NB.controls.scroller().scrollTo(0, 0)); await pg.waitForTimeout(100)
+        res[`r4:${theme}:gloss@${sz}`] = await pg.evaluate(probeGloss)
+        // the Aa panel
+        await pg.click('.nb-bar [data-act="aa"]')
+        await pg.waitForTimeout(80)
+        res[`r4:${theme}:aa@${sz}`] = await pg.evaluate(() => {
+          const aa = document.querySelector('.nb-aa'), r = aa.getBoundingClientRect(), bar = document.querySelector('.nb-bar').getBoundingClientRect()
+          const bs = [...aa.querySelectorAll('button')].filter((x) => x.offsetParent !== null).map((x) => { const q = x.getBoundingClientRect(); return { t: x.textContent.trim() || x.getAttribute('aria-label'), h: Math.round(q.height), w: Math.round(q.width) } })
+          return { open: !aa.hidden, top: Math.round(r.top - bar.bottom), left: Math.round(r.left), right: Math.round(innerWidth - r.right), bs }
+        })
+      }
+      // every view at the largest size: nothing scrolls sideways, the bar stays one line
+      await open(VIEWS2.start)
+      await pg.evaluate(() => NB.prefs.setSize(4))
+      for (const [k, hash] of Object.entries(VIEWS2)) {
+        await open(hash)
+        res[`r4:${theme}:big:${k}@${sz}`] = await pg.evaluate(probe4)
       }
       await ctx.close()
     }
@@ -346,6 +423,33 @@ for (const theme of Object.keys(THEMES)) {
   }
   const h = res[`r3:${theme}:start@phone`]
   ok(h.aahil && h.entries === 3, `start-here's first phone screen: "Aahil" ${h.aahil ? 'is there' : 'MISSING'}, ${h.entries} entry links in full view (3)`)
+}
+
+console.log('round 4: reader controls')
+for (const theme of Object.keys(THEMES)) {
+  for (const sz of Object.keys(SIZES4)) {
+    console.log(` ${theme} · ${sz}`)
+    if (sz !== 'inapp') {
+      ok(res[`r4:${theme}:theme@${sz}`] === theme, `the page is in ${res[`r4:${theme}:theme@${sz}`]}`)
+      const steps = [0, 1, 2, 3, 4].map((i) => res[`r4:${theme}:step${i}@${sz}`])
+      const want = [15, 17, 19, 21, 23]
+      ok(steps.every((m, i) => m.size === String(i) && m.body === want[i]), `05-scenarios: the body is ${steps.map((m) => m.body).join(' / ')} px at the five steps (15 / 17 / 19 / 21 / 23)`)
+      ok(steps.every((m, i) => Math.abs(m.h2 - want[i] * 1.2941) < 0.6) && steps.every((m, i) => !i || m.h2 > steps[i - 1].h2), `the h2 scales with it: ${steps.map((m) => m.h2.toFixed(1)).join(' / ')} px`)
+      if (sz === 'phone') ok(steps.every((m) => m.sw <= 390 && m.iw <= 390), `390 px: no sideways scroll at any step (widest ${Math.max(...steps.map((m) => Math.max(m.sw, m.iw)))} px)`)
+      const bar = res[`r4:${theme}:bar@${sz}`]
+      ok(bar.shown && bar.end >= 0.99 && bar.top === 0 && bar.h === 2, `the progress hairline: 2 px, 0 at the top, ${bar.end} at the end of 05-scenarios (≥ 0.99)`)
+      const g = res[`r4:${theme}:gloss@${sz}`]
+      ok(g.used.length >= 1 && !g.missing.length, `every glossary term in 05-scenarios' text has a popover target (${g.used.join(', ')}; ${g.total} marked)${g.missing.length ? ' — MISSING: ' + g.missing.join(', ') : ''}`)
+      const aa = res[`r4:${theme}:aa@${sz}`], min = sz === 'phone' ? 44 : 32
+      ok(aa.open && aa.bs.length >= 8 && aa.bs.every((x) => x.h >= min), `the Aa panel: ${aa.bs.length} controls, all ≥ ${min} px tall (shortest ${Math.min(...aa.bs.map((x) => x.h))}: ${aa.bs.filter((x) => x.h === Math.min(...aa.bs.map((y) => y.h))).map((x) => x.t).slice(0, 2).join(', ')})`)
+      ok(Math.abs(aa.top) <= 1 && (sz === 'phone' ? aa.left === 0 && aa.right === 0 : aa.right >= 0 && aa.left > 700), `the Aa panel opens ${sz === 'phone' ? 'from the top, full width (a sheet, never from the bottom)' : 'under the bar, at its right'} (top ${aa.top}, left ${aa.left}, right ${aa.right})`)
+    }
+    const big = Object.keys(VIEWS2).map((k) => [k, res[`r4:${theme}:big:${k}@${sz}`]])
+    if (sz !== 'desk') ok(big.every(([, m]) => m.sw <= 390 && m.iw <= 390), `at 23 px, ${big.length} views have no sideways scroll at ${SIZES4[sz].join('×')}${big.filter(([, m]) => m.sw > 390 || m.iw > 390).map(([k, m]) => ` — ${k} ${Math.max(m.sw, m.iw)}`).join('')}`)
+    ok(big.every(([, m]) => m.aaIn), `Aa is whole on the bar on all ${big.length} views, however long the path (the path gives way)${big.filter(([, m]) => !m.aaIn).map(([k]) => ' — ' + k).join('')}`)
+    ok(big.every(([, m]) => !m.kickerCut), `at 23 px, no kicker is cut off (it wraps; the clock stays whole)${big.filter(([, m]) => m.kickerCut).map(([k]) => ' — ' + k).join('')}`)
+    ok(big.every(([, m]) => m.barOne), `at 23 px, the bar's cells stay on one line on all ${big.length} views (the chrome does not grow)`)
+  }
 }
 
 console.log(fails ? `\n${fails} of ${n} FAILED` : `\nall ${n} audit checks pass`)

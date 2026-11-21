@@ -4,8 +4,8 @@
 //
 // Loads the pure parts (copy.js, md.js, model.js, graph.js, vault.js, study.js, essay.js,
 // graph-seed.js, logic.js) in Node and checks, on the real vault:
-//   1. the vault: vault.js is current, every link resolves, names and numbers, fields, 70 public notes (a stub hidden by default),
-//      and the visibility switch
+//   1. the vault: vault.js is current, every link resolves, names and numbers, fields, 71 public notes (a stub hidden by default),
+//      the visibility switch, the glossary (Q5) and the reader controls' arithmetic (reading.js)
 //   2. verbatim: the seven spec notes are the spec's own lines (SKIP if the source is absent)
 //   3. the study: the allowlist, Aahil's 2026-11-21 calls, the private-term scan, the numbers
 //   4. the graph: deterministic, in bounds, no overlaps, warm relayout, tracks folded, "where this fits"
@@ -31,7 +31,7 @@ import * as tracker from './tools/import-tracker.mjs'
 
 const here = dirname(fileURLToPath(import.meta.url))
 const require = createRequire(import.meta.url)
-for (const f of ['prefs.js', 'copy.js', 'md.js', 'model.js', 'graph.js', 'vault.js', 'study.js', 'essay.js', 'graph-seed.js', 'logic.js']) require(join(here, f))
+for (const f of ['prefs.js', 'reading.js', 'copy.js', 'md.js', 'model.js', 'graph.js', 'vault.js', 'study.js', 'essay.js', 'graph-seed.js', 'logic.js']) require(join(here, f))
 const { NB, NIGHT } = globalThis
 const C = NB.copy, MD = NB.md, G = NB.graph
 
@@ -57,8 +57,38 @@ ok(new Set(keys).size === keys.length && new Set(V.all.map((n) => n.route)).size
 const numClash = V.all.filter((n) => !n.isHub && V.all.some((o) => o !== n && !o.isHub && o.folder === n.folder && o.num === n.num))
 ok(!numClash.length, 'every number appears once per folder; 00 is only ever a hub')
 const counts = { root: 1, arHub: 1, shop: V.all.filter((n) => n.folder === 'agent-reliability/shopkeeper').length, study: V.all.filter((n) => n.folder.startsWith('agent-reliability/study')).length, builds: V.all.filter((n) => n.folder === 'builds').length, writing: V.all.filter((n) => n.folder === 'writing').length, tours: V.tours.length }
-ok(V.notes.length === 70 && counts.shop === 13 && counts.study === 46 && counts.builds === 5 && counts.writing === 3 && counts.tours === 2,
-  `70 public notes of 71: 1 + 1 + ${counts.shop} shopkeeper + ${counts.study} study (hub, log, ${NB.study.topics.length} topics, PW6) + ${counts.builds} builds (one a hidden stub) + ${counts.writing} + ${counts.tours}`)
+counts.glossary = V.all.filter((n) => n.route === '01-glossary').length
+ok(V.notes.length === 71 && counts.shop === 13 && counts.study === 46 && counts.builds === 5 && counts.writing === 3 && counts.tours === 2 && counts.glossary === 1,
+  `71 public notes of 72: 1 + 1 + ${counts.shop} shopkeeper + ${counts.study} study (hub, log, ${NB.study.topics.length} topics, PW6) + ${counts.builds} builds (one a hidden stub) + ${counts.writing} + ${counts.tours} + the glossary`)
+{
+  // Q5: the glossary is a note out of the tree, the map, prev / next and latest, but in the switcher
+  const g = at('01-glossary'), inTree = (f) => f.notes.includes(g) || f.folders.some(inTree)
+  const gin = graphInput(V).nodes.some((x) => x.key === g.route)
+  const latest = V.blockMd(at(''), 'latest')
+  ok(g && !inTree(V.tree) && V.tree.hub !== g && !gin && !/glossary/i.test(latest) && !V.prevNext(at('')).next?.route?.includes('glossary') && V.match('gloss')[0] === g && V.resolve('glossary') === g,
+    'the glossary: out of the tree, the map, latest and prev / next; the switcher finds it ("gloss"), [[glossary]] resolves')
+  const E = NB.reading.glossary(g.blocks, MD.plain, MD.slugify)
+  const want = ['pass@k', 'pass^k', 'ZOPA', 'MCC', 'eval', 'OTel', 'LLM-as-judge', 'PW', 'T', 'W']
+  ok(same(E.map((e) => e.term).sort(), want.slice().sort()) && E.every((e) => e.def && e.def.length <= 200 && (e.term + ' ' + /^.*?[.!?](?=\s|$)/.exec(e.def)[0]).length <= 82), `the glossary defines the ${want.length} terms in ≤ 200 characters; the popover's line (the term and the first sentence) ≤ 82, two lines at 320 px (longest ${Math.max(...E.map((e) => (e.term + ' ' + /^.*?[.!?](?=\s|$)/.exec(e.def)[0]).length))})`)
+  const ids = new Set(V.anchorsOf ? V.anchorsOf(g) : [])
+  const rendered = MD.render(g.blocks, { resolve: () => null }).headings.map((x) => x.id)
+  ok(E.every((e) => rendered.includes(e.id)) && new Set(E.map((e) => e.id)).size === E.length, `every term's "more →" anchor is a heading on the glossary (${E.map((e) => e.id).join(' ')})${ids.size ? '' : ''}`)
+  ok(g.fm.proposal === true, 'the definitions are flagged PROPOSAL (Aahil rewrites them; the chip shows in the author view)')
+  const R = NB.reading, re = (t) => R.termRe(E.find((e) => e.term === t))
+  ok(re('eval').test('two evals ran') && !re('eval').test('evaluation') && re('ZOPA').test('ZOPA empty') && !re('ZOPA').test('zopa') && re('LLM-as-judge').test('an LLM-as-a-judge') && re('pass^k').test('the pass^k score') && !re('pass@k').test('pass^k') && !re('T'),
+    'terms are found as words: eval and evals, not evaluation; ZOPA by its case; LLM-as-a-judge; pass^k ≠ pass@k; T is an ID prefix, not a word')
+  const fu = R.firstUses(['an eval and a ZOPA', 'the ZOPA again, evals'], E)
+  ok(fu.length === 2 && fu.every((x) => x.i === 0), 'each term is marked at its first use on a note only')
+}
+{
+  // Q4, Q10, Q11: the reader controls' arithmetic
+  const R = NB.reading
+  ok(R.progress(0, 2000, 800) === 0 && R.progress(1200, 2000, 800) === 1 && R.progress(600, 2000, 800) === 0.5 && R.progress(0, 700, 800) === 1, 'progress: 0 at the top, 1 at the end, 1 for a note shorter than the screen')
+  ok(same(R.left(12, 0), { n: 12, kind: 'read' }) && same(R.left(12, 0.5), { n: 6, kind: 'left' }) && R.left(12, 0.99).kind === 'end' && R.left(1, 0.3).n === 1, 'the kicker clock: "12 min read" at the top, "6 min left" halfway, the end says so')
+  ok(R.resumeAt({ top: 900 }, 3000, 800) === 900 && R.resumeAt({ top: 900, done: true }, 3000, 800) === 0 && R.resumeAt({ top: 2900 }, 3000, 800) === 0 && R.resumeAt(null, 3000, 800) === 0, 'resume: back to the stored position; not when the note was finished, or is now shorter')
+  ok(R.firstInView([{ top: -400, bottom: -300 }, { top: 0, bottom: 60 }, { top: 120, bottom: 300 }], 44, 800) === 2 && R.firstInView([{ top: 10, bottom: 300 }], 44, 800) === 0 && R.firstInView([{ top: -10, bottom: 40 }, { top: 30, bottom: 300 }], 44, 800) === 1 && R.firstInView([{ top: 60, bottom: 100 }], 44, 800) === 0, '▶ starts at the first part below the bar and above the fold')
+  ok(NB.prefs.SIZES.join() === '15,17,19,21,23' && NB.prefs.clampSize(9) === 4 && NB.prefs.clampSize(-1) === 0 && NB.prefs.clampSize(null) === 1 && NB.prefs.widthOf('x') === 'narrow' && NB.prefs.WIDTHS.wide === 44, 'prefs: five sizes (15–23 px, 17 by default), clamped; three widths (32 / 36 / 44em, narrow by default)')
+}
 const reqMiss = V.all.flatMap((n) => [...NB.model.REQUIRED.all, ...NB.model.REQUIRED[n.type]].filter((k) => n.fm[k] === undefined && !(k === 'visibility' && n.defaultHidden)).map((k) => `${n.route}.${k}`))
 ok(!reqMiss.length, `each type has its required fields${reqMiss.length ? ': ' + reqMiss.join(', ') : ''}`)
 ok(V.all.filter((n) => n.type === 'post').every((n) => n.fm.entry), 'every post sets entry (a note, or none)')
@@ -93,7 +123,7 @@ ok(V.resolve('shopkeeper/policy') === at('agent-reliability/shopkeeper/02-policy
 // ── 2 ───────────────────────────────────────────────────────────────────────────────────────
 console.log('2. verbatim')
 const SPEC = join(homedir(), 'projects/scratch/lab-sources/shopkeeper-spec-v1.md')
-const specNotes = V.all.filter((n) => n.type === 'doc')
+const specNotes = V.all.filter((n) => n.type === 'doc' && n.fm.project === 'shopkeeper')
 if (!existsSync(SPEC)) skip(`the spec is not on this machine (${SPEC})`)
 else {
   const src = readFileSync(SPEC, 'utf8')
@@ -239,6 +269,13 @@ const rules0 = (src) => [...src.replace(/\/\*[\s\S]*?\*\//g, '').replace(/@impor
 // ── 7 ───────────────────────────────────────────────────────────────────────────────────────
 console.log('7. the themes')
 const css = readFileSync(join(here, 'notebook.css'), 'utf8')
+{
+  // Q13: print is paper, token for token (the print block repeats them; this keeps them equal)
+  const decl = (b) => [...b.matchAll(/(--[\w-]+)\s*:\s*([^;]+);/g)].map((m) => `${m[1]}:${m[2].trim()}`).sort().join(';')
+  const paperBlock = (/^html\[data-lab-theme='paper'\] \{([^}]*)\}/m.exec(css) || [])[1] || ''
+  const printBlock = (/@media print \{\s*html\[data-lab-theme\], html:not\(\[data-lab-theme\]\) \{([^}]*)\}/.exec(css) || [])[1] || ''
+  ok(paperBlock && decl(paperBlock) === decl(printBlock), `print uses paper's ${decl(paperBlock).split(';').length} tokens, unchanged`)
+}
 const hex = (v) => { const m = /^#([0-9a-f]{6})$/i.exec(String(v).trim()); return m ? [0, 2, 4].map((i) => parseInt(m[1].slice(i, i + 2), 16)) : null }
 const lum = (c) => { const [r, g, b] = c.map((v) => { v /= 255; return v <= 0.03928 ? v / 12.92 : Math.pow((v + 0.055) / 1.055, 2.4) }); return 0.2126 * r + 0.7152 * g + 0.0722 * b }
 const ratio = (a, b) => { const [x, y] = [lum(a), lum(b)].sort((m, n) => n - m); return (x + 0.05) / (y + 0.05) }
@@ -305,13 +342,13 @@ const DROPPED = ['vignette.js', 'deck.js', 'dial.js', 'home.js', 'toy.js', 'fx.j
 ok(DROPPED.every((f) => !existsSync(join(here, f))) && !existsSync(join(here, 'narration/sample-audio.js')) && !scripts.some((s) => DROPPED.includes(s)), `the dropped modules are gone (${DROPPED.length}, and the 0.8 MB pre-rendered sample: sam renders live)`)
 ok(same(Object.keys(NIGHT.imports).sort(), ['chrome-hackathon', 'old-laptop-cloud']) && V.all.filter((n) => n.type === 'post').length === 2, 'the two essays are the only Medium content')
 // every painting rule is scoped to the notebook, so the day desk is untouched
-const SCOPED = /^(html\.(has-night|is-night|is-turning|nb-[\w-]+)|html:not\(\.(nb-on|has-night)\)|html\[data-lab-theme|html\[data-focus\]|html:not\(\[data-lab-theme\]\)|\.nb|\.night|\.lab-sky|\.lab-starfield|\.proof|@keyframes|from|to|\d+%)/
+const SCOPED = /^(html\.(has-night|is-night|is-turning|nb-[\w-]+)|html:not\(\.(nb-on|has-night)\)|html\[data-lab-|html\[data-focus\]|html:not\(\[data-lab-theme\]\)|\.nb|\.night|\.lab-sky|\.lab-starfield|\.proof|@keyframes|from|to|\d+%)/
 const rules = [...code(css).replace(/'[^'\n]*'/g, "''").replace(/@import[^;]+;/g, '').replace(/@media[^{]+\{/g, '').replace(/@supports[^{]+\{/g, '').matchAll(/([^{}]+)\{([^{}]*)\}/g)].map((m) => [m[1].trim(), m[2]])
 const leaky = rules.filter(([sel, body]) => !(sel === ':root' && [...body.matchAll(/([\w-]+)\s*:/g)].every((m) => m[1].startsWith('--'))) && sel.split(',').map((s) => s.trim()).some((s) => !SCOPED.test(s)))
 ok(rules.length > 80 && !leaky.length, `notebook.css: all ${rules.length} rules paint only the notebook or the night${leaky.length ? ' — LEAKS: ' + leaky.map((r) => r[0]).slice(0, 6).join(' | ') : ''}`)
 const sentence = /(['"`])(?:(?!\1)[^\n]){0,6}\b[a-z]+ [a-z]+ [a-z]+ [a-z]+\b(?:(?!\1)[^\n])*\1/i
 const strip = (s) => code(s).replace(/(['"`])(?:\\.|(?!\1)[^\\\n])*\1/g, (m) => (/[<>=(){}$]|\.\w+\(|^.(\w+-)+\w+.$/.test(m) ? "''" : m))
-const UI = ['shell.js', 'reader.js', 'switcher.js', 'embeds.js', 'map.js', 'trip.js', 'model.js', 'graph.js', 'md.js', 'voice.js', 'sound.js']
+const UI = ['shell.js', 'reader.js', 'controls.js', 'glossary.js', 'reading.js', 'prefs.js', 'switcher.js', 'embeds.js', 'map.js', 'trip.js', 'model.js', 'graph.js', 'md.js', 'voice.js', 'sound.js']
 const prose = UI.filter((f) => text[f] && sentence.test(strip(text[f])))
 ok(UI.every((f) => text[f]) && !prose.length, `every UI word is in copy.js${prose.length ? ' — prose in ' + prose.join(', ') : ''}${UI.filter((f) => !text[f]).length ? ' — missing ' + UI.filter((f) => !text[f]).join(', ') : ''}`)
 {

@@ -45,7 +45,8 @@
       folder ? k('folder', esc(S().cap(folder))) : '',
       note.id ? k('id', esc(note.id)) : '',
       k('status', `<span aria-hidden="true" data-st="${esc(C.status[note.status] ? note.status : 'planned')}">${esc(st[0])}</span> ${esc(st[1])}`),
-      c.read ? k('read', `${esc(C.minShort(Math.max(1, Math.round(c.read))))}<span class="nb-k__unit">${esc(C.readUnit)}</span>`) : '',
+      // the clock: "12 min read" at the top, then "8 min left" as the reader scrolls (controls.js)
+      c.read ? k('read', `<span class="nb-k__n">${esc(C.minShort(Math.max(1, Math.round(c.read))))}</span><span class="nb-k__unit">${esc(C.readUnit)}</span>`) : '',
       note.updated ? k('upd', esc(C.updated(day(note.updated)))) : '',
     ]
     // the author view keeps the internal labels: the number, the type, visibility, PROPOSAL
@@ -85,21 +86,28 @@
       : author() && L.why !== 'repeat' ? `<p class="nb-slot nb-lede-slot"><span class="nb-proposal">${esc(C.proposal)}</span> ${esc(C.ledeSlot)} (${esc(C.ledeSlotWhy[L.why])})</p>` : ''
     const title = note.isHub ? S().cap(note.title) : note.title
     const ledeAlt = note.route === '' && author() ? `<p class="nb-slot nb-lede-slot"><span class="nb-proposal">${esc(C.proposal)}</span> ${esc(C.start.ledeProposal)}</p>` : ''
+    // start-here: "Continue W1 at step 3 →" when the reader has been here before (Q10)
+    const resume = note.route === '' ? NB.controls.resumeHtml() : ''
+    // the note's end: share it and back to the top (Q8, Q12); nothing is fixed at the bottom
+    const endbar = note.route === '' ? '' : `<p class="nb-endbar"><button type="button" class="nb-endbar__btn" data-act="share" aria-label="${esc(C.shareLabel(title))}">${esc(C.share)}</button><button type="button" class="nb-endbar__btn" data-act="top" aria-label="${esc(C.topLabel)}">${esc(C.top)}</button></p>`
     S().el.col.innerHTML = `<article class="nb-note" data-route="${esc(note.route)}">
       ${kicker(note)}
       <h1 class="nb-title" tabindex="-1" data-say="title">${esc(title)}</h1>
-      ${lede}${ledeAlt}
+      ${lede}${ledeAlt}${resume}
       ${banner}
       ${note.fm.stub && author() ? `<p class="nb-stub nb-callout nb-callout--warn"><span data-st="stub" aria-hidden="true">${esc(C.status.stub[0])}</span> ${esc(C.stub)}</p>` : ''}
       ${totals}
       ${toc}
       <div class="nb-body">${body}</div>
+      ${endbar}
       <nav class="nb-prevnext" aria-label="${esc(C.linksHead)}">${step(pn.prev, 'prev')}${step(pn.up, 'up')}${step(pn.next, 'next')}</nav>
       ${note.route === '' ? '' : endLinks(note, w)}
     </article>`
     // a walkthrough's steps open inside the tour, so the banner and [ ] follow it
     if (note.type === 'walkthrough') for (const a of S().el.col.querySelectorAll('[data-block="steps"] a[href^="#/"]')) a.setAttribute('href', `${a.getAttribute('href')}?w=${note.id}`)
     statusGlyphs(S().el.col)
+    NB.gloss.mark(S().el.col, note)
+    NB.controls.rendered(note)
     NB.embeds.hydrate(S().el.col, note)
     R.tables()
     S().el.listenBtn.setAttribute('aria-label', note.type === 'walkthrough' ? C.listenTour(note.id) : C.listenLabel)
@@ -227,9 +235,16 @@
       start(w.steps[0], { tour: w, step: 0, navigate: true })
     } else {
       const q = S().state.q, ts = q.get('w') && V().tourStep(n, q.get('w'))
-      start(n, ts ? { tour: ts.tour, step: ts.i } : {})
+      start(n, ts ? { tour: ts.tour, step: ts.i, k: hereK(n) } : { k: hereK(n) })
     }
   }
+  // ▶ starts at the first paragraph in view, not the title (Q11): the reader is already there
+  function hereK(n) {
+    const parts = partsOf(n), col = S().el.col
+    const rects = parts.map((p) => { const e = col.querySelector(p.i === 'title' ? '[data-say="title"]' : `[data-say="${p.i}"]`); return e && e.offsetParent !== null ? e.getBoundingClientRect() : null })
+    return NB.reading.firstInView(rects, S().el.head.getBoundingClientRect().bottom, innerHeight)
+  }
+  N.hereK = hereK
   // focus mode comes on while narration plays, and goes back to what it was when it stops; a reader
   // who presses f meanwhile has decided, and nothing is restored over them
   function focusOn() { if (st.focusWas === null) { st.focusWas = S().isFocus(); S().setFocus(true, false) } }

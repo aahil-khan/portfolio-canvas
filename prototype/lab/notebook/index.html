@@ -12,7 +12,9 @@
   left (a drawer on phone), a ~64-character reading column that scrolls, and a right margin with
   only "on this page" (≥ 3 headings; otherwise the column centres). Links, backlinks, the local
   graph and the tags sit at each note's end. f is focus mode. Two reading themes, night and
-  paper (◐ in the bar; a direct link follows prefers-color-scheme, the trip is night; prefs.js). Round 1 of the readability fixes:
+  paper (Aa in the bar holds them with text size, line width, focus and sounds; a direct link follows
+  prefers-color-scheme, the trip is night; prefs.js). Round 4 adds the reader's controls (controls.js,
+  glossary.js): progress and time left, the glossary, links to headings, share, previews, resume, print. Round 1 of the readability fixes:
   ~/.local/state/hq/plans/portfolio-canvas/lab-audit-readability-first/plan.md; audit.mjs measures it. Every note has a stable URL. The canvas trip is still
   here (#desk, then the Lab tile or L), and secondary.
 
@@ -42,6 +44,7 @@
 <script src="copy.js"></script>
 <script src="decode.js"></script>
 <script src="logic.js"></script>
+<script src="reading.js"></script>
 <script src="md.js"></script>
 <script src="model.js"></script>
 <script src="graph.js"></script>
@@ -57,6 +60,8 @@
 <script src="shell.js"></script>
 <script src="reader.js"></script>
 <script src="switcher.js"></script>
+<script src="controls.js"></script>
+<script src="glossary.js"></script>
 <script src="trip.js"></script>
 <script>
   NB.publicRoot = '../../../public'

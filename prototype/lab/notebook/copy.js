@@ -25,8 +25,29 @@
     graph: '◎', graphWord: 'map', graphLabel: 'The map of every note (g)',
     listen: '▶', listenWord: 'listen', listenLabel: 'Listen to this note (l)', listenTour: (w) => `Listen to all of ${w}`,
     sndWord: (on) => `Interface sounds: ${on ? 'on' : 'off'}`, sndLabel: (on) => `Interface sounds ${on ? 'on' : 'off'}, press to change`,
-    // the bar's theme toggle, until round 4's Aa panel: night ↔ paper
-    theme: '◐', themeWord: (t) => t, themeLabel: (t) => `Theme: ${t}, press to change`,
+    // the Aa panel (round 4): text size, theme, line width, focus, sounds. One cell in the bar.
+    aa: 'Aa', aaLabel: 'Reading settings: text size, theme, line width (a)', aaKey: 'a',
+    panel: {
+      label: 'Reading settings',
+      size: 'Text size', sizeStep: (px) => `${px} px`, sizeDown: 'A−', sizeUp: 'A+', sizeDownLabel: 'Smaller text (−)', sizeUpLabel: 'Larger text (+)',
+      theme: 'Theme', modes: { auto: 'Auto', night: 'Night', paper: 'Paper' }, autoHint: 'follows your device',
+      width: 'Line width', widths: { narrow: 'Narrow', medium: 'Medium', wide: 'Wide' },
+      focus: (on) => `Focus mode: ${on ? 'on' : 'off'}`, focusLabel: (on) => `Focus mode ${on ? 'on' : 'off'}: hides the notes and the outline (f)`, focusKey: 'f',
+      sounds: 'Interface sounds',
+      close: 'Done',
+    },
+    // reading progress (Q4): the kicker's clock as you scroll, and the hairline's name
+    minLeft: (n) => `${n} min`, leftUnit: ' left', endUnit: 'at the end', progressLabel: 'Reading progress',
+    // links and sharing (Q8), back to top (Q12), resume (Q10)
+    headLink: (t) => `Copy a link to “${t}”`,
+    share: 'Share this note', shareLabel: (t) => `Share “${t}”`, top: '↑ top', topLabel: 'Back to the top',
+    copied: 'Link copied', copyFailed: 'Could not copy: the link is in the address bar',
+    toTop: '↑ back to the top', toTopLabel: 'Back to the top of this note',
+    continueTour: (id, step) => `Continue ${id} at step ${step}`, continueNote: (t) => `Continue “${t}”`,
+    // the glossary (Q5) and hover previews (Q9)
+    more: 'more →', glossLabel: (t) => `${t}: what it means`, idPrefix: (p, what) => `${p}: ${what}`,
+    previewOpen: 'open →',
+    keysHint: '? keys',
     on: 'on', off: 'off',
     help: '?', helpLabel: 'Keys (?)',
     focus: '◫', focusWord: 'focus', focusKey: 'f', focusLabel: 'Focus mode: hide the notes and the outline (f)',
@@ -190,7 +211,7 @@
     helpTitle: 'keys',
     keys: [
       ['/ or Ctrl+K', 'search notes'], ['g', 'graph'], ['b', 'sidebar or drawer'], ['[ ]', 'previous, next (tour or folder)'], ['u', 'up to the hub'],
-      ['~', '← canvas'], ['f', 'focus mode'], ['l', 'listen'], ['space', 'play / pause while listening'], [', .', 'seek'], ['↑↓ ← →', 'move in the tree, fold'], ['esc', 'close the top layer'], ['?', 'this sheet'],
+      ['~', '← canvas'], ['f', 'focus mode'], ['+ −', 'larger, smaller text'], ['a', 'Aa: text size, theme, line width'], ['l', 'listen'], ['space', 'play / pause while listening'], [', .', 'seek'], ['↑↓ ← →', 'move in the tree, fold'], ['esc', 'close the top layer'], ['?', 'this sheet'],
     ],
     close: 'close',
 
