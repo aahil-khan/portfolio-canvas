@@ -795,7 +795,6 @@ for (const size of ['desktop', 'phone', 'inapp'].filter((x) => !ONLY || x === ON
       const head = document.querySelector('.nb-head').getBoundingClientRect().bottom
       return { head, by: box('.nb-byline'), byText: document.querySelector('.nb-byline').textContent, h1: box('.nb-title'), chips: box('.nb-headrow .nb-chips'), share: box('.nb-share--top'), vh: innerHeight, sw: document.documentElement.scrollWidth, crumb: (document.querySelector(innerWidth < 900 ? '.nb-up' : '.nb-bar__path li a') || {}).textContent }
     })
-    const all = [f.by, f.h1, f.chips, f.share]
     const who = phone ? [f.by] : []
     ok([...who, f.h1, f.chips, f.share].every((x) => x && x.shown && x.top >= f.head - 1 && x.bottom <= f.vh) && /^Aahil’?'?s Lab/.test(phone ? f.byText : f.crumb) && f.sw <= SIZES[size].width, `${r.split('/').pop()}: the first screen says whose Lab it is (${phone ? 'the byline' : 'the first crumb'}: "${(phone ? f.byText : f.crumb).trim()}"), shows the title (bottom ${Math.round(f.h1.bottom)} of ${f.vh}), the tags and Share, with no scroll`)
     if (r === ROUTES.spec) ok(phone ? f.crumb === '‹ Shopkeeper' : f.crumb === "Aahil's Lab", `the way up reads as a place: ${JSON.stringify(f.crumb)}`)
