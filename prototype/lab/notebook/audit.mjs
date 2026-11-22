@@ -647,7 +647,7 @@ try {
         res[`r4:${theme}:gloss@${sz}`] = await pg.evaluate(probeGloss)
         // the Aa panel
         await pg.click('.nb-bar [data-act="aa"]')
-        await pg.waitForTimeout(80)
+        await pg.waitForTimeout(260) // round 7: it lifts in over 180 ms (NB.motion); measured at rest
         res[`r4:${theme}:aa@${sz}`] = await pg.evaluate(() => {
           const aa = document.querySelector('.nb-aa'), r = aa.getBoundingClientRect(), bar = document.querySelector('.nb-bar').getBoundingClientRect()
           const bs = [...aa.querySelectorAll('button')].filter((x) => x.offsetParent !== null).map((x) => { const q = x.getBoundingClientRect(); return { t: x.textContent.trim() || x.getAttribute('aria-label'), h: Math.round(q.height), w: Math.round(q.width) } })
