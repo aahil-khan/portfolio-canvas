@@ -818,7 +818,8 @@ html[data-lab-size='3'] .nb-kicker, html[data-lab-size='4'] .nb-kicker { flex-wr
 .nb .nb-aa__done { min-height: 38px; padding: 0 12px; color: var(--lab-link); }
 
 /* the toast: one line under the bar, gone in 1.5 s ("copied"), or 2 s with "↑ back to the top" */
-.nb-toast { position: absolute; top: calc(100% + 8px); left: 50%; z-index: 6; transform: translateX(-50%); padding: 6px 14px; background: var(--lab-fg); color: var(--lab-bg); font-family: var(--sans); font-size: 15px; line-height: 1.4; white-space: nowrap; }
+/* centred by margins, not a transform: its open/close animation (NB.motion) owns transform */
+.nb-toast { position: absolute; top: calc(100% + 8px); left: 0; right: 0; margin: 0 auto; width: max-content; max-width: calc(100vw - 16px); overflow: hidden; text-overflow: ellipsis; z-index: 6; padding: 6px 14px; background: var(--lab-fg); color: var(--lab-bg); font-family: var(--sans); font-size: 15px; line-height: 1.4; white-space: nowrap; }
 .nb-toast[hidden] { display: none; }
 .nb .nb-toast__btn { min-height: 32px; color: inherit; text-decoration: underline; text-underline-offset: 3px; }
 

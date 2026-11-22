@@ -123,7 +123,9 @@ const ROUTES = {
 }
 
 // E2E_ONLY=<size> runs one size and skips the rest (for iterating; the check runs everything)
-const ONLY = process.env.E2E_ONLY
+// E2E_ROUND=7 runs round 7's section alone (for iterating; the check runs everything)
+const R7_ONLY = process.env.E2E_ROUND === '7'
+const ONLY = R7_ONLY ? '-' : process.env.E2E_ONLY
 for (const size of Object.keys(SIZES).filter((x) => !ONLY || x === ONLY)) {
   const phone = PHONES.includes(size)
   console.log(`\n${size} ${SIZES[size].width}×${SIZES[size].height}`)
@@ -812,7 +814,7 @@ for (const size of ['desktop', 'phone', 'inapp'].filter((x) => !ONLY || x === ON
       await p.evaluate((w) => document.querySelector(`.nb-share--${w}`).scrollIntoView({ block: 'center' }), where)
       await wait(p, 150)
       await p.click(`.nb-share--${where}`)
-      await wait(p, 120)
+      await wait(p, 260) // round 7: the menu lifts in over 180 ms (NB.motion); measure it at rest
       const m = await p.evaluate(() => {
         const box = document.querySelector('.nb-sharemenu'), r = box.getBoundingClientRect()
         const items = [...box.querySelectorAll('.nb-sharemenu__i')]
@@ -820,7 +822,7 @@ for (const size of ['desktop', 'phone', 'inapp'].filter((x) => !ONLY || x === ON
       })
       ok(m.open && m.used === 'menu' && JSON.stringify(m.items) === JSON.stringify(['Copy link', 'LinkedIn', 'X', 'Email']) && m.inside && m.h >= (phone ? 44 : 40), `Share (${where}), no navigator.share: a menu of ${m.items.join(', ')}, inside the viewport, rows ≥ ${phone ? 44 : 40} px`)
       ok(/^https:\/\/x\.com\/intent\/post\?/.test(m.x) && /via=aahil_khan77/.test(m.x) && /01-spec/.test(decodeURIComponent(m.x)) && /share-offsite\/\?url=.*01-spec/.test(m.li), 'X is an intent with via=aahil_khan77, LinkedIn a share-offsite, both with the note\'s URL')
-      if (where === 'top') { await p.keyboard.press('Escape'); await wait(p, 80); ok(await p.evaluate(() => document.querySelector('.nb-sharemenu').hidden && document.activeElement.classList.contains('nb-share--top')), 'Esc closes the menu and focus returns to Share') }
+      if (where === 'top') { await p.keyboard.press('Escape'); await wait(p, 220); ok(await p.evaluate(() => document.querySelector('.nb-sharemenu').hidden && document.activeElement.classList.contains('nb-share--top')), 'Esc closes the menu and focus returns to Share') }
     }
     await p.click('.nb-sharemenu [data-copy]')
     await wait(p, 200)
@@ -852,7 +854,7 @@ for (const size of ['desktop', 'phone', 'inapp'].filter((x) => !ONLY || x === ON
     ok(st.line === "If this was useful, send it to someone who's building agents." && !st.dialog && st.pos === 'static' && st.after, `it is inline after the note, not a popup ("${st.line}")`)
     const nShare = await p.evaluate(() => document.querySelectorAll('.nb-nudge [data-act="share"]').length)
     await p.click('.nb-nudge__no')
-    await wait(p, 100)
+    await wait(p, 220) // round 7: it fades out over 120 ms, then is hidden
     const gone = await p.evaluate(() => document.querySelector('.nb-nudge').hidden)
     await p.reload(); await wait(p, 500)
     await at(1)
@@ -965,6 +967,148 @@ if (!ONLY) {
   ok(await off.evaluate(() => !document.querySelector('.nb-col .nb-id')), '?autolink=0: ID mentions stay plain text')
   await close(off)
   await close(p)
+}
+
+// ── round 7: hover previews on every item (E), and nothing pops (F) ─────────────────────────
+// E, at 1440×900: every kind of item that opens a note shows the one preview card after 350 ms
+// (pointer, and keyboard focus), inside the viewport and never over its item; a post's card is the
+// rich one, its cover uncropped, with its reading time; Esc and leaving close it. At 390×844
+// nothing previews. F: every surface that opens or closes runs an animation both ways (NB.motion,
+// or a CSS transition for the drawer), is gone afterwards, and under reduced motion runs opacity
+// only, ≤ 120 ms. At rest, getAnimations() is empty again.
+if (!ONLY || R7_ONLY) {
+  console.log('\nround 7: previews on every item, and every open and close animated')
+  const popState = (sel) => (p) => p.evaluate((s) => {
+    const q = document.querySelector('.nb-pop'), t = s && document.querySelector(s)
+    if (!q || q.hidden || q.inert) return null
+    const r = q.getBoundingClientRect(), tr = t ? t.getBoundingClientRect() : null
+    const img = q.querySelector('.nb-pop__cover img')
+    const over = tr ? r.left < tr.right - 0.5 && tr.left < r.right - 0.5 && r.top < tr.bottom - 0.5 && tr.top < r.bottom - 0.5 : false
+    return {
+      kind: q.dataset.kind, over, inside: r.left >= 0 && r.top >= 0 && r.right <= innerWidth && r.bottom <= innerHeight, text: q.innerText,
+      img: img ? { nat: img.naturalWidth / Math.max(1, img.naturalHeight), shown: img.getBoundingClientRect().width / Math.max(1, img.getBoundingClientRect().height), fit: getComputedStyle(img).objectFit, w: img.naturalWidth } : null,
+    }
+  }, sel)
+  const ITEMS = [
+    ['a tree row', '#/agent-reliability/shopkeeper/PW1', '.nb-tree a.nb-row[data-route="agent-reliability/shopkeeper/05-scenarios"]'],
+    ['a tree folder', '#/agent-reliability/shopkeeper/PW1', '.nb-tree a.nb-row--folder[data-route="builds"]'],
+    ['start-here, a way in', '', '.nb-entry[href^="#/"]'],
+    ['start-here, a list link', '', '.nb-body li a[href^="#/"]'],
+    ['a hub list (a post: rich)', '#/writing', '.nb-body a[href="#/writing/01-an-old-laptop-as-a-cloud-server"]'],
+    ['a map node', '#/graph', '.nb-g a.n[data-route="agent-reliability/shopkeeper/01-spec"]'],
+    ['what\'s nearby', '#/agent-reliability/shopkeeper/01-spec', '.nb-end .nb-fits__row a[href^="#/"]'],
+    ['a body link', '#/agent-reliability/shopkeeper/PW1', '.nb-body a.nb-wl:not(.nb-rowref)'],
+    ['a tag page', '#/tag/evals', '.nb-taggroup a[href^="#/"]'],
+    ['prev / next', '#/agent-reliability/shopkeeper/01-spec', '.nb-prevnext a[href^="#/"]'],
+    ['the author card\'s up next', '#/agent-reliability/shopkeeper/01-spec', '.nb-author__next a[href^="#/"]'],
+  ]
+  // the posts' figures are hotlinked from Medium's CDN; a local screenshot stands in for them, so a
+  // card's cover and the lightbox are checked without the network
+  const CDN_STANDIN = join(here, '../../../public/work/flowsync-1.png')
+  const cdn = (p) => p.context().route('https://cdn-images-1.medium.com/**', (r) => r.fulfill({ path: CDN_STANDIN, contentType: 'image/png' }))
+  const dp = await page('desktop', '#/agent-reliability/shopkeeper/PW1')
+  await cdn(dp)
+  for (const [what, hash, sel] of ITEMS) {
+    await dp.mouse.move(2, 880)
+    await go(dp, hash)
+    const loc = dp.locator(sel).first()
+    if (!(await loc.count())) { ok(false, `E: ${what}: no item matches ${sel}`); continue }
+    await loc.scrollIntoViewIfNeeded()
+    await wait(dp, 250)
+    await loc.hover()
+    await wait(dp, 150)
+    const early = await popState(sel)(dp)
+    await wait(dp, 500)
+    await dp.evaluate(() => Promise.race([Promise.all([...document.querySelectorAll('.nb-pop img')].map((i) => i.decode().catch(() => {}))), new Promise((r) => setTimeout(r, 3000))]))
+    const st = await popState(sel)(dp)
+    const rich = /a post/.test(what)
+    ok(!early && st && !st.over && st.inside && (rich ? st.kind === 'rich' : true), `E: ${what} previews after 350 ms (not at 150), inside the viewport, not over its item${st ? ` (${st.kind})` : ' — no card'}`)
+    if (rich && st) ok(st.img && st.img.w > 0 && Math.abs(st.img.nat - st.img.shown) / st.img.nat <= 0.01 && st.img.fit === 'contain' && /\d+ min read/.test(st.text) && /\d{4}/.test(st.text), `E: the post's card has its cover uncropped (natural ${st.img && st.img.nat.toFixed(3)} vs shown ${st.img && st.img.shown.toFixed(3)}), its reading time and date${st.img ? '' : ' (no cover)'}`)
+  }
+  // leaving closes it; Esc closes it; the keyboard opens it after the same delay
+  await go(dp, '#/agent-reliability/shopkeeper/01-spec')
+  const pn = dp.locator('.nb-prevnext a[href^="#/"]').first()
+  await pn.scrollIntoViewIfNeeded(); await wait(dp, 200); await pn.hover(); await wait(dp, 600)
+  await dp.mouse.move(2, 880); await wait(dp, 450)
+  ok(!(await popState(null)(dp)), 'E: moving off the item closes its card')
+  await pn.hover(); await wait(dp, 600); await dp.keyboard.press('Escape'); await wait(dp, 300)
+  ok(!(await popState(null)(dp)), 'E: Esc closes a card')
+  await dp.mouse.move(2, 880); await wait(dp, 300)
+  await pn.focus(); await wait(dp, 150)
+  const kEarly = await popState(null)(dp)
+  await wait(dp, 450)
+  ok(!kEarly && !!(await popState(null)(dp)), 'E: keyboard focus on an item previews it after the same delay')
+  await dp.keyboard.press('Escape'); await wait(dp, 200)
+  // the switcher: a hovered result, and the one the arrow keys are on
+  await dp.click('.nb-bar__find'); await wait(dp, 250)
+  await dp.keyboard.type('T02'); await wait(dp, 150)
+  await dp.keyboard.press('ArrowDown'); await wait(dp, 650)
+  const swK = await popState('.nb-switcher li[aria-selected="true"]')(dp)
+  ok(swK && !swK.over && swK.inside, 'E: the switcher result the arrow keys are on previews, beside the list, not over it')
+  const li = dp.locator('.nb-switcher li[data-route]').first()
+  await li.hover(); await wait(dp, 650)
+  const swH = await popState('.nb-switcher li[data-route]')(dp)
+  ok(swH && !swH.over && swH.inside, 'E: a hovered switcher result previews')
+  await dp.keyboard.press('Escape'); await wait(dp, 300)
+  await close(dp)
+  // a phone: nothing previews, by tap-hover or by focus
+  const pp = await page('phone', '#/agent-reliability/shopkeeper/01-spec')
+  for (const sel of ['.nb-prevnext a[href^="#/"]', '.nb-end .nb-fits__row a[href^="#/"]']) {
+    const l = pp.locator(sel).first()
+    await l.scrollIntoViewIfNeeded(); await l.hover(); await l.focus(); await wait(pp, 600)
+    ok(!(await popState(null)(pp)), `E: at 390×844 ${sel} shows no preview`)
+  }
+  await close(pp)
+
+  // F: record every animation on a surface while it opens, then while it closes
+  const REC = {
+    start: (sel) => { window.__rec = { sel, seen: new Map(), raf: 0 }; const R = window.__rec; const tick = () => { const hosts = [...document.querySelectorAll(R.sel)]; for (const a of document.getAnimations()) { const t = a.effect && a.effect.target; if (!t || !hosts.some((h) => h === t || h.contains(t))) continue; const kf = a.effect.getKeyframes(); const tm = a.effect.getTiming(); const k = (a.id || a.transitionProperty || a.animationName || '?') + '|' + (t.className && t.className.baseVal != null ? t.className.baseVal : t.className); if (!R.seen.has(k)) R.seen.set(k, { id: a.id || (a.transitionProperty ? 'css ' + a.transitionProperty : a.animationName || ''), props: [...new Set(kf.flatMap((f) => Object.keys(f).filter((x) => !['offset', 'easing', 'composite', 'computedOffset'].includes(x))))].concat(a.transitionProperty ? [a.transitionProperty] : []), dur: tm.duration, delay: tm.delay }) } R.raf = requestAnimationFrame(tick) }; tick() },
+    stop: () => { const R = window.__rec; cancelAnimationFrame(R.raf); const hosts = [...document.querySelectorAll(R.sel)]; return { anims: [...R.seen.values()], gone: hosts.every((h) => h.hidden || getComputedStyle(h).display === 'none' || getComputedStyle(h).visibility === 'hidden'), shown: hosts.some((h) => !h.hidden && getComputedStyle(h).display !== 'none' && getComputedStyle(h).visibility !== 'hidden') } },
+  }
+  async function both(p, sel, open, shut, ms = 450) {
+    await p.evaluate(REC.start, sel); await open(); await wait(p, ms); const o = await p.evaluate(REC.stop)
+    await p.evaluate(REC.start, sel); await shut(); await wait(p, ms); const c = await p.evaluate(REC.stop)
+    return { o, c }
+  }
+  const SURFACES = [
+    ['the ? shortcuts sheet', 'desktop', '#/agent-reliability/shopkeeper/01-spec', '.nb-layer:has(.nb-keys)', async (p) => p.keyboard.press('?'), async (p) => p.keyboard.press('Escape')],
+    ['the search field → switcher', 'desktop', '#/agent-reliability/shopkeeper/01-spec', '.nb-switcher', async (p) => p.click('.nb-bar__find'), async (p) => p.keyboard.press('Escape')],
+    ['the switcher by key (/)', 'desktop', '#/agent-reliability/shopkeeper/01-spec', '.nb-switcher', async (p) => p.keyboard.press('/'), async (p) => p.keyboard.press('Escape')],
+    ['the Aa panel', 'desktop', '#/agent-reliability/shopkeeper/01-spec', '.nb-aa', async (p) => p.click('.nb-bar__aa'), async (p) => p.keyboard.press('Escape')],
+    ['the glossary popover', 'desktop', '#/agent-reliability/shopkeeper/05-scenarios', '.nb-pop', async (p) => { const g = p.locator('.nb-col .nb-gl').first(); await g.scrollIntoViewIfNeeded(); await g.click() }, async (p) => p.keyboard.press('Escape')],
+    ['a hover preview', 'desktop', '#/agent-reliability/shopkeeper/01-spec', '.nb-pop', async (p) => { const l = p.locator('.nb-prevnext a[href^="#/"]').first(); await l.scrollIntoViewIfNeeded(); await l.hover() }, async (p) => p.mouse.move(2, 880), 700],
+    ['the image lightbox', 'desktop', '#/writing/01-an-old-laptop-as-a-cloud-server', '.nb-lbx', async (p) => { const f = p.locator('.nb-fig__img').first(); await f.scrollIntoViewIfNeeded(); await f.click() }, async (p) => p.keyboard.press('Escape')],
+    ['the share menu', 'desktop', '#/agent-reliability/shopkeeper/01-spec', '.nb-sharemenu', async (p) => { await p.evaluate(() => { try { Object.defineProperty(navigator, 'share', { value: undefined, configurable: true }) } catch {} }); await p.click('.nb-share--top') }, async (p) => p.keyboard.press('Escape')],
+    ['a toast', 'desktop', '#/agent-reliability/shopkeeper/01-spec', '.nb-toast', async (p) => p.evaluate(() => NB.controls.toast('x', 500)), async () => {}, 350],
+    ['the map\'s side card', 'desktop', '#/graph', '.nb-card', async (p) => p.click('.nb-g a.n[data-route="agent-reliability/shopkeeper/01-spec"]'), async (p) => p.mouse.click(700, 860)],
+    ['the narration strip', 'desktop', '#/agent-reliability/shopkeeper/01-spec', '.nb-strip', async (p) => p.click('.nb-bar [data-act="listen"]'), async (p) => p.click('.nb-strip [data-nb="stop"]'), 600],
+    ['the strip\'s ⋯ menu', 'desktop', '#/agent-reliability/shopkeeper/01-spec', '.nb-strip-menu', async (p) => { await p.click('.nb-bar [data-act="listen"]'); await wait(p, 400); await p.click('.nb-strip [data-nb="more"]') }, async (p) => p.keyboard.press('Escape')],
+    ['the nudge', 'desktop', '#/agent-reliability/shopkeeper/01-spec', '.nb-nudge', async (p) => { await p.evaluate(() => { localStorage.removeItem('nb-nudged'); const m = document.querySelector('.nb-main'); m.scrollTop = m.scrollHeight }); await wait(p, 300); await p.evaluate(() => { const m = document.querySelector('.nb-main'); m.dispatchEvent(new Event('scroll')) }) }, async (p) => p.click('[data-act="nudge-no"]'), 800],
+    ['the phone drawer', 'phone', '#/agent-reliability/shopkeeper/01-spec', '.nb-side, .nb-scrim', async (p) => p.click('.nb-bar__menu'), async (p) => p.keyboard.press('Escape'), 500],
+    ['the phone\'s "on this page"', 'phone', '#/agent-reliability/shopkeeper/05-scenarios', '.nb-toc-inline > ul', async (p) => p.click('.nb-toc-inline > summary'), async (p) => p.click('.nb-toc-inline > summary')],
+    ['the phone Aa sheet', 'phone', '#/agent-reliability/shopkeeper/01-spec', '.nb-aa', async (p) => p.click('.nb-bar__aa'), async (p) => p.keyboard.press('Escape')],
+  ]
+  for (const reduce of [false, true]) {
+    console.log(reduce ? ' reduced motion' : ' with motion')
+    for (const [what, size, hash, sel, open, shut, ms] of SURFACES) {
+      if (reduce && /strip|nudge|map/.test(what)) continue
+      const p = await page(size, hash, { reduce })
+      await cdn(p)
+      const { o, c } = await both(p, sel, () => open(p), () => shut(p), ms || 450)
+      // reduced: nothing moves (no transform, translate or scale; a colour may still fade) and nothing runs past 120 ms
+      const okRed = (r) => r.anims.every((a) => a.props.every((x) => !/transform|translate|scale|height|width|left|top/.test(x)) && a.dur + (a.delay || 0) <= 120)
+      const toggle = what === "the phone's \"on this page\""
+      const goneAfter = toggle ? await p.evaluate(() => !document.querySelector('.nb-toc-inline').open) : c.gone
+      ok(o.anims.length > 0 && c.anims.length > 0 && o.shown !== false && goneAfter && (!reduce || (okRed(o) && okRed(c))), `F${reduce ? ' (reduced)' : ''}: ${what} animates in (${o.anims.map((a) => `${a.id} ${a.dur}`).join(', ') || 'nothing'}) and out (${c.anims.map((a) => `${a.id} ${a.dur}`).join(', ') || 'nothing'}), then is gone${reduce ? ', nothing moving, ≤ 120 ms' : ''}`)
+      if (!/strip|nudge|map|drawer/.test(what)) { await wait(p, 300); const rest = await p.evaluate(() => document.getAnimations().filter((a) => !/twinkle/.test(a.animationName || '')).length); ok(rest === 0, `F${reduce ? ' (reduced)' : ''}: after ${what} closes, getAnimations() is empty (${rest})`) }
+      await close(p)
+    }
+  }
+  // focus moves at once: the switcher's input has focus in the same task the field is clicked
+  const fp = await page('desktop', '#/agent-reliability/shopkeeper/01-spec')
+  const focusNow = await fp.evaluate(() => { document.querySelector('.nb-bar__find').click(); return document.activeElement && document.activeElement.classList.contains('nb-dialog__in') })
+  ok(focusNow, 'F: focus moves into the switcher at once, not after its animation')
+  await close(fp)
 }
 
 ok(!errors.length, `no page errors${errors.length ? ': ' + errors.slice(0, 5).join(' | ') : ''}`)

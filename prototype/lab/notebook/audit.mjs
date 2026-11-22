@@ -74,11 +74,29 @@
 //   - under reduce: no animation has a transform keyframe, and none runs longer than 120 ms
 //   - a 2-second scroll of 05-scenarios at 1440×900 runs at ≥ 55 fps median (rAF deltas)
 // Every animation seen is listed at the end (what, duration, delay, easing): the PR's table.
+//
+// Round 7 (space, formatting, controls) asserts, at 1440×900, 1280×800 and 390×844:
+//   - A, on PW1, 03-datesheet-generator, the old-laptop post, 05-scenarios and start-here: the text
+//     starts ≤ 56 px from the tree; the rail ("on this page"), where shown, is ≤ 240 px wide and
+//     starts ≤ 64 px after the text; a full line is 58–70 characters; the gap above an h2 is ≤ 36 px,
+//     between paragraphs ≤ 18, after a list or a figure ≤ 24; on a phone the text has 16 px gutters.
+//     The empty-to-text ratio of the first screen and the gaps are printed (the PR's before → after)
+//   - B, on every note that has a figure, code or a table: every figure, embed, code block, formula
+//     and table starts on the column's left edge (±1 px) and ends inside it; no image is cropped
+//     (natural aspect = rendered aspect within 1 %), none is taller than 60vh, each sits wholly in its
+//     frame, and its caption starts where it does; every pre and code is set in the mono; every
+//     table is a real table (a phone's two-column table is its <dl>)
+//   - C, in night and paper: the bar has a search field (≥ 180 px, its placeholder visible and
+//     ≥ 4.5:1) that opens the switcher with its input focused; Aa and Focus are labelled chips (≥ 30 px
+//     tall, ≥ 14 px text, ≥ 4.5:1) right beside it, not at the far right; the Aa panel opens inside the
+//     viewport with every control ≥ 32 px (≥ 44 on a phone); on a phone the search icon is ≥ 44×44,
+//     Aa keeps a visible frame, and Focus is in the Aa sheet
+// AUDIT_ROUND=7 runs this round alone.
 // AUDIT_ROUND=5 runs this round alone (for iterating; the check runs every round).
 import { createRequire } from 'node:module'
 import { homedir } from 'node:os'
-import { join, resolve } from 'node:path'
-import { pathToFileURL } from 'node:url'
+import { dirname, join, resolve } from 'node:path'
+import { fileURLToPath, pathToFileURL } from 'node:url'
 
 const require = createRequire(import.meta.url)
 const { chromium } = require(process.env.PLAYWRIGHT_CORE || join(homedir(), '.local/share/cx-tools/node_modules/playwright-core'))
@@ -93,6 +111,7 @@ const VIEWS = {
 }
 const SIZES = { desk: [1440, 900], phone: [390, 844] }
 const ONLY5 = process.env.AUDIT_ROUND === '5'
+const ONLY7 = process.env.AUDIT_ROUND === '7'
 let fails = 0, n = 0
 const ok = (cond, msg) => { n++; console.log((cond ? '  ok   ' : '  FAIL ') + msg); if (!cond) fails++ }
 
@@ -349,9 +368,208 @@ function probe6() {
   }
 }
 
+
+async function collect7() {
+  const routes = new Set()
+  for (const [sz, [w, h]] of Object.entries(SIZES7)) {
+    const phone = w < 900
+    const ctx = await b.newContext({ viewport: { width: w, height: h }, isMobile: phone, hasTouch: phone, colorScheme: 'dark' })
+    await ctx.route('https://cdn-images-1.medium.com/**', (r) => r.fulfill({ path: CDN_STANDIN, contentType: 'image/png' }))
+    const pg = await ctx.newPage()
+    await pg.goto(FILE + '#/'); await pg.evaluate(() => document.fonts.ready); await pg.waitForTimeout(500)
+    for (const [k, hash] of Object.entries(VIEWS7)) {
+      await pg.evaluate((x) => { location.hash = x }, hash); await pg.waitForTimeout(450)
+      await pg.waitForFunction(() => !document.querySelector('.nb-ghost'), null, { timeout: 3000 }).catch(() => {})
+      res[`r7a:${k}@${sz}`] = await pg.evaluate(probe7a)
+    }
+    // B: every public note; the ones with a figure, code or a table are measured
+    const all = await pg.evaluate(() => NB.vault.notes.map((n) => n.route))
+    for (const r of all) {
+      await pg.evaluate((x) => { location.hash = '#/' + x }, r); await pg.waitForTimeout(200)
+      await pg.waitForFunction(() => !document.querySelector('.nb-ghost'), null, { timeout: 3000 }).catch(() => {})
+      const has = await pg.evaluate(() => !!document.querySelector('.nb-body > .nb-fig, .nb-body > .nb-embed, .nb-body > .nb-code, .nb-body > .nb-table-wrap, .nb-body > .nb-formula, .nb-col pre, .nb-col code'))
+      if (!has) continue
+      routes.add(r)
+      res[`r7b:${r}@${sz}`] = await pg.evaluate(probe7b)
+    }
+    await ctx.close()
+  }
+  res.r7routes = [...routes]
+  // C: in night and paper
+  for (const [theme, scheme] of Object.entries(THEMES)) {
+    for (const [sz, [w, h]] of Object.entries(SIZES7)) {
+      const phone = w < 900
+      const ctx = await b.newContext({ viewport: { width: w, height: h }, isMobile: phone, hasTouch: phone, colorScheme: scheme })
+      const pg = await ctx.newPage()
+      await pg.goto(FILE + VIEWS7.PW1); await pg.evaluate(() => document.fonts.ready)
+      await pg.waitForSelector('.nb-bar__find', { state: 'visible' }); await pg.waitForTimeout(500)
+      const c = await pg.evaluate(probe7c)
+      await pg.click('.nb-bar__find'); await pg.waitForTimeout(250)
+      c.switcher = await pg.evaluate(() => ({ open: NB.switcher.isOpen(), focused: !!document.activeElement && document.activeElement.classList.contains('nb-dialog__in') }))
+      await pg.keyboard.press('Escape'); await pg.waitForTimeout(250)
+      await pg.click('.nb-bar__aa'); await pg.waitForTimeout(300)
+      c.panel = await pg.evaluate(probe7aa)
+      await pg.keyboard.press('Escape'); await pg.waitForTimeout(250)
+      res[`r7c:${theme}@${sz}`] = c
+      await ctx.close()
+    }
+  }
+}
+function report7() {
+  console.log('round 7: space, formatting, controls')
+  console.log(' A · space (empty-to-text in the first screen; gaps in px)')
+  for (const sz of Object.keys(SIZES7)) {
+    const phone = sz.startsWith('390')
+    for (const k of Object.keys(VIEWS7)) {
+      const m = res[`r7a:${k}@${sz}`]
+      console.log(`    ${sz} ${k.padEnd(9)} empty:text ${String(m.emptyToText).padStart(4)} · text from tree ${m.gutterL} · rail ${m.rail ? `${m.rail.w} wide, ${m.rail.gap} after the text` : '—'} · cpl ${m.cpl ?? '—'} · gaps ${JSON.stringify(m.gaps)}`)
+      if (phone) ok(m.gutterL >= 12 && m.gutterL <= 20 && m.gutterR >= 12, `${sz} ${k}: 16 px gutters (left ${m.gutterL}, right ${m.gutterR})`)
+      else {
+        ok(m.gutterL <= 56, `${sz} ${k}: the text starts ${m.gutterL} px from the tree (≤ 56)`)
+        if (m.rail) ok(m.rail.w <= 240 && m.rail.gap <= 64, `${sz} ${k}: the rail is ${m.rail.w} px wide and starts ${m.rail.gap} px after the text (≤ 240, ≤ 64)`)
+        if (m.cpl != null) ok(m.cpl >= 58 && m.cpl <= 70, `${sz} ${k}: ${m.cpl} characters on a full line (58–70)`)
+      }
+      const g = m.gaps, lim = { aboveH2: 36, pp: 18, afterList: 24, afterFigure: 24 }
+      const over = Object.entries(lim).filter(([x, v]) => g[x] != null && g[x] > v).map(([x, v]) => `${x} ${g[x]} > ${v}`)
+      ok(!over.length, `${sz} ${k}: gaps above h2 ≤ 36, between paragraphs ≤ 18, after a list or figure ≤ 24${over.length ? ' — ' + over.join(', ') : ''}`)
+    }
+  }
+  console.log(` B · formatting, on ${res.r7routes.length} notes with figures, code or tables`)
+  for (const sz of Object.keys(SIZES7)) {
+    const ms = res.r7routes.map((r) => [r, res[`r7b:${r}@${sz}`]]).filter(([, m]) => m)
+    const bad = ms.flatMap(([r, m]) => m.bad.map((x) => `${r}: ${x}`))
+    const mono = ms.flatMap(([r, m]) => m.notMono.map((x) => `${r}: ${x}`))
+    const sum = (k) => ms.reduce((a, [, m]) => a + m[k], 0)
+    ok(!bad.length, `${sz}: ${sum('blocks')} figures, embeds, code blocks and tables start on the column's edge and end inside it; ${sum('checked')} of ${sum('imgs')} images loaded, none cropped, none over 60vh, captions aligned${bad.length ? ' — ' + bad.slice(0, 4).join(' | ') : ''}`)
+    ok(sum('checked') >= 10, `${sz}: at least 10 images were measured (${sum('checked')})`)
+    ok(!mono.length, `${sz}: all ${sum('code')} pre and code elements are in the mono${mono.length ? ' — ' + mono.slice(0, 3).join(' | ') : ''}`)
+    ok(ms.every(([, m]) => m.notTable === 0), `${sz}: all ${sum('tables')} markdown tables render as tables (or a phone's two-column <dl>)`)
+  }
+  console.log(' C · controls')
+  for (const theme of Object.keys(THEMES)) for (const sz of Object.keys(SIZES7)) {
+    const c = res[`r7c:${theme}@${sz}`], phone = sz.startsWith('390')
+    if (!phone) {
+      ok(c.find.w >= 180 && c.find.ph.length >= 10 && c.find.ratio >= 4.5, `${theme} ${sz}: a search field ${c.find.w} px wide, its placeholder "${c.find.ph}" shown at ${c.find.ratio}:1`)
+      ok(c.aa && c.focus && c.aa.label && c.focus.label && Math.min(c.aa.h, c.focus.h) >= 30 && Math.min(c.aa.fs, c.focus.fs) >= 14 && Math.min(c.aa.ratio, c.focus.ratio) >= 4.5, `${theme} ${sz}: Aa ("${c.aa && c.aa.label}") and Focus ("${c.focus && c.focus.label}") are labelled chips, ${c.aa && c.aa.h} px tall, ${c.aa && c.aa.fs} px text, ≥ 4.5:1 (${c.aa && c.aa.ratio} / ${c.focus && c.focus.ratio})`)
+      ok(c.aa && c.focus && c.aa.l - c.find.r <= 12 && c.focus.l - c.aa.r <= 12 && c.focus.r <= c.vw - 120, `${theme} ${sz}: they sit right beside the search field (gaps ${c.aa && c.aa.l - c.find.r} / ${c.focus && c.focus.l - c.aa.r} px), ${c.focus && c.vw - c.focus.r} px from the right edge`)
+    } else {
+      ok(c.find.w >= 44 && c.find.h >= 44, `${theme} ${sz}: the search icon is ${c.find.w}×${c.find.h} (≥ 44)`)
+      ok(c.aa && c.aa.w >= 44 && c.aa.h >= 34 && c.aa.border && c.aa.ratio >= 4.5, `${theme} ${sz}: Aa keeps a frame, ${c.aa && c.aa.w}×${c.aa && c.aa.h}, ${c.aa && c.aa.ratio}:1`)
+    }
+    ok(c.switcher.open && c.switcher.focused, `${theme} ${sz}: the search ${phone ? 'icon' : 'field'} opens the switcher with its input focused`)
+    ok(c.panel.inside && c.panel.minH >= (phone ? 44 : 32) && c.panel.focus, `${theme} ${sz}: the Aa panel opens inside the viewport, every control ≥ ${phone ? 44 : 32} px (shortest ${c.panel.minH}), Focus in it`)
+  }
+}
+
+// ── round 7 probes ──────────────────────────────────────────────────────────────────────────
+const VIEWS7 = { PW1: '#/agent-reliability/shopkeeper/PW1', datesheet: '#/builds/03-datesheet-generator', laptop: '#/writing/01-an-old-laptop-as-a-cloud-server', scen05: '#/agent-reliability/shopkeeper/05-scenarios', start: '#/' }
+const SIZES7 = { '1440x900': [1440, 900], '1280x800': [1280, 800], '390x844': [390, 844] }
+// the posts' figures are hotlinked from Medium; a local screenshot stands in, so B runs offline
+const CDN_STANDIN = join(dirname(fileURLToPath(import.meta.url)), '../../../public/work/flowsync-1.png')
+// A: where the text sits, the rail, the gaps, and the first screen's empty-to-text ratio
+function probe7a() {
+  const shown = (e) => e && e.getClientRects().length > 0 && getComputedStyle(e).visibility !== 'hidden' && getComputedStyle(e).display !== 'none'
+  const side = document.querySelector('.nb-side'), sr = innerWidth >= 900 && shown(side) ? side.getBoundingClientRect() : null
+  const col = document.querySelector('.nb-col'), cs = getComputedStyle(col), cr = col.getBoundingClientRect()
+  const left = cr.left + parseFloat(cs.paddingLeft), right = cr.right - parseFloat(cs.paddingRight)
+  const ps = [...document.querySelectorAll('.nb-body > p, .nb-col .nb-lede, .nb-col h1')].filter(shown)
+  const tl = ps.length ? Math.min(...ps.map((p) => p.getBoundingClientRect().left)) : left
+  const tr = ps.length ? Math.max(...ps.map((p) => p.getBoundingClientRect().right)) : right
+  const out = { gutterL: sr ? Math.round(tl - sr.right) : Math.round(tl), gutterR: Math.round(innerWidth - tr) }
+  const mar = document.querySelector('.nb-margin')
+  if (innerWidth >= 900 && shown(mar) && mar.firstElementChild) { const m = mar.firstElementChild.getBoundingClientRect(); out.rail = { w: Math.round(m.width), gap: Math.round(m.left - tr) } }
+  // a full line's characters, on the first paragraph that runs three lines
+  const long = [...document.querySelectorAll('.nb-body > p')].find((p) => p.getBoundingClientRect().height / parseFloat(getComputedStyle(p).lineHeight) >= 2.6)
+  if (long) {
+    const tops = new Map(), r = document.createRange(), w = document.createTreeWalker(long, NodeFilter.SHOW_TEXT)
+    while (w.nextNode()) { const t = w.currentNode; for (let i = 0; i < t.length; i++) { r.setStart(t, i); r.setEnd(t, i + 1); const b = r.getClientRects()[0]; if (b) { const y = Math.round(b.top / 4); tops.set(y, (tops.get(y) || 0) + 1) } } }
+    const per = [...tops.entries()].sort((a, z) => a[0] - z[0]).map((x) => x[1]).slice(0, -1).sort((a, z) => a - z)
+    out.cpl = per[per.length >> 1]
+  }
+  // gaps between the body's blocks, by kind
+  const kids = [...(document.querySelector('.nb-body') || { children: [] }).children].filter((e) => e.getBoundingClientRect().height > 0)
+  const by = {}
+  for (let i = 1; i < kids.length; i++) {
+    const a = kids[i - 1], c = kids[i], g = Math.round(c.getBoundingClientRect().top - a.getBoundingClientRect().bottom)
+    const k = c.tagName === 'H2' ? 'aboveH2' : /^(UL|OL)$/.test(a.tagName) ? 'afterList' : a.matches('.nb-fig, .nb-embed, .nb-code, .nb-table-wrap, .nb-formula') ? 'afterFigure' : /^H[2-4]$/.test(a.tagName) ? 'belowHead' : a.tagName === 'P' && c.tagName === 'P' ? 'pp' : 'other'
+    ;(by[k] = by[k] || []).push(g)
+  }
+  out.gaps = Object.fromEntries(Object.entries(by).map(([k, v]) => [k, Math.max(...v)]))
+  out.fs = parseFloat(getComputedStyle(col).fontSize)
+  // empty-to-text: the first screen under the bar and right of the tree, against the line boxes of
+  // every text in it (the column and the rail)
+  const head = document.querySelector('.nb-head').getBoundingClientRect().bottom, reg = { l: sr ? sr.right : 0, t: head, r: innerWidth, b: innerHeight }
+  let text = 0
+  const rg = document.createRange(), tw = document.createTreeWalker(document.querySelector('.nb'), NodeFilter.SHOW_TEXT)
+  while (tw.nextNode()) {
+    const t = tw.currentNode; if (!t.textContent.trim()) continue
+    const el = t.parentElement; if (el.closest('.nb-head, .nb-side, [hidden]') || !shown(el)) continue
+    rg.selectNodeContents(t)
+    for (const q of rg.getClientRects()) text += Math.max(0, Math.min(q.right, reg.r) - Math.max(q.left, reg.l)) * Math.max(0, Math.min(q.bottom, reg.b) - Math.max(q.top, reg.t))
+  }
+  const area = (reg.r - reg.l) * (reg.b - reg.t)
+  out.emptyToText = +((area - text) / Math.max(1, text)).toFixed(1)
+  return out
+}
+// B: every figure, code block and table on the note in view
+async function probe7b() {
+  // the live column (during a navigation the old one fades out in a ghost beside it)
+  const col = document.querySelector('.nb-main .nb-col'), cs = getComputedStyle(col), cr = col.getBoundingClientRect()
+  const left = cr.left + parseFloat(cs.paddingLeft), right = cr.right - parseFloat(cs.paddingRight)
+  const blocks = [...col.querySelectorAll('.nb-body > .nb-fig, .nb-body > .nb-embed, .nb-body > .nb-code, .nb-body > .nb-table-wrap, .nb-body > .nb-formula')].filter((e) => e.getClientRects().length)
+  const imgs = [...col.querySelectorAll('.nb-body .nb-fig img')]
+  for (const i of imgs) i.loading = 'eager'
+  await Promise.race([Promise.all(imgs.map((i) => i.decode().catch(() => {}))), new Promise((r) => setTimeout(r, 4000))])
+  const bad = []
+  for (const e of blocks) {
+    const r = e.getBoundingClientRect()
+    if (Math.abs(r.left - left) > 1) bad.push(`${e.className.split(' ')[0]} starts at ${Math.round(r.left)}, the column at ${Math.round(left)}`)
+    if (r.right > right + 1) bad.push(`${e.className.split(' ')[0]} ends at ${Math.round(r.right)}, past the column's ${Math.round(right)}`)
+    const cap = e.querySelector(':scope > .nb-cap'), fr = e.querySelector(':scope > .nb-fig__img, :scope > .nb-embed__body')
+    if (cap && fr && Math.abs(cap.getBoundingClientRect().left - fr.getBoundingClientRect().left) > 1) bad.push(`a caption starts ${Math.round(cap.getBoundingClientRect().left - fr.getBoundingClientRect().left)} px off its figure`)
+  }
+  let checked = 0
+  for (const i of imgs) {
+    if (!i.naturalWidth) continue
+    checked++
+    const r = i.getBoundingClientRect(), f = i.parentElement.getBoundingClientRect()
+    const nat = i.naturalWidth / i.naturalHeight, shown = r.width / r.height
+    if (Math.abs(nat - shown) / nat > 0.01) bad.push(`an image is drawn at ${shown.toFixed(3)} but is ${nat.toFixed(3)} (cropped or stretched)`)
+    if (r.height > innerHeight * 0.6 + 1) bad.push(`an image is ${Math.round(r.height)} px tall, over 60vh`)
+    if (r.left < f.left - 0.5 || r.right > f.right + 0.5 || r.top < f.top - 0.5 || r.bottom > f.bottom + 0.5) bad.push('an image spills out of its frame')
+  }
+  const code = [...col.querySelectorAll('pre, code')]
+  const notMono = code.filter((e) => !/mono/i.test(getComputedStyle(e).fontFamily.split(',')[0])).map((e) => `${e.tagName.toLowerCase()}.${e.className || ''} in ${getComputedStyle(e).fontFamily.split(',')[0]}`)
+  const tables = [...col.querySelectorAll('.nb-body .nb-table-wrap')]
+  const notTable = tables.filter((w) => { const t = w.querySelector('table'), dl = w.querySelector(':scope > .nb-dl'); const tShown = t && t.getClientRects().length && getComputedStyle(t).display === 'table'; const dlShown = dl && dl.getClientRects().length; return !(tShown || dlShown) }).length
+  return { blocks: blocks.length, imgs: imgs.length, checked, code: code.length, tables: tables.length, bad, notMono, notTable }
+}
+// C: the bar's search field and chips; the Aa panel open
+function probe7c() {
+  const rgb = (c) => (c.match(/[\d.]+/g) || []).map(Number)
+  const lum = (c) => { const [r, g, b] = c.slice(0, 3).map((v) => { v /= 255; return v <= 0.03928 ? v / 12.92 : Math.pow((v + 0.055) / 1.055, 2.4) }); return 0.2126 * r + 0.7152 * g + 0.0722 * b }
+  const bgOf = (e) => { for (let a = e; a; a = a.parentElement) { const c = rgb(getComputedStyle(a).backgroundColor); if (c.length >= 3 && (c.length < 4 || c[3] > 0.5)) return c } return [255, 255, 255] }
+  const ratio = (e) => { const [x, y] = [lum(rgb(getComputedStyle(e).color)), lum(bgOf(e))].sort((m, n) => n - m); return +((x + 0.05) / (y + 0.05)).toFixed(2) }
+  const shown = (e) => !!e && e.getClientRects().length > 0 && getComputedStyle(e).display !== 'none' && getComputedStyle(e).visibility !== 'hidden'
+  const box = (e) => { const r = e.getBoundingClientRect(); return { l: Math.round(r.left), r: Math.round(r.right), w: Math.round(r.width), h: Math.round(r.height) } }
+  const f = document.querySelector('.nb-bar__find'), ph = f.querySelector('.nb-bar__find-ph')
+  const chip = (s) => { const c = document.querySelector(s), w = c && c.querySelector('.nb-bar__word'); return c && shown(c) ? { ...box(c), label: w && shown(w) ? w.textContent.trim() : '', fs: parseFloat(getComputedStyle(w && shown(w) ? w : c).fontSize), ratio: ratio(w && shown(w) ? w : c.querySelector('.nb-bar__chip-ico')), border: getComputedStyle(c).borderTopStyle !== 'none' && parseFloat(getComputedStyle(c).borderTopWidth) > 0 } : null }
+  return { vw: innerWidth, find: { ...box(f), ph: shown(ph) ? ph.textContent.trim() : '', ratio: shown(ph) ? ratio(ph) : 0 }, aa: chip('.nb-bar__aa'), focus: chip('.nb-bar__focus') }
+}
+function probe7aa() {
+  const p = document.querySelector('.nb-aa'), r = p.getBoundingClientRect()
+  const btns = [...p.querySelectorAll('button')].filter((b) => b.getClientRects().length)
+  const ftog = p.querySelector('[data-act="focus"]')
+  return { inside: r.left >= 0 && r.top >= 0 && r.right <= innerWidth + 0.5 && r.bottom <= innerHeight + 0.5, minH: Math.min(...btns.map((b) => b.getBoundingClientRect().height)), focus: !!ftog && ftog.getClientRects().length > 0, switcherFocus: null }
+}
+
 const b = await chromium.launch()
 const res = {}
+const SKIP7 = Symbol('round 7 only')
 try {
+  // round 7 first: space (A), formatting on every note with figures, code or tables (B), controls (C)
+  await collect7()
+  if (ONLY7) throw SKIP7
   if (!ONLY5) {
   for (const [sz, [w, h]] of Object.entries(SIZES)) {
     const phone = sz === 'phone'
@@ -526,8 +744,10 @@ try {
       await ctx.close()
     }
   }
-} finally { await b.close() }
+} catch (e) { if (e !== SKIP7) throw e } finally { await b.close() }
 if (process.env.AUDIT_JSON) console.log(JSON.stringify(res, null, 1))
+report7()
+if (ONLY7) { console.log(fails ? `\n${fails} of ${n} FAILED` : `\nall ${n} audit checks pass`); process.exit(fails ? 1 : 0) }
 
 if (!ONLY5) {
 console.log('round 1: reading')
