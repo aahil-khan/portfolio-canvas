@@ -7,8 +7,9 @@
  * up) or to the sky. Custom properties paint nothing. check.mjs enforces this rule by rule.
  *
  * THE SHELL. Desktop: a grid at 100dvh, rows `auto 1fr` (the head holds the 44px bar and, only
- * while something plays, the 32px strip under it), columns `272px 1fr 288px`. Each pane scrolls on
- * its own, so nothing ever covers the reading column. 900–1199 px: the margin folds into the note.
+ * while something plays, the 32px strip under it), columns `tree 1fr rail`: the reading column takes
+ * the whole middle and the rail sits at the window's right edge. Each pane scrolls on its own, so
+ * nothing ever covers the reading column. 900–1199 px: the rail folds into the note.
  * Under 900 px: the phone. The document scrolls (not a pane), the head is sticky (never fixed),
  * the tree is a drawer, and nothing is fixed at the bottom. No backdrop-filter anywhere here.
  */
@@ -21,10 +22,14 @@
   /* round 7: the tree takes a little of the leftover on a wide screen, so fewer titles truncate */
   --nb-side: clamp(256px, 20vw, 300px);
   --nb-margin: 288px;
-  /* round 7: the rail ("on this page") is narrow and sits right after the column; whatever width is
-     left over goes past it, at the window's edge, never between the tree and the text */
-  --nb-rail: 232px;
+  /* the wide measure: the rail ("on this page") sits at the window's right edge and the column
+     takes everything between it and the tree, 40 px from each. The text runs the full width up to
+     --nb-cap (48em, about 100 characters); past that the column centres in its space, so no gutter
+     ever grows on one side. 272 px is tuned with the tree's clamp so a full line is ~96 characters
+     at 1440 px and ~81 at 1280 (audit.mjs round 7 counts them) */
+  --nb-rail: 272px;
   --nb-pad: 40px;
+  --nb-cap: 48;
   --nb-ease: cubic-bezier(0.16, 1, 0.3, 1);
   /* THE READING SCALE: one variable. Every size a reader reads is a multiple of it, so a text-size
      control changes this and nothing else. Chrome (bar, tree, strip) stays fixed. */
@@ -221,10 +226,8 @@ html.nb-on, html.nb-on body { height: auto; min-height: 100%; overflow: visible;
 /* ── the shell ── */
 .nb {
   position: fixed; inset: 0; z-index: 55; visibility: hidden; pointer-events: none;
-  /* round 7 (space): the column track is exactly the measure plus its padding, so the text sits
-     --nb-pad from the tree and the rail follows it; the 1fr leftover lands right of the rail */
-  --nb-col: calc(var(--lab-read-size) * var(--nb-em, 32) + var(--nb-pad) * 2);
-  display: grid; grid-template-rows: auto minmax(0, 1fr); grid-template-columns: var(--nb-side) minmax(0, var(--nb-col)) minmax(var(--nb-rail), 1fr);
+  /* the column track is everything between the tree and the rail; .nb-col caps and centres in it */
+  display: grid; grid-template-rows: auto minmax(0, 1fr); grid-template-columns: var(--nb-side) minmax(0, 1fr) var(--nb-rail);
   height: 100dvh; color: var(--lab-fg); font-family: var(--mono); font-size: 13px; line-height: 1.5; font-variant-ligatures: none;
 }
 html.is-night .nb { visibility: visible; pointer-events: auto; }
@@ -347,26 +350,27 @@ html.is-night .nb { visibility: visible; pointer-events: auto; }
 .nb-tree li[data-open='false'] > ul { display: none; }
 
 /* the reading column. Everything you read is Space Grotesk on the scale above; mono is for the
-   kicker, IDs, code and field names. Prose holds a 32em measure: about 66 characters on a full
-   line of Space Grotesk (audit.mjs counts them), inside 58–70 and DIRECTION's 64ch intent. The
-   audit's first guess, 36em, measured 74 on a full line. Tables and figures may widen to 52em. Five sizes: xs 13 · s 15 · m 17 · l 22 · xl 28–36 px (at the default size). */
+   kicker, IDs, code and field names. On a desktop the measure is wide: the column fills the space
+   between the tree and the rail up to 48em, ~96 characters a full line at 1440 px and ~81 at 1280
+   (audit.mjs counts them). DIRECTION's 64ch cap is for canvas windows; the Lab is a reading surface
+   and Aahil asked for long lines (2026-11-22). A phone keeps 32em, which its width caps anyway.
+   Five sizes: xs 13 · s 15 · m 17 · l 22 · xl 28–36 px (at the default size). */
 .nb-main { grid-row: 2; grid-column: 2; overflow: auto; overscroll-behavior: contain; background: var(--lab-bg); scroll-padding-top: 12px; }
 .nb-col {
   position: relative;
   --rs: var(--lab-read-size);
   --fs-xs: calc(var(--rs) * 0.7648); --fs-s: calc(var(--rs) * 0.8824); --fs-m: var(--rs); --fs-l: calc(var(--rs) * 1.2941);
   --fs-xl: clamp(calc(var(--rs) * 1.6471), 3vw, calc(var(--rs) * 2.1176));
-  --measure: calc(var(--rs) * 32); --wide: calc(var(--rs) * 52);
-  max-width: calc(var(--wide) + var(--nb-pad) * 2); margin: 0; padding: 20px var(--nb-pad) 96px; font-family: var(--sans); font-size: var(--fs-m); line-height: 1.6;
+  /* the measure IS the column: the wide default fills the space to the cap; Aa's narrower widths
+     set a smaller --measure. Either way the column centres in its track once it stops growing */
+  --measure: calc(var(--rs) * var(--nb-cap));
+  max-width: calc(var(--measure) + var(--nb-pad) * 2); margin: 0 auto; padding: 20px var(--nb-pad) 96px; font-family: var(--sans); font-size: var(--fs-m); line-height: 1.6;
 }
-/* round 7: every block starts on the column's left edge (text, figures, code, tables alike); a
-   wide block may run further right, never further left. Focus mode, with nothing beside the
-   column, centres it again */
-.nb-note > *, .nb-body > * { max-width: var(--measure); margin-left: 0; margin-right: 0; }
-html[data-focus] .nb-col, html.nb-noside .nb-col { margin: 0 auto; }
-html[data-focus] .nb-note > *, html[data-focus] .nb-body > *, html.nb-noside .nb-note > *, html.nb-noside .nb-body > * { margin-left: auto; margin-right: auto; }
-.nb-note > .nb-body { max-width: none; }
-.nb-col .nb-body > .nb-table-wrap, .nb-col .nb-body > .nb-fig, .nb-col .nb-body > .nb-embed { max-width: min(100%, var(--wide)); }
+/* every block runs the column's width and starts on its left edge: headings, the lede, figures,
+   code and tables follow the text, never wider and never offset */
+.nb-note > *, .nb-body > * { max-width: 100%; margin-left: 0; margin-right: 0; }
+/* long lines need more leading (1.68 on a desktop; a phone's short lines keep 1.6) */
+@media (min-width: 900px) { .nb-col { line-height: 1.68; } }
 .nb-kicker, .nb-totals { font-family: var(--mono); font-size: var(--fs-xs); color: var(--lab-dim); margin-bottom: 10px; line-height: 1.5; }
 .nb-kicker { display: flex; flex-wrap: nowrap; white-space: nowrap; overflow: hidden; }
 .nb-k { flex: 0 0 auto; }
@@ -398,6 +402,9 @@ html[data-focus] .nb-note > *, html[data-focus] .nb-body > *, html.nb-noside .nb
 .nb-body h4 { font-size: var(--fs-m); line-height: 1.3; margin-top: 1.2em; margin-bottom: 0.3em; font-weight: 500; }
 .nb-body > :first-child { margin-top: 0; }
 .nb-body p, .nb-body ul, .nb-body ol, .nb-body blockquote { margin-top: 0; margin-bottom: 0.85em; }
+/* and, at that length, a little more air between paragraphs: a full line's eye travel is longer,
+   so the break has to read at a glance. 1em (17 px) on a desktop; a phone keeps round 7's 0.85em */
+@media (min-width: 900px) { .nb-body p, .nb-body ul, .nb-body ol, .nb-body blockquote { margin-bottom: 1em; } }
 .nb-body ul, .nb-body ol { padding-left: 1.4em; }
 .nb-body li { margin: 0 0 0.3em; }
 .nb-body blockquote { border-left: 3px solid var(--sec-mark); padding: 2px 0 2px 14px; font-size: var(--fs-l); line-height: 1.4; }
@@ -422,7 +429,7 @@ html[data-focus] .nb-note > *, html[data-focus] .nb-body > *, html.nb-noside .nb
    side that scrolls and a "scroll →" cue until the first scroll; > 15 rows fold to 8 on a phone */
 .nb-table-wrap { position: relative; margin-top: 1em; margin-bottom: 1.1em; }
 .nb-table { overflow-x: auto; max-width: 100%; border: 1px solid var(--lab-faint); }
-.nb-body > .nb-table-wrap { width: max-content; min-width: min(100%, var(--measure)); }
+.nb-body > .nb-table-wrap { width: 100%; }
 .nb-table table { border-collapse: collapse; font-family: var(--sans); font-size: var(--fs-s); line-height: 1.5; min-width: 100%; }
 .nb-table th, .nb-table td { text-align: left; vertical-align: top; padding: 7px 10px; border-bottom: 1px solid var(--lab-faint); }
 .nb-table th { color: var(--lab-fg); font-weight: 500; background: var(--lab-pane); border-bottom: 2px solid var(--lab-line); }
@@ -485,8 +492,7 @@ html[data-focus] .nb-note > *, html[data-focus] .nb-body > *, html.nb-noside .nb
 /* the right margin: "on this page" only, with scroll-spy. Sans, receding like the tree. */
 .nb-margin { grid-row: 2; grid-column: 3; overflow: auto; overscroll-behavior: contain; background: var(--lab-bg); padding: 20px 16px 30px 0;
   font-family: var(--sans); font-size: 15px; line-height: 1.4; }
-/* round 7: the rail is a narrow list just right of the column; its track runs to the window's
-   edge, so the hairline is on the list, not on the track */
+/* the rail is a list at the window's right edge, 16 px in; the hairline is on the list */
 .nb-margin > * { max-width: calc(var(--nb-rail) - 16px); border-left: 1px solid var(--lab-faint); padding-left: 12px; }
 .nb-sec h2 { font-family: var(--mono); font-size: 0.8125rem; color: var(--lab-dim); font-weight: 500; letter-spacing: 0.04em; margin: 0 0 8px; }
 .nb-sec ul { list-style: none; margin: 0; padding: 0; }
@@ -717,6 +723,13 @@ html[data-focus] .nb-bar:hover, html[data-focus] .nb-bar:focus-within { opacity:
 /* ── start-here (round 3): one centred column. The h1, the lede, three ways in in their section
    colours, then studying now, the map of the Lab (three cards), guided tours, latest ── */
 .nb[data-view='home'] .nb-kicker { display: none; }
+/* the wide measure: start-here has no rail, and it is a hub, not a page of prose. Its column fills
+   the room (to 72em, then centres); the ways in and the map's cards sit side by side where they
+   fit (three across at 1280 px and up), and a line of prose still stops at the reading cap */
+.nb[data-view='home'] .nb-col { --measure: calc(var(--rs) * 72); }
+.nb[data-view='home'] .nb-body > p, .nb[data-view='home'] .nb-note > .nb-lede { max-width: calc(var(--rs) * var(--nb-cap)); }
+.nb[data-view='home'] .nb-entries { grid-template-columns: repeat(auto-fit, minmax(min(100%, 16em), 1fr)); }
+.nb[data-view='home'] .nb-map { grid-template-columns: repeat(auto-fit, minmax(min(100%, 17em), 1fr)); }
 .nb-entries { display: grid; gap: 10px; margin: 0 0 8px; }
 .nb-entry { display: flex; flex-direction: column; gap: 2px; padding: 12px 16px; border: 1px solid var(--lab-faint); border-left: 4px solid var(--sec-mark); background: var(--lab-pane); text-decoration: none; color: var(--lab-fg); }
 .nb-entry:hover { background: var(--hov-bg); }
@@ -781,11 +794,10 @@ html[data-lab-size='1'] { --lab-read-size: 17px; }
 html[data-lab-size='2'] { --lab-read-size: 19px; }
 html[data-lab-size='3'] { --lab-read-size: 21px; }
 html[data-lab-size='4'] { --lab-read-size: 23px; }
-/* Q7 line width: the measure in reading-scale ems (narrow 32 is the default, about 66 characters) */
-html[data-lab-width='medium'] .nb-col { --measure: calc(var(--rs) * 36); }
-html[data-lab-width='medium'] .nb { --nb-em: 36; }
-html[data-lab-width='wide'] .nb { --nb-em: 44; }
-html[data-lab-width='wide'] .nb-col { --measure: calc(var(--rs) * 44); }
+/* Q7 line width: wide (the default) fills the space up to --nb-cap; the narrower two are fixed
+   measures in reading-scale ems: medium 40 (about 81 characters), narrow 32 (about 65) */
+html[data-lab-width='medium'] .nb-col { --measure: calc(var(--rs) * 40); }
+html[data-lab-width='narrow'] .nb-col { --measure: calc(var(--rs) * 32); }
 
 /* Q4 progress: a 2 px hairline in the section's colour along the bar's foot */
 .nb-readbar { position: absolute; left: 0; right: 0; bottom: 0; height: 2px; pointer-events: none; }
@@ -865,7 +877,7 @@ html[data-lab-size='3'] .nb-kicker, html[data-lab-size='4'] .nb-kicker { flex-wr
 .nb-pop .nb-lid { font-family: var(--mono); font-weight: 400; color: var(--lab-dim); }
 
 @media (max-width: 899px) {
-  html[data-lab-width] .nb-col { --measure: calc(var(--rs) * 32); }
+  .nb-col, html[data-lab-width] .nb-col { --measure: calc(var(--rs) * 32); }
   .nb-aa { left: 0; right: 0; width: auto; max-height: calc(100dvh - var(--nb-bar) - 24px); overflow: auto; border-width: 0 0 1px; }
   .nb .nb-aa__seg button, .nb .nb-aa__tog, .nb .nb-aa__done, .nb .nb-toast__btn, .nb .nb-endbar__btn, .nb-pop .nb-pop__more { min-height: 44px; }
   .nb-aa__row--width { display: none; }

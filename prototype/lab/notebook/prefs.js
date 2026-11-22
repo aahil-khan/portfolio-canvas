@@ -13,7 +13,7 @@
  *   NB.prefs.trip()                  the trip lands in night, whatever was chosen (not stored)
  *   NB.prefs.size() / .setSize(i)    the text size step, 0–4: 15 / 17 / 19 / 21 / 23 px for the body
  *   NB.prefs.bump(±1)                + and −: one step, clamped
- *   NB.prefs.width() / .setWidth(w)  the line: narrow 32em (the default) / medium 36em / wide 44em
+ *   NB.prefs.width() / .setWidth(w)  the line: wide, to 48em (the default) / medium 40em / narrow 32em
  *   NB.prefs.onChange(f)             f(kind) after any change: 'theme' | 'size' | 'width'
  *   NB.prefs.get(k) / .set(k, v)     localStorage as JSON, harmless in a private window
  *
@@ -33,9 +33,13 @@
   // the body's px at each step; the whole reading scale is a multiple of it (notebook.css)
   const SIZES = [15, 17, 19, 21, 23]
   const SIZE0 = 1
-  const WIDTHS = { narrow: 32, medium: 36, wide: 44 }
-  const WIDTH0 = 'narrow'
-  const KEY = { theme: 'nb-theme', focus: 'nb-focus', size: 'nb-size', width: 'nb-width' }
+  // the line, in reading-scale ems: wide fills the space between the tree and the rail up to this
+  // cap (notebook.css --nb-cap), and is the default; narrow and medium are fixed measures
+  const WIDTHS = { narrow: 32, medium: 40, wide: 48 }
+  const WIDTH0 = 'wide'
+  // nb-measure, not round 4's nb-width: a choice stored when narrow was the default (and meant
+  // 32 / 36 / 44em) is not carried into the wide default
+  const KEY = { theme: 'nb-theme', focus: 'nb-focus', size: 'nb-size', width: 'nb-measure' }
   const get = (k) => { try { return JSON.parse(localStorage.getItem(k) || 'null') } catch { return null } }
   const set = (k, v) => { try { localStorage.setItem(k, JSON.stringify(v)) } catch { /* private window */ } }
   const del = (k) => { try { localStorage.removeItem(k) } catch { /* private window */ } }

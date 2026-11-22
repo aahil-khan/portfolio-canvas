@@ -600,14 +600,15 @@ if (!ONLY || ONLY === 'desktop' || ONLY === 'phone') {
       const px = () => parseFloat(getComputedStyle(document.querySelector('.nb-body p')).fontSize)
       const before = await p.evaluate(px)
       if (phone) { await p.click('.nb-bar [data-act="aa"]'); await p.click('.nb-aa [data-size="4"]'); await p.keyboard.press('Escape') }
-      else { await p.keyboard.press('+'); await p.keyboard.press('+'); await p.keyboard.press('='); await p.keyboard.press('-'); await p.click('.nb-bar [data-act="aa"]'); await p.click('.nb-aa [data-width="wide"]'); await p.keyboard.press('Escape') }
+      else { await p.keyboard.press('+'); await p.keyboard.press('+'); await p.keyboard.press('='); await p.keyboard.press('-'); await p.click('.nb-bar [data-act="aa"]'); await p.click('.nb-aa [data-width="medium"]'); await p.keyboard.press('Escape') }
       await p.reload()
       await p.evaluate(() => document.fonts.ready)
       await wait(p, 300)
       const r = await p.evaluate((pxs) => ({ spy: window.__prefs, px: eval(pxs)(), sw: document.documentElement.scrollWidth, iw: innerWidth, measure: getComputedStyle(document.querySelector('.nb-col')).getPropertyValue('--measure') }), `(${px})`)
-      const want = phone ? { size: '4', width: 'narrow', px: 23 } : { size: '3', width: 'wide', px: 21 }
+      // the phone chooses no width, so it keeps the default (wide); the desktop picks medium, off it
+      const want = phone ? { size: '4', width: 'wide', px: 23 } : { size: '3', width: 'medium', px: 21 }
       ok(before === 17 && r.spy.body.size === want.size && r.spy.dcl.size === want.size && r.spy.body.width === want.width && r.spy.dcl.width === want.width && r.px === want.px,
-        `${size}: text size ${want.px} px${phone ? '' : ' and the wide line'} survive a reload, set on <html> before <body> (${JSON.stringify(r.spy.body)}) and before DOMContentLoaded; the body reads ${r.px} px (was ${before})`)
+        `${size}: text size ${want.px} px${phone ? '' : ' and the medium line'} survive a reload, set on <html> before <body> (${JSON.stringify(r.spy.body)}) and before DOMContentLoaded; the body reads ${r.px} px (was ${before})`)
       if (phone) ok(r.sw <= 390 && r.iw <= 390, `phone at 23 px: no sideways scroll (${r.sw} px of content in a ${r.iw} px viewport, ≤ 390)`)
       await close(p)
     }

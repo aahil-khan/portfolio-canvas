@@ -10,8 +10,9 @@
 //
 // Round 1 (reading) asserts, on 01-spec, 05-scenarios, T02, Holt, the Chrome post and W1, at
 // 1440×900 and 390×844:
-//   - desktop characters per line of the first paragraph that runs ≥ 3 lines: 58–70 (the median
-//     full line, counted by where each character lands; the short last line is left out)
+//   - desktop characters per line of the first paragraph that runs ≥ 3 lines: 85–100 (the median
+//     full line, counted by where each character lands; the short last line is left out). Was 58–70
+//     until the wide measure (2026-11-22): Aahil asked for long lines, the text filling the room
 //   - monospace ≤ 35 % of the visible characters
 //   - text under 13 px ≤ 15 % of the visible characters, the tree excluded
 //   - ≤ 5 distinct font sizes in the reading column (all of it, not just the first screen)
@@ -75,14 +76,19 @@
 //   - a 2-second scroll of 05-scenarios at 1440×900 runs at ≥ 55 fps median (rAF deltas)
 // Every animation seen is listed at the end (what, duration, delay, easing): the PR's table.
 //
-// Round 7 (space, formatting, controls) asserts, at 1440×900, 1280×800 and 390×844:
-//   - A, on PW1, 03-datesheet-generator, the old-laptop post, 05-scenarios and start-here: the text
-//     starts ≤ 56 px from the tree; the rail ("on this page"), where shown, is ≤ 240 px wide and
-//     starts ≤ 64 px after the text; a full line is 58–70 characters; the gap above an h2 is ≤ 36 px,
-//     between paragraphs ≤ 18, after a list or a figure ≤ 24; on a phone the text has 16 px gutters.
+// Round 7 (space, formatting, controls) asserts, at 1440×900, 1280×800, 1920×1080 and 390×844:
+//   - A, on PW1, 03-datesheet-generator, the old-laptop post, 05-scenarios and start-here. The wide
+//     measure (round 7's second pass; it replaced 58–70 characters with the leftover past the rail):
+//     at 1440 and 1280 the column fills the room, its blocks ≤ 40 px from the tree and ≤ 40 px from
+//     the rail (or the window's edge), and no dead strip in the reading region is over 80 px; the
+//     rail sits ≤ 40 px from the window's right edge and is ≤ 280 px wide; a full line is 85–100
+//     characters at 1440, 75–85 at 1280, and ≤ 100 at 1920, where the capped column centres (its
+//     two gutters within 2 px of each other). Gaps: above an h2 ≤ 36 px, between paragraphs ≤ 18,
+//     after a list or a figure ≤ 24; on a phone the text has 16 px gutters, as before.
 //     The empty-to-text ratio of the first screen and the gaps are printed (the PR's before → after)
 //   - B, on every note that has a figure, code or a table: every figure, embed, code block, formula
-//     and table starts on the column's left edge (±1 px) and ends inside it; no image is cropped
+//     and table starts on the column's left edge (±1 px) and ends inside it, and a code block,
+//     formula or table runs to the column's right edge (it follows the column); no image is cropped
 //     (natural aspect = rendered aspect within 1 %), none is taller than 60vh, each sits wholly in its
 //     frame, and its caption starts where it does; every pre and code is set in the mono; every
 //     table is a real table (a phone's two-column table is its <dl>)
@@ -425,9 +431,16 @@ function report7() {
       console.log(`    ${sz} ${k.padEnd(9)} empty:text ${String(m.emptyToText).padStart(4)} · text from tree ${m.gutterL} · rail ${m.rail ? `${m.rail.w} wide, ${m.rail.gap} after the text` : '—'} · cpl ${m.cpl ?? '—'} · gaps ${JSON.stringify(m.gaps)}`)
       if (phone) ok(m.gutterL >= 12 && m.gutterL <= 20 && m.gutterR >= 12, `${sz} ${k}: 16 px gutters (left ${m.gutterL}, right ${m.gutterR})`)
       else {
-        ok(m.gutterL <= 56, `${sz} ${k}: the text starts ${m.gutterL} px from the tree (≤ 56)`)
-        if (m.rail) ok(m.rail.w <= 240 && m.rail.gap <= 64, `${sz} ${k}: the rail is ${m.rail.w} px wide and starts ${m.rail.gap} px after the text (≤ 240, ≤ 64)`)
-        if (m.cpl != null) ok(m.cpl >= 58 && m.cpl <= 70, `${sz} ${k}: ${m.cpl} characters on a full line (58–70)`)
+        const cap = sz.startsWith('1920'), [lo, hi] = WIDE_CPL[sz]
+        // where the text ends: the rail's left edge, or the window's when there is no rail
+        const right = m.rail ? m.rail.gap : m.gutterR
+        if (m.rail) ok(m.rail.edge <= 40 && m.rail.w <= 280, `${sz} ${k}: the rail sits ${m.rail.edge} px from the window's right edge (≤ 40), ${m.rail.w} px wide (≤ 280)`)
+        if (!cap) {
+          ok(m.gutterL <= 40 && right <= 40, `${sz} ${k}: the column fills the room, ${m.gutterL} px from the tree and ${right} px from the ${m.rail ? 'rail' : 'edge'} (≤ 40 each)`)
+          const dead = Math.max(m.gutterL, right, m.rail ? m.rail.edge : 0)
+          ok(dead <= 80, `${sz} ${k}: no dead strip in the reading region over 80 px (widest ${dead})`)
+        } else ok(Math.abs(m.gutterL - right) <= 2, `${sz} ${k}: past the cap the column centres, ${m.gutterL} px from the tree and ${right} px from the ${m.rail ? 'rail' : 'edge'} (within 2 px), so no gutter grows on one side`)
+        if (m.cpl != null) ok(m.cpl >= lo && m.cpl <= hi, `${sz} ${k}: ${m.cpl} characters on a full line (${lo}–${hi})`)
       }
       const g = m.gaps, lim = { aboveH2: 36, pp: 18, afterList: 24, afterFigure: 24 }
       const over = Object.entries(lim).filter(([x, v]) => g[x] != null && g[x] > v).map(([x, v]) => `${x} ${g[x]} > ${v}`)
@@ -463,7 +476,9 @@ function report7() {
 
 // ── round 7 probes ──────────────────────────────────────────────────────────────────────────
 const VIEWS7 = { PW1: '#/agent-reliability/shopkeeper/PW1', datesheet: '#/builds/03-datesheet-generator', laptop: '#/writing/01-an-old-laptop-as-a-cloud-server', scen05: '#/agent-reliability/shopkeeper/05-scenarios', start: '#/' }
-const SIZES7 = { '1440x900': [1440, 900], '1280x800': [1280, 800], '390x844': [390, 844] }
+const SIZES7 = { '1440x900': [1440, 900], '1280x800': [1280, 800], '1920x1080': [1920, 1080], '390x844': [390, 844] }
+// the wide measure's full line, per desktop size: fills the room at 1440 and 1280, capped at 1920
+const WIDE_CPL = { '1440x900': [85, 100], '1280x800': [75, 85], '1920x1080': [85, 100] }
 // the posts' figures are hotlinked from Medium; a local screenshot stands in, so B runs offline
 const CDN_STANDIN = join(dirname(fileURLToPath(import.meta.url)), '../../../public/work/flowsync-1.png')
 // A: where the text sits, the rail, the gaps, and the first screen's empty-to-text ratio
@@ -472,12 +487,14 @@ function probe7a() {
   const side = document.querySelector('.nb-side'), sr = innerWidth >= 900 && shown(side) ? side.getBoundingClientRect() : null
   const col = document.querySelector('.nb-col'), cs = getComputedStyle(col), cr = col.getBoundingClientRect()
   const left = cr.left + parseFloat(cs.paddingLeft), right = cr.right - parseFloat(cs.paddingRight)
-  const ps = [...document.querySelectorAll('.nb-body > p, .nb-col .nb-lede, .nb-col h1')].filter(shown)
+  // where the reading blocks reach: every block of the note (the kicker, title, lede, and each
+  // paragraph, figure, table and card of the body), so a hub's cards count as much as a line
+  const ps = [...document.querySelectorAll('.nb-main .nb-note > :not(.nb-body), .nb-main .nb-body > *')].filter(shown).filter((e) => e.getBoundingClientRect().height > 0)
   const tl = ps.length ? Math.min(...ps.map((p) => p.getBoundingClientRect().left)) : left
   const tr = ps.length ? Math.max(...ps.map((p) => p.getBoundingClientRect().right)) : right
   const out = { gutterL: sr ? Math.round(tl - sr.right) : Math.round(tl), gutterR: Math.round(innerWidth - tr) }
   const mar = document.querySelector('.nb-margin')
-  if (innerWidth >= 900 && shown(mar) && mar.firstElementChild) { const m = mar.firstElementChild.getBoundingClientRect(); out.rail = { w: Math.round(m.width), gap: Math.round(m.left - tr) } }
+  if (innerWidth >= 900 && shown(mar) && mar.firstElementChild) { const m = mar.firstElementChild.getBoundingClientRect(); out.rail = { w: Math.round(m.width), gap: Math.round(m.left - tr), edge: Math.round(innerWidth - m.right) } }
   // a full line's characters, on the first paragraph that runs three lines
   const long = [...document.querySelectorAll('.nb-body > p')].find((p) => p.getBoundingClientRect().height / parseFloat(getComputedStyle(p).lineHeight) >= 2.6)
   if (long) {
@@ -525,6 +542,7 @@ async function probe7b() {
     const r = e.getBoundingClientRect()
     if (Math.abs(r.left - left) > 1) bad.push(`${e.className.split(' ')[0]} starts at ${Math.round(r.left)}, the column at ${Math.round(left)}`)
     if (r.right > right + 1) bad.push(`${e.className.split(' ')[0]} ends at ${Math.round(r.right)}, past the column's ${Math.round(right)}`)
+    else if (e.matches('.nb-code, .nb-formula, .nb-table-wrap') && r.right < right - 1) bad.push(`${e.className.split(' ')[0]} ends at ${Math.round(r.right)}, short of the column's ${Math.round(right)}`)
     const cap = e.querySelector(':scope > .nb-cap'), fr = e.querySelector(':scope > .nb-fig__img, :scope > .nb-embed__body')
     if (cap && fr && Math.abs(cap.getBoundingClientRect().left - fr.getBoundingClientRect().left) > 1) bad.push(`a caption starts ${Math.round(cap.getBoundingClientRect().left - fr.getBoundingClientRect().left)} px off its figure`)
   }
@@ -757,7 +775,7 @@ for (const sz of Object.keys(SIZES)) {
   console.log(` ${sz}`)
   for (const k of Object.keys(VIEWS)) {
     const m = res[`${k}@${sz}`]
-    if (sz === 'desk' && m.charsPerLine != null) ok(m.charsPerLine >= 58 && m.charsPerLine <= 70, `${k}: ${m.charsPerLine} characters a line (58–70)`)
+    if (sz === 'desk' && m.charsPerLine != null) ok(m.charsPerLine >= 85 && m.charsPerLine <= 100, `${k}: ${m.charsPerLine} characters a line (85–100, the wide measure)`)
     ok(m.monoPct <= 35, `${k}: monospace is ${m.monoPct} % of the visible characters (≤ 35)`)
     ok(m.smallPct <= 15, `${k}: text under 13 px is ${m.smallPct} % of the visible characters outside the tree (≤ 15)`)
     ok(m.colSizes.length <= 5, `${k}: ${m.colSizes.length} font sizes in the column (≤ 5): ${m.colSizes.join(' ')}`)
