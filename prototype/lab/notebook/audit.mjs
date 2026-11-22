@@ -91,7 +91,7 @@
 //     tall, ≥ 14 px text, ≥ 4.5:1) right beside it, not at the far right; the Aa panel opens inside the
 //     viewport with every control ≥ 32 px (≥ 44 on a phone); on a phone the search icon is ≥ 44×44,
 //     Aa keeps a visible frame, and Focus is in the Aa sheet
-// AUDIT_ROUND=7 runs this round alone.
+// AUDIT_ROUND=7 runs this round alone; in the full run it is collected last and reported first.
 // AUDIT_ROUND=5 runs this round alone (for iterating; the check runs every round).
 import { createRequire } from 'node:module'
 import { homedir } from 'node:os'
@@ -567,9 +567,9 @@ const b = await chromium.launch()
 const res = {}
 const SKIP7 = Symbol('round 7 only')
 try {
-  // round 7 first: space (A), formatting on every note with figures, code or tables (B), controls (C)
-  await collect7()
-  if (ONLY7) throw SKIP7
+  // AUDIT_ROUND=7: round 7 alone. In the full run it goes last, so its ~250 navigations and image
+  // decodes never warm the browser before round 5 times its navigations
+  if (ONLY7) { await collect7(); throw SKIP7 }
   if (!ONLY5) {
   for (const [sz, [w, h]] of Object.entries(SIZES)) {
     const phone = sz === 'phone'
@@ -744,6 +744,8 @@ try {
       await ctx.close()
     }
   }
+  // round 7: space (A), formatting on every note with figures, code or tables (B), controls (C)
+  await collect7()
 } catch (e) { if (e !== SKIP7) throw e } finally { await b.close() }
 if (process.env.AUDIT_JSON) console.log(JSON.stringify(res, null, 1))
 report7()
