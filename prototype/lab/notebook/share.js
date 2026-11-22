@@ -86,7 +86,7 @@
       if (e.target.closest('a[data-target]')) { SH.last = menu.dataset.url; setTimeout(close, 0) }
     })
     S().el.root.appendChild(menu)
-    document.addEventListener('pointerdown', (e) => { if (menu && !menu.hidden && !e.target.closest('.nb-sharemenu, [data-act="share"]')) close() }, true)
+    document.addEventListener('pointerdown', (e) => { if (NB.motion.isOpen(menu) && !e.target.closest('.nb-sharemenu, [data-act="share"]')) close() }, true)
     addEventListener('scroll', () => { if (menu && !menu.hidden && from) place() }, { passive: true, capture: true })
   }
   function place() {
@@ -96,9 +96,9 @@
     menu.style.top = `${below ? r.bottom + 6 : Math.max(8, r.top - 6 - h)}px`
     menu.style.width = `${w}px`
   }
-  function close() { if (menu && !menu.hidden) S().closeLayer(menu) }
+  function close() { if (NB.motion.isOpen(menu)) S().closeLayer(menu) }
   SH.close = close
-  SH.isOpen = () => !!menu && !menu.hidden
+  SH.isOpen = () => NB.motion.isOpen(menu)
   SH.open = async (btn) => {
     const st = S().state, note = st.note
     const title = note ? note.title : C.byline.home
@@ -108,7 +108,7 @@
       try { await navigator.share({ title: C.title(title), url }); return true } catch { return false }
     }
     if (!menu) build()
-    if (!menu.hidden) { const same = from === btn; close(); if (same) return false }
+    if (NB.motion.isOpen(menu)) { const same = from === btn; close(); if (same) return false }
     SH.used = 'menu'
     from = btn && btn.closest ? btn : document.querySelector('[data-act="share"]')
     menu.dataset.url = url
@@ -140,12 +140,12 @@
     const box = S().el.col.querySelector('.nb-nudge')
     if (!box) return
     const all = seen(); all[cur.route] = 1; NB.prefs.set(SEEN_KEY, all)
-    box.hidden = false
-    if (NB.motion && NB.motion.play && !NB.motion.reduced()) NB.motion.play(box, [{ opacity: 0 }, { opacity: 1 }], 320, { id: 'm6-nudge' })
+    // F: it rises in like every other surface, and "Not now" takes it out the same way
+    NB.motion.open(box)
     cur = null
   }
   document.addEventListener('click', (e) => {
     const no = e.target.closest('[data-act="nudge-no"]')
-    if (no) { const box = no.closest('.nb-nudge'); box.hidden = true; const t = S().el.col.querySelector('.nb-share--end'); if (t) t.focus({ preventScroll: true }) }
+    if (no) { const box = no.closest('.nb-nudge'); NB.motion.close(box); const t = S().el.col.querySelector('.nb-share--end'); if (t) t.focus({ preventScroll: true }) }
   })
 })()

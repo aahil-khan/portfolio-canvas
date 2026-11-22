@@ -19,6 +19,13 @@
  *                                     reader did not point at never colour-fades. A navigation does
  *                                     the same for just the rows it changes (shell.js markTree)
  *   NB.motion.camera(from, to, w, h, write, done)   M5 the graph's camera over 450 (rAF)
+ *   NB.motion.open(el, o)             round 7, F: anything that appears (a dialog, a menu, a popover,
+ *                                     a toast, a card). Shown at once, then a 180 ms fade plus a 6 px
+ *                                     rise and a 0.97 scale out of o.from (the trigger's side). o.panel
+ *                                     is what scales; el itself, a layer's backdrop, only fades
+ *   NB.motion.close(el, done, o)      its way out: 120 ms, then el.hidden = true and done(). An open()
+ *                                     during it takes the element back where it is
+ *   NB.motion.isOpen(el)              shown and not on its way out (what a toggle asks)
  *
  * SUBTLE means it never delays reading: nothing waits for an animation before it is in the DOM,
  * focusable and measurable (the router stays synchronous; M1 fades a ghost of the old column).
@@ -29,7 +36,7 @@
 ;(() => {
   const NB = (window.NB = window.NB || {})
   const EASE = 'cubic-bezier(0.16, 1, 0.3, 1)'
-  const D = { out: 120, in: 220, rise: 8, bar: 180, hover: 180, strip: 180, stripIn: 120, stripLag: 60, word: 120, mark: 180, cluster: 320, stagger: 40, filter: 180, camera: 450, pane: 320, shift: 12, scrim: 180, chev: 180, kids: 120, spy: 180, flash: 600 }
+  const D = { out: 120, in: 220, rise: 8, bar: 180, hover: 180, strip: 180, stripIn: 120, stripLag: 60, word: 120, mark: 180, cluster: 320, stagger: 40, filter: 180, camera: 450, pane: 320, shift: 12, scrim: 180, chev: 180, kids: 120, spy: 180, flash: 600, open: 180, close: 120, lift: 6 }
   const RED = 120
   const reduced = () => !!(window.LAB && LAB.sky && LAB.sky.reduced)
 
@@ -167,7 +174,14 @@
       return
     }
     if (el.hidden || stripRun) return
-    if (reduced()) { el.hidden = true; if (done) done(); return }
+    // reduced: the row stays, its contents fade out over 120 ms, then it goes (round 7, F)
+    if (reduced()) {
+      const a = box.animate([{ opacity: 1 }, { opacity: 0 }], { duration: RED, easing: EASE, fill: 'forwards' })
+      a.id = 'm3-out'
+      stripRun = a
+      a.finished.then(() => { stripRun = null; el.hidden = true; a.cancel(); if (done) done() }, () => {})
+      return
+    }
     const a = el.animate([{ height: `${el.offsetHeight}px` }, { height: '0px' }], { duration: D.strip, easing: EASE })
     a.id = 'm3-row'
     stripRun = a
@@ -217,5 +231,82 @@
     return { stop() { if (live) { live = false; cancelAnimationFrame(raf) } }, on: () => live }
   }
 
-  NB.motion = { EASE, D, R: RED, reduced, ease, play, fadeIn, swap, arrive, panes, strip, flash, snap, camera, cap }
+  // ── F (round 7): every surface that opens or closes ────────────────────────────────────
+  // Nothing waits: open() unhides first, so focus can move and the element can be measured in the
+  // same task; close() keeps it in the layout for 120 ms, inert, then hides it. Under reduced
+  // motion both are opacity only, 120 ms. fill is never kept, so at rest getAnimations() is empty.
+  const runs = new WeakMap()
+  const panelOf = (el, o) => (o && o.panel) || el
+  function origin(panel, from) {
+    if (!from || !from.getBoundingClientRect) return { dir: -1, at: '50% 0%' }
+    const f = from.getBoundingClientRect(), p = panel.getBoundingClientRect()
+    if (!p.width || !p.height) return { dir: -1, at: '50% 0%' }
+    const cx = Math.max(0, Math.min(p.width, f.left + f.width / 2 - p.left)), cy = Math.max(0, Math.min(p.height, f.top + f.height / 2 - p.top))
+    // the trigger above the panel's middle: it drops down out of it; below: it rises up to it
+    return { dir: f.top + f.height / 2 <= p.top + p.height / 2 ? -1 : 1, at: `${cx.toFixed(0)}px ${cy.toFixed(0)}px` }
+  }
+  function stop(el) { const r = runs.get(el); if (r) { runs.delete(el); for (const a of r.anims) a.cancel() } }
+  function open(el, o = {}) {
+    if (!el) return Promise.resolve()
+    const was = runs.get(el), back = !!(was && was.out)
+    stop(el)
+    el.hidden = false
+    el.inert = false
+    const panel = panelOf(el, o), red = reduced(), ms = red ? RED : D.open
+    const anims = []
+    if (panel !== el) anims.push(el.animate([{ opacity: back ? 0.5 : 0 }, { opacity: 1 }], { duration: ms, easing: EASE }))
+    if (red) anims.push(panel.animate([{ opacity: 0 }, { opacity: 1 }], { duration: ms, easing: EASE }))
+    else {
+      const { dir, at } = origin(panel, o.from)
+      panel.style.transformOrigin = at
+      anims.push(panel.animate([{ opacity: 0, transform: `translateY(${dir * D.lift}px) scale(0.97)` }, { opacity: 1, transform: 'none' }], { duration: ms, easing: EASE }))
+    }
+    for (const a of anims) a.id = 'f-open'
+    const run = { anims, out: false }
+    runs.set(el, run)
+    return Promise.all(anims.map((a) => a.finished)).then(() => { if (runs.get(el) === run) runs.delete(el) }, () => {})
+  }
+  function close(el, done, o = {}) {
+    if (!el || el.hidden) { if (done) done(); return Promise.resolve() }
+    const was = runs.get(el)
+    if (was && was.out) { if (done) was.done.push(done); return was.p }
+    stop(el)
+    const panel = panelOf(el, o), red = reduced(), ms = red ? RED : D.close
+    const anims = []
+    if (panel !== el) anims.push(el.animate([{ opacity: 1 }, { opacity: 0 }], { duration: ms, easing: EASE, fill: 'forwards' }))
+    anims.push(panel.animate(red ? [{ opacity: 1 }, { opacity: 0 }] : [{ opacity: 1, transform: 'none' }, { opacity: 0, transform: `translateY(${-D.lift / 2}px) scale(0.98)` }], { duration: ms, easing: EASE, fill: 'forwards' }))
+    for (const a of anims) a.id = 'f-close'
+    // on its way out it takes no clicks and no focus
+    el.inert = true
+    const run = { anims, out: true, done: done ? [done] : [] }
+    runs.set(el, run)
+    run.p = Promise.all(anims.map((a) => a.finished)).then(() => {
+      if (runs.get(el) !== run) return
+      runs.delete(el)
+      el.hidden = true
+      el.inert = false
+      // hidden in this same frame, so dropping the fill shows nothing
+      for (const a of anims) a.cancel()
+      for (const f of run.done) f()
+    }, () => {})
+    return run.p
+  }
+  const isOpen = (el) => !!el && !el.hidden && !(runs.get(el) || {}).out
+
+  // a <details> in the notebook (the phone's "on this page", the map list's folders, a chart's
+  // table): its contents lift in when it opens, and fade out before it closes
+  document.addEventListener('click', (e) => {
+    const sum = e.target.closest && e.target.closest('.nb details > summary, .nb-layer details > summary')
+    if (!sum) return
+    const d = sum.parentElement, kids = [...d.children].filter((k) => k !== sum)
+    if (!kids.length) return
+    if (d.open) {
+      e.preventDefault()
+      if (d.dataset.closing) return
+      d.dataset.closing = '1'
+      Promise.all(kids.map((k) => play(k, [{ opacity: 1 }, { opacity: 0 }], reduced() ? RED : D.close, { id: 'f-close', fill: 'forwards' }).then((a) => a))).then((as) => { d.open = false; delete d.dataset.closing; for (const a of as) a.cancel() })
+    } else requestAnimationFrame(() => { if (d.open) for (const k of kids) play(k, reduced() ? [{ opacity: 0 }, { opacity: 1 }] : [{ opacity: 0, transform: `translateY(${-D.lift}px)` }, { opacity: 1, transform: 'none' }], reduced() ? RED : D.open, { id: 'f-open' }) })
+  })
+
+  NB.motion = { EASE, D, R: RED, reduced, ease, play, fadeIn, swap, arrive, panes, strip, flash, snap, camera, cap, open, close, isOpen }
 })()

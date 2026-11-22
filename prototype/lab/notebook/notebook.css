@@ -18,8 +18,13 @@
   --mono: 'JetBrains Mono', ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
   --nb-bar: 44px;
   --nb-strip: 32px;
-  --nb-side: 272px;
+  /* round 7: the tree takes a little of the leftover on a wide screen, so fewer titles truncate */
+  --nb-side: clamp(256px, 20vw, 300px);
   --nb-margin: 288px;
+  /* round 7: the rail ("on this page") is narrow and sits right after the column; whatever width is
+     left over goes past it, at the window's edge, never between the tree and the text */
+  --nb-rail: 232px;
+  --nb-pad: 40px;
   --nb-ease: cubic-bezier(0.16, 1, 0.3, 1);
   /* THE READING SCALE: one variable. Every size a reader reads is a multiple of it, so a text-size
      control changes this and nothing else. Chrome (bar, tree, strip) stays fixed. */
@@ -184,10 +189,10 @@ html[data-lab-theme='amber'] {
 .nb, .nb-layer { color-scheme: var(--lab-scheme); }
 /* the section's colour, for the note on screen: the kicker, the crumb, the ID column, callouts.
    Never on body text. */
-.nb, .nb[data-sec='root'], .nb[data-sec='tours'] { --sec: var(--lab-neutral); --sec-mark: var(--lab-neutral); }
-.nb[data-sec='agent-reliability'], .nb [data-sec='agent-reliability'] { --sec: var(--lab-ar); --sec-mark: var(--lab-ar-mark); }
-.nb[data-sec='builds'], .nb [data-sec='builds'] { --sec: var(--lab-builds); --sec-mark: var(--lab-builds-mark); }
-.nb[data-sec='writing'], .nb [data-sec='writing'] { --sec: var(--lab-writing); --sec-mark: var(--lab-writing-mark); }
+.nb, .nb[data-sec='root'], .nb[data-sec='tours'], .nb-pop { --sec: var(--lab-neutral); --sec-mark: var(--lab-neutral); }
+.nb[data-sec='agent-reliability'], .nb [data-sec='agent-reliability'], .nb-pop[data-sec='agent-reliability'] { --sec: var(--lab-ar); --sec-mark: var(--lab-ar-mark); }
+.nb[data-sec='builds'], .nb [data-sec='builds'], .nb-pop[data-sec='builds'] { --sec: var(--lab-builds); --sec-mark: var(--lab-builds-mark); }
+.nb[data-sec='writing'], .nb [data-sec='writing'], .nb-pop[data-sec='writing'] { --sec: var(--lab-writing); --sec-mark: var(--lab-writing-mark); }
 
 /* ── the sky: in #deskBackdrop, behind the world ── */
 .night { position: absolute; inset: 0; overflow: hidden; visibility: hidden; pointer-events: none; }
@@ -216,21 +221,24 @@ html.nb-on, html.nb-on body { height: auto; min-height: 100%; overflow: visible;
 /* ── the shell ── */
 .nb {
   position: fixed; inset: 0; z-index: 55; visibility: hidden; pointer-events: none;
-  display: grid; grid-template-rows: auto minmax(0, 1fr); grid-template-columns: var(--nb-side) minmax(0, 1fr) var(--nb-margin);
+  /* round 7 (space): the column track is exactly the measure plus its padding, so the text sits
+     --nb-pad from the tree and the rail follows it; the 1fr leftover lands right of the rail */
+  --nb-col: calc(var(--lab-read-size) * var(--nb-em, 32) + var(--nb-pad) * 2);
+  display: grid; grid-template-rows: auto minmax(0, 1fr); grid-template-columns: var(--nb-side) minmax(0, var(--nb-col)) minmax(var(--nb-rail), 1fr);
   height: 100dvh; color: var(--lab-fg); font-family: var(--mono); font-size: 13px; line-height: 1.5; font-variant-ligatures: none;
 }
 html.is-night .nb { visibility: visible; pointer-events: auto; }
 .nb[inert] { pointer-events: none; }
 .nb * { box-sizing: border-box; }
 .nb a { color: inherit; }
-.nb :focus-visible, .nb-layer :focus-visible { outline: 2px solid var(--lab-ring); outline-offset: 1px; box-shadow: 0 0 0 5px var(--lab-halo); }
+.nb :focus-visible, .nb-layer :focus-visible, .nb-pop :focus-visible { outline: 2px solid var(--lab-ring); outline-offset: 1px; box-shadow: 0 0 0 5px var(--lab-halo); }
 .nb button { font: inherit; color: inherit; background: none; border: 0; padding: 0; cursor: pointer; }
 .nb-sr { position: absolute; width: 1px; height: 1px; overflow: hidden; clip-path: inset(50%); white-space: nowrap; }
 .nb-panes-bg { grid-row: 2; grid-column: 1 / -1; background: var(--lab-bg); }
 
 /* M2: hover and focus colours fade over 180 ms. Focus rings (outline, the halo) stay instant. */
 .nb-row, .nb .nb-bar__cell, .nb-bar__path a, .nb-col a, .nb-margin a, .nb-strip button, .nb-strip-menu button, .nb-side__foot button, .nb-side__canvas,
-.nb-graph__bar button, .nb-card__btn, .nb .nb-aa button, .nb .nb-endbar__btn, .nb-up, .nb-gl, .nb-toast__btn, .nb .nb-pop__more, .nb-dialog__foot button {
+.nb-graph__bar button, .nb-card__btn, .nb .nb-aa button, .nb .nb-endbar__btn, .nb-up, .nb-gl, .nb-toast__btn, .nb-pop .nb-pop__more, .nb-dialog__foot button {
   transition: background-color var(--t-hover) var(--nb-ease), color var(--t-hover) var(--nb-ease), text-decoration-color var(--t-hover) var(--nb-ease), border-color var(--t-hover) var(--nb-ease);
 }
 .nb .nb-hlink { transition: opacity var(--t-hover) var(--nb-ease), color var(--t-hover) var(--nb-ease); }
@@ -259,6 +267,20 @@ html.is-night .nb { visibility: visible; pointer-events: auto; }
 .nb-bar__btn { color: var(--lab-fg); }
 .nb-bar__btn[aria-pressed='true'] { background: var(--sel-bg); color: var(--sel-ink); }
 .nb-bar__k { color: var(--lab-dim); }
+/* round 7 (controls): the tools cell holds a search field you can see and two labelled chips, Aa and
+   Focus, all 32 px tall in the reading font, at the bar's full contrast */
+.nb .nb-bar__tools { gap: 8px; padding: 0 10px; }
+.nb-bar__find, .nb-bar__chip { display: inline-flex; align-items: center; gap: 8px; height: 32px; border: 1px solid var(--lab-line) !important; font-family: var(--sans) !important; font-size: 14px !important; color: var(--lab-fg); }
+.nb-bar__find { width: clamp(200px, 19vw, 300px); padding: 0 6px 0 10px !important; background: var(--lab-bg) !important; cursor: text !important; text-align: left; }
+.nb-bar__find:hover { border-color: var(--lab-dim) !important; }
+.nb-bar__find-ico { font-size: 16px; line-height: 1; color: var(--lab-fg); }
+.nb-bar__find-ph { flex: 1 1 auto; min-width: 0; overflow: hidden; text-overflow: ellipsis; color: var(--lab-dim); }
+.nb-bar__find .nb-bar__k, .nb-bar__chip .nb-bar__k { font-family: var(--mono); font-size: 12px; line-height: 18px; padding: 0 5px; border: 1px solid var(--lab-faint); color: var(--lab-dim); }
+.nb-bar__chip { padding: 0 10px !important; background: var(--lab-pane); }
+.nb-bar__chip:hover { background: var(--hov-bg) !important; }
+.nb-bar__chip-ico { font-weight: 700; }
+.nb-bar__chip[aria-pressed='true'], .nb-bar__chip[aria-expanded='true'] { background: var(--sel-bg) !important; color: var(--sel-ink); border-color: var(--sel-bg) !important; }
+.nb-bar__chip[aria-pressed='true'] .nb-bar__k, .nb-bar__chip[aria-expanded='true'] .nb-bar__k { color: inherit; border-color: currentColor; }
 .nb .nb-bar__menu { display: none; }
 .nb-bar__theme { color: var(--lab-fg); }
 .nb-bar__help { color: var(--lab-dim); }
@@ -335,9 +357,14 @@ html.is-night .nb { visibility: visible; pointer-events: auto; }
   --fs-xs: calc(var(--rs) * 0.7648); --fs-s: calc(var(--rs) * 0.8824); --fs-m: var(--rs); --fs-l: calc(var(--rs) * 1.2941);
   --fs-xl: clamp(calc(var(--rs) * 1.6471), 3vw, calc(var(--rs) * 2.1176));
   --measure: calc(var(--rs) * 32); --wide: calc(var(--rs) * 52);
-  max-width: calc(var(--wide) + 48px); margin: 0 auto; padding: 28px 24px 96px; font-family: var(--sans); font-size: var(--fs-m); line-height: 1.65;
+  max-width: calc(var(--wide) + var(--nb-pad) * 2); margin: 0; padding: 20px var(--nb-pad) 96px; font-family: var(--sans); font-size: var(--fs-m); line-height: 1.6;
 }
-.nb-note > *, .nb-body > * { max-width: var(--measure); margin-left: auto; margin-right: auto; }
+/* round 7: every block starts on the column's left edge (text, figures, code, tables alike); a
+   wide block may run further right, never further left. Focus mode, with nothing beside the
+   column, centres it again */
+.nb-note > *, .nb-body > * { max-width: var(--measure); margin-left: 0; margin-right: 0; }
+html[data-focus] .nb-col, html.nb-noside .nb-col { margin: 0 auto; }
+html[data-focus] .nb-note > *, html[data-focus] .nb-body > *, html.nb-noside .nb-note > *, html.nb-noside .nb-body > * { margin-left: auto; margin-right: auto; }
 .nb-note > .nb-body { max-width: none; }
 .nb-col .nb-body > .nb-table-wrap, .nb-col .nb-body > .nb-fig, .nb-col .nb-body > .nb-embed { max-width: min(100%, var(--wide)); }
 .nb-kicker, .nb-totals { font-family: var(--mono); font-size: var(--fs-xs); color: var(--lab-dim); margin-bottom: 10px; line-height: 1.5; }
@@ -352,8 +379,8 @@ html.is-night .nb { visibility: visible; pointer-events: auto; }
 .nb-proposal { font-family: var(--mono); font-size: var(--fs-xs); letter-spacing: 0.06em; color: var(--lab-doing); border: 1px solid var(--lab-doing); padding: 0 5px; }
 
 .nb-title:focus { outline: none; box-shadow: none; }
-.nb-title { font-family: var(--sans); font-size: var(--fs-xl); line-height: 1.15; letter-spacing: -0.015em; font-weight: 700; margin-top: 0; margin-bottom: 14px; outline: none; }
-.nb-lede { font-size: var(--fs-l); line-height: 1.4; color: var(--lab-fg); margin-top: 0; margin-bottom: 1.4rem; }
+.nb-title { font-family: var(--sans); font-size: var(--fs-xl); line-height: 1.15; letter-spacing: -0.015em; font-weight: 700; margin-top: 0; margin-bottom: 10px; outline: none; }
+.nb-lede { font-size: var(--fs-l); line-height: 1.4; color: var(--lab-fg); margin-top: 0; margin-bottom: 1rem; }
 .nb-callout { border-left: 3px solid var(--sec-mark); background: var(--lab-tint-note); padding: 8px 12px; }
 .nb-callout--warn { border-left-color: var(--lab-doing); background: var(--lab-tint-warn); }
 .nb-tour { font-family: var(--sans); font-size: var(--fs-s); display: flex; flex-wrap: wrap; gap: 0 1.2ch; padding: 8px 12px; margin-bottom: 22px; }
@@ -365,16 +392,20 @@ html.is-night .nb { visibility: visible; pointer-events: auto; }
 .nb-toc-inline { display: none; font-size: var(--fs-s); margin-bottom: 18px; }
 .nb-toc-inline ul { margin: 4px 0 0; padding-left: 1.2em; }
 .nb-body h2, .nb-body h3, .nb-body h4 { font-family: var(--sans); font-weight: 700; letter-spacing: -0.01em; scroll-margin-top: 16px; }
-.nb-body h2 { font-size: var(--fs-l); line-height: 1.2; margin-top: 2.4em; margin-bottom: 0.7em; }
-.nb-body h3 { font-size: var(--fs-m); line-height: 1.3; margin-top: 2em; margin-bottom: 0.5em; }
-.nb-body h4 { font-size: var(--fs-m); line-height: 1.3; margin-top: 1.6em; margin-bottom: 0.4em; font-weight: 500; }
+/* round 7: a section break is ~1.5 lines, not 3; a heading sits close to what it heads */
+.nb-body h2 { font-size: var(--fs-l); line-height: 1.2; margin-top: 1.5em; margin-bottom: 0.45em; }
+.nb-body h3 { font-size: var(--fs-m); line-height: 1.3; margin-top: 1.4em; margin-bottom: 0.35em; }
+.nb-body h4 { font-size: var(--fs-m); line-height: 1.3; margin-top: 1.2em; margin-bottom: 0.3em; font-weight: 500; }
 .nb-body > :first-child { margin-top: 0; }
-.nb-body p, .nb-body ul, .nb-body ol, .nb-body blockquote { margin-top: 0; margin-bottom: 1.1em; }
+.nb-body p, .nb-body ul, .nb-body ol, .nb-body blockquote { margin-top: 0; margin-bottom: 0.85em; }
 .nb-body ul, .nb-body ol { padding-left: 1.4em; }
-.nb-body li { margin: 0 0 0.45em; }
+.nb-body li { margin: 0 0 0.3em; }
 .nb-body blockquote { border-left: 3px solid var(--sec-mark); padding: 2px 0 2px 14px; font-size: var(--fs-l); line-height: 1.4; }
 .nb-body p.nb-callout { padding: 10px 14px; }
 .nb-body blockquote p { margin: 0; }
+/* round 7: every pre and code is the mono, named (a bare `monospace` lets a system map it to
+   anything, and shrinks it); a code block's frame starts on the column's edge */
+.nb-col pre, .nb-col code, .nb-col kbd, .nb-col samp, .nb-pop pre, .nb-pop code { font-family: var(--mono); font-variant-ligatures: none; }
 .nb-body code { font-family: var(--mono); font-size: var(--fs-s); color: var(--lab-code); background: var(--lab-pane); border: 1px solid var(--lab-faint); padding: 0 3px; }
 /* links: their own colour, the underline at 40 % of it, full on hover. An auto-linked ID is
    coloured but not underlined until hover, so a dense spec is not a sea of underlines. */
@@ -389,7 +420,7 @@ html.is-night .nb { visibility: visible; pointer-events: auto; }
 .nb-id { font-size: var(--fs-s); }
 /* tables: sans, a 2px header rule, zebra rows; the ID column mono and sticky; an edge fade on the
    side that scrolls and a "scroll →" cue until the first scroll; > 15 rows fold to 8 on a phone */
-.nb-table-wrap { position: relative; margin-top: 1.6em; margin-bottom: 1.6em; }
+.nb-table-wrap { position: relative; margin-top: 1em; margin-bottom: 1.1em; }
 .nb-table { overflow-x: auto; max-width: 100%; border: 1px solid var(--lab-faint); }
 .nb-body > .nb-table-wrap { width: max-content; min-width: min(100%, var(--measure)); }
 .nb-table table { border-collapse: collapse; font-family: var(--sans); font-size: var(--fs-s); line-height: 1.5; min-width: 100%; }
@@ -420,23 +451,28 @@ html.is-night .nb { visibility: visible; pointer-events: auto; }
 .nb-dl dt { font-weight: 700; }
 .nb-dl dd { margin: 2px 0 0; }
 .nb-formula { font-family: var(--mono); font-size: var(--fs-s); border: 1px solid var(--lab-line); padding: 12px 14px; margin-bottom: 1.1em; overflow-x: auto; }
-.nb-code { font-family: var(--mono); font-size: var(--fs-s); background: var(--lab-pane); border: 1px solid var(--lab-faint); padding: 10px 12px; overflow-x: auto; }
-.nb-cap { font-family: var(--mono); font-size: var(--fs-xs); color: var(--lab-dim); padding: 6px 0 0; }
-.nb-fig { margin-top: 0; margin-bottom: 1.6em; }
-.nb-fig__img { display: block; width: 100%; border: 1px solid var(--lab-line) !important; }
-.nb-fig__img img { display: block; width: 100%; height: auto; aspect-ratio: 16 / 10; object-fit: cover; }
-.nb-embed { margin-top: 0; margin-bottom: 1.6em; }
+.nb-code { font-family: var(--mono); font-size: var(--fs-s); line-height: 1.5; background: var(--lab-pane); border: 1px solid var(--lab-faint); padding: 12px 14px; margin-top: 0; margin-bottom: 1.1em; overflow-x: auto; tab-size: 2; }
+.nb-code code { font-size: inherit; color: var(--lab-fg); background: none; border: 0; padding: 0; }
+.nb-term__out { font-size: var(--fs-s); }
+.nb-cap { font-family: var(--mono); font-size: var(--fs-xs); color: var(--lab-dim); padding: 4px 0 0; line-height: 1.45; text-align: left; }
+/* round 7: a figure is never cropped. The image keeps its own aspect ratio (contain, never cover),
+   fits the column's width, and is at most 60vh tall; the frame hugs the image, from the column's
+   left edge, and the caption starts where the figure does. Click still opens the lightbox. */
+.nb-fig { margin-top: 0.2em; margin-bottom: 1.1em; }
+.nb-fig__img { display: block; width: fit-content; max-width: 100%; border: 1px solid var(--lab-line) !important; cursor: zoom-in; }
+.nb-fig__img img { display: block; width: auto; max-width: 100%; height: auto; max-height: 60vh; object-fit: contain; }
+.nb-embed { margin-top: 0.2em; margin-bottom: 1.1em; }
 .nb-embed__body { border: 1px solid var(--lab-line); position: relative; overflow: hidden; font-family: var(--mono); font-size: var(--fs-xs); }
 /* M3: the paragraph mark fades in over 180 ms, the spoken word's highlight over 120 ms */
 .nb-col [data-say] { box-shadow: -10px 0 0 -8px transparent; transition: box-shadow var(--t-mark) var(--nb-ease); }
 .nb-col .nb-say-on { box-shadow: -10px 0 0 -8px var(--sec-mark); }
 .nb-word { transition: background-color var(--t-word) var(--nb-ease), color var(--t-word) var(--nb-ease); }
 .nb-word.is-on { background: var(--lab-word-bg); color: var(--lab-word-ink); }
-.nb-prevnext { display: flex; flex-wrap: wrap; justify-content: space-between; gap: 4px 12px; font-size: var(--fs-s); border-top: 1px solid var(--lab-faint); padding-top: 14px; margin-top: 3rem; }
+.nb-prevnext { display: flex; flex-wrap: wrap; justify-content: space-between; gap: 4px 12px; font-size: var(--fs-s); border-top: 1px solid var(--lab-faint); padding-top: 14px; margin-top: 2rem; }
 .nb-prevnext a { text-decoration: none; padding: 2px 4px; min-width: 0; overflow-wrap: anywhere; }
 .nb-prevnext a:hover { background: var(--hov-bg); }
 /* the note's end, on every width: where it links, what links to it, its tags */
-.nb-end { font-size: var(--fs-s); margin-top: 2rem; border-top: 1px solid var(--lab-faint); padding-top: 14px; }
+.nb-end { font-size: var(--fs-s); margin-top: 1.5rem; border-top: 1px solid var(--lab-faint); padding-top: 14px; }
 .nb-end__head { font-family: var(--mono); font-size: var(--fs-xs); color: var(--lab-dim); font-weight: 500; margin: 14px 0 6px; }
 .nb-end > .nb-end__head:first-child { margin-top: 0; }
 .nb-end ul { list-style: none; margin: 0; padding: 0; }
@@ -447,8 +483,11 @@ html.is-night .nb { visibility: visible; pointer-events: auto; }
 .nb-tag + .nb-tag { margin-left: 0.6ch; }
 
 /* the right margin: "on this page" only, with scroll-spy. Sans, receding like the tree. */
-.nb-margin { grid-row: 2; grid-column: 3; overflow: auto; overscroll-behavior: contain; background: var(--lab-bg); border-left: 1px solid var(--lab-faint); padding: 18px 16px 30px;
+.nb-margin { grid-row: 2; grid-column: 3; overflow: auto; overscroll-behavior: contain; background: var(--lab-bg); padding: 20px 16px 30px 0;
   font-family: var(--sans); font-size: 15px; line-height: 1.4; }
+/* round 7: the rail is a narrow list just right of the column; its track runs to the window's
+   edge, so the hairline is on the list, not on the track */
+.nb-margin > * { max-width: calc(var(--nb-rail) - 16px); border-left: 1px solid var(--lab-faint); padding-left: 12px; }
 .nb-sec h2 { font-family: var(--mono); font-size: 0.8125rem; color: var(--lab-dim); font-weight: 500; letter-spacing: 0.04em; margin: 0 0 8px; }
 .nb-sec ul { list-style: none; margin: 0; padding: 0; }
 .nb-sec li a { display: block; text-decoration: none; padding: 4px 8px; color: var(--lab-dim); border-left: 2px solid transparent; }
@@ -554,7 +593,7 @@ html.is-night .nb { visibility: visible; pointer-events: auto; }
 .nb[data-view='graph'] .nb-margin { display: none; }
 .nb[data-view='graph'] .nb-col { max-width: none; height: 100%; padding: 0; }
 .nb[data-view='graph'] .nb-col > * { max-width: none; }
-html.nb-noside .nb { grid-template-columns: 0 minmax(0, 1fr) var(--nb-margin); }
+html.nb-noside .nb { grid-template-columns: 0 minmax(0, 1fr) var(--nb-rail); }
 html.nb-noside .nb-side { visibility: hidden; }
 
 /* no outline (fewer than 3 headings): no margin, and the column centres in the space */
@@ -616,6 +655,14 @@ html[data-focus] .nb-bar:hover, html[data-focus] .nb-bar:focus-within { opacity:
   .nb-head { position: sticky; top: 0; padding-top: env(safe-area-inset-top); background: var(--lab-pane); }
   .nb .nb-bar__menu { display: flex; }
   .nb .nb-bar__canvas, .nb .nb-bar__help, .nb .nb-bar__focus, .nb-bar__word, .nb-bar__k { display: none; }
+  /* the phone: the field folds to its ⌕ (one 44 px target, as before); Aa keeps its frame so it is
+     still the thing you notice; Focus lives in the Aa sheet */
+  .nb .nb-bar__tools { gap: 4px; padding: 0 4px; }
+  .nb-bar__find { width: 44px; height: 44px; justify-content: center; padding: 0 !important; border: 0 !important; background: none !important; cursor: pointer !important; }
+  .nb-bar__find-ph { display: none; }
+  .nb-bar__find-ico { font-size: 18px; }
+  .nb-bar__chip { height: 34px; min-width: 44px; justify-content: center; }
+  .nb .nb-bar__aa { padding: 0 9px !important; }
   .nb .nb-bar__cell { padding: 0 11px; min-width: 42px; }
   /* the phone's path is one 44px target: "‹ parent" */
   .nb-bar__path ol { display: none; }
@@ -736,6 +783,8 @@ html[data-lab-size='3'] { --lab-read-size: 21px; }
 html[data-lab-size='4'] { --lab-read-size: 23px; }
 /* Q7 line width: the measure in reading-scale ems (narrow 32 is the default, about 66 characters) */
 html[data-lab-width='medium'] .nb-col { --measure: calc(var(--rs) * 36); }
+html[data-lab-width='medium'] .nb { --nb-em: 36; }
+html[data-lab-width='wide'] .nb { --nb-em: 44; }
 html[data-lab-width='wide'] .nb-col { --measure: calc(var(--rs) * 44); }
 
 /* Q4 progress: a 2 px hairline in the section's colour along the bar's foot */
@@ -791,21 +840,33 @@ html[data-lab-size='3'] .nb-kicker, html[data-lab-size='4'] .nb-kicker { flex-wr
 .nb-gl { text-decoration: underline dotted var(--lab-line); text-decoration-thickness: 1.5px; text-underline-offset: 0.22em; cursor: help; }
 .nb-gl:hover, .nb-gl[aria-expanded='true'] { text-decoration-color: var(--lab-fg); }
 .nb-pop {
-  position: fixed; z-index: 80; width: min(320px, calc(100vw - 16px)); padding: 10px 12px; background: var(--lab-pane); border: 1px solid var(--lab-line);
+  position: fixed; z-index: 96; width: min(320px, calc(100vw - 16px)); padding: 10px 12px; background: var(--lab-pane); border: 1px solid var(--lab-line);
   box-shadow: 0 8px 24px rgba(0, 0, 0, 0.3); font-family: var(--sans); font-size: 15px; line-height: 1.45; color: var(--lab-fg); white-space: normal;
 }
 .nb-pop[hidden] { display: none; }
+/* round 7 (E): the rich card (a post or a build) is wider and leads with its cover, contained and
+   never cropped, at most 160 px tall; a note's card adds where it lives */
+.nb-pop[data-kind='rich'] { width: min(360px, calc(100vw - 16px)); }
+.nb-pop__cover { display: flex; justify-content: center; margin: -2px 0 8px; background: var(--lab-bg); border: 1px solid var(--lab-faint); }
+.nb-pop__cover img { display: block; max-width: 100%; max-height: 160px; width: auto; height: auto; object-fit: contain; }
+.nb-pop__meta { margin-top: 6px !important; color: var(--lab-dim); font-size: 13px; }
+.nb-pop__tags { display: inline-flex; flex-wrap: wrap; gap: 0 8px; margin-left: 4px; }
+.nb-pop__tags [data-tag] { color: var(--lab-fg); }
+.nb-pop__where { margin-top: 6px !important; color: var(--lab-dim); font-size: 13px; }
+.nb-pop__where span { color: var(--lab-fg); }
+.nb-pop { font-variant-ligatures: none; }
+.nb-pop p { overflow-wrap: anywhere; }
 .nb-pop p { margin: 0; }
 .nb-pop__kicker { color: var(--lab-dim); font-size: 13px; }
 .nb-pop__title { font-size: 17px; font-weight: 700; line-height: 1.3; margin-top: 2px !important; }
 .nb-pop__sum { margin-top: 4px !important; }
-.nb .nb-pop__more { display: inline-flex; align-items: center; min-height: 32px; color: var(--lab-link); }
+.nb-pop .nb-pop__more { display: inline-flex; align-items: center; min-height: 32px; color: var(--lab-link); }
 .nb-pop .nb-lid { font-family: var(--mono); font-weight: 400; color: var(--lab-dim); }
 
 @media (max-width: 899px) {
   html[data-lab-width] .nb-col { --measure: calc(var(--rs) * 32); }
   .nb-aa { left: 0; right: 0; width: auto; max-height: calc(100dvh - var(--nb-bar) - 24px); overflow: auto; border-width: 0 0 1px; }
-  .nb .nb-aa__seg button, .nb .nb-aa__tog, .nb .nb-aa__done, .nb .nb-toast__btn, .nb .nb-endbar__btn, .nb .nb-pop__more { min-height: 44px; }
+  .nb .nb-aa__seg button, .nb .nb-aa__tog, .nb .nb-aa__done, .nb .nb-toast__btn, .nb .nb-endbar__btn, .nb-pop .nb-pop__more { min-height: 44px; }
   .nb-aa__row--width { display: none; }
   .nb .nb-hlink { display: none; }
   .nb .nb-side__share { display: block; }

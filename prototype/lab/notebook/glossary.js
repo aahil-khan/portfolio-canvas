@@ -13,6 +13,17 @@
  * shows its note's title and what the prefix means, with "open →"; on a desktop the hover preview
  * says the same. A wikilink, on a desktop only, after 350 ms: a 320 px card with the title, the
  * kicker and the summary. One popover at a time; Esc, a click outside or a scroll closes it.
+ *
+ * Round 7 (E): this is the one preview owner for every item that opens a note, not just a body's
+ * wikilinks: the tree, start-here's and the hubs' lists and cards, the map's nodes and list,
+ * what's nearby, the tag pages, the switcher's results, prev/next and the author card's next.
+ *   - a post or a build gets the rich card: its cover (contained, never cropped), the TL;DR or its
+ *     first lines, reading time, tags and date; a note keeps the compact one, plus where it lives
+ *   - desktop only, (hover: hover) and (pointer: fine): 350 ms after the pointer or the keyboard
+ *     arrives (the switcher's arrow keys count); Esc, leaving or a scroll closes it
+ *   - placed beside a list row (tree, switcher, map list), under or over anything else, inside the
+ *     viewport and never over the item itself
+ *   NB.gloss.preview(item)   schedule a preview for an item the keyboard moved to (the switcher)
  */
 ;(() => {
   const NB = (window.NB = window.NB || {})
@@ -85,12 +96,38 @@
     pop.className = 'nb-pop'
     pop.id = 'nbPop'
     pop.hidden = true
-    S().el.root.appendChild(pop)
+    // on the body, beside the layers, so a switcher result's preview can sit over the switcher
+    document.body.appendChild(pop)
     pop.addEventListener('mouseenter', () => clearTimeout(outT))
     pop.addEventListener('mouseleave', () => { if (!layered) later(G.hide, 120) })
     return pop
   }
-  const noteOf = (a) => { const m = /^#\/([^?]*)/.exec(a.getAttribute('href') || ''); return m ? V().get(decodeURIComponent(m[1])) : null }
+  const routeOf = (a) => (a.dataset && a.dataset.route != null ? a.dataset.route : (/^#\/([^?]*)/.exec(a.getAttribute('href') || '') || [])[1])
+  const noteOf = (a) => { const r = routeOf(a); if (r == null) return null; try { return V().get(decodeURIComponent(r)) } catch { return null } }
+  const day = (d) => { const m = /^(\d{4})-(\d{2})-(\d{2})$/.exec(String(d || '')); return m ? `${+m[3]} ${C.months[+m[2] - 1]} ${m[1]}` : '' }
+  const rich = (n) => n.type === 'post' || n.type === 'build'
+  const assetSrc = (src) => (/^(data:|https?:)/.test(src) ? src : (NB.publicRoot || '../../../public') + src)
+  // the TL;DR when the note has a real one, otherwise its first lines
+  function gist(n, max) {
+    if (n.summary && V().ledeOf(n).why === 'ok' && n.summary.length >= 40) return n.summary
+    const b = (n.blocks || []).find((x) => x.t === 'p' && MD.plain(x.text).trim().length > 30)
+    const t = b ? MD.plain(b.text).replace(/\s+/g, ' ').trim() : n.summary || ''
+    return t.length > max ? t.slice(0, t.lastIndexOf(' ', max)) + '…' : t
+  }
+  function richHtml(n) {
+    const img = (n.blocks || []).find((x) => x.t === 'img' && x.src)
+    const c = V().clock(n), date = day(n.fm.date || n.updated)
+    const tags = (n.tags || []).map((id) => NB.tags.get(id)).filter(Boolean)
+    return `${img ? `<span class="nb-pop__cover"><img src="${esc(assetSrc(img.src))}" alt="" decoding="async"></span>` : ''}` +
+      `<p class="nb-pop__kicker">${[C.sections[n.section] || '', C.shapes[n.type] || ''].filter(Boolean).map(esc).join(' · ')}</p>` +
+      `<p class="nb-pop__title">${S().nameHtml(n)}</p>` +
+      `<p class="nb-pop__sum">${esc(gist(n, 200))}</p>` +
+      `<p class="nb-pop__meta">${[c.read ? C.minRead(Math.max(1, Math.round(c.read))) : '', date].filter(Boolean).map(esc).join(' · ')}${tags.length ? ` <span class="nb-pop__tags">${tags.map((t) => `<span data-tag="${esc(t.id)}"><span aria-hidden="true">${esc(t.glyph)}</span> ${esc(C.tags.names[t.id])}</span>`).join('')}</span>` : ''}</p>`
+  }
+  function compactHtml(n) {
+    const f = V().fits(n), where = f.partOf.map((x) => x.title).join(` ${C.crumbSep} `)
+    return `<p class="nb-pop__kicker">${kicker(n)}</p><p class="nb-pop__title">${S().nameHtml(n)}</p>${n.summary && V().ledeOf(n).why === 'ok' ? `<p class="nb-pop__sum">${esc(n.summary)}</p>` : ''}${where ? `<p class="nb-pop__where"><span>${esc(C.fits.partOf)}</span> ${esc(where)}</p>` : ''}`
+  }
   function kicker(n) {
     const st = C.status[n.status] || C.status.planned, c = V().clock(n)
     return [C.sections[n.section] || '', n.id && R.idPrefix(n.id) ? prefixWhat(R.idPrefix(n.id)) : C.shapes[n.type] || '', st[1], c.read ? C.minRead(Math.max(1, Math.round(c.read))) : ''].filter(Boolean).map(esc).join(' · ')
@@ -108,22 +145,30 @@
     }
     const n = noteOf(t)
     if (!n) return false
-    p.dataset.kind = 'note'
+    p.dataset.kind = rich(n) ? 'rich' : 'note'
     p.dataset.sec = n.section
     p.setAttribute('role', layered ? 'dialog' : 'tooltip')
     p.setAttribute('aria-label', n.title)
-    p.innerHTML = `<p class="nb-pop__kicker">${kicker(n)}</p><p class="nb-pop__title">${S().nameHtml(n)}</p>${n.summary && V().ledeOf(n).why === 'ok' ? `<p class="nb-pop__sum">${esc(n.summary)}</p>` : ''}${layered ? `<a class="nb-pop__more" href="${esc(t.getAttribute('href'))}">${esc(C.previewOpen)}</a>` : ''}`
+    p.innerHTML = `${rich(n) ? richHtml(n) : compactHtml(n)}${layered ? `<a class="nb-pop__more" href="${esc(t.getAttribute('href'))}">${esc(C.previewOpen)}</a>` : ''}`
     return true
   }
+  // beside a list row, under or over anything else; the first spot that fits the viewport wins.
+  // Each spot is wholly outside the item's box on one axis, so the card never covers its item
   function place(t) {
-    const p = pop, r = t.getBoundingClientRect(), m = 8
+    const p = pop, r = t.getBoundingClientRect(), m = 8, g = 8
     p.style.left = '0px'; p.style.top = '0px'
     const w = p.offsetWidth, h = p.offsetHeight
-    const head = S().el.head.getBoundingClientRect().bottom
-    let y = r.bottom + 6
-    if (y + h > innerHeight - m && r.top - 6 - h > head + m) y = r.top - 6 - h
-    const x = Math.max(m, Math.min(innerWidth - w - m, r.left + r.width / 2 - w / 2))
+    const top = (t.closest('.nb-layer') ? 0 : S().el.head.getBoundingClientRect().bottom) + m
+    const cx = (x) => Math.max(m, Math.min(innerWidth - w - m, x)), cy = (y) => Math.max(top, Math.min(innerHeight - h - m, y))
+    const spots = {
+      right: [r.right + g, cy(r.top - 4)], left: [r.left - g - w, cy(r.top - 4)],
+      below: [cx(r.left + r.width / 2 - w / 2), r.bottom + g], above: [cx(r.left + r.width / 2 - w / 2), r.top - g - h],
+    }
+    const order = t.closest('.nb-side, .nb-switcher, .nb-maplist, .nb-margin') ? ['right', 'left', 'below', 'above'] : ['below', 'above', 'right', 'left']
+    const ok = ([x, y]) => x >= m && y >= top && x + w <= innerWidth - m && y + h <= innerHeight - m
+    const [x, y] = spots[order.find((k) => ok(spots[k])) || order[0]]
     p.style.left = `${Math.round(x)}px`; p.style.top = `${Math.round(y)}px`
+    p.dataset.at = order.find((k) => ok(spots[k])) || order[0]
   }
   G.show = (t, asLayer = false) => {
     G.hide()
@@ -134,14 +179,16 @@
     place(t)
     if (t.classList.contains('nb-gl')) t.setAttribute('aria-expanded', 'true')
     else t.setAttribute('aria-describedby', 'nbPop')
+    // F: it lifts out of the word or row it belongs to (S.layer does the same for a pinned one)
     if (asLayer) S().layer(pop, t, () => { if (owner) owner.setAttribute('aria-expanded', 'false'); owner = null; layered = false })
+    else NB.motion.open(pop, { from: t })
     return true
   }
   G.hide = () => {
     clearTimeout(inT); clearTimeout(outT)
-    if (!pop || pop.hidden) return
+    if (!NB.motion.isOpen(pop)) return
     if (layered) { S().closeLayer(pop); return }
-    pop.hidden = true
+    NB.motion.close(pop)
     if (owner) { owner.setAttribute('aria-expanded', 'false'); owner.removeAttribute('aria-describedby') }
     owner = null
   }
@@ -150,8 +197,17 @@
   // ── when it shows ─────────────────────────────────────────────────────────────────────
   let inT = 0, outT = 0
   const later = (f, ms) => { clearTimeout(outT); outT = setTimeout(f, ms) }
-  const previewable = (a) => a.matches('.nb-col a.nb-wl:not(.nb-rowref), .nb-col .nb-end a[href^="#/"], .nb-col .nb-prevnext a[href^="#/"]') && !!noteOf(a)
-  const targetOf = (e) => e.target.closest && (e.target.closest('.nb-col .nb-gl') || e.target.closest('.nb-col a[href^="#/"]'))
+  // every item that opens a note, wherever it is; not the bar's path (you are on it), a heading's
+  // own link, a row reference inside a table, or the popover's own links
+  const ITEM = '.nb a[href^="#/"], .nb a.n[data-route], .nb-switcher li[data-route]'
+  const NOT = '.nb-bar, .nb-pop, .nb-hlink, [data-hlink], a.nb-rowref'
+  const previewable = (a) => !!a && a.matches(ITEM) && !a.closest(NOT) && !!noteOf(a)
+  const targetOf = (e) => e.target.closest && (e.target.closest('.nb-col .nb-gl') || e.target.closest(ITEM))
+  G.preview = (t) => {
+    clearTimeout(inT)
+    if (!hover() || layered || !previewable(t)) return
+    inT = setTimeout(() => { if (t.isConnected && t.getAttribute('aria-selected') !== 'false') G.show(t) }, DELAY)
+  }
   document.addEventListener('pointerover', (e) => {
     if (e.pointerType !== 'mouse' || !hover()) return
     const t = targetOf(e)
@@ -170,7 +226,7 @@
   // keyboard: a focused term or link previews after the same delay; Enter on a term pins it
   document.addEventListener('focusin', (e) => {
     const t = e.target
-    if (!t.closest || !t.closest('.nb-col')) return
+    if (!t.closest || !(t.closest('.nb-col') || previewable(t))) return
     clearTimeout(inT)
     if (layered) return
     if (t.classList.contains('nb-gl') || (t.matches('a[href^="#/"]') && previewable(t) && hover())) inT = setTimeout(() => { if (document.activeElement === t) G.show(t) }, DELAY)
@@ -196,6 +252,8 @@
     const t = e.target.closest && e.target.closest('.nb-col .nb-gl')
     if (t && (e.key === 'Enter' || e.key === ' ')) { e.preventDefault(); t.click() }
   })
-  for (const [tg, ev] of [[window, 'scroll'], [document, 'scroll']]) tg.addEventListener(ev, () => { if (pop && !pop.hidden) G.hide() }, { passive: true, capture: true })
+  for (const [tg, ev] of [[window, 'scroll'], [document, 'scroll']]) tg.addEventListener(ev, () => { if (NB.motion.isOpen(pop)) G.hide() }, { passive: true, capture: true })
+  // Esc closes a preview (a pinned term is a layer: the shell's Esc closes that)
+  document.addEventListener('keydown', (e) => { if (e.key === 'Escape' && !layered && NB.motion.isOpen(pop)) G.hide() }, true)
   addEventListener('hashchange', () => G.hide())
 })()

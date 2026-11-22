@@ -454,13 +454,13 @@
       `<span class="nb-strip__where">${esc(where)}</span>` +
       (away ? `<button type="button" class="nb-strip__follow" data-nb="follow" aria-label="${esc(T.followLabel)}">${esc(T.follow)}</button>` : '') +
       `<span class="nb-strip__time" aria-label="${esc(T.leftLabel(tl))}">${esc(T.left(tl))}</span>` +
-      `<button type="button" class="nb-strip__more" data-nb="more" aria-label="${esc(T.moreLabel)}" aria-expanded="${!menu().hidden}" aria-controls="nbStripMenu">${esc(T.more)}</button>` +
+      `<button type="button" class="nb-strip__more" data-nb="more" aria-label="${esc(T.moreLabel)}" aria-expanded="${NB.motion.isOpen(menu())}" aria-controls="nbStripMenu">${esc(T.more)}</button>` +
       `<button type="button" class="nb-strip__stop" data-nb="stop" aria-label="${esc(T.stopLabel)}">${esc(T.stop)}</button>`
     // rebuild only when what the strip says changes; the clock ticks in place
-    const key = [s.playing, st.k, where, away, !menu().hidden].join('|')
+    const key = [s.playing, st.k, where, away, NB.motion.isOpen(menu())].join('|')
     if (el.dataset.key !== key) { el.dataset.key = key; el.innerHTML = html }
     else el.querySelector('.nb-strip__time').textContent = T.left(tl)
-    if (!menu().hidden) fillMenu(s)
+    if (NB.motion.isOpen(menu())) fillMenu(s)
   }
   N.strip = strip
 
@@ -494,9 +494,9 @@
     m.querySelector('.nb-strip__wave').textContent = s.peaks ? G().wave(s.peaks, s.perSec, s.t, 10, !s.playing) : ''
   }
   function openMenu(from) { const m = menu(); m.hidden = false; fillMenu(voice().state()); S().layer(m, from, () => strip()); strip() }
-  function closeMenu() { if (menuEl && !menuEl.hidden) S().closeLayer(menuEl) }
+  function closeMenu() { if (NB.motion.isOpen(menuEl)) S().closeLayer(menuEl) }
   document.addEventListener('click', (e) => {
-    if (menuEl && !menuEl.hidden && !e.target.closest('.nb-strip-menu, [data-nb="more"]')) closeMenu()
+    if (NB.motion.isOpen(menuEl) && !e.target.closest('.nb-strip-menu, [data-nb="more"]')) closeMenu()
     const b = e.target.closest('.nb-strip [data-nb], .nb-strip-menu [data-nb]')
     if (!b) return
     const a = b.dataset.nb
@@ -507,7 +507,7 @@
     else if (a === 'stop') N.stop()
     else if (a === 'resume') N.resumeTour()
     else if (a === 'follow') N.backToWord()
-    else if (a === 'more') { if (menu().hidden) openMenu(b); else closeMenu() }
+    else if (a === 'more') { if (!NB.motion.isOpen(menu())) openMenu(b); else closeMenu() }
     else if (a === 'voice') {
       const ids = voice().IDS.filter((id) => voice().status(id) === 'ok')
       const cur = voice().state().voice

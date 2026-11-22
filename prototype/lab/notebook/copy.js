@@ -21,12 +21,12 @@
     menuClose: 'Hide the notes',
     pathLabel: 'You are here',
     treeLabel: 'Notes',
-    search: '⌕', searchWord: 'find', searchKey: '/', searchLabel: 'Find a note (/ or Ctrl+K)',
+    search: '⌕', searchWord: 'find', searchKey: '/', searchPlaceholder: 'Find a note or #tag', searchLabel: 'Find a note (/ or Ctrl+K)',
     graph: '◎', graphWord: 'map', graphLabel: 'The map of everything (g)',
     listen: '▶', listenWord: 'listen', listenLabel: 'Read it to me (l)', listenTour: (w) => `Read all of ${w} to me`,
     sndWord: (on) => `Clicky sounds: ${on ? 'on' : 'off'}`, sndLabel: (on) => `Clicky sounds ${on ? 'on' : 'off'}, tap to switch`,
     // the Aa panel (round 4): text size, theme, line width, focus, sounds. One cell in the bar.
-    aa: 'Aa', aaLabel: 'How it looks: text size, theme, line width (a)', aaKey: 'a',
+    aa: 'Aa', aaWord: 'Text & theme', aaLabel: 'How it looks: text size, theme, line width (a)', aaKey: 'a',
     panel: {
       label: 'How it looks',
       size: 'Text size', sizeStep: (px) => `${px} px`, sizeDown: 'A−', sizeUp: 'A+', sizeDownLabel: 'Smaller text (−)', sizeUpLabel: 'Larger text (+)',
@@ -50,7 +50,7 @@
     keysHint: '? shortcuts',
     on: 'on', off: 'off',
     help: '?', helpLabel: 'Keyboard shortcuts (?)',
-    focus: '◫', focusWord: 'focus', focusKey: 'f', focusLabel: 'Focus: hide everything but the text (f)',
+    focus: '◫', focusWord: 'Focus', focusKey: 'f', focusLabel: 'Focus: hide everything but the text (f)',
     palettes: { night: 'night', paper: 'paper', green: 'green', amber: 'amber' },
 
     // the status column: one glyph, one meaning, always with words beside it for a screen reader

@@ -72,6 +72,8 @@
     const cur = list.querySelector(`li[data-i="${sel}"]`)
     input.setAttribute('aria-activedescendant', cur ? cur.id : '')
     if (cur) cur.scrollIntoView({ block: 'nearest' })
+    // E: the result the keyboard is on previews after the same 350 ms as a hovered one
+    if (cur && NB.gloss) NB.gloss.preview(cur)
   }
   function run() {
     const it = items[sel]
@@ -91,14 +93,14 @@
   }
   X.open = (from) => {
     if (!box) build()
-    if (!box.hidden) return
+    if (NB.motion.isOpen(box)) return
     box.hidden = false
     input.value = ''
     sel = 0
     draw()
-    S().layer(box, from && from !== document.body ? from : null, () => S().highlight(null))
+    S().layer(box, from && from !== document.body ? from : null, () => { S().highlight(null); if (NB.gloss) NB.gloss.hide() })
     input.focus()
     if (NIGHT.sound) NIGHT.sound.cue('chirp-open')
   }
-  X.isOpen = () => !!box && !box.hidden
+  X.isOpen = () => NB.motion.isOpen(box)
 })()

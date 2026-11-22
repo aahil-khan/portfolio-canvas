@@ -74,11 +74,15 @@
           <button type="button" class="nb-bar__cell nb-bar__menu" aria-label="${esc(C.menuLabel)}" aria-expanded="false" aria-controls="nbSide">${esc(C.menu)}</button>
           <a class="nb-bar__cell nb-bar__canvas" href="#desk" data-act="canvas" aria-label="${esc(C.canvasLabel)}">${esc(C.canvas)}</a>
           <div class="nb-bar__cell nb-bar__path" aria-label="${esc(C.pathLabel)}"><ol></ol><span class="nb-bar__up"></span></div>
-          <button type="button" class="nb-bar__cell nb-bar__btn" data-act="search" aria-label="${esc(C.searchLabel)}">${esc(C.search)}<span class="nb-bar__word"> ${esc(C.searchWord)}</span> <span class="nb-bar__k">${esc(C.searchKey)}</span></button>
+          <!-- round 7: search is a field you can see (it opens the switcher); Aa and Focus are labelled
+               chips right beside it, not one-glyph cells at the far right -->
+          <div class="nb-bar__cell nb-bar__tools">
+            <button type="button" class="nb-bar__find" data-act="search" aria-label="${esc(C.searchLabel)}" aria-haspopup="dialog"><span class="nb-bar__find-ico" aria-hidden="true">${esc(C.search)}</span><span class="nb-bar__find-ph">${esc(C.searchPlaceholder)}</span><kbd class="nb-bar__k" aria-hidden="true">${esc(C.searchKey)}</kbd></button>
+            <button type="button" class="nb-bar__chip nb-bar__aa" data-act="aa" aria-label="${esc(C.aaLabel)}" aria-expanded="false" aria-controls="nbAa"><span class="nb-bar__chip-ico" aria-hidden="true">${esc(C.aa)}</span><span class="nb-bar__word">${esc(C.aaWord)}</span></button>
+            <button type="button" class="nb-bar__chip nb-bar__focus" data-act="focus" aria-label="${esc(C.focusLabel)}" aria-pressed="false"><span class="nb-bar__chip-ico" aria-hidden="true">${esc(C.focus)}</span><span class="nb-bar__word">${esc(C.focusWord)}</span><kbd class="nb-bar__k" aria-hidden="true">${esc(C.focusKey)}</kbd></button>
+          </div>
           <button type="button" class="nb-bar__cell nb-bar__btn" data-act="graph" aria-label="${esc(C.graphLabel)}" aria-pressed="false">${esc(C.graph)}<span class="nb-bar__word"> ${esc(C.graphWord)}</span></button>
           <button type="button" class="nb-bar__cell nb-bar__btn" data-act="listen" aria-label="${esc(C.listenLabel)}">${esc(C.listen)}<span class="nb-bar__word"> ${esc(C.listenWord)}</span></button>
-          <button type="button" class="nb-bar__cell nb-bar__btn nb-bar__focus" data-act="focus" aria-label="${esc(C.focusLabel)}" aria-pressed="false">${esc(C.focus)}<span class="nb-bar__word"> ${esc(C.focusWord)}</span> <span class="nb-bar__k">${esc(C.focusKey)}</span></button>
-          <button type="button" class="nb-bar__cell nb-bar__btn nb-bar__aa" data-act="aa" aria-label="${esc(C.aaLabel)}" aria-expanded="false" aria-controls="nbAa">${esc(C.aa)}</button>
           <button type="button" class="nb-bar__cell nb-bar__btn nb-bar__help" data-act="help" aria-label="${esc(C.helpLabel)}">${esc(C.help)}</button>
         </nav>
         <div class="nb-strip" role="region" aria-label="${esc(C.strip.label)}" hidden></div>
@@ -416,15 +420,20 @@
 
   // ── layers: the topmost one closes on Esc ────────────────────────────────────────────
   const layers = []
+  // F (round 7): a layer appears and goes through NB.motion: shown at once (focus moves now), a
+  // 180 ms fade and lift out of what opened it; out over 120 ms, then hidden. A layer's backdrop
+  // only fades; its panel (the dialog, the figure) is what lifts
+  const panelOf = (node) => (node.classList.contains('nb-layer') && node.querySelector(':scope > .nb-dialog, :scope > figure')) || node
   S.layer = (node, from, onClose) => {
     layers.push({ node, from, onClose })
+    NB.motion.open(node, { from, panel: panelOf(node) })
     return () => S.closeLayer(node)
   }
   S.closeLayer = (node) => {
     const i = node ? layers.findIndex((l) => l.node === node) : layers.length - 1
     if (i < 0) return false
     const [l] = layers.splice(i, 1)
-    l.node.hidden = true
+    NB.motion.close(l.node, null, { panel: panelOf(l.node) })
     if (l.onClose) l.onClose()
     if (l.from && l.from.focus) l.from.focus({ preventScroll: true })
     return true
@@ -450,7 +459,7 @@
       helpEl.addEventListener('click', (e) => { if (e.target === helpEl || e.target.closest('[data-close]')) S.closeLayer(helpEl) })
       document.body.appendChild(helpEl)
     }
-    if (!helpEl.hidden) return S.closeLayer(helpEl)
+    if (NB.motion.isOpen(helpEl)) return S.closeLayer(helpEl)
     helpEl.hidden = false
     S.layer(helpEl, from || document.activeElement)
     helpEl.querySelector('[data-close]').focus()
@@ -739,7 +748,7 @@
       sel = null
       for (const x of world.querySelectorAll('.is-sel, .is-lit, .is-fade')) x.classList.remove('is-sel', 'is-lit', 'is-fade')
       world.classList.remove('has-sel')
-      card.hidden = true
+      NB.motion.close(card)
     }
     S.graphUnselect = unselect
     const select = (key) => {
@@ -747,7 +756,7 @@
       if (!d) return
       sel = key
       light(key)
-      card.hidden = false
+      if (!NB.motion.isOpen(card)) NB.motion.open(card)
       if (d.type === 'track') {
         const t = trackNote(d.track), open = S.graphOpen.has(key)
         card.innerHTML = `<p class="nb-card__kicker" data-sec="${esc(d.section)}">${esc(C.sections[d.section])} · ${esc(C.shapes.track.split(' (')[0])}</p><h2 class="nb-card__title">${esc(t.name)}</h2><p class="nb-card__sum">${esc(C.track.done(t.done, t.of))}</p>

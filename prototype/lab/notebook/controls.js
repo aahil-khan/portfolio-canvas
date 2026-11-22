@@ -55,7 +55,7 @@
     addEventListener('pagehide', () => save())
     P.onChange((kind) => { keepPlace(kind); syncAa(); kick() })
     document.addEventListener('click', (e) => {
-      if (aa && !aa.hidden && !e.target.closest('.nb-aa, [data-act="aa"]')) K.closeAa()
+      if (NB.motion.isOpen(aa) && !e.target.closest('.nb-aa, [data-act="aa"]')) K.closeAa()
       const h = e.target.closest('[data-hlink]')
       if (h) { e.preventDefault(); K.copyLink(urlFor(S().state.note, h.dataset.hlink)) }
       if (e.target.closest('[data-act="totop"]')) { K.top(); hideToast() }
@@ -109,10 +109,10 @@
     S().flags()
   }
   K.syncAa = syncAa
-  K.isAaOpen = () => !!aa && !aa.hidden
+  K.isAaOpen = () => NB.motion.isOpen(aa)
   K.toggleAa = (from) => {
     if (!aa) buildAa()
-    if (!aa.hidden) return K.closeAa()
+    if (NB.motion.isOpen(aa)) return K.closeAa()
     aa.hidden = false
     syncAa()
     const btn = el().bar.querySelector('[data-act="aa"]')
@@ -122,7 +122,7 @@
     if (cur) cur.focus({ preventScroll: true })
     if (NIGHT.sound) NIGHT.sound.cue('chirp-open')
   }
-  K.closeAa = () => { if (aa && !aa.hidden) S().closeLayer(aa) }
+  K.closeAa = () => { if (NB.motion.isOpen(aa)) S().closeLayer(aa) }
 
   // a size or width change keeps the paragraph the reader was on where it was on screen
   let anchor = null
@@ -257,9 +257,10 @@
   K.toast = (html, ms = 1500) => {
     clearTimeout(tt)
     toastEl.innerHTML = html
-    toastEl.hidden = false
+    // F: a toast rises in and fades out through NB.motion; a second one while it shows only swaps the words
+    if (!NB.motion.isOpen(toastEl)) NB.motion.open(toastEl)
     tt = setTimeout(hideToast, ms)
   }
-  function hideToast() { clearTimeout(tt); toastEl.hidden = true; toastEl.innerHTML = '' }
+  function hideToast() { clearTimeout(tt); NB.motion.close(toastEl, () => { if (toastEl.hidden) toastEl.innerHTML = '' }) }
   K.hideToast = hideToast
 })()
