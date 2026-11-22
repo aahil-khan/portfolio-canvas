@@ -4,7 +4,7 @@ type: doc
 status: done
 updated: 2026-11-20
 summary: "Tools · Data model and audit"
-tags: [shopkeeper, tools]
+tags: [agent-design, reliability]
 aliases: []
 listen: true
 visibility: public

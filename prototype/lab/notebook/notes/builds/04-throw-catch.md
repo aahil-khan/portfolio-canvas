@@ -4,7 +4,7 @@ type: build
 status: stub
 updated: 2026-11-21
 summary: ""
-tags: [builds]
+tags: [shipping]
 aliases: []
 listen: false
 stub: true

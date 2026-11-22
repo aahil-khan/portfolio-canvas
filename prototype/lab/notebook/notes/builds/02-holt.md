@@ -4,7 +4,7 @@ type: build
 status: live
 updated: 2026-11-20
 summary: "Will this repo merge your PR? Find open source projects that will actually merge your first PR."
-tags: [builds, evals]
+tags: [open-source, shipping]
 aliases: []
 listen: true
 visibility: public

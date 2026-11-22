@@ -4,7 +4,7 @@ type: doc
 status: done
 updated: 2026-11-20
 summary: "Evaluation and scoring · Decisions"
-tags: [shopkeeper, evals]
+tags: [evals, negotiation]
 aliases: []
 listen: true
 visibility: public

@@ -4,7 +4,7 @@ type: doc
 status: done
 updated: 2026-11-20
 summary: "v0 build scope"
-tags: [shopkeeper, scope]
+tags: [shipping, evals]
 aliases: []
 listen: true
 visibility: public

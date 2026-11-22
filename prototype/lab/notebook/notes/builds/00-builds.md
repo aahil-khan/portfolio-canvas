@@ -3,8 +3,8 @@ title: "builds"
 type: hub
 status: progress
 updated: 2026-11-21
-summary: "Drag to Workspace, Holt, the datesheet generator and throw-catch."
-tags: [builds]
+summary: "Things I've built and shipped. Some are live, some are still being written up."
+tags: [shipping]
 aliases: []
 listen: true
 visibility: public

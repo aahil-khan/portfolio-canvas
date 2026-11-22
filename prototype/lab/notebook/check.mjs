@@ -31,7 +31,7 @@ import * as tracker from './tools/import-tracker.mjs'
 
 const here = dirname(fileURLToPath(import.meta.url))
 const require = createRequire(import.meta.url)
-for (const f of ['prefs.js', 'reading.js', 'copy.js', 'md.js', 'model.js', 'graph.js', 'vault.js', 'study.js', 'essay.js', 'graph-seed.js', 'logic.js']) require(join(here, f))
+for (const f of ['prefs.js', 'reading.js', 'copy.js', 'md.js', 'tags.js', 'author.js', 'share.js', 'model.js', 'graph.js', 'vault.js', 'study.js', 'essay.js', 'graph-seed.js', 'logic.js']) require(join(here, f))
 const { NB, NIGHT } = globalThis
 const C = NB.copy, MD = NB.md, G = NB.graph
 
@@ -348,7 +348,7 @@ const leaky = rules.filter(([sel, body]) => !(sel === ':root' && [...body.matchA
 ok(rules.length > 80 && !leaky.length, `notebook.css: all ${rules.length} rules paint only the notebook or the night${leaky.length ? ' — LEAKS: ' + leaky.map((r) => r[0]).slice(0, 6).join(' | ') : ''}`)
 const sentence = /(['"`])(?:(?!\1)[^\n]){0,6}\b[a-z]+ [a-z]+ [a-z]+ [a-z]+\b(?:(?!\1)[^\n])*\1/i
 const strip = (s) => code(s).replace(/(['"`])(?:\\.|(?!\1)[^\\\n])*\1/g, (m) => (/[<>=(){}$]|\.\w+\(|^.(\w+-)+\w+.$/.test(m) ? "''" : m))
-const UI = ['shell.js', 'reader.js', 'controls.js', 'glossary.js', 'reading.js', 'prefs.js', 'switcher.js', 'embeds.js', 'map.js', 'trip.js', 'model.js', 'graph.js', 'md.js', 'voice.js', 'sound.js']
+const UI = ['tags.js', 'author.js', 'share.js', 'shell.js', 'reader.js', 'controls.js', 'glossary.js', 'reading.js', 'prefs.js', 'switcher.js', 'embeds.js', 'map.js', 'trip.js', 'model.js', 'graph.js', 'md.js', 'voice.js', 'sound.js']
 const prose = UI.filter((f) => text[f] && sentence.test(strip(text[f])))
 ok(UI.every((f) => text[f]) && !prose.length, `every UI word is in copy.js${prose.length ? ' — prose in ' + prose.join(', ') : ''}${UI.filter((f) => !text[f]).length ? ' — missing ' + UI.filter((f) => !text[f]).join(', ') : ''}`)
 {
@@ -358,6 +358,40 @@ ok(UI.every((f) => text[f]) && !prose.length, `every UI word is in copy.js${pros
   const mine = relative(top, here).split('\\').join('/') + '/'
   if (changed == null) skip('git diff origin/main...HEAD failed')
   else ok(changed.every((f) => f.startsWith(mine)), `only ${mine} changed on this branch (${changed.length} files)${changed.filter((f) => !f.startsWith(mine)).length ? ': ' + changed.filter((f) => !f.startsWith(mine)).join(', ') : ''}`)
+}
+
+// ── 10 ──────────────────────────────────────────────────────────────────────────────────────
+console.log('10. round 6: tags, sharing, the author')
+{
+  const T = NB.tags, list = T.list
+  ok(list.length >= 8 && list.length <= 15, `a small tag set: ${list.length} tags (8–15): ${list.map((t) => t.id).join(', ')}`)
+  ok(new Set(list.map((t) => t.glyph)).size === list.length && list.every((t) => !Object.values(C.status).some(([g]) => g === t.glyph)), 'every tag has its own glyph, and none is a status glyph')
+  ok(list.every((t) => TEXT.includes(`lab-${t.tone}`)), `every tag's tone is a text token (${[...new Set(list.map((t) => 'lab-' + t.tone))].join(', ')}), so §7's 4.5:1 holds for it in every theme`)
+  ok(list.every((t) => C.tags.names[t.id] && C.tags.lines[t.id]), 'every tag has a name and a one-liner in copy.js')
+  const used = Object.fromEntries(list.map((t) => [t.id, V.notes.filter((n) => n.tags.includes(t.id)).length]))
+  ok(list.every((t) => used[t.id] >= 2), `every tag is on at least two notes (${Object.entries(used).map(([k, v]) => `${k} ${v}`).join(', ')})`)
+  ok(V.all.every((n) => n.tags.every((t) => T.get(t))), 'every note\'s tags are in the vocabulary (the validator also says so)')
+  const leaves = V.notes.filter((n) => n.route !== '' && n.route !== '01-glossary' && n.type !== 'log')
+  ok(leaves.every((n) => n.tags.length >= 1), `every note but start-here, the glossary and the log has at least one tag (${leaves.filter((n) => !n.tags.length).map((n) => n.route).join(', ') || 'all do'})`)
+  const g = T.group(V, 'voice'), want = V.notes.filter((n) => n.tags.includes('voice')).map((n) => n.route)
+  ok(same(g.groups.flatMap((x) => x.notes.map((n) => n.route)), want) && g.n === want.length && g.groups.every((x) => x.notes.every((n) => n.section === x.section)), `#voice's page lists exactly its ${want.length} notes, grouped by section in tree order (${g.groups.map((x) => `${x.section} ${x.notes.length}`).join(', ')})`)
+  ok(same(V.match('#voice').map((n) => n.route), want) && V.match('#voice T34').length === 1, 'the switcher\'s #voice filters to the same notes, and #voice T34 narrows to one')
+  ok(same(T.forTopic({ id: 'T13', track: 'observability' }), ['tracing']) && same(T.forStage({ id: 'PW4' }), ['voice', 'reliability']), 'a topic takes its track\'s tag (observability → tracing); a stage its own')
+  const url = 'https://aahil.dev/lab#/agent-reliability/shopkeeper/01-spec'
+  const tg = Object.fromEntries(NB.share.targets(url, 'Shopkeeper Agent Spec v1').map((t) => [t.id, t.href]))
+  ok(tg.x.startsWith('https://x.com/intent/post?') && tg.x.includes('via=aahil_khan77') && tg.x.includes(encodeURIComponent(url)), 'X: an intent with via=aahil_khan77 and the note\'s URL')
+  ok(tg.linkedin === `https://www.linkedin.com/sharing/share-offsite/?url=${encodeURIComponent(url)}` && tg.email.startsWith('mailto:?subject=') && tg.email.includes(encodeURIComponent(url)), 'LinkedIn\'s share-offsite and a mailto: both carry the note\'s URL')
+  const D = NB.share.due
+  ok(!D(0, 0) && !D(0.74, 59) && D(0.75, 0) && D(0.2, 60), 'the nudge is due at 75 % read or 60 s on the note, not before')
+  let prof = null
+  try { prof = JSON.parse(readFileSync(join(here, '../../../content/data/profile.json'), 'utf8')).profile } catch { prof = null }
+  if (!prof) skip('content/data/profile.json not found')
+  else {
+    const A = NB.author, mine = A.links.filter((l) => !l.mockupOnly).map((l) => [l.label, l.href])
+    ok(A.name === prof.name && same(A.role, prof.role) && same(mine, prof.links.map((l) => [l.label, l.href])), `author.js matches profile.json: name, role, ${mine.length} links`)
+    ok(A.links.length === 4 && same(A.links.map((l) => l.id), ['github', 'linkedin', 'x', 'email']) && A.links.find((l) => l.id === 'x').href === 'https://x.com/aahil_khan77' && !prof.links.some((l) => /x\.com|twitter/.test(l.href)), 'the card has four links; X (https://x.com/aahil_khan77) is the mockup\'s own, still to add to profile.json')
+  }
+  ok(/C\.proposal\b/.test(text['share.js']) && (text['share.js'].match(/\$\{prop\(\)\}/g) || []).length === 2, 'the nudge and the author\'s line carry a PROPOSAL mark in the author view')
 }
 
 console.log(fails ? `\n${fails} FAILED` : '\nall checks pass')

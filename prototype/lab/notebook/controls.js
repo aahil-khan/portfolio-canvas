@@ -23,7 +23,6 @@
   const C = NB.copy, P = NB.prefs, R = NB.reading, esc = NB.md.escape
   const S = () => NB.shell, el = () => NB.shell.el, V = () => NB.vault
   const phone = () => innerWidth < 900
-  const coarse = () => { try { return matchMedia('(pointer: coarse)').matches } catch { return false } }
   const reduced = () => !!(window.LAB && LAB.sky && LAB.sky.reduced)
   const K = (NB.controls = {})
   const READ_KEY = 'nb-read', TOUR_KEY = 'nb-tour', KEEP = 40
@@ -168,6 +167,7 @@
       }
     }
     if (performance.now() - savedAt > 400) save()
+    NB.share.tick()
   }
 
   // ── resume ────────────────────────────────────────────────────────────────────────────
@@ -250,13 +250,8 @@
     K.toast(esc(done ? C.copied : C.copyFailed), 1500)
     return done
   }
-  K.share = async () => {
-    const note = S().state.note, url = urlFor(note, '')
-    if (navigator.share && coarse()) {
-      try { await navigator.share({ title: C.title(note ? note.title : ''), url }); K.last = url; return true } catch { return false }
-    }
-    return K.copyLink(url)
-  }
+  // round 6: sharing is share.js's (the native sheet, otherwise the menu)
+  K.share = (from) => NB.share.open(from)
   K.top = () => { scrollToY(0, true); const t = el().col.querySelector('.nb-title'); if (t) t.focus({ preventScroll: true }) }
   let tt = 0
   K.toast = (html, ms = 1500) => {

@@ -52,6 +52,14 @@
   // a hub's 00 is an internal label: the tree shows it only in the author view (?hidden=1)
   const numOf = (n) => (n.id || (n.isHub ? (q0.get('hidden') === '1' ? '00' : '') : /^\d\d$/.test(n.num) ? n.num : ''))
   S.glyph = glyph
+  // a tag as a chip: its glyph and its tone are its own, everywhere (tags.js)
+  S.tagChip = (id, o = {}) => {
+    const t = NB.tags.get(id)
+    if (!t) return ''
+    const name = C.tags.names[id] || id
+    const tagName = o.button ? 'button' : 'a', attrs = o.button ? `type="button" data-tagpick="${esc(id)}" aria-pressed="${!!o.on}"` : `href="${esc(S.href('tag/' + id))}"`
+    return `<${tagName} class="nb-chip" ${attrs} data-tag="${esc(id)}" data-tone="${t.tone}" aria-label="${esc(C.tags.label(name))}"><span class="nb-chip__g" aria-hidden="true">${esc(t.glyph)}</span>${esc(name)}${o.count != null ? `<span class="nb-chip__n">${o.count}</span>` : ''}</${tagName}>`
+  }
   S.visited = new Set(store.get('nb-visited') || [])
 
   // ── build the frame ───────────────────────────────────────────────────────────────────
@@ -156,7 +164,7 @@
       if (act === 'listen') return NB.narrator.press()
       if (act === 'snd') return S.toggleSound()
       if (act === 'aa') return NB.controls.toggleAa(a)
-      if (act === 'share') return NB.controls.share()
+      if (act === 'share') return NB.share.open(a)
       if (act === 'top') return NB.controls.top()
       if (act === 'help') return S.help(a)
       if (act === 'focus') return S.toggleFocus()
@@ -192,11 +200,13 @@
     let { route, q } = parse()
     const v = V()
     if (route === 'graph') return showGraph(q)
+    if (route === 'tag' || route.startsWith('tag/')) return showTag(route.slice(4), q)
     let note = v.get(route)
     if (!note && route) {
       note = v.resolve(route)
       if (note) { replace(note.route, q); }
     }
+    const lost = !note && route ? route : ''
     if (!note) note = v.get('')
     if (S.state.note && S.state.note !== note && NB.narrator) NB.narrator.navigated(note, q)
     // M1: a new note crossfades in (motion.js); the same note again (an anchor, a resize) and
@@ -235,6 +245,8 @@
     else { draw(); if (how === 'arrive') NB.motion.arrive(el.col) }
     if (S.focusTitle) { S.focusTitle = false; const t = el.col.querySelector('.nb-title'); if (t) t.focus({ preventScroll: true }) }
     NB.controls.arrived(note, q)
+    NB.share.arrived(S.state.view === 'note' ? note : null)
+    if (lost) NB.controls.toast(esc(C.notFound(lost)), 4000)
     popOnArrival(q)
   }
   let popped = false
@@ -249,7 +261,7 @@
   // ── the bar's path: titles, every segment a link. A phone shows "‹ parent" only ────────
   function renderPath(note, graph) {
     const v = V(), segs = graph ? ['graph'] : note.route ? note.route.split('/') : []
-    const crumbs = [{ href: '#/', text: C.sections.root, last: !segs.length }]
+    const crumbs = [{ href: '#/', text: C.crumbRoot, last: !segs.length }]
     let acc = ''
     segs.forEach((s, i) => {
       acc = acc ? `${acc}/${s}` : s
@@ -310,7 +322,7 @@
   // transition off on just those rows)
   function markTree(note) {
     const quiet = [...el.tree.querySelectorAll('[aria-current]')]
-    const a = el.tree.querySelector(`a[data-route="${CSS.escape(note.route)}"]`)
+    const a = note ? el.tree.querySelector(`a[data-route="${CSS.escape(note.route)}"]`) : null
     if (a) quiet.push(a)
     for (const x of quiet) x.style.transition = 'none'
     for (const x of el.tree.querySelectorAll('[aria-current]')) x.removeAttribute('aria-current')
@@ -553,8 +565,41 @@
     const cls = ['n', n && S.visited.has(n.route) ? 'is-visited' : '', d.type === 'track' && S.graphOpen.has(d.key) ? 'is-open' : ''].filter(Boolean).join(' ')
     const label = n ? V().label(n) : C.track.label(t.name, t.done, t.of)
     const href = n ? S.href(n.route) : S.href(V().get('agent-reliability/study') ? 'agent-reliability/study' : '')
-    return `<a class="${cls}" href="${esc(href)}" data-route="${esc(d.key)}" data-sec="${esc(d.section)}" data-type="${esc(d.type)}"${d.type === 'track' ? ` aria-expanded="${S.graphOpen.has(d.key)}"` : ''} aria-label="${esc(label)}" transform="translate(${x} ${y})">${shapeSvg(d.type, NB.graph.radius(d))}${labelSvg(d, x, y, at)}<title>${esc(label)}</title></a>`
+    const tags = n ? n.tags : [...new Set(V().notes.filter((x) => x.folder === `agent-reliability/study/${d.track}`).flatMap((x) => x.tags))]
+    return `<a class="${cls}" href="${esc(href)}" data-route="${esc(d.key)}" data-tags="${esc(tags.join(' '))}" data-sec="${esc(d.section)}" data-type="${esc(d.type)}"${d.type === 'track' ? ` aria-expanded="${S.graphOpen.has(d.key)}"` : ''} aria-label="${esc(label)}" transform="translate(${x} ${y})">${shapeSvg(d.type, NB.graph.radius(d))}${labelSvg(d, x, y, at)}<title>${esc(label)}</title></a>`
   }
+
+  // ── a tag's page: '#/tag/<id>', its notes grouped by section; an unknown tag lists the real ones ──
+  function showTag(id, q) {
+    NB.share.arrived(null)
+    const v = V(), t = NB.tags.get(id), g = t ? NB.tags.group(v, t.id) : null
+    const name = t ? C.tags.names[t.id] || t.id : id
+    S.state = { ...S.state, view: 'tag', q, route: 'tag/' + id, note: null, tag: t ? t.id : null }
+    el.root.dataset.view = 'tag'
+    el.root.dataset.sec = 'root'
+    document.documentElement.classList.remove('nb-graph')
+    el.graphBtn.setAttribute('aria-pressed', 'false')
+    document.title = C.title(C.tags.title(name))
+    el.path.innerHTML = `<li><a href="#/">${esc(C.crumbRoot)}</a></li><li><span class="nb-crumb-sep" aria-hidden="true">${esc(C.crumbSep)}</span><a href="${esc(S.href('tag/' + id))}" aria-current="page">${esc(C.tags.title(name))}</a></li>`
+    el.up.innerHTML = `<a class="nb-up" href="#/" aria-label="${esc(C.crumbUpLabel(C.crumbRoot))}">${esc(C.crumbUp(C.crumbRoot))}</a>`
+    const counts = Object.fromEntries(NB.tags.list.map((x) => [x.id, v.notes.filter((n) => n.tags.includes(x.id)).length]))
+    const every = `<section class="nb-tagall" aria-label="${esc(C.tags.all)}"><h2 class="nb-end__head">${esc(C.tags.all)}</h2><p class="nb-chips">${NB.tags.list.filter((x) => counts[x.id]).map((x) => S.tagChip(x.id, { count: counts[x.id] })).join('')}</p></section>`
+    const body = !t ? `<p class="nb-summary nb-lede">${esc(C.tags.none(id))}</p>` : `${g.groups.map((gr) => `<section class="nb-taggroup" data-sec="${esc(gr.section)}"><h2>${esc(gr.section === 'root' ? C.crumbRoot : C.sections[gr.section])} <span class="nb-taggroup__n">${esc(C.tags.count(gr.notes.length))}</span></h2>${S.linkList(gr.notes.map((n) => ({ note: n })))}</section>`).join('')}
+      <p class="nb-fits__map"><a href="${esc(S.href('graph', `tag=${t.id}`))}">${esc(C.tags.onMap)}</a></p>`
+    el.col.innerHTML = `<article class="nb-note nb-tagpage" data-tag="${esc(id)}">
+      ${NB.share.bylineHtml()}
+      <p class="nb-meta nb-kicker"><span class="nb-k nb-k--sec">${esc(C.tags.kicker)}</span>${t ? `<span class="nb-k">${esc(C.tags.count(g.n))}</span>` : ''}</p>
+      <h1 class="nb-title" tabindex="-1">${t ? `<span class="nb-chip__g" data-tone="${t.tone}" aria-hidden="true">${esc(t.glyph)}</span> ` : ''}${esc(C.tags.title(name))}</h1>
+      ${t ? `<p class="nb-summary nb-lede">${esc(C.tags.lines[t.id] || '')}</p>` : ''}
+      ${body}${every}</article>`
+    el.margin.innerHTML = ''
+    markTree(null)
+    el.main.scrollTop = 0
+    if (phone()) scrollTo(0, 0)
+    NB.controls.arrived(null, q)
+    if (S.focusTitle) { S.focusTitle = false; el.col.querySelector('.nb-title').focus({ preventScroll: true }) }
+  }
+  S.showTag = showTag
 
   // ── the full graph: desktop only (≥ 900 px); a phone gets the map as a list ────────────
   S.graphOpen = new Set()
@@ -567,9 +612,11 @@
     document.title = C.title(S.cap(C.graphTitle))
     renderPath(null, true)
     S.graphPhone = phone()
+    S.graphTag = NB.tags.get(q.get('tag')) ? q.get('tag') : null
     if (S.graphPhone) {
       el.col.innerHTML = mapList()
       bindMapList(el.col.querySelector('.nb-maplist'))
+      if (S.graphTag) S.mapFilter('#' + S.graphTag)
       scrollTo(0, 0)
     } else {
       el.col.innerHTML = `<h1 class="nb-sr" tabindex="-1">${esc(C.list.title)}</h1><div class="nb-graph-host" style="height:100%"></div>`
@@ -579,6 +626,8 @@
     popOnArrival(q)
   }
   S.graphFilters = { 'agent-reliability': true, builds: true, writing: true }
+  // round 6: one tag at a time, on the map and on the phone's list (the same control)
+  const tagSelect = () => `<label class="nb-graph__tag"><span>${esc(C.tags.filter)}</span><select aria-label="${esc(C.tags.filterLabel)}"><option value="">${esc(C.tags.any)}</option>${NB.tags.list.map((t) => `<option value="${t.id}"${S.graphTag === t.id ? ' selected' : ''}>${esc(t.glyph)} ${esc(C.tags.names[t.id])}</option>`).join('')}</select></label>`
   // the layout for the open tracks, warm from the seed (cached per set of open tracks)
   const views = new Map(), layouts = new Map()
   // a label's real width: the text face at the label's weight, an ID at the start in mono
@@ -616,7 +665,7 @@
   function graphView(host, focus) {
     host.innerHTML = `<div class="nb-graph">
       <div class="nb-graph__bar">${Object.keys(S.graphFilters).map((s) => `<button type="button" data-filter="${s}" data-sec="${s}" aria-pressed="${S.graphFilters[s]}" aria-label="${esc(C.filterLabel(C.filters[s], S.graphFilters[s]))}"><span class="nb-key__sw" aria-hidden="true"></span>${esc(C.filters[s])}</button>`).join('')}
-        <button type="button" data-fit aria-label="${esc(C.fitLabel)}">${esc(C.fit)}</button><span class="nb-graph__hint">${esc(C.graphHint)}</span></div>
+        ${tagSelect()}<button type="button" data-fit aria-label="${esc(C.fitLabel)}">${esc(C.fit)}</button><span class="nb-graph__hint">${esc(C.graphHint)}</span></div>
       <div class="nb-graph__body">
         <div class="nb-graph__view"><svg class="nb-g nb-g--full" role="group" aria-label="${esc(C.graphLabel2)}"><g class="nb-g__world"></g></svg></div>
         <aside class="nb-graph__side"><section class="nb-card" aria-label="${esc(C.card.label)}" aria-live="polite" hidden></section>${keyHtml()}</aside>
@@ -717,7 +766,8 @@
     }
     S.graphToggle = toggleTrack
     const filter = () => {
-      for (const a of svg.querySelectorAll('a.n')) a.classList.toggle('is-dim', a.dataset.sec in S.graphFilters && !S.graphFilters[a.dataset.sec])
+      const tg = S.graphTag
+      for (const a of svg.querySelectorAll('a.n')) a.classList.toggle('is-dim', (a.dataset.sec in S.graphFilters && !S.graphFilters[a.dataset.sec]) || (!!tg && !a.dataset.tags.split(' ').includes(tg)))
       for (const b of host.querySelectorAll('[data-filter]')) { const on = S.graphFilters[b.dataset.filter]; b.setAttribute('aria-pressed', String(on)); b.setAttribute('aria-label', C.filterLabel(C.filters[b.dataset.filter], on)) }
     }
     draw()
@@ -741,7 +791,9 @@
       for (const t of world.querySelectorAll('.rg')) fade(t, at(t.dataset.sec))
       for (const ln of world.querySelectorAll('line.e')) fade(ln, Math.max(idx.get(ln.dataset.a) || 0, idx.get(ln.dataset.b) || 0))
     }
-    host.querySelector('.nb-graph__bar').addEventListener('click', (e) => {
+    host.querySelector('.nb-graph__tag select').addEventListener('change', (e) => { S.graphTag = e.target.value || null; filter() })
+    S.graphSetTag = (t) => { S.graphTag = t || null; host.querySelector('.nb-graph__tag select').value = t || ''; filter() }
+        host.querySelector('.nb-graph__bar').addEventListener('click', (e) => {
       const f = e.target.closest('[data-filter]')
       if (f) { S.graphFilters[f.dataset.filter] = !S.graphFilters[f.dataset.filter]; filter() }
       if (e.target.closest('[data-fit]')) fit()
@@ -805,7 +857,7 @@
       return `<details class="nb-maplist__${top ? 'sec' : 'folder'}" data-sec="${esc(secOf(f))}" data-folder="${esc(f.path)}"><summary><span class="nb-maplist__label">${esc(name)}</span><span class="nb-maplist__count">${esc(C.list.count(count(f)))}</span></summary><ul>${kids}</ul></details>`
     }
     return `<div class="nb-maplist"><h1 class="nb-title" tabindex="-1">${esc(C.list.title)}</h1>
-      <label class="nb-maplist__filter"><span class="nb-sr">${esc(C.list.filter)}</span><input type="search" autocomplete="off" spellcheck="false" placeholder="${esc(C.list.placeholder)}" aria-label="${esc(C.list.filter)}"></label>
+      ${tagSelect()}<label class="nb-maplist__filter"><span class="nb-sr">${esc(C.list.filter)}</span><input type="search" autocomplete="off" spellcheck="false" placeholder="${esc(C.list.placeholder)}" aria-label="${esc(C.list.filter)}"></label>
       <p class="nb-maplist__none" hidden>${esc(C.list.none)}</p>
       ${t.folders.map((f) => folder(f, true)).join('')}</div>`
   }
@@ -824,8 +876,10 @@
       }
       none.hidden = !hits || !!box.querySelector('li:not([hidden]) > .nb-maplist__row')
     }
-    input.addEventListener('input', apply)
-    S.mapFilter = (q) => { input.value = q; apply() }
+    const sel = box.querySelector('.nb-graph__tag select')
+    input.addEventListener('input', () => { const m = /^#(\S+)/.exec(input.value.trim()); sel.value = m && NB.tags.get(m[1]) ? m[1] : ''; apply() })
+    sel.addEventListener('change', () => { input.value = sel.value ? `#${sel.value} ` : ''; apply() })
+    S.mapFilter = (q) => { input.value = q; const m = /^#(\S+)/.exec(q.trim()); sel.value = m && NB.tags.get(m[1]) ? m[1] : ''; apply() }
   }
 
   // ?add=1: one more note, relaid out warm; the readout says how far the others moved

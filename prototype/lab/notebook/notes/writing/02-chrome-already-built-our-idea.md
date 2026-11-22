@@ -4,7 +4,7 @@ type: post
 status: published
 updated: 2026-03-19
 summary: "We won the hackathon anyway."
-tags: [writing, hackathon]
+tags: [hackathons, shipping]
 aliases: [chrome-hackathon]
 listen: true
 visibility: public

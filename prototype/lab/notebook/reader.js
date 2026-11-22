@@ -90,9 +90,14 @@
     // start-here: "Continue W1 at step 3 →" when the reader has been here before (Q10)
     const resume = note.route === '' ? NB.controls.resumeHtml() : ''
     // the note's end: share it and back to the top (Q8, Q12); nothing is fixed at the bottom
-    const endbar = note.route === '' ? '' : `<p class="nb-endbar"><button type="button" class="nb-endbar__btn" data-act="share" aria-label="${esc(C.shareLabel(title))}">${esc(C.share)}</button><button type="button" class="nb-endbar__btn" data-act="top" aria-label="${esc(C.topLabel)}">${esc(C.top)}</button></p>`
+    const endbar = note.route === '' ? '' : `<p class="nb-endbar">${NB.share.button('end', title)}<button type="button" class="nb-endbar__btn" data-act="top" aria-label="${esc(C.topLabel)}">${esc(C.top)}</button></p>`
+    // round 6: whose Lab this is (a visitor's first line), the kicker, then the tags and Share
+    const SH = NB.share
+    const headRow = `<div class="nb-headrow">${note.tags.length ? `<p class="nb-chips" aria-label="${esc(S().cap(C.tagsHead))}">${note.tags.map((t) => S().tagChip(t)).join('')}</p>` : '<span></span>'}${SH.button('top', title)}</div>`
     S().el.col.innerHTML = `<article class="nb-note" data-route="${esc(note.route)}">
+      ${note.route === '' ? '' : SH.bylineHtml()}
       ${kicker(note)}
+      ${headRow}
       <h1 class="nb-title" tabindex="-1" data-say="title">${esc(title)}</h1>
       ${lede}${ledeAlt}${resume}
       ${banner}
@@ -101,6 +106,7 @@
       ${toc}
       <div class="nb-body">${body}</div>
       ${endbar}
+      ${note.route === '' ? '' : NB.share.nudgeHtml(note) + NB.share.authorHtml(note, v, w)}
       <nav class="nb-prevnext" aria-label="${esc(C.linksHead)}">${step(pn.prev, 'prev')}${step(pn.up, 'up')}${step(pn.next, 'next')}</nav>
       ${note.route === '' ? '' : endLinks(note, w)}
     </article>`
@@ -146,7 +152,7 @@
     const nextQ = f.step && f.next && f.next.type !== 'walkthrough' ? `w=${w}` : ''
     const next = f.next ? `<p class="nb-fits__row"><span class="nb-fits__k">${esc(F.next)}</span> <a class="nb-fits__next" href="${esc(S().href(f.next.route, nextQ))}" data-step="next">${S().nameHtml(f.next)} ${esc(C.next)}</a></p>` : ''
     const list = (head, ls) => (ls.length ? `<h3 class="nb-end__head">${esc(head)}</h3>${S().linkList(ls)}` : '')
-    const tags = note.tags.length ? `<p class="nb-tags"><span class="nb-end__sec">${esc(C.tagsHead)}</span> ${note.tags.map((t) => `<span class="nb-tag">#${esc(t)}</span>`).join(' ')}</p>` : ''
+    const tags = note.tags.length ? `<p class="nb-tags"><span class="nb-end__sec">${esc(C.tagsHead)}</span> ${note.tags.map((t) => S().tagChip(t)).join('')}</p>` : ''
     const map = `<p class="nb-fits__map"><a href="${esc(S().href('graph', `focus=${note.route}`))}" aria-label="${esc(F.onMapLabel(note.title))}">${esc(F.onMap)}</a></p>`
     return `<section class="nb-end nb-fits" aria-label="${esc(S().cap(C.linksHead))}"><h2 class="nb-end__head">${esc(S().cap(C.linksHead))}</h2>${part}${next}${list(F.linksTo, f.out)}${list(F.linkedFrom, f.back)}${map}${tags}</section>`
   }

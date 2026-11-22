@@ -4,7 +4,7 @@ type: walkthrough
 status: progress
 updated: 2026-11-20
 summary: "Phase 1 of the study, Evals core: the topics so far, the log, and the build that used them."
-tags: [study, walkthrough, evals]
+tags: [evals]
 aliases: []
 listen: true
 visibility: public

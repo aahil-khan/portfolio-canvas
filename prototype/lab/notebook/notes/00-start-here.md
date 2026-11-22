@@ -4,7 +4,7 @@ type: hub
 status: progress
 updated: 2026-11-21
 summary: "The place where people see what I built, try it, and read what broke and how I fixed it, without opening a repo."
-tags: [lab]
+tags: []
 aliases: [index, readme]
 listen: true
 visibility: public
@@ -15,7 +15,7 @@ source: the Lab brief, 2026-11-21 (Aahil's own words); the study tracker
 ```block entries
 ```
 
-## studying now
+## what I'm on right now
 
 ```block studying-now
 ```
@@ -25,12 +25,12 @@ source: the Lab brief, 2026-11-21 (Aahil's own words); the study tracker
 ```block map
 ```
 
-## guided tours
+## tours
 
 ```block tours
 ```
 
-## latest
+## new here
 
 ```block latest
 ```

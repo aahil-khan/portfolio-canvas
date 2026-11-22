@@ -4,7 +4,7 @@ type: build
 status: done
 updated: 2025-07-31
 summary: "Re-architected an exam scheduling system that couldn't survive a page refresh."
-tags: [builds, backend]
+tags: [shipping, infra]
 aliases: [datesheet]
 listen: true
 visibility: public

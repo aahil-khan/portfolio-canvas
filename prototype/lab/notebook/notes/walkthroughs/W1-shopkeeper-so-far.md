@@ -4,7 +4,7 @@ type: walkthrough
 status: progress
 updated: 2026-11-21
 summary: "The Shopkeeper agent, from its spec to where it is now: nine notes in order."
-tags: [shopkeeper, walkthrough]
+tags: [evals, negotiation, agent-design]
 aliases: []
 listen: true
 visibility: public

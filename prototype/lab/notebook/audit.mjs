@@ -325,6 +325,30 @@ async function scrollFps() {
   return { frames: d.length, median: +d[d.length >> 1].toFixed(2), p95: +d[Math.floor(d.length * 0.95)].toFixed(2), moved: Math.round(sc.scrollTop) }
 }
 
+// round 6, in the page: the first screen (what a link visitor sees), the end of the note, contrast
+function probe6() {
+  const rgb = (c) => (c.match(/[\d.]+/g) || []).map(Number)
+  const lum = (c) => { const [r, g, b] = c.slice(0, 3).map((v) => { v /= 255; return v <= 0.03928 ? v / 12.92 : Math.pow((v + 0.055) / 1.055, 2.4) }); return 0.2126 * r + 0.7152 * g + 0.0722 * b }
+  const bgOf = (e) => { for (let a = e; a; a = a.parentElement) { const c = rgb(getComputedStyle(a).backgroundColor); if (c.length >= 3 && (c.length < 4 || c[3] > 0.5)) return c } return [255, 255, 255] }
+  const ratio = (e) => { const [x, y] = [lum(rgb(getComputedStyle(e).color)), lum(bgOf(e))].sort((m, n) => n - m); return (x + 0.05) / (y + 0.05) }
+  const head = document.querySelector('.nb-head').getBoundingClientRect().bottom
+  const r = (s) => { const e = document.querySelector(s); return e ? e.getBoundingClientRect() : null }
+  const sc = document.querySelector('.nb-main').scrollTop + scrollY
+  const t = r('.nb-title'), by = r('.nb-byline'), sh = r('.nb-share--top')
+  // the reading column's left edge: the new header pieces line up with the title
+  const left = (e) => e ? Math.round(e.left) : null
+  const sels = ['.nb-byline a', '.nb-byline__line', '.nb-chip', '.nb-chip__g', '.nb-share', '.nb-author__k', '.nb-author__role', '.nb-author__line', '.nb-author__link', '.nb-author__follow', '.nb-author__nk', '.nb-author__next a', '.nb-taggroup a', '.nb-taggroup__n']
+  let low = 99, worst = ''
+  for (const s of sels) for (const e of document.querySelectorAll(s)) { if (!e.textContent.trim() || e.offsetParent === null) continue; const x = ratio(e); if (x < low) { low = x; worst = s } }
+  const targets = [...document.querySelectorAll('.nb-share, .nb-author__link, .nb-author__next a, .nb-chip, .nb-nudge button')].filter((e) => e.offsetParent !== null).map((e) => Math.round(e.getBoundingClientRect().height))
+  return {
+    head: Math.round(head), vh: innerHeight, scrolled: sc, titleBottom: t ? Math.round(t.bottom) : null, byTop: by ? Math.round(by.top) : null, shareBottom: sh ? Math.round(sh.bottom) : null,
+    byShown: !!by && by.height > 0, crumb: (document.querySelector('.nb-bar__path li a') || {}).textContent,
+    lefts: [by && by.height ? left(by) : left(t), left(r('.nb-kicker')), left(r('.nb-headrow')), left(t)], low: +low.toFixed(2), worst, minTarget: targets.length ? Math.min(...targets) : null,
+    sw: document.documentElement.scrollWidth, iw: innerWidth, author: !!document.querySelector('.nb-author'), lede: !!document.querySelector('.nb-lede'),
+  }
+}
+
 const b = await chromium.launch()
 const res = {}
 try {
@@ -487,6 +511,21 @@ try {
       await ctx.close()
     }
   }
+  // round 6: the first screen of a deep link, the end of a note, a tag page, in each theme
+  for (const [theme, scheme] of Object.entries(THEMES)) {
+    for (const [sz, [w, h]] of Object.entries(SIZES4)) {
+      const phone = sz !== 'desk'
+      const ctx = await b.newContext({ viewport: { width: w, height: h }, isMobile: phone, hasTouch: phone, colorScheme: scheme })
+      const pg = await ctx.newPage()
+      for (const k of ['spec01', 'post']) {
+        await pg.goto('about:blank'); await pg.goto(FILE + VIEWS[k]); await pg.evaluate(() => document.fonts.ready); await pg.waitForTimeout(400)
+        res[`r6:${theme}:${k}@${sz}`] = await pg.evaluate(probe6)
+      }
+      await pg.goto('about:blank'); await pg.goto(FILE + '#/tag/evals'); await pg.waitForTimeout(400)
+      res[`r6:${theme}:tag@${sz}`] = await pg.evaluate(probe6)
+      await ctx.close()
+    }
+  }
 } finally { await b.close() }
 if (process.env.AUDIT_JSON) console.log(JSON.stringify(res, null, 1))
 
@@ -509,7 +548,8 @@ ok(['spec01', 'scen05'].every((k) => res[`${k}@desk`].charsPerLine != null), 'th
 ok(d.tabStops <= 25, `01-spec, desktop, first viewport: ${d.tabStops} tab stops (≤ 25; the tree is one) · ${d.rawInteractive} visible links and buttons in all`)
 ok(d.readPct >= 25, `01-spec, desktop: reading text covers ${d.readPct} % of the viewport (≥ 25)`)
 for (const k of ['holt', 'post']) {
-  ok(res[`${k}@desk`].firstProseTop < 320, `${k}: the first paragraph starts at ${res[`${k}@desk`].firstProseTop} px on desktop (< 320)`)
+  // round 6: the tags and Share sit on their own row under the kicker (the brief asks for them there): +40 px
+  ok(res[`${k}@desk`].firstProseTop < 360, `${k}: the first paragraph starts at ${res[`${k}@desk`].firstProseTop} px on desktop (< 360; was < 320 before round 6's tag row)`)
   ok(res[`${k}@phone`].firstProseTop < 420, `${k}: the first paragraph starts at ${res[`${k}@phone`].firstProseTop} px on a phone (< 420)`)
 }
 const sp = res['strip@phone'], sd = res['strip@desk']
@@ -645,6 +685,23 @@ console.log('round 5: motion')
   }
   console.log('\n  every animation seen (with motion; reduced motion runs the ones marked R, at ≤ 120 ms):')
   for (const [k, a] of [...inv.entries()].sort()) console.log(`    ${k.padEnd(44)} ${String(a.dur).padStart(5)} ms${a.delay ? ` +${a.delay} delay` : ''}  ${twinkle(a) ? 'ease-in-out (the sky)' : a.easing === EASE ? 'the easing' : a.easing}  ${a.motion.has('reduce') ? 'R' : ' '}  ${[...a.at].slice(0, 4).join(', ')}`)
+}
+
+console.log('round 6: voice, tags, sharing, visitors')
+for (const theme of Object.keys(THEMES)) {
+  for (const sz of Object.keys(SIZES4)) {
+    console.log(` ${theme} · ${sz}`)
+    for (const k of ['spec01', 'post']) {
+      const m = res[`r6:${theme}:${k}@${sz}`]
+      ok(m.scrolled === 0 && (sz === 'desk' ? m.crumb === "Aahil's Lab" && !m.byShown : m.byShown && m.byTop >= m.head) && m.titleBottom <= m.vh && m.shareBottom <= m.vh, `${k}: ${sz === 'desk' ? `the bar's first crumb says "${m.crumb}" (the byline is the phone's)` : `byline at ${m.byTop}`}, title ends at ${m.titleBottom}, Share at ${m.shareBottom}: all on the first ${m.vh} px screen, unscrolled`)
+      ok(new Set(m.lefts).size === 1, `${k}: the byline, kicker, tags and title share one left edge (${m.lefts.join(' / ')})`)
+      ok(m.low >= 4.5, `${k}: the new text is ≥ 4.5:1 (lowest ${m.low}, ${m.worst})`)
+      ok(m.minTarget >= (sz === 'desk' ? 28 : 32), `${k}: Share, chips and the card's links are ≥ ${sz === 'desk' ? 28 : 32} px tall (shortest ${m.minTarget})`)
+      ok(m.author && m.sw <= m.iw, `${k}: an author card, and no sideways scroll (${m.sw} in ${m.iw})`)
+    }
+    const t = res[`r6:${theme}:tag@${sz}`]
+    ok(t.low >= 4.5 && t.sw <= t.iw && t.lede, `the tag page: lede shown, ≥ 4.5:1 (lowest ${t.low}), no sideways scroll`)
+  }
 }
 
 console.log(fails ? `\n${fails} of ${n} FAILED` : `\nall ${n} audit checks pass`)

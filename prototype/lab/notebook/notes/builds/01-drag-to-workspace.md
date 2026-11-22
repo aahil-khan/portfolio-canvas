@@ -4,7 +4,7 @@ type: build
 status: stub
 updated: 2026-11-21
 summary: "GNOME extension"
-tags: [builds]
+tags: [shipping]
 aliases: []
 listen: false
 visibility: public

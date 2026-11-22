@@ -4,7 +4,7 @@ type: hub
 status: progress
 updated: 2026-11-21
 summary: "A Hinglish shopkeeper agent that must never sell below its floor price, built eval-first."
-tags: [shopkeeper, agent-reliability]
+tags: [evals, negotiation, agent-design, shipping]
 aliases: []
 listen: true
 visibility: public

@@ -4,7 +4,7 @@ type: doc
 status: done
 updated: 2026-11-20
 summary: "What changed from v0 · Shop · Customer fixtures"
-tags: [shopkeeper, spec]
+tags: [negotiation, agent-design, evals]
 aliases: []
 listen: true
 visibility: public

@@ -21,11 +21,20 @@
     box.hidden = true
     box.innerHTML = `<div class="nb-dialog" role="dialog" aria-modal="true" aria-label="${esc(W.label)}">
       <input class="nb-dialog__in" type="text" role="combobox" aria-expanded="true" aria-controls="nbSwList" aria-autocomplete="list" autocomplete="off" spellcheck="false" placeholder="${esc(W.placeholder)}" aria-label="${esc(W.label)}">
+      <p class="nb-dialog__tags nb-chips" role="group" aria-label="${esc(W.tagsHead)}">${NB.tags.list.map((t) => S().tagChip(t.id, { button: true })).join('')}</p>
       <ul class="nb-dialog__list" id="nbSwList" role="listbox"></ul>
       <p class="nb-dialog__foot">${esc(W.hint)}</p></div>`
     document.body.appendChild(box)
     input = box.querySelector('input'); list = box.querySelector('ul')
     box.addEventListener('click', (e) => { if (e.target === box) S().closeLayer(box) })
+    // round 6: a tag chip filters the list ("#evals "); pressed again, it clears
+    box.querySelector('.nb-dialog__tags').addEventListener('click', (e) => {
+      const b = e.target.closest('[data-tagpick]')
+      if (!b) return
+      const on = b.getAttribute('aria-pressed') === 'true'
+      input.value = on ? '' : `#${b.dataset.tagpick} `
+      sel = 0; draw(); input.focus()
+    })
     list.addEventListener('click', (e) => { const li = e.target.closest('li'); if (li) { sel = +li.dataset.i; run() } })
     list.addEventListener('mousemove', (e) => { const li = e.target.closest('li'); if (li && +li.dataset.i !== sel) { sel = +li.dataset.i; mark() } })
     input.addEventListener('input', () => { sel = 0; draw() })
@@ -45,13 +54,17 @@
       S().highlight(null)
     } else {
       const res = v.match(q).slice(0, 60)
-      items = res.map((n) => ({ note: n }))
+      const tg = /^#(\S+)\s*$/.exec(q.trim()), tag = tg && NB.tags.get(tg[1])
+      items = [...(tag ? [{ tag }] : []), ...res.map((n) => ({ note: n }))]
       list.innerHTML = items.length ? items.map((it, i) => {
+        if (it.tag) return `<li role="option" data-i="${i}" id="nbSw${i}" data-tagpage="${esc(it.tag.id)}"><span aria-hidden="true">${esc(it.tag.glyph)}</span><span></span><span>${esc(C.tags.label(C.tags.names[it.tag.id]))}</span><span class="p">${esc(C.tags.count(res.length))}</span></li>`
         const n = it.note, g = C.status[n.status] || C.status.planned
         return `<li role="option" data-i="${i}" id="nbSw${i}" data-route="${esc(n.route)}"><span aria-label="${esc(g[1])}">${esc(g[0])}</span><span>${esc(n.id || (n.isHub ? '00' : /^\d\d$/.test(n.num) ? n.num : ''))}</span><span>${esc(n.title)}</span><span class="p">${esc('lab/' + n.route)}</span></li>`
       }).join('') : `<li aria-disabled="true"><span></span><span></span><span>${esc(W.none)}</span></li>`
       S().highlight(q.trim() ? res : null)
     }
+    const picked = (/^#(\S+)/.exec(q.trim()) || [])[1]
+    for (const b of box.querySelectorAll('[data-tagpick]')) b.setAttribute('aria-pressed', String(b.dataset.tagpick === picked))
     mark()
   }
   function mark() {
@@ -63,6 +76,7 @@
   function run() {
     const it = items[sel]
     if (!it) return
+    if (it.tag) { S().closeLayer(box); S().focusTitle = true; S().go('tag/' + it.tag.id); return }
     if (it.note) { S().closeLayer(box); S().go(it.note.route); setTimeout(() => { const t = document.querySelector('.nb-title'); if (t) t.focus({ preventScroll: true }) }, 0); return }
     if (it.unknown) return
     const [head, arg] = [it.cmd.cmd.split(' ')[0], it.cmd.cmd.split(' ').slice(1).join(' ')]

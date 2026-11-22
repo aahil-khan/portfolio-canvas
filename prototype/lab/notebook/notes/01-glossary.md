@@ -3,8 +3,8 @@ title: "Glossary"
 type: doc
 status: progress
 updated: 2026-11-21
-summary: "The words and IDs these notes use, each in a line or two."
-tags: [lab, glossary]
+summary: "Every bit of jargon in these notes, in a line or two of plain English."
+tags: []
 aliases: [terms]
 listen: true
 visibility: public
@@ -14,7 +14,7 @@ tree: false
 source: round 4 of the readability fixes (Q5); PROPOSAL definitions, for Aahil to rewrite in his own words
 ---
 
-The first time a note uses one of these words, it has a dotted underline. Hover it or tap it for the line below.
+A word with a dotted underline is in here. Hover or tap it to see what it means.
 
 ## eval
 

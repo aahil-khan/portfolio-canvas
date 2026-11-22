@@ -864,3 +864,92 @@ html[data-lab-size='3'] .nb-kicker, html[data-lab-size='4'] .nb-kicker { flex-wr
   html.nb-on .nb-body h2, html.nb-on .nb-body h3 { break-after: avoid; }
   html.nb-on .nb-gl { text-decoration: none; }
 }
+
+/* ── round 6: tags, sharing, the nudge, the author card, the byline ────────────────────────── */
+/* the byline: whose Lab this is, above the kicker, for someone who arrived on one note */
+.nb-byline { margin-block: 0 6px; font-size: var(--fs-s); line-height: 1.4; color: var(--lab-dim); }
+.nb-byline a { color: var(--lab-fg); font-weight: 700; text-decoration: none; }
+.nb-byline a:hover { text-decoration: underline; text-underline-offset: 3px; }
+/* on a desktop the bar's first crumb already says whose Lab this is; the byline is the phone's */
+@media (min-width: 900px) { .nb-byline { display: none; } }
+/* the head row: the note's tags on the left, Share on the right; one line, wrapping if it must */
+.nb-headrow { display: flex; align-items: center; justify-content: space-between; gap: 6px 12px; flex-wrap: wrap; margin-block: 0 12px; }
+.nb-chips { display: flex; flex-wrap: wrap; gap: 6px; margin: 0; }
+.nb .nb-chip {
+  display: inline-flex; align-items: center; gap: 5px; min-height: 28px; padding: 2px 9px; border: 1px solid var(--lab-line); border-radius: 999px;
+  font-family: var(--sans); font-size: var(--fs-xs); font-weight: 500; line-height: 1.2; color: var(--lab-fg); text-decoration: none; background: transparent;
+}
+.nb .nb-chip:hover { background: var(--hov-bg); border-color: var(--lab-dim); }
+.nb .nb-chip[aria-pressed='true'] { background: var(--sel-bg); color: var(--sel-ink); border-color: var(--sel-bg); }
+.nb .nb-chip[aria-pressed='true'] .nb-chip__g { color: inherit; }
+.nb-chip__g { font-family: var(--mono); font-weight: 700; }
+.nb-chip__g[data-tone='ar'], .nb-chip[data-tone='ar'] .nb-chip__g { color: var(--lab-ar); }
+.nb-chip__g[data-tone='builds'], .nb-chip[data-tone='builds'] .nb-chip__g { color: var(--lab-builds); }
+.nb-chip__g[data-tone='writing'], .nb-chip[data-tone='writing'] .nb-chip__g { color: var(--lab-writing); }
+.nb-chip__n { color: var(--lab-dim); font-family: var(--mono); }
+.nb-tags { display: flex; flex-wrap: wrap; align-items: center; gap: 6px; }
+/* Share: the same button at the top and the end */
+.nb .nb-share {
+  display: inline-flex; align-items: center; gap: 6px; min-height: 32px; padding: 3px 12px; border: 1px solid var(--lab-line); border-radius: 999px;
+  font-family: var(--sans); font-size: var(--fs-s); font-weight: 500; color: var(--lab-link); background: transparent;
+}
+.nb .nb-share:hover, .nb .nb-share[aria-expanded='true'] { background: var(--hov-bg); border-color: var(--lab-link); }
+.nb-share__g { font-family: var(--mono); }
+.nb-endbar { align-items: center; }
+/* the menu: under (or over) the button, never over the text it came from for long */
+.nb-sharemenu {
+  position: fixed; z-index: 80; display: flex; flex-direction: column; padding: 4px; background: var(--lab-pane); border: 1px solid var(--lab-line);
+  box-shadow: 0 8px 24px rgba(0, 0, 0, 0.3); font-family: var(--sans); font-size: 15px;
+}
+.nb-sharemenu[hidden] { display: none; }
+.nb .nb-sharemenu__i { display: flex; align-items: center; min-height: 40px; padding: 0 12px; color: var(--lab-fg); text-decoration: none; text-align: left; background: transparent; }
+.nb .nb-sharemenu__i:hover, .nb .nb-sharemenu__i:focus-visible { background: var(--hov-bg); }
+.nb .nb-sharemenu__i[data-done] { color: var(--lab-done); }
+/* the nudge: inline, near the end, quiet */
+.nb-nudge { margin-block: 1.6rem 0; padding: 14px 16px; border: 1px solid var(--lab-line); border-left: 3px solid var(--lab-ar-mark); background: var(--lab-pane); }
+.nb-nudge[hidden] { display: none; }
+.nb-nudge__line { margin: 0 0 10px; font-size: var(--fs-m); color: var(--lab-fg); }
+.nb-nudge__acts { display: flex; flex-wrap: wrap; align-items: center; gap: 8px 16px; margin: 0; }
+.nb .nb-nudge__no { min-height: 32px; font-size: var(--fs-s); color: var(--lab-dim); text-decoration: underline; text-decoration-color: var(--lab-line); text-underline-offset: 4px; }
+.nb .nb-nudge__no:hover { color: var(--lab-fg); }
+/* the author card */
+.nb-author { margin-block: 2rem 0; padding: 18px 18px 14px; border: 1px solid var(--lab-line); background: var(--lab-pane); }
+.nb-author p { margin: 0; }
+.nb-author__k { font-family: var(--mono); font-size: var(--fs-xs); color: var(--lab-dim); }
+.nb-author__name { font-size: var(--fs-l); font-weight: 700; line-height: 1.25; margin-top: 2px !important; }
+.nb-author__name a { color: var(--lab-fg); text-decoration: none; }
+.nb-author__role { color: var(--lab-dim); font-size: var(--fs-s); }
+.nb-author__role b { color: var(--lab-fg); font-weight: 500; }
+.nb-author__line { margin-top: 8px !important; }
+.nb-author__links { display: flex; flex-wrap: wrap; gap: 6px; margin-top: 12px !important; }
+.nb .nb-author__link { display: inline-flex; align-items: center; min-height: 32px; padding: 2px 12px; border: 1px solid var(--lab-line); border-radius: 999px; color: var(--lab-link); text-decoration: none; font-size: var(--fs-s); }
+.nb .nb-author__link:hover { background: var(--hov-bg); border-color: var(--lab-link); }
+.nb-author__follow { margin-top: 10px !important; font-size: var(--fs-s); color: var(--lab-dim); }
+.nb-author__follow a { color: var(--lab-link); }
+.nb-author__next { display: flex; flex-direction: column; gap: 2px; margin-top: 14px; padding-top: 10px; border-top: 1px solid var(--lab-line); }
+.nb .nb-author__next a { display: flex; flex-wrap: wrap; gap: 0 8px; align-items: baseline; min-height: 32px; padding: 4px 0; color: var(--lab-link); text-decoration: none; }
+.nb .nb-author__next a:hover { text-decoration: underline; text-underline-offset: 3px; }
+.nb-author__nk { color: var(--lab-dim); font-size: var(--fs-s); min-width: 6.5em; }
+/* a tag's page */
+.nb-taggroup h2 { font-size: var(--fs-l); }
+.nb-taggroup__n, .nb-tagall .nb-chip__n { font-family: var(--mono); font-size: var(--fs-xs); font-weight: 400; color: var(--lab-dim); }
+.nb-taggroup ul { list-style: none; padding: 0; }
+.nb-taggroup li a { display: block; padding: 6px 0; color: var(--lab-link); }
+.nb-tagall { margin-top: 2.4rem; }
+/* the tag control on the map and the phone's list */
+.nb-graph__tag { display: inline-flex; align-items: center; gap: 6px; font-family: var(--sans); font-size: 14px; color: var(--lab-dim); }
+.nb-graph__tag select { min-height: 32px; padding: 0 6px; font: inherit; color: var(--lab-fg); background: var(--lab-bg); border: 1px solid var(--lab-line); }
+.nb-maplist .nb-graph__tag { margin: 0 0 8px; }
+/* the switcher's tag row */
+.nb-dialog__tags { padding: 8px 10px; border-bottom: 1px solid var(--lab-line); }
+@media (max-width: 899px) {
+  .nb .nb-share, .nb .nb-author__link, .nb .nb-nudge__no, .nb .nb-author__next a { min-height: 44px; }
+  .nb .nb-chip { min-height: 32px; }
+  /* the top Share is a 44 px glyph on a phone, so it sits on the tags' line */
+  .nb .nb-share--top { width: 44px; padding: 0; justify-content: center; }
+  .nb-share--top .nb-share__w { position: absolute; width: 1px; height: 1px; overflow: hidden; clip-path: inset(50%); white-space: nowrap; }
+  .nb-headrow { flex-wrap: nowrap; align-items: flex-start; }
+  .nb-headrow { margin-block-end: 8px; }
+  .nb-graph__tag select { min-height: 44px; }
+  .nb .nb-sharemenu__i { min-height: 44px; }
+}

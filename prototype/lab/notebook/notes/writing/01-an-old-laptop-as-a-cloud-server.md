@@ -4,7 +4,7 @@ type: post
 status: published
 updated: 2025-11-14
 summary: "Self-hosting, end to end."
-tags: [writing, self-hosting]
+tags: [infra, shipping]
 aliases: [old-laptop-cloud]
 listen: true
 visibility: public

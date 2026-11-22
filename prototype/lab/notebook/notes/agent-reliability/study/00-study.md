@@ -3,8 +3,8 @@ title: "study"
 type: hub
 status: progress
 updated: 2026-11-20
-summary: "The agent reliability study: phases, tracks, hours and the log, from the tracker."
-tags: [study, agent-reliability]
+summary: "What I'm learning, in order, with the hours I've actually put in. Straight from my tracker."
+tags: [evals, tracing, reliability, latency, voice]
 aliases: []
 listen: true
 visibility: public

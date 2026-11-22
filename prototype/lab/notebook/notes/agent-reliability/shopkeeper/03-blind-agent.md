@@ -4,7 +4,7 @@ type: doc
 status: done
 updated: 2026-11-20
 summary: "Architecture decision"
-tags: [shopkeeper, decision]
+tags: [agent-design, guardrails]
 aliases: []
 listen: true
 visibility: public

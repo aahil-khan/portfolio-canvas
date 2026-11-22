@@ -120,7 +120,7 @@
       if (mine && mine.body.trim()) lines.push(`## ${C.myNotes}`, '', mine.body.trim(), '')
       const fm = {
         title: t.title, type: 'topic', status: t.parked ? 'parked' : t.status, updated: t.finished || (log.length ? log[log.length - 1].date : ''),
-        summary: t.learn, tags: ['study', t.track], aliases: [], listen: true, visibility: t.visibility,
+        summary: t.learn, tags: NB.tags.forTopic(t), aliases: [], listen: true, visibility: t.visibility,
         id: t.id, track: t.trackName, phase: t.phase, est_h: t.est_h, spent_h: t.spent_h, start: t.start, target: t.target, finished: t.finished,
         learn: t.learn, resource: t.resource, proof: t.proof,
       }
@@ -136,7 +136,7 @@
       if (mine && mine.body.trim()) lines.push(`## ${C.myNotes}`, '', mine.body.trim(), '')
       const fm = {
         title: s.title.replace(/^Shopkeeper:?\s*/i, '').replace(/^Shopkeeper (v0|on voice)/i, '$1'), fullTitle: s.title, type: 'stage', status: s.status, updated: '', summary: s.ship.split(/(?<=\.)\s/)[0],
-        tags: ['shopkeeper', 'stage'], aliases: [], listen: true, visibility: s.visibility, id: s.id, project: shop ? 'shopkeeper' : '', topics: s.topics, phase: s.phase, target: s.target, ship: s.ship,
+        tags: NB.tags.forStage(s), aliases: [], listen: true, visibility: s.visibility, id: s.id, project: shop ? 'shopkeeper' : '', topics: s.topics, phase: s.phase, target: s.target, ship: s.ship,
       }
       return note({ file: null, folder, num: s.id, slug: s.id, id: s.id, route: `${folder}/${s.id}`, fm, body: lines.join('\n'), generated: 'study' })
     }
@@ -144,7 +144,7 @@
       const lines = [`| ${C.logHead.join(' | ')} |`, `| ${C.logHead.map(() => '---').join(' | ')} |`]
       for (const r of study.log) lines.push(`| ${r.date} | ${r.id} | ${r.h} | ${r.did.replace(/\|/g, '\\|')} |`)
       const last = study.log.length ? study.log[study.log.length - 1].date : ''
-      const fm = { title: 'log', type: 'log', status: 'progress', updated: last, summary: C.blocks.progress ? `${study.log.length} sessions` : '', tags: ['study'], aliases: [], listen: true, visibility: 'public' }
+      const fm = { title: 'log', type: 'log', status: 'progress', updated: last, summary: C.blocks.progress ? `${study.log.length} sessions` : '', tags: [], aliases: [], listen: true, visibility: 'public' }
       return note({ file: null, folder: STUDY, num: 'log', slug: 'log', id: '', route: `${STUDY}/log`, fm, body: study.log.length ? lines.join('\n') : C.logRowsNone, generated: 'study' })
     }
     function note({ file, folder, num, slug, id, route, isHub, fm, body, generated }) {
@@ -167,6 +167,7 @@
     // ── 2. checks on the notes themselves ─────────────────────────────────────────────────
     for (const n of notes) {
       const where = n.file || n.route
+      for (const t of n.tags) if (NB.tags && !NB.tags.get(t)) problems.push(`${where}: tag "${t}" is not in tags.js`)
       for (const k of [...REQUIRED.all, ...(REQUIRED[n.type] || [])]) if (!(k === 'visibility' && n.defaultHidden) && n.fm[k] === undefined || n.fm[k] === '' && !['summary', 'updated', 'phase'].includes(k)) problems.push(`${where}: "${k}" is missing`)
       if (!TYPES.includes(n.type)) problems.push(`${where}: type "${n.type}" is not one of ${TYPES.join(', ')}`)
       if (!STATUSES.includes(n.status)) problems.push(`${where}: status "${n.status}" is not one of ${STATUSES.join(', ')}`)

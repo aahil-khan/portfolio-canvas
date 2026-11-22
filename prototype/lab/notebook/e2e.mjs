@@ -149,7 +149,7 @@ for (const size of Object.keys(SIZES).filter((x) => !ONLY || x === ONLY)) {
       const aa = document.querySelector('.nb-bar [data-act="aa"]'), foot = [...document.querySelectorAll('.nb-side__foot button')].filter((x) => getComputedStyle(x).display !== 'none').map((x) => x.textContent)
       return { text: document.querySelector('.nb-bar').innerText, snd: !!document.querySelector('.nb-bar [data-act="snd"], .nb-bar [data-act="pal"], .nb-bar [data-act="theme"], .nb-side [data-act="snd"]'), aa: aa && aa.offsetParent !== null ? aa.getAttribute('aria-label') : null, foot }
     })
-    ok(!cells.snd && !/snd:|pal:|◐/.test(cells.text) && /^Reading settings/.test(cells.aa || '') && (phone ? cells.foot.join() === 'Share this note' : cells.foot.join() === '? keys'), `no theme, sound or palette cell in the bar; Aa says "${cells.aa}"; the tree's footer: ${cells.foot.join(', ')}`)
+    ok(!cells.snd && !/snd:|pal:|◐/.test(cells.text) && /^How it looks/.test(cells.aa || '') && (phone ? cells.foot.join() === 'Share' : cells.foot.join() === '? shortcuts'), `no theme, sound or palette cell in the bar; Aa says "${cells.aa}"; the tree's footer: ${cells.foot.join(', ')}`)
     await close(p)
   }
 
@@ -179,7 +179,7 @@ for (const size of Object.keys(SIZES).filter((x) => !ONLY || x === ONLY)) {
       return { text: path.innerText.replace(/\s*›\s*/g, ' › ').replace(/\s+/g, ' ').trim(), upH: up.getBoundingClientRect().height, href: up.getAttribute('href') }
     })
     if (phone) ok(/^‹ Shopkeeper$/.test(r.text) && r.upH >= 44 && r.href === '#/agent-reliability/shopkeeper' && !/[/›‹]\s*[/›‹]/.test(r.text), `the phone's path is "${r.text}", one ${r.upH} px target up to the hub, no doubled separator`)
-    else ok(r.text === 'Lab › Agent reliability › Shopkeeper › Scenarios' && !/[/›]\s*[/›]/.test(r.text), `the path is titles, not slugs: "${r.text}"`)
+    else ok(r.text === "Aahil's Lab › Agent reliability › Shopkeeper › Scenarios" && !/[/›]\s*[/›]/.test(r.text), `the path is titles, not slugs: "${r.text}"`)
     await close(p)
   }
 
@@ -465,7 +465,7 @@ for (const size of Object.keys(SIZES).filter((x) => !ONLY || x === ONLY)) {
     if (phone) { await p.click('.nb-bar__menu'); await wait(p, 300); await p.click('.nb-side .nb-row[data-route="builds"]') } else await go(p, '#/builds')
     await wait(p, 300)
     const res = await p.evaluate(() => ({ playing: NIGHT.voice.state().playing, resume: (document.querySelector('.nb-strip__resume') || {}).textContent || '' }))
-    ok(!res.playing && /resume W1/.test(res.resume), `a manual navigation pauses it, and the strip offers "${res.resume}"`)
+    ok(!res.playing && /carry on with W1/.test(res.resume), `a manual navigation pauses it, and the strip offers "${res.resume}"`)
     await close(p)
   }
 
@@ -628,6 +628,10 @@ if (!ONLY || ONLY === 'desktop' || ONLY === 'phone') {
         await p.evaluate(() => NB.controls.scroller().scrollTo(0, 1e6))
         await wait(p, 100)
         await p.click('.nb-endbar [data-act="share"]')
+        // round 6: no native sheet in this browser, so the menu; its first row copies the link
+        await wait(p, 100)
+        await p.click('.nb-sharemenu [data-copy]')
+        await wait(p, 150)
         url = await p.evaluate(() => NB.controls.last)
         ok(/05-scenarios$/.test(url || ''), `phone: Share at the note's end hands over the note's URL (…${(url || '').slice(-30)})`)
       }
@@ -667,7 +671,7 @@ if (!ONLY || ONLY === 'desktop' || ONLY === 'phone') {
       await go(p, ROUTES.tour3)
       await go(p, '#/')
       const cont = await p.evaluate(() => { const a = document.querySelector('.nb-resume a'); return a ? { text: a.textContent, href: a.getAttribute('href') } : null })
-      ok(cont && /^Continue W1 at step 3/.test(cont.text) && /03-blind-agent\?w=W1$/.test(cont.href), `start-here: "${cont && cont.text}"`)
+      ok(cont && /^Pick up W1 at step 3/.test(cont.text) && /03-blind-agent\?w=W1$/.test(cont.href), `start-here: "${cont && cont.text}"`)
       await close(p)
     }
     // ▶ after scrolling to a mid-note paragraph starts on that paragraph
@@ -742,6 +746,181 @@ if (!ONLY || ONLY === 'desktop' || ONLY === 'phone') {
   }
 }
 
+// ── round 6: tags, sharing, the nudge, the author card, the first screen ─────────────────────
+// every word these new parts draw is checked against copy.js (plus author.js and the notes' titles)
+const FROM_COPY = (sels) => {
+  const corpus = []
+  const walk = (o) => { if (typeof o === 'string') corpus.push(o); else if (Array.isArray(o)) o.forEach(walk); else if (o && typeof o === 'object') Object.values(o).forEach(walk) }
+  walk(NB.copy); walk(NB.author); walk(NB.tags.list.map((t) => t.glyph))
+  for (const n of NB.vault.all) corpus.push(n.title, n.id || '', NB.shell.cap(n.title))
+  for (const t of NB.tags.list) corpus.push(NB.copy.tags.title(NB.copy.tags.names[t.id]))
+  for (let i = 0; i < 100; i++) corpus.push(NB.copy.tags.count(i))
+  const bad = []
+  for (const sel of sels) for (const box of document.querySelectorAll(sel)) {
+    for (const e of [box, ...box.querySelectorAll('*')]) {
+      for (const tn of e.childNodes) {
+        if (tn.nodeType !== 3) continue
+        let t = tn.textContent.replace(/\s+/g, ' ').trim().replace(/^[·→←↑↓↗›‹\s]+|[·→←↑↓↗›‹\s]+$/g, '')
+        if (!t || /^\d+$/.test(t) || corpus.some((c) => c.includes(t))) continue
+        const titled = NB.vault.all.filter((n) => t.includes(n.title)).sort((x, y) => y.title.length - x.title.length)[0]
+        if (titled) t = t.replace(titled.title, '').replace(titled.id || '\u0000', '').replace(/^[·→\s]+|[·→\s]+$/g, '')
+        if (t && !corpus.some((c) => c.includes(t))) bad.push(`${sel}: "${t}"`)
+      }
+    }
+  }
+  return bad
+}
+const CONTRAST = (sels) => {
+  const rgb = (c) => (c.match(/[\d.]+/g) || []).map(Number)
+  const lum = (c) => { const [r, g, b] = c.slice(0, 3).map((v) => { v /= 255; return v <= 0.03928 ? v / 12.92 : Math.pow((v + 0.055) / 1.055, 2.4) }); return 0.2126 * r + 0.7152 * g + 0.0722 * b }
+  const bgOf = (e) => { for (let a = e; a; a = a.parentElement) { const c = rgb(getComputedStyle(a).backgroundColor); if (c.length >= 3 && (c.length < 4 || c[3] > 0.5)) return c } return [255, 255, 255] }
+  let low = 1e9, worst = ''
+  for (const sel of sels) for (const e of document.querySelectorAll(sel)) {
+    if (!e.textContent.trim() || e.offsetParent === null) continue
+    const [x, y] = [lum(rgb(getComputedStyle(e).color)), lum(bgOf(e))].sort((m, n) => n - m)
+    const r = (x + 0.05) / (y + 0.05)
+    if (r < low) { low = r; worst = `${sel} "${e.textContent.trim().slice(0, 20)}"` }
+  }
+  return { low: +low.toFixed(2), worst }
+}
+console.log('\nround 6: tags, sharing, the nudge, the author card')
+for (const size of ['desktop', 'phone', 'inapp'].filter((x) => !ONLY || x === ONLY)) {
+  const phone = PHONES.includes(size)
+  console.log(` ${size}`)
+  // the first screen of a deep link: whose Lab, what note, its tags and Share, before any scroll
+  for (const r of [ROUTES.spec, ROUTES.post]) {
+    const p = await page(size, r)
+    const f = await p.evaluate(() => {
+      const box = (s) => { const e = document.querySelector(s); if (!e) return null; const r = e.getBoundingClientRect(); return { top: r.top, bottom: r.bottom, w: r.width, shown: r.width > 0 && getComputedStyle(e).visibility !== 'hidden' } }
+      const head = document.querySelector('.nb-head').getBoundingClientRect().bottom
+      return { head, by: box('.nb-byline'), byText: document.querySelector('.nb-byline').textContent, h1: box('.nb-title'), chips: box('.nb-headrow .nb-chips'), share: box('.nb-share--top'), vh: innerHeight, sw: document.documentElement.scrollWidth, crumb: (document.querySelector(innerWidth < 900 ? '.nb-up' : '.nb-bar__path li a') || {}).textContent }
+    })
+    const all = [f.by, f.h1, f.chips, f.share]
+    const who = phone ? [f.by] : []
+    ok([...who, f.h1, f.chips, f.share].every((x) => x && x.shown && x.top >= f.head - 1 && x.bottom <= f.vh) && /^Aahil’?'?s Lab/.test(phone ? f.byText : f.crumb) && f.sw <= SIZES[size].width, `${r.split('/').pop()}: the first screen says whose Lab it is (${phone ? 'the byline' : 'the first crumb'}: "${(phone ? f.byText : f.crumb).trim()}"), shows the title (bottom ${Math.round(f.h1.bottom)} of ${f.vh}), the tags and Share, with no scroll`)
+    if (r === ROUTES.spec) ok(phone ? f.crumb === '‹ Shopkeeper' : f.crumb === "Aahil's Lab", `the way up reads as a place: ${JSON.stringify(f.crumb)}`)
+    await close(p)
+  }
+  // share at the top and at the end, on a doc, a post, a tour and a topic; no native sheet here → the menu
+  {
+    const p = await page(size, ROUTES.spec)
+    for (const r of [ROUTES.post, ROUTES.w1, ROUTES.topic, ROUTES.spec]) {
+      await go(p, r)
+      const n = await p.evaluate(() => [document.querySelectorAll('.nb-note .nb-share--top').length, document.querySelectorAll('.nb-note .nb-share--end').length])
+      ok(n[0] === 1 && n[1] === 1, `${r.split('/').pop()}: one Share at the top, one at the end`)
+    }
+    for (const where of ['top', 'end']) {
+      await p.evaluate((w) => document.querySelector(`.nb-share--${w}`).scrollIntoView({ block: 'center' }), where)
+      await wait(p, 150)
+      await p.click(`.nb-share--${where}`)
+      await wait(p, 120)
+      const m = await p.evaluate(() => {
+        const box = document.querySelector('.nb-sharemenu'), r = box.getBoundingClientRect()
+        const items = [...box.querySelectorAll('.nb-sharemenu__i')]
+        return { open: !box.hidden, used: NB.share.used, items: items.map((i) => i.textContent), x: (box.querySelector('[data-target="x"]') || {}).href, li: (box.querySelector('[data-target="linkedin"]') || {}).href, inside: r.left >= 0 && r.right <= innerWidth && r.top >= 0 && r.bottom <= innerHeight, h: Math.min(...items.map((i) => i.getBoundingClientRect().height)) }
+      })
+      ok(m.open && m.used === 'menu' && JSON.stringify(m.items) === JSON.stringify(['Copy link', 'LinkedIn', 'X', 'Email']) && m.inside && m.h >= (phone ? 44 : 40), `Share (${where}), no navigator.share: a menu of ${m.items.join(', ')}, inside the viewport, rows ≥ ${phone ? 44 : 40} px`)
+      ok(/^https:\/\/x\.com\/intent\/post\?/.test(m.x) && /via=aahil_khan77/.test(m.x) && /01-spec/.test(decodeURIComponent(m.x)) && /share-offsite\/\?url=.*01-spec/.test(m.li), 'X is an intent with via=aahil_khan77, LinkedIn a share-offsite, both with the note\'s URL')
+      if (where === 'top') { await p.keyboard.press('Escape'); await wait(p, 80); ok(await p.evaluate(() => document.querySelector('.nb-sharemenu').hidden && document.activeElement.classList.contains('nb-share--top')), 'Esc closes the menu and focus returns to Share') }
+    }
+    await p.click('.nb-sharemenu [data-copy]')
+    await wait(p, 200)
+    const c = await p.evaluate(() => ({ last: NB.controls.last, btn: (document.querySelector('.nb-sharemenu [data-copy]') || {}).textContent, toast: document.querySelector('.nb-toast').textContent }))
+    ok(/#\/agent-reliability\/shopkeeper\/01-spec$/.test(c.last || '') && c.btn === 'Copied ✓' && /copied/i.test(c.toast), `Copy link writes the note's URL (…${(c.last || '').slice(-38)}), says "${c.btn}" and "${c.toast}"`)
+    const stray = await p.evaluate(FROM_COPY, ['.nb-byline', '.nb-headrow', '.nb-endbar', '.nb-author', '.nb-sharemenu'])
+    ok(!stray.length, `every word in the byline, the tags, Share, the menu and the author card comes from copy.js (or author.js and the notes' titles)${stray.length ? ' — ' + stray.slice(0, 4).join('; ') : ''}`)
+    await close(p)
+  }
+  // native share where it exists: the sheet, not the menu
+  {
+    const ctx = await b.newContext({ viewport: SIZES[size], isMobile: phone, hasTouch: phone, colorScheme: 'dark' })
+    contexts.push(ctx)
+    await ctx.addInitScript(() => { navigator.share = (d) => { window.__shared = d; return Promise.resolve() } })
+    const p = await page(size, ROUTES.post, { ctx })
+    await p.click('.nb-share--top')
+    await wait(p, 120)
+    const r = await p.evaluate(() => ({ d: window.__shared, menu: !!document.querySelector('.nb-sharemenu:not([hidden])') }))
+    ok(r.d && /02-chrome-already-built-our-idea$/.test(r.d.url) && /Chrome Already Built Our Idea/.test(r.d.title) && !r.menu, `with navigator.share, Share opens the native sheet with the note's URL and title (…${r.d ? r.d.url.slice(-30) : '?'}), no menu`)
+    await close(p)
+  }
+  // the nudge: only after reading most of it, once, and gone after "Not now" and a reload
+  {
+    const p = await page(size, ROUTES.spec)
+    const at = async (f) => { await p.evaluate((x) => { const s = NB.controls.scroller(); s.scrollTo(0, (s.scrollHeight - (innerWidth < 900 ? innerHeight : s.clientHeight)) * x) }, f); await wait(p, 200); return p.evaluate(() => !document.querySelector('.nb-nudge').hidden) }
+    const top = await at(0), half = await at(0.5), late = await at(0.8)
+    const st = await p.evaluate(() => ({ seen: JSON.parse(localStorage.getItem('nb-nudged') || '{}'), line: document.querySelector('.nb-nudge__line').textContent, dialog: !!document.querySelector('.nb-nudge[role="dialog"], .nb-nudge[aria-modal]'), pos: getComputedStyle(document.querySelector('.nb-nudge')).position, after: !!document.querySelector('.nb-endbar ~ .nb-nudge') }))
+    ok(!top && !half && late && st.seen['agent-reliability/shopkeeper/01-spec'] === 1, `the nudge: hidden at 0 % and 50 %, shown at 80 % read, and remembered (nb-nudged)`)
+    ok(st.line === "If this was useful, send it to someone who's building agents." && !st.dialog && st.pos === 'static' && st.after, `it is inline after the note, not a popup ("${st.line}")`)
+    const nShare = await p.evaluate(() => document.querySelectorAll('.nb-nudge [data-act="share"]').length)
+    await p.click('.nb-nudge__no')
+    await wait(p, 100)
+    const gone = await p.evaluate(() => document.querySelector('.nb-nudge').hidden)
+    await p.reload(); await wait(p, 500)
+    await at(1)
+    const again = await p.evaluate(() => !document.querySelector('.nb-nudge').hidden)
+    ok(nShare === 1 && gone && !again, `it has a Share button; "Not now" hides it, and after a reload, read to the end, it stays gone`)
+    // the author card
+    const a = await p.evaluate(() => {
+      const c = document.querySelector('.nb-author')
+      return { links: [...c.querySelectorAll('.nb-author__link')].map((x) => x.getAttribute('href')), follow: [...c.querySelectorAll('.nb-author__fl')].map((x) => x.dataset.link), name: c.querySelector('.nb-author__name').textContent, role: c.querySelector('.nb-author__role').textContent, next: (c.querySelector('[data-next]') || {}).getAttribute?.('href'), start: (c.querySelector('[data-start]') || {}).getAttribute?.('href'), ext: [...c.querySelectorAll('a[href^="https"]')].every((x) => x.target === '_blank' && /noopener/.test(x.rel)) }
+    })
+    ok(a.name === 'Aahil Khan' && a.role === 'Full stack engineer, AI retrieval & agents' && JSON.stringify(a.links) === JSON.stringify(['https://github.com/aahil-khan', 'https://www.linkedin.com/in/aahil-khan77/', 'https://x.com/aahil_khan77', 'mailto:aahilminookhan@gmail.com']) && a.ext, `the author card: ${a.name}, "${a.role}", GitHub, LinkedIn, X and email`)
+    ok(JSON.stringify(a.follow) === '["linkedin","x"]' && a.next === '#/agent-reliability/shopkeeper/02-policy' && /^#\/walkthroughs\/W1/.test(a.start || ''), `"follow for the next one" → LinkedIn and X; next up ${a.next}; from the beginning ${a.start}`)
+    await go(p, ROUTES.post)
+    const ps = await p.evaluate(() => (document.querySelector('.nb-author [data-start]') || {}).getAttribute?.('href'))
+    ok(ps === '#/', `on a post outside any tour, "start from the beginning" is start-here (${ps})`)
+    await close(p)
+  }
+  // a tag's page, a chip, the switcher and the map
+  {
+    const p = await page(size, ROUTES.spec)
+    await p.click('.nb-headrow .nb-chip[data-tag="negotiation"]')
+    await wait(p, 300); await settled(p)
+    const t = await p.evaluate(() => ({ hash: location.hash, view: NB.shell.state.view, rows: [...document.querySelectorAll('.nb-taggroup a[data-route]')].map((x) => x.dataset.route), want: NB.vault.notes.filter((n) => n.tags.includes('negotiation')).map((n) => n.route), h2: [...document.querySelectorAll('.nb-taggroup h2')].length, title: document.title }))
+    ok(t.hash === '#/tag/negotiation' && t.view === 'tag' && t.rows.length > 0 && JSON.stringify(t.rows) === JSON.stringify(t.want) && t.h2 >= 1, `a chip opens #/tag/negotiation, which lists exactly its ${t.rows.length} notes under ${t.h2} section heading(s) (${t.title})`)
+    const strayT = await p.evaluate(FROM_COPY, ['.nb-tagpage'])
+    ok(!strayT.length, `every word on the tag page comes from copy.js${strayT.length ? ' — ' + strayT.slice(0, 4).join('; ') : ''}`)
+    await go(p, '#/tag/voice')
+    const v = await p.evaluate(() => [...document.querySelectorAll('.nb-taggroup a[data-route]')].map((x) => x.dataset.route))
+    ok(v.length === 9 && v.every((r) => /study\/voice\/T3\d$|PW4$|study$/.test(r)), `#/tag/voice lists T30–T36, PW4 and the study hub (${v.length})`)
+    await p.keyboard.press('/')
+    await wait(p, 120)
+    await p.click('.nb-switcher [data-tagpick="voice"]')
+    await wait(p, 80)
+    const sw = await p.evaluate(() => ({ q: document.querySelector('.nb-dialog__in').value, rows: [...document.querySelectorAll('#nbSwList li[data-route]')].map((x) => x.dataset.route), page: !!document.querySelector('#nbSwList li[data-tagpage="voice"]'), pressed: document.querySelector('.nb-switcher [data-tagpick="voice"]').getAttribute('aria-pressed') }))
+    ok(sw.q.trim() === '#voice' && JSON.stringify(sw.rows) === JSON.stringify(v) && sw.page && sw.pressed === 'true', `the switcher's voice chip filters it to the same ${sw.rows.length} notes, with the tag's page first`)
+    await p.keyboard.press('Escape')
+    if (!phone) {
+      await go(p, '#/graph?tag=voice')
+      await wait(p, 500)
+      const g = await p.evaluate(() => { const ns = [...document.querySelectorAll('.nb-g--full a.n')]; const lit = ns.filter((a) => !a.classList.contains('is-dim')); return { lit: lit.length, ok: lit.every((a) => a.dataset.tags.split(' ').includes('voice')), sel: document.querySelector('.nb-graph__tag select').value } })
+      await p.selectOption('.nb-graph__tag select', 'evals'); await wait(p, 250)
+      const g2 = await p.evaluate(() => [...document.querySelectorAll('.nb-g--full a.n')].filter((a) => !a.classList.contains('is-dim')).every((a) => a.dataset.tags.split(' ').includes('evals')))
+      ok(g.lit > 0 && g.ok && g.sel === 'voice' && g2, `the map, ?tag=voice: ${g.lit} notes lit, every one tagged voice, the rest dimmed; choosing evals relights it`)
+    } else {
+      await go(p, '#/graph')
+      await p.selectOption('.nb-maplist .nb-graph__tag select', 'voice'); await wait(p, 150)
+      const rows = await p.evaluate(() => [...document.querySelectorAll('.nb-maplist li:not([hidden]) > .nb-maplist__row')].map((a) => a.dataset.route).sort())
+      ok(JSON.stringify(rows) === JSON.stringify([...v].sort()), `the phone's map list, tag voice: exactly its ${rows.length} notes`)
+    }
+    await close(p)
+  }
+  // start-here's new copy, and contrast of the new parts in both themes
+  for (const scheme of ['dark', 'light']) {
+    const p = await page(size, ROUTES.spec, { scheme })
+    await p.evaluate(() => NB.controls.scroller().scrollTo(0, 1e7)); await wait(p, 300)
+    const c = await p.evaluate(CONTRAST, ['.nb-byline a', '.nb-byline__line', '.nb-chip', '.nb-chip__g', '.nb-share', '.nb-nudge__line', '.nb-nudge__no', '.nb-author__k', '.nb-author__name a', '.nb-author__role', '.nb-author__line', '.nb-author__link', '.nb-author__follow', '.nb-author__nk', '.nb-author__next a'])
+    const theme = await p.evaluate(() => document.documentElement.dataset.labTheme)
+    ok(c.low >= 4.5, `${theme}: every new text is ≥ 4.5:1 on what is behind it (lowest ${c.low}, ${c.worst})`)
+    if (scheme === 'dark') {
+      await go(p, ROUTES.start)
+      const s = await p.evaluate(() => ({ text: document.querySelector('.nb-col').innerText, h: [...document.querySelectorAll('.nb-body h2')].map((x) => x.textContent.replace(/^#/, '')) }))
+      ok(s.text.includes('Take the Shopkeeper tour') && s.text.includes("What I'm learning right now") && s.h.includes("what I'm on right now") && s.h.includes('new here'), `start-here reads in the new copy: ${s.h.join(' · ')}`)
+    }
+    await close(p)
+  }
+}
+
 // ── reduced motion ─────────────────────────────────────────────────────────────────────────
 console.log('\nreduced motion')
 if (!ONLY) {
@@ -752,7 +931,7 @@ if (!ONLY) {
   const mid = await p.evaluate(() => [...document.querySelectorAll('.nb-bar__path a')].map((a) => a.textContent).join('/'))
   await wait(p, 600)
   const r = await p.evaluate(() => ({ ms: NB.trip.timing.in, live: NB.trip.live() }))
-  ok(r.live && r.ms >= 250 && r.ms <= 450 && mid === 'Lab', `a ${r.ms} ms crossfade, with no decode (mid-trip the bar reads "${mid}")`)
+  ok(r.live && r.ms >= 250 && r.ms <= 450 && mid === "Aahil's Lab", `a ${r.ms} ms crossfade, with no decode (mid-trip the bar reads "${mid}")`)
   await go(p, '#/builds/03-datesheet-generator')
   await p.click('[data-term="replay"]')
   const whole = await p.evaluate(() => { const pre = document.querySelector('.nb-term__out'); return pre.textContent === pre.dataset.src })

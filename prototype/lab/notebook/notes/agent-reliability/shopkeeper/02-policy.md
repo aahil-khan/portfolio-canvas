@@ -4,7 +4,7 @@ type: doc
 status: done
 updated: 2026-11-20
 summary: "Policy · Negotiation behaviour"
-tags: [shopkeeper, policy]
+tags: [negotiation, guardrails]
 aliases: []
 listen: true
 visibility: public
