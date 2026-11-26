@@ -51,3 +51,7 @@ next-env.d.ts
 .build-sha
 .watch.lock
 .watch-failed
+
+# Lab v2A mockup: built files (the deliverable is copied to ~/projects/scratch/lab-mockups/)
+/prototype/lab-v2a/lab-v2a.html
+/prototype/lab-v2a/lab-v2a.fixtures.html

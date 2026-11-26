@@ -1,0 +1,90 @@
+{
+  "mark": "AK",
+  "lab": "Lab",
+  "markLabel": "Aahil Khan's site",
+  "home": {
+    "title": "Aahil Khan's Lab",
+    "sayIt": "say it",
+    "sayItLabel": "Hear how to say Aahil Khan",
+    "intro": "I build useful things people actually use, and because they use them, I have to make them reliable. Here's what broke and what I measured.",
+    "featured": "Featured",
+    "latest": "Latest",
+    "tours": "New here? Take a tour",
+    "sections": "Everything, by section",
+    "map": "Map",
+    "mapNote": "Lines are real links between notes.",
+    "openFeatured": "Open"
+  },
+  "kinds": { "section": "section", "series": "series", "chapter": "chapter", "note": "note", "entry": "build", "experiment": "experiment", "essay": "essay", "tour": "tour", "study": "progress" },
+  "meta": {
+    "published": "published",
+    "updated": "updated",
+    "read": "min read",
+    "listen": "Listen",
+    "listenMin": "min",
+    "of": "of",
+    "stops": "stops",
+    "contents": "Contents",
+    "previous": "Previous",
+    "next": "Next"
+  },
+  "related": {
+    "label": "Related",
+    "linked": "Linked",
+    "also": "Also related",
+    "linksHere": "links here",
+    "linkedFromHere": "linked from here",
+    "both": "linked both ways"
+  },
+  "stub": {
+    "label": "Not in this mockup yet",
+    "body": "This one's in the next mockup round. Its title, date and status are real; the page isn't built yet.",
+    "back": "Back to the Lab"
+  },
+  "outside": {
+    "site": "The front page of the site lives at / on the live site. This mockup only covers the Lab.",
+    "canvas": "The desk lives at /canvas on the live site. This mockup only covers the Lab.",
+    "agents": "For AI agents: this page arrives in a later mockup round, with llms.txt and a markdown view of every note.",
+    "colophon": "The colophon arrives in a later mockup round: faces, sounds, music licences and the build commit."
+  },
+  "bar": { "listen": "Listen", "music": "Music", "folder": "Open the folder", "sheetOf": "of" },
+  "listen": {
+    "standIn": "Stand-in: your device voice, not the recorded narration",
+    "silent": "Stand-in: no device voice here, timing only",
+    "pause": "Pause",
+    "play": "Play",
+    "stop": "Stop",
+    "back": "Back to where it's reading",
+    "sentence": "Sentence"
+  },
+  "player": {
+    "title": "Music",
+    "stations": "Stations",
+    "shuffle": "Shuffle",
+    "stop": "Stop",
+    "mixer": "Mixer",
+    "master": "Master",
+    "music": "Music",
+    "interface": "Interface sounds",
+    "later": "Tracks and noise arrive with the full player.",
+    "playing": "Playing"
+  },
+  "footer": {
+    "place": "Bareilly",
+    "zone": "IST",
+    "home": "Home",
+    "desk": "Desk",
+    "lab": "Lab",
+    "colophon": "Colophon",
+    "agents": "For AI agents",
+    "sound": "Sound",
+    "on": "on",
+    "off": "off",
+    "theme": "Theme",
+    "light": "Light",
+    "dark": "Dark",
+    "labThemes": "Made for the Lab",
+    "siteThemes": "From the rest of the site"
+  },
+  "close": "Close"
+}

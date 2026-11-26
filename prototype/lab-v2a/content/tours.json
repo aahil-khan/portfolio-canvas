@@ -1,0 +1,6 @@
+[
+  { "id": "W1", "slug": "shopkeeper-so-far", "title": "Shopkeeper so far", "line": "From the spec to the decisions it forced, in the order they happened.", "status": "in progress", "published": "2026-11-21", "updated": "2026-11-21",
+    "stops": ["shopkeeper", "01-spec", "03-blind-agent", "02-policy", "05-scenarios"] },
+  { "id": "W2", "slug": "phase-1-so-far", "title": "Phase 1 so far", "line": "The first study phase, evals core: the topics, and the build that used them.", "status": "in progress", "published": "2026-11-20", "updated": "2026-11-20",
+    "stops": ["study", "t01-eval-anatomy", "t02-pass-at-k", "t03-error-analysis", "holt"] }
+]
