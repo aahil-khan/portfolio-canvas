@@ -36,10 +36,10 @@ const player = (() => {
     if (panel && panel.querySelector('[data-stations]')) panel.querySelector('[data-stations]').innerHTML = stationRows()
   }
   const stationRows = () => {
-    const pre = playing ? playing.id : store.get('canvas.station', 'lofi')
+    const pre = playing ? playing.id : store.get('canvas.station')
     return STATIONS.map((s) => `<button type="button" class="station${playing && playing.id === s.id ? ' cur' : ''}" data-station="${s.id}" aria-pressed="${!!(playing && playing.id === s.id)}">` +
       `<span><span class="n">${esc(s.label)}</span><span class="b">${esc(s.blurb)}</span></span>` +
-      `<span class="p">${playing && playing.id === s.id ? esc(UI.player.playing) : (!playing && pre === s.id ? '' : '')}</span></button>`).join('') +
+      `<span class="p">${playing && playing.id === s.id ? esc(UI.player.playing) : (!playing && pre === s.id ? esc(UI.player.last) : '')}</span></button>`).join('') +
       `<button type="button" class="station" data-station="shuffle"><span><span class="n">${esc(UI.player.shuffle)}</span></span><span class="p"></span></button>` +
       (playing ? `<button type="button" class="station" data-station="stop"><span><span class="n">${esc(UI.player.stop)}</span></span><span class="p"></span></button>` : '')
   }

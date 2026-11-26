@@ -67,7 +67,8 @@
     "music": "Music",
     "interface": "Interface sounds",
     "later": "Tracks and noise arrive with the full player.",
-    "playing": "Playing"
+    "playing": "Playing",
+    "last": "Last played"
   },
   "footer": {
     "place": "Bareilly",
