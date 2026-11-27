@@ -1,6 +1,6 @@
 /**
- * Rules 1, 2, T, Q, E, L and O: the Lab's content. Lane module for scripts/check-lab.mjs
- * (API.md §11); PR 2.
+ * Rules 1, 2, T, Q, E and L: the Lab's content. Lane module for scripts/check-lab.mjs (API.md §11);
+ * PR 2. Rule O, links out, is `unfurls.mjs` (PR 7), which reads `issues()` from here.
  *
  * Every rule runs `validateLab` (lib/lab/rules.ts) over **both** sets, real and demo, and over the
  * active set with the fixture on top, and fails on that rule's issues. The same function runs at
@@ -16,7 +16,6 @@
  *   L  every [[…]], [[tag:…]] and [^key] resolves; refs numbered by first use and all cited; ≤ 8
  *      tags; reserved and unique ids; no slot headings; and the data's own integrity (schema,
  *      references between entries, images, leads), which has no rule id of its own
- *   O  every link out has an unfurl or a stated fallback; every unfurl image is a same-origin file
  */
 import fs from 'node:fs'
 import path from 'node:path'
@@ -39,7 +38,7 @@ function issues(ctx) {
   const active = ctx.visibility.labDemo ? 'demo' : 'real'
   const fx = loadSet(active, { root: ctx.root, fixture: true })
   const exists = (p) => fs.existsSync(path.join(ctx.root, 'public', p.slice(1)))
-  for (const i of validateLab(fx.lab, fx.bodies, exists)) {
+  for (const i of validateLab(fx.lab, fx.bodies, exists, { missingUnfurl: active === 'real' ? 'warn' : 'error' })) {
     const line = { ...i, set: `${active}+fixture`, file: i.path.startsWith('bodies.') ? fx.bodyFiles[i.path.split('.')[1]] : 'content/lab/fixture' }
     if (!all.some((a) => a.path === i.path && a.message === i.message)) all.push(line)
   }
@@ -129,6 +128,6 @@ const rules = [
   simple('Q', 'Every long entry has a pull-quote, verbatim from its body', ['Q']),
   simple('E', 'Builds and experiments end with a dated "What I’d do now"', ['E']),
   simple('L', 'Links, references, tags, ids and slot headings resolve; the data holds together', ['L', 'S', 'D', 'I', 'R']),
-  simple('O', 'Every link out has an unfurl or a stated fallback; unfurl images are same-origin files', ['O']),
 ]
 export default rules
+export { issues }

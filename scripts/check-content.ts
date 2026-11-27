@@ -27,7 +27,10 @@ for (const f of FILES) {
 }
 
 const issues = validateSet(set, (p) => existsSync(path.join(root, 'public', p.slice(1))))
-const lab = validateLabSets({ root })
+const all = validateLabSets({ root })
+// a real link with no unfurl yet is a warning: printed, never a failure
+const lab = all.filter((i) => !i.warning)
+for (const i of all.filter((i) => i.warning)) console.warn(`  ! ${formatLabIssue(i)}`)
 if (issues.length || lab.length) {
   for (const i of issues) console.error(`  • ${i.path}: ${i.message}`)
   for (const i of lab) console.error(`  • ${formatLabIssue(i)}`)

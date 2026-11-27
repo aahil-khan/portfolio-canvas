@@ -34,11 +34,13 @@ export function validateLabSets({ root = process.cwd(), sets = ['real', 'demo'] 
   const exists = (publicPath: string) => fs.existsSync(path.join(root, 'public', publicPath.slice(1)))
   return sets.flatMap((name) => {
     const set = loadSet(name, { root })
-    // `copy` is shared, so its issues are reported once, with the real set
-    return validateLab(set.lab, set.bodies, exists)
+    // `copy` is shared, so its issues are reported once, with the real set. A real link with no
+    // unfurl is a warning (Aahil adds links at /edit, which cannot run the unfurl script); the
+    // demo set's cards all come from the script, so there it stays an error
+    return validateLab(set.lab, set.bodies, exists, { missingUnfurl: name === 'real' ? 'warn' : 'error' })
       .filter((i) => name === 'real' || !i.path.startsWith('copy'))
       .map((i) => ({ ...i, set: name, file: fileOf(set, i) }))
   })
 }
 
-export const formatLabIssue = (i: LabSetIssue) => `${i.file}: ${i.path}: ${i.message} [${i.set} set, rule ${i.rule}]`
+export const formatLabIssue = (i: LabSetIssue) => `${i.file}: ${i.path}: ${i.message} [${i.set} set, rule ${i.rule}${i.warning ? ', warning' : ''}]`
