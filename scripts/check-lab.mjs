@@ -72,8 +72,8 @@ const WIDTHS = [
 const LOOKS = [
   { name: 'paper/cream', query: 'look=paper&theme=cream' },
   { name: 'paper/tokyo-night', query: 'look=paper&theme=tokyo-night' },
-  { name: 'premium/day', query: 'look=premium&mode=light' },
-  { name: 'premium/night', query: 'look=premium&mode=dark' },
+  { name: 'lab/light', query: 'look=lab&mode=light' },
+  { name: 'lab/dark', query: 'look=lab&mode=dark' },
 ]
 
 function parseArgs(argv) {

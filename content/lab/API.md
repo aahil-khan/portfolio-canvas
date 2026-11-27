@@ -34,7 +34,7 @@ Contents: [1 Types](#1-types) · [2 Loaders](#2-loaders) · [3 URLs](#3-urls) ·
 | `lib/lab/types.ts` | §1 | PR 1 |
 | `lib/lab/content.ts` | §2 | PR 2 |
 | `lib/lab/rules.ts` | `validateLab(lab, bodies, fileExists)` | PR 2 |
-| `lib/lab/look.ts` | the look, Premium's mode, Aa (§8, §10) | PR 1 |
+| `lib/lab/look.ts` | the look, the Lab theme's mode, Aa (§8, §10) | PR 1 |
 | `lib/motion/reduced.ts`, `lib/motion/tokens.ts` | §8 | PR 1 |
 | `lib/events.ts` | §9 | PR 1 (no-op), PR 4 |
 | `scripts/check-lab.mjs`, `scripts/check-lab/*.mjs`, `scripts/lab-routes.ts` | §11 | PR 1, then one lane file per PR |
@@ -184,21 +184,21 @@ DOM `CustomEvent`s dispatched on `document`, so lanes never import each other.
     `--shadow-ink`, `--hair`, `--mark`, `--trail`;
   - in the Lab's CSS (`app/lab/lab.css`, PR 6): the `--lab-fs-*` scale, `--lab-lh-body`,
     `--lab-measure`, `--lab-bar-h`, `--lab-pad`, `--lab-gutter`, `--lab-rail`,
-    `--lab-margin-col`, `--lab-edge`, and Premium's `--border-strong`, `--highlight`,
+    `--lab-margin-col`, `--lab-edge`, and the Lab theme's `--border-strong`, `--highlight`,
     `--tb-tint`, `--focus`.
-- **Themes.** `themes` is the site's 18. `labThemes` is the two Premium palettes,
-  `lab-premium-day` and `lab-premium-night`, each `labOnly: true`. `allThemes` is both, and only
+- **Themes.** `themes` is the site's 18. `labThemes` is the Lab theme's two palettes,
+  `lab-light` and `lab-dark`, each `labOnly: true`. `allThemes` is both, and only
   `themeCss()` and the contrast check read it. **No picker outside the Lab may list a Lab theme**,
   and none can: they import `themes`. `lib/theme.ts` accepts only the 18.
-- **The look** (`lib/lab/look.ts`, the one owner): Paper is the site's theme; Premium sets
+- **The look** (`lib/lab/look.ts`, the one owner): Paper is the site's theme; the Lab theme sets
   `data-theme` to its palette and leaves `canvas.theme` alone. State lives on `<html>`:
-  `data-look` (`paper | premium`), `data-mode` (`day | night`), `data-theme`, `data-paper-theme`,
+  `data-look` (`paper | lab`), `data-mode` (`light | dark`), `data-theme`, `data-paper-theme`,
   `data-dark` (`1 | 0`), `data-aa-measure` (`wide | comfortable`), `data-aa-size` (`16 | 17 | 19`).
   `lookBootScript` writes them before first paint; the Lab layout renders it as the first thing in
   its tree, after the root layout's theme boot script. React reads them only through
   `useSyncExternalStore(subscribeLook, getLookSnapshot, getLookServerSnapshot)`. The setters are
-  `setLook`, `setPremiumMode`, `setPaperTheme` (through `lib/theme.ts`), `toggleDark`, `setAa`.
-  For one visit, `?look=paper|premium`, `?mode=light|dark` and `?theme=<site theme>` override the
+  `setLook`, `setLabMode`, `setPaperTheme` (through `lib/theme.ts`), `toggleDark`, `setAa`.
+  For one visit, `?look=paper|lab`, `?mode=light|dark` and `?theme=<site theme>` override the
   stored look without saving it; the check opens pages that way.
 - **`lib/motion/tokens.ts`**: `EASE` (`cubic-bezier(0.16, 1, 0.3, 1)`), `EASE_BEZIER` for Motion,
   `SITE`, `LAB` (every Lab duration and distance from NEXT shortcut 3), `INTENT` (300 / 90 / 600 /
@@ -237,8 +237,8 @@ change when it starts sending.
 | `canvas.theme` | local | `lib/theme.ts` | the site theme, which Paper follows |
 | `canvas.sound` | local | `lib/audio.ts` | mute |
 | `canvas.station`, `canvas.ambience`, `canvas.masterVolume`, `canvas.ambienceVolume`, `canvas.uiVolume` | local | `lib/audio.ts`, `lib/ambience.ts` | the shared Sound menu |
-| `lab.look` | local | `lib/lab/look.ts` | `paper \| premium` |
-| `lab.premiumMode` | local | `lib/lab/look.ts` | `day \| night` |
+| `lab.look` | local | `lib/lab/look.ts` | `paper \| lab` |
+| `lab.mode` | local | `lib/lab/look.ts` | `light \| dark` |
 | `lab.aa` | local | `lib/lab/look.ts` | `{"measure":"wide\|comfortable","size":16\|17\|19}` |
 | `lab.from` | session | `lib/canvas/session.ts` (PR 16) | `desk` while the reader came from the canvas |
 
@@ -280,7 +280,7 @@ built" into a failure**; without it, "not built" is reported and passes. A rule 
 | `root`, `base`, `fixtureBase` | the repo, the server under test, the fixture server (or `null`) |
 | `lab` | `{ built, routes }` from `scripts/lab-routes.ts`, which reads `routes()`; `built` is false until PR 2 |
 | `visibility` | `{ labPublic, labDemo, DEMO_CONTENT, DEMO_PUBLIC }` |
-| `widths`, `looks` | the matrix: 390×844, 768×1024, 1024×768, 1440×900, 1920×1080; Paper cream, Paper tokyo-night, Premium Day, Premium Night (each a `query` string for §8's overrides). `--quick` narrows to 390 and 1440 in one look, for iteration only |
+| `widths`, `looks` | the matrix: 390×844, 768×1024, 1024×768, 1440×900, 1920×1080; Paper cream, Paper tokyo-night, Lab theme Light, Lab theme Dark (each a `query` string for §8's overrides). `--quick` narrows to 390 and 1440 in one look, for iteration only |
 | `get(path, { fixture })` | `{ status, headers, text }`, redirects not followed |
 | `page(path, contextOptions)` | `{ page, context, errors, close }` in the one shared Chromium (cached, never installed), console and page errors collected |
 | `quick`, `lighthouse` | the flags |

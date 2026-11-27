@@ -90,7 +90,7 @@ Every theme **must** define all of the tokens above. `--border` is a *token*, ne
 is per-theme too, because whether text on the accent should be light or dark flips between them.
 
 `scripts/check-contrast.mjs` enforces ≥ 4.5:1 for every `--ink*` on every `--surface*` (and
-`--raised`), in every theme, the Lab's two Premium palettes included: 20 in all. It reads computed
+`--raised`), in every theme, the Lab theme's two palettes included: 20 in all. It reads computed
 colours off the live page in the server's cached Chromium, and it **fails when it finds no
 browser** rather than skipping (`CONTRAST_SKIP=1` is the one deliberate way past). Do not eyeball
 this — 20 themes is far past what eyes catch, and the last build shipped a token at 4.23:1.
@@ -162,18 +162,18 @@ Aahil's decisions of 27 Nov. The code copies are `content/themes.ts` (colour) an
 | Look | What it is | Palette | Who owns it |
 |---|---|---|---|
 | **Paper** (default) | The site's own theme, whichever of the 18 `canvas.theme` holds. The Lab keeps no theme of its own: the mockup's `lab.theme` key is gone. | the theme's tokens | `lib/theme.ts` |
-| **Premium** | The same layout in a richer palette, Day or Night. It keeps the window language: the 2px `--border` frame and a zero-blur offset on every box, window, card, figure and menu, title bars, 12px radii. | `lab-premium-day`, `lab-premium-night` | `lib/lab/look.ts` |
+| **Lab theme** | The same layout in a richer palette, Light or Dark. It keeps the window language: the 2px `--border` frame and a zero-blur offset on every box, window, card, figure and menu, title bars, 12px radii. | `lab-light`, `lab-dark` | `lib/lab/look.ts` |
 
-The Premium palettes are **Lab-only**. They are `labThemes` in `content/themes.ts`, apart from the
+The Lab theme's palettes are **Lab-only**. They are `labThemes` in `content/themes.ts`, apart from the
 site's `themes`, so the canvas's Themes window, its dock menu, the command palette, the terminal
 and `/`'s toggle still list exactly 18 and cannot list them by mistake. `allThemes` (20) is read
-only by `themeCss()` and the contrast check. While Premium is on, `data-theme` names its palette
+only by `themeCss()` and the contrast check. While the Lab theme is on, `data-theme` names its palette
 and `canvas.theme` is left alone.
 
-Premium's first mode is **Night**, unless the system prefers light. Switching between the looks
-moves nothing: both draw the same 2px edge, and Premium draws its 1px hairline inside it.
+The Lab theme's first mode is **Dark**, unless the system prefers light. Switching between the looks
+moves nothing: both draw the same 2px edge, and the Lab theme draws its 1px hairline inside it.
 
-| Premium token | Day | Night |
+| Lab theme token | Light | Dark |
 |---|---|---|
 | `--canvas-base` | `#FAFAF7` | `#0B0B0A` |
 | `--surface` | `#FFFFFF` | `#131311` |
@@ -187,22 +187,22 @@ moves nothing: both draw the same 2px edge, and Premium draws its 1px hairline i
 | `--trail` | `#FACC00` | `rgba(238,236,229,.66)` |
 | `--canvas-grid` | `transparent` | `transparent` |
 
-The look-level constants Premium adds in the Lab's CSS, not in `themes.ts` because no other surface
+The look-level constants the Lab theme adds in the Lab's CSS, not in `themes.ts` because no other surface
 needs them:
 
-| Constant | Day | Night | Used for |
+| Constant | Light | Dark | Used for |
 |---|---|---|---|
-| `--border-strong` | `rgba(20,20,19,.18)` | `rgba(238,236,229,.18)` | control hover rings, the bar's edge at Night |
+| `--border-strong` | `rgba(20,20,19,.18)` | `rgba(238,236,229,.18)` | control hover rings, the bar's edge in Dark |
 | `--highlight` | `rgba(255,255,255,.9)` | `rgba(255,255,255,.05)` | the 1px inset top light on boxes |
 | `--tb-tint` | 16% | 9% | accent mixed into title bars |
-| `--focus` | `#141413` (yellow on Day is a fill, never a line) | `#F5C518` | the focus ring |
+| `--focus` | `#141413` (yellow in Light is a fill, never a line) | `#F5C518` | the focus ring |
 
 Paper's title bar is `color-mix(--accent 25%, --surface)`, 12% on dark themes. Paper rules are the
-border at 2px (`--rule-w: 2px`); Premium's are `--hair` at 1px.
+border at 2px (`--rule-w: 2px`); the Lab theme's are `--hair` at 1px.
 
 ### Tokens
 
-Five tokens join every theme (`content/themes.ts`). Premium states them outright (above). The site's
+Five tokens join every theme (`content/themes.ts`). The Lab theme states them outright (above). The site's
 18 derive them by one rule, written once in `withLabTokens`:
 
 | Token | CSS | Light site theme | Dark site theme | For |
@@ -215,7 +215,7 @@ Five tokens join every theme (`content/themes.ts`). Premium states them outright
 
 **The trail** (NEXT shortcut 12, decision 13) is visible in every look. On a dark ground it is a
 2px line of its own under the bar, filling from the left to the dot, so it is held to **3:1 against
-the bar's ground** (`--canvas-base`). On a light ground (Paper light themes, Day) the bar's edge is
+the bar's ground** (`--canvas-base`). On a light ground (Paper light themes, Lab theme Light) the bar's edge is
 ink, so the trail is the accent, **4px, laid over that edge** (`bottom: -3px`), and read as the edge
 changing colour; there it is held to **3:1 against the edge** (`--border`). The contrast check
 measures both. `--accent-ink` must reach 4.5:1 on `--mark` too.
@@ -322,7 +322,7 @@ owner, never `reducedMotion="user"`, so the query is not read twice. No hover so
 Progress is the body's own: `p = clamp((scrollY − bodyTop) / (bodyHeight − innerHeight), 0, 1)`,
 where the body ends at `[data-body-end]`, before References (shortcut 1). Finishing the text fills
 the trail exactly. The trail is `transform: scaleX(p)` on a full-width element, never a width, and
-the dot rides its end. The dot (22px) is ink-outlined; at Night its outline is ink at 85%, 1.75px,
+the dot rides its end. The dot (22px) is ink-outlined; in the Lab theme's Dark its outline is ink at 85%, 1.75px,
 filled `--raised`. The footer hop happens only once `p = 1`. Chapter ticks are 14×6px,
 `--ink` at 18% on light grounds and **34% on dark ones** (decision 13), the current one filled
 `--accent`.
