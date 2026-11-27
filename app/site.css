@@ -248,6 +248,8 @@
     border-radius: var(--radius-pill);
     padding: 0.1rem 0.45rem;
     background: var(--surface);
+    /* its own fill needs its own ink: the pill's --accent-ink is only legible on --accent */
+    color: var(--ink);
   }
 
   .site .drawer__scrim {
