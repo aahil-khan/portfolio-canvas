@@ -458,7 +458,7 @@ var Lab = window.Lab = window.Lab || {};
     var es = Lab.tagged(tag);
     var page = Lab.html('<div class="page tag-page"></div>');
     page.appendChild(Lab.html('<div class="list-head"><p class="eyebrow">' + t('tag.eyebrow') + '</p><h1 class="entry-title">' + esc(tag) + '</h1>' +
-      '<p class="sec-thesis">' + t('tag.lede', { n: counted(es.length, 'entry'), tag: tag }) + '</p></div>'));
+      '<p class="sec-thesis">' + t('tag.lede', { n: counted(es.length, 'entry').replace(/^./, function (c) { return c.toUpperCase(); }), tag: tag }) + '</p></div>'));
     page.appendChild(Lab.html('<section class="block" aria-label="' + esc(tag) + '"><ul class="rows">' + es.map(function (e) { return entryRow(e, { lede: true }); }).join('') + '</ul></section>'));
     var others = allTags().filter(function (g) { return g !== tag; });
     page.appendChild(Lab.html('<p class="meta other-tags">' + t('tag.others') + ' ' + others.map(function (g) { return Lab.tagLink(g); }).join(', ') + '</p>'));
