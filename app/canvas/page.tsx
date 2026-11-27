@@ -6,6 +6,7 @@ import { VisitPing } from '@/components/desktop/visit-ping'
 import { apps, dockLayout, externalApps, mobile, profile, site } from '@/content'
 import { validateContent } from '@/content/validate'
 import { consoleHelloScript } from '@/lib/console-hello'
+import { pageMeta } from '@/lib/seo/meta'
 
 /*
  * Content is checked here, at module scope. This runs while `next build` prerenders the page,
@@ -14,11 +15,11 @@ import { consoleHelloScript } from '@/lib/console-hello'
  */
 validateContent()
 
-export const metadata: Metadata = {
+export const metadata: Metadata = pageMeta({
+  path: '/canvas',
   title: `${profile.name} — ${site.desk.tabSuffix}`,
   description: mobile.onlyDesktopBody,
-  alternates: { canonical: '/canvas' },
-}
+})
 
 const HERO_WIDTH = 600
 

@@ -5,6 +5,8 @@ import { DocBar, DocFoot } from '@/components/site/doc'
 import { Shots } from '@/components/site/shots'
 import { rich } from '@/lib/rich'
 import { profile, projects, site } from '@/content'
+import { jsonLd, projectLd } from '@/lib/seo/json-ld'
+import { pageMeta } from '@/lib/seo/meta'
 import { SITE_URL } from '@/lib/site'
 
 import '../../site.css'
@@ -41,19 +43,14 @@ export async function generateMetadata({
   const project = find(slug)
   if (!project) return {}
 
-  const title = `${project.name} — ${project.tagline}`
-  return {
-    title,
+  return pageMeta({
+    path: `/work/${project.slug}`,
+    title: `${project.name} — ${project.tagline}`,
     description: project.lede,
-    alternates: { canonical: `/work/${project.slug}` },
-    openGraph: {
-      type: 'article',
-      title,
-      description: project.lede,
-      url: `${SITE_URL}/work/${project.slug}`,
-    },
-    twitter: { card: 'summary_large_image', title, description: project.lede },
-  }
+    type: 'article',
+    // its own card, from opengraph-image.tsx and twitter-image.tsx beside this file
+    ownImage: true,
+  })
 }
 
 export default async function ProjectPage({ params }: { params: Promise<{ slug: string }> }) {
@@ -64,26 +61,25 @@ export default async function ProjectPage({ params }: { params: Promise<{ slug: 
 
   const back = { href: '/work', label: site.workPage.allWork }
 
-  const jsonLd = {
-    '@context': 'https://schema.org',
-    '@type': 'CreativeWork',
+  const work = projectLd({
     name: project.name,
-    headline: project.tagline,
-    description: project.lede,
-    dateCreated: String(project.year),
+    tagline: project.tagline,
+    lede: project.lede,
+    year: project.year,
+    stack: project.stack,
+    award: project.award,
     url: `${SITE_URL}/work/${project.slug}`,
-    author: { '@type': 'Person', name: profile.name, url: SITE_URL },
-    keywords: project.stack.join(', '),
-    ...(project.award ? { award: project.award } : {}),
-  }
+    images: project.images?.map((src) => `${SITE_URL}${src}`),
+    author: { name: profile.name, origin: SITE_URL },
+  })
 
   return (
     <main data-scroll-page className="site">
-      {/* static, generated from content — no user input reaches this */}
-      <script
-        type="application/ld+json"
-        dangerouslySetInnerHTML={{ __html: JSON.stringify(jsonLd) }}
-      />
+      {/*
+        * Generated from content, which is edited at /edit: jsonLd() escapes <, so a field holding
+        * </script> cannot end the script early.
+        */}
+      <script type="application/ld+json" dangerouslySetInnerHTML={{ __html: jsonLd(work) }} />
 
       <DocBar back={back} />
 
