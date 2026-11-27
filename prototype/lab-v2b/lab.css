@@ -17,7 +17,7 @@
   --fs-title: clamp(2.5rem, 5.2vw, 4rem);   /* plan: 2.25rem floor; 2.5rem keeps title ÷ meta ≥ 3 on a phone */
   --fs-h2: clamp(1.375rem, 2.2vw, 1.75rem);
   --fs-lede: clamp(1.1875rem, 1.6vw, 1.375rem);
-  --fs-pull: clamp(1.375rem, 2.4vw, 1.875rem);
+  --fs-pull: var(--fs-lede);   /* 1.19-1.375rem: the lede's step, so it adds no size to the page (rule 8); Aahil, 27 Nov: "the quotes are too big" */
   --fs-body: 1.0625rem;
   --lh-body: 1.75;
   --fs-meta: .8125rem;
@@ -36,6 +36,7 @@
   --measure: 47.5em;         /* about 96 characters of Space Grotesk at 17px */
   --gutter: 48px;
   --margin-col: 280px;
+  --rail: 272px;             /* the entry rail: on this page, share, links to this page, related */
   --pad: 24px;
   --radius-window: 12px;
   --radius-chip: 8px;
@@ -107,8 +108,8 @@ html[data-look="premium"][data-mode="night"] {
   color-scheme: dark;
   --canvas-base: #0B0B0A; --surface: #131311; --lab-raised: #1B1A17; --lab-surface-2: #131311;
   --ink: #EEECE5; --ink-muted: rgba(238,236,229,.66); --ink-subtle: rgba(238,236,229,.54);
-  --border: #4A453B;               /* the frame: warm umber, not white-on-black */
-  --shadow-ink: #2B2822;           /* a softer offset: a step above the ground, never black-on-black */
+  --border: #7F6C45;               /* brass (Aahil's pick, 27 Nov): the frame and the offset are one colour, as on the canvas */
+  --shadow-ink: #7F6C45;
   --hair: rgba(238,236,229,.08); --border-strong: rgba(238,236,229,.18);
   --accent: #F5C518; --accent-ink: #0B0B0A;
   --mark: color-mix(in srgb, #F5C518 85%, #131311); --mark-ink: #0B0B0A;
@@ -227,6 +228,13 @@ html[data-look="premium"] .box { background-clip: padding-box; }
   background: color-mix(in srgb, var(--canvas-base) 96%, transparent);
   transition: transform 280ms var(--ease), box-shadow var(--t-hover) var(--ease); }
 .bar.is-scrolled { box-shadow: 0 var(--rule-w) 0 0 var(--line); }
+/* the trail the dot has walked: reading progress as a line under the bar, from the left edge to the dot */
+.bar::before { content: ''; position: absolute; left: 0; bottom: -2px; height: 2px; width: var(--read-x, 0px); background: var(--ink-muted);
+  opacity: 0; transition: opacity var(--t-hover) var(--ease); pointer-events: none; }
+.bar.is-scrolled.has-trail::before { opacity: 1; }
+/* light grounds: the bar's own edge is ink (Paper) or a hairline (Day), so the trail is the accent, laid over the edge */
+html[data-dark="0"] .bar::before { background: var(--accent); height: 4px; bottom: -3px; box-shadow: 0 0 0 0 transparent; }
+html[data-dark="1"] .bar.is-scrolled { box-shadow: 0 var(--rule-w) 0 0 var(--border-strong, var(--line)); }
 .bar.is-hidden { transform: translateY(calc(-1 * var(--bar-h) - 12px)); }
 .bar-left, .bar-right { display: flex; align-items: center; gap: 6px; }
 .bar-right { margin-left: auto; }
@@ -277,7 +285,7 @@ html[data-dark="1"] .i-theme .moon { display: inline; }
   transform: translateX(var(--dot-x, 16px)); transition: transform 320ms var(--ease); }
 .dot svg { width: 22px; height: 22px; overflow: visible; display: block; }
 .dot .body { fill: var(--surface); stroke: var(--ink); stroke-width: 2; }
-html[data-look="premium"] .dot .body { stroke: var(--border-strong); stroke-width: 1.5; fill: var(--lab-raised); }
+html[data-look="premium"] .dot .body { stroke: color-mix(in srgb, var(--ink) 85%, transparent); stroke-width: 1.75; fill: var(--lab-raised); }   /* visible on Night (Aahil, 27 Nov) */
 .dot .eyes { transform-origin: 11px 10px; animation: blink 4200ms linear infinite; }
 .dot .eye { fill: var(--ink); }
 .dot .cheek { fill: var(--accent); opacity: .85; }
@@ -369,15 +377,22 @@ html[data-look="paper"] .row { box-shadow: 0 calc(var(--rule-w) / 2 * -1) 0 0 co
 
 /* ---------- entry ---------- */
 .entry-head { position: relative; }
-.series { display: flex; align-items: center; gap: 14px; flex-wrap: wrap; margin-bottom: 18px; }
+.series { position: relative; display: block; width: fit-content; max-width: 100%; margin-bottom: 18px; z-index: 5; }
+/* the chapter list drops down over the page, framed like a window, and moves nothing (Aahil, 27 Nov) */
+.series-panel { position: absolute; left: 0; top: calc(100% + 6px); width: min(420px, calc(100vw - 2 * var(--pad))); padding: 10px 16px 12px; background: var(--lab-raised, var(--surface)); }
+html[data-look="paper"] .series-panel { background: var(--surface); }
+.series-panel .meta { margin-top: 8px; }
+.chapters li [aria-current] { font-weight: 500; }
 .series summary { list-style: none; cursor: pointer; display: inline-flex; align-items: center; gap: 10px; white-space: nowrap; min-height: 44px; font-size: var(--fs-meta); font-weight: 500; }
 .series summary::-webkit-details-marker { display: none; }
 .series [data-num] { font-size: var(--fs-meta); }
 .ticks { display: inline-flex; gap: 4px; align-items: center; }
 .ticks i { width: 14px; height: 6px; border-radius: 2px; background: color-mix(in srgb, var(--ink) 18%, transparent); }
+html[data-dark="1"] .ticks i { background: color-mix(in srgb, var(--ink) 34%, transparent); }
 .ticks i.on { background: var(--accent); box-shadow: 0 0 0 1px var(--ink); }
 html[data-look="premium"] .ticks i.on { box-shadow: none; }
-.chapters { list-style: none; padding: 12px 0 4px; margin: 0; display: grid; gap: 2px; }
+.chapters { list-style: none; padding: 0; margin: 0; display: grid; gap: 2px; }
+.chapters li { min-height: 30px; align-content: center; }
 .chapters li { display: grid; grid-template-columns: 32px 1fr; gap: 10px; font-size: var(--fs-meta); align-items: baseline; }
 .chapters [data-num] { color: var(--ink-subtle); }
 .num { position: absolute; right: 0; top: .2em; font: 700 var(--fs-num)/1 var(--sans); letter-spacing: -.04em;
@@ -405,6 +420,51 @@ html[data-look="premium"] .ticks i.on { box-shadow: none; }
 .end-list .meta { margin-left: 6px; }
 .related .also { margin: 14px 0 6px; }
 .related .tags { margin-top: 14px; }
+/* ---------- the entry rail ----------
+   Aahil, 27 Nov: "right section of pages looks empty, better to put related and other stuff there".
+   At 1200px and up an entry is two columns, centred together: the reading column at the full measure
+   and a sticky rail beside it. Below that the rail is a block after the text (its On this page and
+   its copy of Share drop out, since the end of the page has Share). */
+.prose h2 { scroll-margin-top: calc(var(--bar-h) + 24px); }
+.rail { margin-top: 40px; padding-top: 18px; box-shadow: 0 calc(-1 * var(--rule-w)) 0 0 var(--line); display: grid; gap: 28px; }
+.rail .end-h { font-size: var(--fs-meta); text-transform: uppercase; letter-spacing: .06em; color: var(--ink-muted); font-weight: 500; }
+.rail-wide { display: none; }
+.toc-list { list-style: none; margin: 0; padding: 0; display: grid; gap: 2px; font-size: var(--fs-meta); line-height: 1.4; }
+.toc-list a { display: block; padding: 5px 0 5px 12px; text-decoration: none; color: var(--ink-muted); box-shadow: inset 2px 0 0 0 color-mix(in srgb, var(--ink) 12%, transparent); transition: color var(--t-hover) var(--ease), box-shadow var(--t-hover) var(--ease); }
+.toc-list a:hover { color: var(--ink); }
+.toc-list a[aria-current] { color: var(--ink); font-weight: 500; box-shadow: inset 2px 0 0 0 var(--accent); }
+.share-end { margin-top: 40px; padding-top: 18px; box-shadow: 0 calc(-1 * var(--rule-w)) 0 0 var(--line); }
+.share-row { display: flex; flex-wrap: wrap; gap: 8px; }
+.share-wrap { display: flex; flex-wrap: wrap; align-items: center; gap: 8px; }
+.share-menu[hidden] { display: none; }
+.share [data-share-open][aria-expanded="true"] { background: color-mix(in srgb, var(--accent) 22%, var(--surface)); }
+.chip { display: inline-flex; align-items: center; min-height: 36px; padding: 0 12px; border-radius: var(--radius-chip); font: 500 var(--fs-meta)/1 var(--sans);
+  color: var(--ink); background: var(--surface); border: var(--edge) solid var(--border); box-shadow: 2px 2px 0 0 var(--shadow-ink, var(--border));
+  text-decoration: none; cursor: pointer; transition: transform 120ms var(--ease), box-shadow 120ms var(--ease); }
+.chip:hover { transform: translate(-1px, -1px); box-shadow: 3px 3px 0 0 var(--shadow-ink, var(--border)); }
+.chip:active { transform: translate(1px, 1px); box-shadow: 1px 1px 0 0 var(--shadow-ink, var(--border)); }
+.chip.is-done { background: color-mix(in srgb, var(--accent) 30%, var(--surface)); }
+.rail .end-list { font-size: var(--fs-meta); gap: 8px; }
+.rail .end-list .meta { display: block; margin: 1px 0 0; }
+@media (min-width: 1200px) {
+  .lab-main > .page.entry { max-width: calc(var(--measure) + var(--gutter) + var(--rail) + 2 * var(--pad)); padding: 0 var(--pad);
+    display: grid; grid-template-columns: minmax(0, 1fr) var(--rail); column-gap: var(--gutter); align-items: start; }
+  .lab-main > .page.entry > .entry-head, .lab-main > .page.entry > .lead-block { grid-column: 1 / -1; margin-right: 0; }
+  .lab-main > .page.entry > .entry-main, .lab-main > .page.entry > .nextprev { grid-column: 1; min-width: 0; }
+  .lab-main > .page.entry > .rail { grid-column: 2; grid-row: 3 / span 2; position: sticky; top: calc(var(--bar-h) + 24px); margin-top: 40px; padding-top: 0; box-shadow: none;
+    max-height: calc(100vh - var(--bar-h) - 48px); overflow-y: auto; overscroll-behavior: contain; scrollbar-width: thin; gap: 26px; grid-template-columns: minmax(0, 1fr); }
+  .lab-main > .page.entry > .rail .rail-wide:not([hidden]) { display: block; }
+  /* the first screen is the lead and the text (rules 5 and 7); the rail arrives once reading starts */
+  .lab-main > .page.entry > .rail { transition: opacity 240ms var(--ease), visibility 0s linear 0s; }
+  .lab-main > .page.entry > .rail.is-waiting { opacity: 0; visibility: hidden; transition: opacity 160ms var(--ease), visibility 0s linear 160ms; }
+  html[data-reduced="1"] .lab-main > .page.entry > .rail { transition: none; }
+  .lab-main > .page.entry .num { right: 0; }
+  .lab-main > .page.entry .entry-main .wide { margin-right: 0; }
+  .lab-main > .page.entry .entry-main .side { float: none; width: auto; margin: 28px 0; }
+  .lab-main > .page.entry .entry-main .sidenote { padding-left: 16px; box-shadow: inset var(--rule-w) 0 0 0 var(--line); max-width: 40em; }
+}
+.window-body .rail { display: grid; }
+.window-body .rail-wide { display: none !important; }
 .nextprev { margin-top: 28px; display: grid; grid-template-columns: 1fr 1fr; gap: 16px; }
 .nextprev a { display: block; padding: 14px 16px; text-decoration: none; }
 .nextprev a:hover .np-title { text-decoration: underline; text-underline-offset: 2px; }
@@ -412,7 +472,6 @@ html[data-look="premium"] .ticks i.on { box-shadow: none; }
 .nextprev .np-next { text-align: right; }
 .sidenote { font-size: var(--fs-meta); line-height: 1.55; color: var(--ink-muted); }
 .sidenote strong { color: var(--ink); font-weight: 500; }
-.side .pull { font-size: var(--fs-h2); }
 .holding { min-height: 50vh; }
 
 /* body blocks beyond paragraphs (task 2) */
@@ -603,7 +662,7 @@ html[data-look="premium"] .frame { box-shadow: 0 0 0 2px var(--border); }
 .before-after > div { padding: 14px; border-radius: 10px; box-shadow: inset 0 0 0 var(--rule-w) var(--line); }
 
 /* ---------- previews: mini canvas windows (desktop), a sheet with a Close (touch) ---------- */
-.preview { position: fixed; z-index: 45; width: 420px; max-width: calc(100vw - 32px);
+.preview { position: fixed; z-index: 45; width: 360px; max-width: calc(100vw - 32px);
   background: var(--lab-raised); border: var(--edge) solid var(--box-edge); border-radius: var(--radius-window); box-shadow: var(--float-shadow);
   opacity: 0; transform: translateY(6px) scale(.98); transform-origin: top left;
   transition: opacity 180ms var(--ease), transform 180ms var(--ease); overflow: hidden; }
@@ -612,7 +671,7 @@ html[data-look="paper"] .preview { border-color: var(--border); background: var(
 .preview.is-open { opacity: 1; transform: none; }
 .preview .window-bar { font-size: var(--fs-meta); }
 /* a full-entry window: the whole page, read and scrolled inside it; the page behind never scrolls */
-.preview.is-full { width: 560px; display: flex; flex-direction: column; max-height: min(70vh, 640px); }
+.preview.is-full { width: 460px; display: flex; flex-direction: column; max-height: min(60vh, 500px); }
 .preview.is-full .window-bar { flex: none; }
 .win-title { min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 .window-body { flex: 1 1 auto; min-height: 0; overflow-y: auto; overscroll-behavior: contain; padding: 20px 24px 28px; }
@@ -638,6 +697,16 @@ html[data-look="paper"] .preview { border-color: var(--border); background: var(
 .preview-body h3 { font-size: var(--fs-h2); line-height: 1.15; letter-spacing: -.01em; }
 .preview-body p, .card-list { font-size: var(--fs-meta); line-height: 1.55; color: var(--ink-muted); }
 .preview-body h3 code { font-size: .8em; }
+/* a link out's unfurl: the page's own image across the top, then domain, title and description */
+.unfurl { display: grid; gap: 6px; }
+.unfurl.has-img { margin-top: -14px; }
+.uf-img { display: block; width: calc(100% + 32px); max-width: none; height: auto; aspect-ratio: 640 / 336; object-fit: cover; margin: 0 -16px 6px;
+  box-shadow: 0 var(--edge) 0 0 var(--border); background: var(--lab-surface-2, var(--surface)); }
+.uf-site { display: flex; align-items: center; gap: 7px; font-size: var(--fs-meta); color: var(--ink-muted); }
+.uf-ico { width: 16px; height: 16px; border-radius: 3px; flex: none; }
+.preview-body .uf-title { font-size: var(--fs-body); font-weight: 700; line-height: 1.3; letter-spacing: 0; display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical; overflow: hidden; }
+.preview-body .uf-desc { display: -webkit-box; -webkit-line-clamp: 3; -webkit-box-orient: vertical; overflow: hidden; }
+.preview-body .uf-why { padding-top: 8px; box-shadow: 0 calc(-1 * var(--rule-w)) 0 0 var(--line); }
 .card-list { list-style: none; padding: 0; margin: 0; display: grid; gap: 4px; }
 .card-list li { color: var(--ink); }
 .card-more { margin-top: 2px; }

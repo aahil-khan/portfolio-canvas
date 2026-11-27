@@ -611,8 +611,8 @@ try {
   note('sections: evergreen rules checked');
 
   // ---------- H: the home is evergreen ----------
-  // H1 every section is its own framed band with its first min(5, n) entries by date and its "All N in"
-  // link; H2 no time words and nothing that counts progress; checked in both looks at both sizes, in the
+  // H1 every section is its own framed band with its first min(5, n) top-level entries by date (never a
+  // chapter or a study's note) and its "All N in" link, N counting every entry; H2 no time words and nothing that counts progress; checked in both looks at both sizes, in the
   // default and the fixture data.
   for (const [file, q0] of [[BUNDLE, ''], [CHECK, 'fixture=kinds&']]) for (const size of ['desktop', 'phone']) for (const look of [LOOKS[0], LOOKS[3]]) {
     const tag = `home ${size} ${look.name}${file === CHECK ? ' fixture' : ''}`;
@@ -620,10 +620,11 @@ try {
     const h = await o.page.evaluate(() => {
       const pub = Lab.data.entries.filter((e) => !e.draft);
       const bands = [...document.querySelectorAll('[data-band]')].map((b) => {
-        const want = pub.filter((e) => e.section === b.dataset.band).sort((x, y) => (y.published || '').localeCompare(x.published || ''));
+        const inSec = pub.filter((e) => e.section === b.dataset.band);
+        const want = inSec.filter(Lab.isTop).sort((x, y) => (y.published || '').localeCompare(x.published || ''));
         const rows = [...b.querySelectorAll('[data-band-rows] .row-title a')].map((a) => a.dataset.preview);
         const all = b.querySelector('[data-band-all]'), cs = getComputedStyle(b), r = b.getBoundingClientRect();
-        return { id: b.dataset.band, n: want.length, rows, first: want.slice(0, 5).map((e) => e.id), all: all ? all.textContent : '', allHref: all && all.getAttribute('href'),
+        return { id: b.dataset.band, n: inSec.length, tops: want.length, rows, first: want.slice(0, 5).map((e) => e.id), all: all ? all.textContent : '', allHref: all && all.getAttribute('href'),
           edge: parseFloat(cs.borderTopWidth), shadow: cs.boxShadow, top: r.top, bottom: r.bottom };
       });
       const live = [...new Set(pub.map((e) => e.section))].filter((id) => Lab.data.sections.some((s) => s.id === id));
@@ -640,8 +641,8 @@ try {
     });
     if (h.bands.length !== h.live.length) fail('H1', `${tag}: ${h.bands.length} section bands for ${h.live.length} live sections`);
     h.bands.forEach((b, i) => {
-      if (b.rows.length !== Math.min(5, b.n)) fail('H1', `${tag}: the ${b.id} band lists ${b.rows.length} entries (want ${Math.min(5, b.n)})`);
-      else if (b.rows.join() !== b.first.join()) fail('H1', `${tag}: the ${b.id} band isn't its first five by date (${b.rows.join(', ')})`);
+      if (b.rows.length !== Math.min(5, b.tops)) fail('H1', `${tag}: the ${b.id} band lists ${b.rows.length} entries (want ${Math.min(5, b.tops)} top-level)`);
+      else if (b.rows.join() !== b.first.join()) fail('H1', `${tag}: the ${b.id} band isn't its first five top-level entries by date (${b.rows.join(', ')})`);
       if (!new RegExp(`^All ${b.n} in `).test(b.all) || b.allHref !== `#/${b.id}`) fail('H1', `${tag}: the ${b.id} band's "All ${b.n} in" link reads "${b.all}" to ${b.allHref}`);
       if (!(b.edge > 0) || b.shadow === 'none') fail('H1', `${tag}: the ${b.id} band isn't framed (edge ${b.edge}, shadow ${b.shadow})`);
       if (i && b.top - h.bands[i - 1].bottom < 16) fail('H1', `${tag}: the ${b.id} band sits ${Math.round(b.top - h.bands[i - 1].bottom)}px from the one above`);
