@@ -1,14 +1,18 @@
 /**
  * The GitHub contribution calendar.
  *
- * SERVER ONLY — reads `GITHUB_TOKEN`. Called from `buildCards()`, which runs during render on
- * the server, so the finished grid ships as HTML: no client JS, no loading state, and a height
+ * SERVER ONLY — reads `GITHUB_TOKEN`, which is never logged or sent anywhere but GitHub. Called
+ * from `buildCards()` (the canvas card) and from the front page's Work section, both during render
+ * on the server, so the finished grid ships as HTML: no client JS, no loading state, and a height
  * that is already correct when MeasureRig measures it.
  *
  * The calendar is not in GitHub's REST API — it only exists in GraphQL, and that endpoint
  * requires auth even for public data. Without a token this returns null and the card renders an
  * honest empty state rather than a skeleton that never resolves.
  */
+
+import { readFile } from 'node:fs/promises'
+import path from 'node:path'
 
 const ENDPOINT = 'https://api.github.com/graphql'
 
@@ -49,7 +53,7 @@ const QUERY = `query($login: String!) {
   }
 }`
 
-interface ApiResponse {
+export interface ApiResponse {
   data?: {
     user?: {
       contributionsCollection: {
@@ -92,7 +96,17 @@ function levelFor(count: number, [t1, t2, t3]: [number, number, number]): number
   return 1
 }
 
+/**
+ * A recorded GraphQL response to read in place of the network, for tests, `check:lab` rule GH and
+ * screenshots. A path to a JSON file holding exactly what the endpoint returns. Never set on a
+ * deploy: it exists so the calendar can be proved without a token anywhere near a test run.
+ */
+const FIXTURE_ENV = 'GITHUB_CONTRIB_FIXTURE'
+
 export async function fetchContributions(login: string): Promise<Contributions | null> {
+  const fixture = process.env[FIXTURE_ENV]
+  if (fixture) return readFixture(fixture)
+
   const token = process.env.GITHUB_TOKEN
   if (!token) return null
 
@@ -119,6 +133,18 @@ export async function fetchContributions(login: string): Promise<Contributions |
     return null
   }
 
+  return parseContributions(json)
+}
+
+async function readFixture(file: string): Promise<Contributions | null> {
+  return parseContributions(JSON.parse(await readFile(path.resolve(file), 'utf8')) as ApiResponse)
+}
+
+/**
+ * The GraphQL response, as the calendar both surfaces draw: padded weeks, ramp levels, month
+ * labels. Pure, so a recorded response can be checked without a network or a token.
+ */
+export function parseContributions(json: ApiResponse): Contributions | null {
   if (json.errors?.length) {
     console.warn('[github] contributions errors:', json.errors.map((e) => e.message).join('; '))
     return null

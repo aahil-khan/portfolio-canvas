@@ -846,6 +846,110 @@
   .site .case:nth-child(even) .case__shot { order: 0; }
 }
 
+/* ---------- GitHub contributions, at the end of Work ----------
+ *
+ * The canvas card's calendar (`.gh` in desktop.css: the same weeks, key and login) as a framed
+ * block, drawn as one server-rendered SVG. Its own class names, because desktop.css is global and
+ * `.gh` would bring the card's styles along. Approved in prototype/lab-v2b-extras (site-contrib).
+ *
+ * An ink ramp, not a colour: `/` has no card colour, and a yellow ramp would spend the accent.
+ *
+ * `--contrib-step` is one square plus its gap (15 + 3 in the SVG's units), so 18px draws the SVG
+ * 1:1 and the phone's 15.6px draws a 13px square. The month labels sit on a grid of the same
+ * step, which keeps each one over its week at any size.
+ */
+.site .contrib {
+  --contrib-step: 18px;
+  --c0: color-mix(in srgb, var(--ink) 7%, var(--surface));
+  --c1: color-mix(in srgb, var(--ink) 24%, var(--surface));
+  --c2: color-mix(in srgb, var(--ink) 45%, var(--surface));
+  --c3: color-mix(in srgb, var(--ink) 70%, var(--surface));
+  --c4: var(--ink);
+  margin-top: clamp(3.5rem, 10vh, 7rem);
+  min-width: 0;
+  border: var(--bw) solid var(--border);
+  border-radius: var(--radius-card);
+  background: var(--surface);
+  box-shadow: var(--shadow-hard-lg);
+  padding: clamp(1.25rem, 3vw, 1.75rem);
+}
+.site .contrib__head {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: 0.5rem 1.5rem;
+  margin-bottom: 1.25rem;
+}
+.site .contrib__head h3 { font-size: clamp(1.25rem, 2.2vw, 1.625rem); }
+.site .contrib__head p { color: var(--ink-muted); }
+.site .contrib__head strong { color: var(--ink); }
+
+/*
+ * Scrolls sideways when the year is wider than the frame. `direction: rtl` starts it at the right,
+ * on the newest weeks, with no script, as the canvas card does; the children read left to right.
+ */
+.site .contrib__scroll {
+  overflow-x: auto;
+  overscroll-behavior-x: contain;
+  scrollbar-width: none;
+  direction: rtl;
+}
+.site .contrib__scroll::-webkit-scrollbar { display: none; }
+.site .contrib__scroll > * { direction: ltr; }
+.site .contrib__in { display: grid; gap: 6px; width: max-content; }
+
+.site .contrib__months {
+  display: grid;
+  grid-template-columns: repeat(var(--weeks), var(--contrib-step));
+  font-size: 0.8125rem;
+  line-height: 1;
+  color: var(--ink-subtle);
+  white-space: nowrap;
+}
+.site .contrib__svg {
+  display: block;
+  /* the last square has no gap after it: a sixth of a step */
+  width: calc(var(--weeks) * var(--contrib-step) - var(--contrib-step) / 6);
+  height: auto;
+}
+.site .contrib__svg rect { fill: var(--c0); }
+.site .contrib__svg [data-l='1'] { fill: var(--c1); }
+.site .contrib__svg [data-l='2'] { fill: var(--c2); }
+.site .contrib__svg [data-l='3'] { fill: var(--c3); }
+.site .contrib__svg [data-l='4'] { fill: var(--c4); }
+
+.site .contrib__foot {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: space-between;
+  gap: 0.25rem 1rem;
+  margin-top: 10px;
+  font-size: 0.8125rem;
+  color: var(--ink-subtle);
+}
+.site .contrib__foot a {
+  display: inline-flex;
+  align-items: center;
+  min-height: 24px;
+  color: var(--ink);
+  text-decoration: underline;
+  text-underline-offset: 3px;
+}
+.site .contrib__key { display: inline-flex; align-items: center; gap: 4px; }
+.site .contrib__key i { width: 12px; height: 12px; border-radius: 3px; background: var(--c0); }
+.site .contrib__key [data-l='1'] { background: var(--c1); }
+.site .contrib__key [data-l='2'] { background: var(--c2); }
+.site .contrib__key [data-l='3'] { background: var(--c3); }
+.site .contrib__key [data-l='4'] { background: var(--c4); }
+
+@media (max-width: 560px) {
+  .site .contrib { --contrib-step: 15.6px; }
+  /* a thumb's target on a phone, as the case links have */
+  .site .contrib__foot a { min-height: 44px; }
+}
+
 /* ---------- credentials ---------- */
 .site .creds { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 1.25rem; }
 .site .cred {
@@ -1716,4 +1820,15 @@ html:has(.site)::-webkit-scrollbar-thumb:hover {
 
 @media (prefers-reduced-motion: reduce) {
   .site .job__chev { transition: none; }
+}
+
+/* ---------- without JavaScript ----------
+ *
+ * Non-negotiable 5: nothing visible may need a script to work. The theme toggle and the phone's
+ * menu button are both client controls, so with scripting off they would press and do nothing;
+ * the page they would change is already complete without them. `check:lab` rule J holds this.
+ */
+@media (scripting: none) {
+  .site .themepick,
+  .site .burger { display: none; }
 }
