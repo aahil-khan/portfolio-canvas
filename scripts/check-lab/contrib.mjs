@@ -12,7 +12,10 @@
  *     else saying the total, one `<svg>` with a square per day, each square's `<title>` the day's
  *     sentence, no script in it, the calendar itself not a client component, and nothing hidden or
  *     different with JavaScript off;
- *   - GitHub's look: the five greens by the theme's `dark` flag, 10px squares drawn 1:1, and an
+ *   - full width: from 768 the block is as wide as the wrap's content box, so it is centred, and
+ *     from 1024 the grid fills its inner width without scrolling;
+ *   - GitHub's look: the five greens by the theme's `dark` flag, square days in GitHub's
+ *     proportions, never under 10px (drawn 1:1 on narrow screens), and an
  *     empty day distinguishable from the frame (≥ 1.1:1 by its fill or its outline);
  *   - hovered like GitHub: with JavaScript, a square under the pointer shows its own sentence in
  *     a tooltip above it, inside the block at both ends of the year, and a ring on it; the squares
@@ -20,7 +23,7 @@
  *     squares take the pointer, so their `<title>` is the tooltip. The hover layer is small and
  *     imports nothing but React and the calendar's geometry;
  *   - one keyboard stop, named with the summary, never a stop per day;
- *   - laid out: no page overflow at 390, 768 and 1440, and the strip opening on the newest weeks
+ *   - laid out: no page overflow at 390, 768, 1024, 1440 and 1920, and the strip opening on the newest weeks
  *     when it scrolls;
  *   - readable: every word in the block ≥ 4.5:1 on what it sits on, the tooltip's included, and
  *     the darkest green ≥ 3:1, in all 18 site themes.
@@ -52,8 +55,13 @@ const HOVER_MAX_BYTES = 6_000
 const WIDTHS = [
   { width: 390, height: 844 },
   { width: 768, height: 1024 },
+  { width: 1024, height: 768 },
   { width: 1440, height: 900 },
+  { width: 1920, height: 1080 },
 ]
+/** From this width the block is as wide as the wrap's content box; from FILL_FROM the grid fills it. */
+const FULL_FROM = 768
+const FILL_FROM = 1024
 /** An empty day against the frame, by its fill or its outline. The greens are not text. */
 const EMPTY_MIN = 1.1
 
@@ -160,7 +168,25 @@ function measure() {
   const cs = getComputedStyle(block)
   const sb = scroll.getBoundingClientRect()
   const lb = last.getBoundingClientRect()
+  // the wrap's content box, and the block's inner one
+  const inside = (e) => {
+    const r = e.getBoundingClientRect()
+    const c = getComputedStyle(e)
+    const left = r.left + parseFloat(c.borderLeftWidth) + parseFloat(c.paddingLeft)
+    const right = r.right - parseFloat(c.borderRightWidth) - parseFloat(c.paddingRight)
+    return { left, right }
+  }
+  // layout offsets, not the rect: the reveal may still be moving the block
+  const br = block.getBoundingClientRect()
+  const wrap = inside(block.closest('.wrap'))
+  const inner = inside(block)
+  const days = block.querySelector('.contrib__days').getBoundingClientRect()
   return {
+    gapLeft: br.left - wrap.left,
+    gapRight: wrap.right - br.right,
+    widthShort: wrap.right - wrap.left - br.width,
+    // the grid runs from the weekday labels' left edge to the SVG's right
+    unfilled: Math.max(Math.abs(days.left - inner.left), Math.abs(inner.right - svg.getBoundingClientRect().right)),
     visible: cs.display !== 'none' && cs.visibility !== 'hidden' && Number(cs.opacity) > 0.99,
     blockHeight: block.getBoundingClientRect().height,
     svgWidth: svg.getBoundingClientRect().width,
@@ -190,7 +216,7 @@ function squareAt(which) {
   const x = r.left + r.width / 2
   const y = r.top + r.height / 2
   const hit = document.elementFromPoint(x, y)
-  return { x, y, title: rect.querySelector('title')?.textContent ?? '', hit: hit?.tagName.toLowerCase() ?? null }
+  return { x, y, size: r.width, title: rect.querySelector('title')?.textContent ?? '', hit: hit?.tagName.toLowerCase() ?? null }
 }
 function hovered() {
   const block = document.querySelector('[data-contrib]')
@@ -308,8 +334,21 @@ async function browserAssertions(ctx, base, expect, where, fail, notes) {
       }
       if (!m.visible) fail.push(`${tag}: the calendar is hidden`)
       if (m.drawn !== expect.cells) fail.push(`${tag}: ${m.drawn} of ${expect.cells} squares are drawn`)
-      if (Math.abs(m.svgWidth - expect.width) > 0.5) fail.push(`${tag}: the SVG is ${m.svgWidth.toFixed(1)}px wide, expected ${expect.width}px (drawn 1:1)`)
-      if (Math.abs(m.cell - CELL) > 0.25) fail.push(`${tag}: a square is ${m.cell.toFixed(2)}px, expected ${CELL}px`)
+      // never under 1:1; scaled, the squares and gaps grow together
+      const k = m.svgWidth / expect.width
+      if (k < 1 - 0.002) fail.push(`${tag}: the SVG is ${m.svgWidth.toFixed(1)}px wide, under its ${expect.width}px (1:1)`)
+      if (w.width < FULL_FROM && Math.abs(k - 1) > 0.002) fail.push(`${tag}: the SVG is ${m.svgWidth.toFixed(1)}px wide, expected ${expect.width}px (drawn 1:1)`)
+      if (Math.abs(m.svgHeight / expect.height - k) > 0.01) fail.push(`${tag}: the squares are not square (the SVG is ${m.svgWidth.toFixed(1)}×${m.svgHeight.toFixed(1)})`)
+      if (Math.abs(m.cell - CELL * k) > 0.25 * k) fail.push(`${tag}: a square is ${m.cell.toFixed(2)}px, expected ${(CELL * k).toFixed(2)}px`)
+      if (w.width >= FULL_FROM) {
+        if (Math.abs(m.gapLeft - m.gapRight) > 2) fail.push(`${tag}: the block is off centre: ${m.gapLeft.toFixed(1)}px to its left, ${m.gapRight.toFixed(1)}px to its right`)
+        if (Math.abs(m.widthShort) > 2) fail.push(`${tag}: the block is ${m.widthShort.toFixed(1)}px narrower than the wrap's content box`)
+        if (!js) notes.push(`${tag}: gaps ${m.gapLeft.toFixed(1)} / ${m.gapRight.toFixed(1)}px, square ${(CELL * k).toFixed(2)}px, grid unfilled ${m.unfilled.toFixed(1)}px`)
+      }
+      if (w.width >= FILL_FROM) {
+        if (m.unfilled > 4) fail.push(`${tag}: the grid stops ${m.unfilled.toFixed(1)}px short of the block's inner width`)
+        if (m.scrolls) fail.push(`${tag}: the strip scrolls, but the year should fit`)
+      }
       if (!m.focusable) fail.push(`${tag}: the strip is not a keyboard stop`)
       if (m.stops !== 2) fail.push(`${tag}: ${m.stops} keyboard stops in the block, expected 2 (the strip and the login)`)
       if (m.overflowX > 0) fail.push(`${tag}: the page overflows sideways by ${m.overflowX}px`)
@@ -359,7 +398,9 @@ async function hoverAssertions(page, js, which, tag, fail) {
     }
     if (h.text !== at.title) fail.push(`${who}: the tooltip says "${h.text}", its <title> "${at.title}"`)
     if (h.tip.left < h.block.left - 0.5 || h.tip.right > h.block.right + 0.5) fail.push(`${who}: the tooltip clips at the block's edge (${h.tip.left.toFixed(0)}–${h.tip.right.toFixed(0)} in ${h.block.left.toFixed(0)}–${h.block.right.toFixed(0)})`)
-    if (h.tip.bottom > at.y - CELL / 2) fail.push(`${who}: the tooltip is not above the square`)
+    // the rect is drawn inside its outline, so the square is 10/9 of it
+    if (h.ring && Math.abs(h.ring.right - h.ring.left - (at.size * CELL) / (CELL - 1)) > 0.5) fail.push(`${who}: the ring is ${(h.ring.right - h.ring.left).toFixed(1)}px on a ${((at.size * CELL) / (CELL - 1)).toFixed(1)}px square`)
+    if (h.tip.bottom > at.y - at.size / 2) fail.push(`${who}: the tooltip is not above the square`)
     if (!h.ring || Math.abs((h.ring.left + h.ring.right) / 2 - at.x) > 1 || Math.abs((h.ring.top + h.ring.bottom) / 2 - at.y) > 1) fail.push(`${who}: no ring on the square`)
     await page.mouse.move(1, 1)
     await page.waitForTimeout(30)
@@ -422,6 +463,7 @@ const contrib = {
       cells: grid.cells.length,
       weeks: grid.weeks,
       width: grid.width,
+      height: grid.height,
       total,
       title: fill(contributions.home.title, { total }),
       label: fill(contributions.home.label, { total }),
