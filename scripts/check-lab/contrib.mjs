@@ -8,12 +8,22 @@
  *   - absent without data: a build with no `GITHUB_TOKEN` renders no `[data-contrib]`, `/` still
  *     prerenders and Work is otherwise whole;
  *   - server-rendered and script-free: with data, the block is in `/`'s static HTML inside
- *     `#work`, one `<svg role="img">` with a square per day and the total as its label, no script
- *     in it, no client component behind it, and nothing hidden or different with JavaScript off;
- *   - laid out: no page overflow at 390 and 1440, the SVG at its step size, and the strip opening
- *     on the newest weeks when it scrolls;
- *   - readable: every text in the block ≥ 4.5:1 on the frame, and the darkest square ≥ 3:1, in all
- *     18 site themes.
+ *     `#work`, headed with GitHub's line ("{total} contributions in the last year") and nothing
+ *     else saying the total, one `<svg>` with a square per day, each square's `<title>` the day's
+ *     sentence, no script in it, the calendar itself not a client component, and nothing hidden or
+ *     different with JavaScript off;
+ *   - GitHub's look: the five greens by the theme's `dark` flag, 10px squares drawn 1:1, and an
+ *     empty day distinguishable from the frame (≥ 1.1:1 by its fill or its outline);
+ *   - hovered like GitHub: with JavaScript, a square under the pointer shows its own sentence in
+ *     a tooltip above it, inside the block at both ends of the year, and a ring on it; the squares
+ *     stop taking the pointer, so the native tooltip does not double it. Without JavaScript the
+ *     squares take the pointer, so their `<title>` is the tooltip. The hover layer is small and
+ *     imports nothing but React and the calendar's geometry;
+ *   - one keyboard stop, named with the summary, never a stop per day;
+ *   - laid out: no page overflow at 390, 768 and 1440, and the strip opening on the newest weeks
+ *     when it scrolls;
+ *   - readable: every word in the block ≥ 4.5:1 on what it sits on, the tooltip's included, and
+ *     the darkest green ≥ 3:1, in all 18 site themes.
  *
  * The server under test shows whichever state its build had (locally, no token: absent). The
  * present state is proved on a second build of its own, made with `GITHUB_CONTRIB_FIXTURE`
@@ -29,18 +39,23 @@ import path from 'node:path'
 
 import { contributions } from '../../content/contributions.ts'
 import { themes } from '../../content/themes.ts'
-import { calendarLayout, fill, STEP } from '../../lib/contrib-grid.ts'
+import { calendarLayout, CELL, daySentence, fill, GREENS } from '../../lib/contrib-grid.ts'
 import { parseContributions } from '../../lib/github.ts'
 
 const FIXTURE = 'lib/fixtures/github-contributions.json'
 const DIST = '.next/contrib'
 const COMPONENT = 'components/site/contributions.tsx'
-/** The phone's step, from app/site.css (`--contrib-step` under 560px). */
-const PHONE_STEP = 15.6
+/** The one client file, the hover layer. */
+const HOVER = 'components/site/contrib-hover.tsx'
+/** Its source may be no bigger than this: an enhancement, not a widget. */
+const HOVER_MAX_BYTES = 6_000
 const WIDTHS = [
-  { width: 390, height: 844, step: PHONE_STEP },
-  { width: 1440, height: 900, step: STEP },
+  { width: 390, height: 844 },
+  { width: 768, height: 1024 },
+  { width: 1440, height: 900 },
 ]
+/** An empty day against the frame, by its fill or its outline. The greens are not text. */
+const EMPTY_MIN = 1.1
 
 /** Tracked files `next build` rewrites for a new distDir. */
 const TOUCHED = ['tsconfig.json', 'next-env.d.ts']
@@ -108,16 +123,27 @@ function staticAssertions(html, expect, where, fail) {
   if ((html.match(/<[a-z]+\b[^>]*\sdata-contrib\b/g) ?? []).length !== 1) fail.push(`${where}: [data-contrib] appears more than once`)
   const svgs = block.match(/<svg\b[^>]*>/g) ?? []
   if (svgs.length !== 1) fail.push(`${where}: the block has ${svgs.length} <svg>, not 1`)
+  const h3 = decode((block.match(/<h3\b[^>]*>([\s\S]*?)<\/h3>/)?.[1] ?? '').replace(/<[^>]+>/g, ''))
+  if (h3 !== expect.title) fail.push(`${where}: the heading is "${h3}", expected "${expect.title}"`)
+  // the number shows once: the heading says it, nothing else in the block repeats it
+  const visible = decode(block.replace(/<title>[\s\S]*?<\/title>/g, '').replace(/<style\b[\s\S]*?<\/style>/g, '').replace(/<[^>]+>/g, ' '))
+  const times = visible.split(expect.total).length - 1
+  if (times !== 1) fail.push(`${where}: the total ${expect.total} shows ${times} times in the block's text, not once`)
+  // one keyboard stop, named with the summary
+  const stops = block.match(/<[a-z]+\b[^>]*\stabindex="0"[^>]*>/gi) ?? []
+  if (stops.length !== 1) fail.push(`${where}: ${stops.length} keyboard stops in the block, not 1`)
   else {
-    if (!/\brole="img"/.test(svgs[0])) fail.push(`${where}: the calendar's <svg> has no role="img"`)
-    const label = decode(svgs[0].match(/aria-label="([^"]*)"/)?.[1] ?? '')
-    if (label !== expect.label) fail.push(`${where}: the calendar's label is "${label}", expected "${expect.label}"`)
+    const label = decode(stops[0].match(/aria-label="([^"]*)"/)?.[1] ?? '')
+    if (label !== expect.label) fail.push(`${where}: the keyboard stop is named "${label}", expected "${expect.label}"`)
   }
   const rects = (block.match(/<rect\b/g) ?? []).length
   if (rects !== expect.cells) fail.push(`${where}: ${rects} squares in the HTML, expected ${expect.cells} (one a day)`)
-  const titles = (block.match(/<title>/g) ?? []).length
-  if (titles !== expect.cells) fail.push(`${where}: ${titles} day tooltips, expected ${expect.cells}`)
-  if (!decode(block.replace(/<[^>]+>/g, '')).includes(expect.total)) fail.push(`${where}: the total ${expect.total} is not in the block's text`)
+  const titles = [...block.matchAll(/<title>([\s\S]*?)<\/title>/g)].map((m) => decode(m[1]))
+  if (titles.length !== expect.cells) fail.push(`${where}: ${titles.length} day tooltips, expected ${expect.cells}`)
+  else {
+    const wrong = titles.findIndex((t, i) => t !== expect.sentences[i])
+    if (wrong >= 0) fail.push(`${where}: day ${wrong} says "${titles[wrong]}", expected "${expect.sentences[wrong]}"`)
+  }
   if (/<script\b/i.test(block)) fail.push(`${where}: a <script> inside the calendar`)
   if (/\son[a-z]+=/i.test(block)) fail.push(`${where}: an inline event handler inside the calendar`)
   if (!/href="https:\/\/github\.com\/[^"]+"/.test(block)) fail.push(`${where}: no plain link to the GitHub profile`)
@@ -141,11 +167,41 @@ function measure() {
     svgHeight: svg.getBoundingClientRect().height,
     rects: rects.length,
     drawn: rects.filter((r) => r.getBoundingClientRect().width > 0).length,
+    cell: rects[0].getBoundingClientRect().width + Number(getComputedStyle(rects[0]).strokeWidth.replace('px', '')),
     overflowX: document.documentElement.scrollWidth - window.innerWidth,
     scrolls: scroll.scrollWidth > scroll.clientWidth + 1,
     newestInView: lb.right <= sb.right + 1 && lb.left >= sb.left - 1,
     focusable: scroll.tabIndex === 0,
+    stops: [...block.querySelectorAll('a, [tabindex]')].filter((e) => e.tabIndex >= 0).length,
   }
+}
+
+/**
+ * In the browser: where the pointer lands on a square's centre, and what the hover layer shows
+ * once the mouse is there. Runs in the page, in two calls around a real mouse move.
+ */
+function squareAt(which) {
+  const rects = [...document.querySelectorAll('[data-contrib] svg rect')]
+  const rect = which === 'first' ? rects[0] : rects[rects.length - 1]
+  const scroll = document.querySelector('[data-contrib] .contrib__scroll')
+  // rtl: 0 is the right end, the newest weeks, and the left end is negative
+  scroll.scrollLeft = which === 'first' ? -scroll.scrollWidth : 0
+  const r = rect.getBoundingClientRect()
+  const x = r.left + r.width / 2
+  const y = r.top + r.height / 2
+  const hit = document.elementFromPoint(x, y)
+  return { x, y, title: rect.querySelector('title')?.textContent ?? '', hit: hit?.tagName.toLowerCase() ?? null }
+}
+function hovered() {
+  const block = document.querySelector('[data-contrib]')
+  const tip = block.querySelector('.contrib__tip')
+  const ring = block.querySelector('.contrib__ring')
+  const box = (e) => {
+    if (!e || getComputedStyle(e).display === 'none') return null
+    const r = e.getBoundingClientRect()
+    return { left: r.left, right: r.right, top: r.top, bottom: r.bottom }
+  }
+  return { text: tip?.textContent ?? '', tip: box(tip), ring: box(ring), block: box(block) }
 }
 
 /** In the browser: contrast in every theme. Runs in the page; colours resolved through a canvas. */
@@ -175,26 +231,53 @@ function contrastIn(ids) {
   const block = document.querySelector('[data-contrib]')
   const texts = [
     ['the heading', 'h3'],
-    ['the lede', '.contrib__head p'],
-    ['the total', '.contrib__head strong'],
     ['a month label', '.contrib__months span'],
+    ['a weekday label', '.contrib__days span:nth-child(2)'],
     ['the login', '.contrib__foot a'],
     ['the key', '.contrib__key'],
   ]
+  const hex = (c) => '#' + rgba(c).slice(0, 3).map((v) => v.toString(16).padStart(2, '0')).join('')
   const out = []
-  for (const id of ids) {
+  for (const [id, dark] of ids) {
     root.dataset.theme = id
-    const bg = rgba(getComputedStyle(block).backgroundColor)
+    // reduced motion sets every element's transition to 0.01ms (globals.css), so a theme change
+    // starts a transition on each colour, and a read now would return the last theme's: flush the
+    // style change, then end the transitions it started
+    void document.body.offsetHeight
+    for (const a of document.getAnimations()) a.finish()
+    const cs = getComputedStyle(block)
+    const bg = rgba(cs.backgroundColor)
     for (const [what, sel] of texts) {
       const el = block.querySelector(sel)
       if (!el) {
         out.push({ id, what, missing: true })
         continue
       }
-      out.push({ id, what, ratio: ratio(over(rgba(getComputedStyle(el).color), bg), bg), min: 4.5 })
+      out.push({ id, what, ratio: ratio(over(rgba(getComputedStyle(el).color), bg), bg), min: 4.5, text: true })
+    }
+    // the tooltip's words, on its own ground (it is hidden until hovered; its colours are not)
+    const tip = block.querySelector('.contrib__tip')
+    if (!tip) out.push({ id, what: 'the tooltip', missing: true })
+    else {
+      const ground = rgba(cs.getPropertyValue('--c-tip').trim())
+      out.push({ id, what: 'the tooltip', ratio: ratio(over(rgba(getComputedStyle(tip).color), ground), ground), min: 4.5, text: true })
+    }
+    // GitHub's greens, by the theme's dark flag
+    const fills = [0, 1, 2, 3, 4].map((l) => {
+      const r = block.querySelector(`rect[data-l="${l}"]`)
+      return r ? hex(getComputedStyle(r).fill) : null
+    })
+    out.push({ id, what: 'the greens', fills, dark })
+    const empty = block.querySelector('rect[data-l="0"]')
+    if (empty) {
+      const cell = over(rgba(getComputedStyle(empty).fill), bg)
+      const line = over(rgba(getComputedStyle(empty).stroke), cell)
+      const r = Math.max(ratio(cell, bg), Number(getComputedStyle(empty).strokeWidth.replace('px', '')) >= 1 ? ratio(line, bg) : 0)
+      // its floor is EMPTY_MIN, applied outside: this function runs in the page
+      out.push({ id, what: 'an empty day, by its fill or its outline', ratio: r, empty: true })
     }
     const top = block.querySelector('rect[data-l="4"]')
-    if (top) out.push({ id, what: 'the darkest square', ratio: ratio(over(rgba(getComputedStyle(top).fill), bg), bg), min: 3 })
+    if (top) out.push({ id, what: 'the darkest green', ratio: ratio(over(rgba(getComputedStyle(top).fill), bg), bg), min: 3 })
   }
   root.dataset.theme = before
   return out
@@ -202,7 +285,7 @@ function contrastIn(ids) {
 
 /** Every browser assertion, on a server whose build had data. */
 async function browserAssertions(ctx, base, expect, where, fail, notes) {
-  const ids = themes.map((t) => t.id)
+  const ids = themes.map((t) => [t.id, t.dark])
   for (const w of WIDTHS) {
     const views = {}
     for (const js of [false, true]) {
@@ -212,11 +295,9 @@ async function browserAssertions(ctx, base, expect, where, fail, notes) {
         reducedMotion: 'reduce',
       })
       await page.goto(base + '/', { waitUntil: 'networkidle' })
-      if (js) {
-        // the motion layer reveals on scroll; bring the block in and let it settle
-        await page.locator('[data-contrib]').scrollIntoViewIfNeeded().catch(() => {})
-        await page.waitForTimeout(900)
-      }
+      // the motion layer reveals on scroll; bring the block in (the hover needs it on screen too)
+      await page.locator('[data-contrib]').scrollIntoViewIfNeeded().catch(() => {})
+      if (js) await page.waitForTimeout(900)
       const m = await page.evaluate(measure)
       views[js ? 'on' : 'off'] = m
       const tag = `${where} at ${w.width}, JS ${js ? 'on' : 'off'}`
@@ -227,20 +308,25 @@ async function browserAssertions(ctx, base, expect, where, fail, notes) {
       }
       if (!m.visible) fail.push(`${tag}: the calendar is hidden`)
       if (m.drawn !== expect.cells) fail.push(`${tag}: ${m.drawn} of ${expect.cells} squares are drawn`)
-      const want = expect.weeks * w.step - w.step / 6
-      if (Math.abs(m.svgWidth - want) > 1) fail.push(`${tag}: the SVG is ${m.svgWidth.toFixed(1)}px wide, expected ${want.toFixed(1)}px`)
+      if (Math.abs(m.svgWidth - expect.width) > 0.5) fail.push(`${tag}: the SVG is ${m.svgWidth.toFixed(1)}px wide, expected ${expect.width}px (drawn 1:1)`)
+      if (Math.abs(m.cell - CELL) > 0.25) fail.push(`${tag}: a square is ${m.cell.toFixed(2)}px, expected ${CELL}px`)
+      if (!m.focusable) fail.push(`${tag}: the strip is not a keyboard stop`)
+      if (m.stops !== 2) fail.push(`${tag}: ${m.stops} keyboard stops in the block, expected 2 (the strip and the login)`)
       if (m.overflowX > 0) fail.push(`${tag}: the page overflows sideways by ${m.overflowX}px`)
       if (m.scrolls && !m.newestInView) fail.push(`${tag}: the strip scrolls but does not open on the newest week`)
-      if (m.scrolls && !m.focusable) fail.push(`${tag}: the strip scrolls but cannot take keyboard focus`)
       if (js && errors.length) fail.push(`${tag}: ${errors.length} console or page errors (${errors[0].slice(0, 120)})`)
+      await hoverAssertions(page, js, w.width === 390 ? ['last'] : ['first', 'last'], tag, fail)
       if (!js && w.width === 1440) {
         const res = await page.evaluate(contrastIn, ids)
         for (const r of res) {
           if (r.missing) fail.push(`${where}, ${r.id}: ${r.what} is missing`)
-          else if (r.ratio < r.min) fail.push(`${where}, ${r.id}: ${r.what} is ${r.ratio.toFixed(2)}:1, under ${r.min}:1`)
+          else if (r.fills) {
+            const want = GREENS[r.dark ? 'dark' : 'light']
+            if (r.fills.join() !== want.join()) fail.push(`${where}, ${r.id}: the greens are ${r.fills.join(' ')}, expected GitHub's ${r.dark ? 'dark' : 'light'} ${want.join(' ')}`)
+          } else if (r.ratio < (r.empty ? EMPTY_MIN : r.min)) fail.push(`${where}, ${r.id}: ${r.what} is ${r.ratio.toFixed(2)}:1, under ${r.empty ? EMPTY_MIN : r.min}:1`)
         }
-        const text = res.filter((r) => !r.missing && r.min === 4.5)
-        if (text.length) notes.push(`${where}: text contrast measured in ${ids.length} site themes, lowest ${Math.min(...text.map((r) => r.ratio)).toFixed(2)}:1`)
+        const low = (f) => Math.min(...res.filter(f).map((r) => r.ratio)).toFixed(2)
+        notes.push(`${where}: in ${ids.length} site themes, lowest text ${low((r) => r.text)}:1, lowest empty day ${low((r) => r.empty)}:1`)
       }
       await close()
     }
@@ -253,9 +339,45 @@ async function browserAssertions(ctx, base, expect, where, fail, notes) {
   }
 }
 
+/** Hover a square with the real mouse, and read what shows. */
+async function hoverAssertions(page, js, which, tag, fail) {
+  for (const end of which) {
+    const at = await page.evaluate(squareAt, end)
+    // a scroll hides the tooltip, and its event lands a frame later: let it pass before hovering
+    await page.waitForTimeout(120)
+    // with JS the hover layer owns the pointer (the SVG); without, the square does (its <title>)
+    const want = js ? 'svg' : 'rect'
+    if (at.hit !== want) fail.push(`${tag}: the pointer on the ${end} square lands on <${at.hit}>, expected <${want}>`)
+    if (!js) continue
+    await page.mouse.move(at.x, at.y)
+    await page.waitForTimeout(50)
+    const h = await page.evaluate(hovered)
+    const who = `${tag}, the ${end} square`
+    if (!h.tip) {
+      fail.push(`${who}: no tooltip on hover`)
+      continue
+    }
+    if (h.text !== at.title) fail.push(`${who}: the tooltip says "${h.text}", its <title> "${at.title}"`)
+    if (h.tip.left < h.block.left - 0.5 || h.tip.right > h.block.right + 0.5) fail.push(`${who}: the tooltip clips at the block's edge (${h.tip.left.toFixed(0)}–${h.tip.right.toFixed(0)} in ${h.block.left.toFixed(0)}–${h.block.right.toFixed(0)})`)
+    if (h.tip.bottom > at.y - CELL / 2) fail.push(`${who}: the tooltip is not above the square`)
+    if (!h.ring || Math.abs((h.ring.left + h.ring.right) / 2 - at.x) > 1 || Math.abs((h.ring.top + h.ring.bottom) / 2 - at.y) > 1) fail.push(`${who}: no ring on the square`)
+    await page.mouse.move(1, 1)
+    await page.waitForTimeout(30)
+    if ((await page.evaluate(hovered)).tip) fail.push(`${who}: the tooltip stays after the pointer leaves`)
+  }
+}
+
 function sourceAssertions(root, fail) {
   const src = fs.readFileSync(path.join(root, COMPONENT), 'utf8')
   if (/^\s*['"]use client['"]/m.test(src)) fail.push(`${COMPONENT} is a client component`)
+  const hover = fs.readFileSync(path.join(root, HOVER), 'utf8')
+  if (!/^\s*['"]use client['"]/m.test(hover)) fail.push(`${HOVER} is not marked 'use client'`)
+  if (hover.length > HOVER_MAX_BYTES) fail.push(`${HOVER} is ${hover.length} bytes, over ${HOVER_MAX_BYTES}: the hover is an enhancement`)
+  const imports = [...hover.matchAll(/^\s*import\b[^'"]*['"]([^'"]+)['"]/gm)].map((m) => m[1])
+  const extra = imports.filter((i) => i !== 'react' && i !== '@/lib/contrib-grid')
+  if (extra.length) fail.push(`${HOVER} imports ${extra.join(', ')}: only react and @/lib/contrib-grid are allowed`)
+  const perSquare = /\.(rects|cells)\b[^\n]*\.(map|forEach)\([^\n]*addEventListener|for\s*\([^)]*rect[^)]*\)\s*\{?[^}]*addEventListener/
+  if (perSquare.test(hover)) fail.push(`${HOVER} adds a listener per square; it listens on the SVG`)
   for (const f of ['lib/contrib-grid.ts', 'lib/github.ts'])
     if (/^\s*['"]use client['"]/m.test(fs.readFileSync(path.join(root, f), 'utf8'))) fail.push(`${f} is marked 'use client'`)
 }
@@ -296,7 +418,15 @@ const contrib = {
     if (!data) return { fail: [`${FIXTURE} does not parse into a calendar`] }
     const grid = calendarLayout(data)
     const total = data.total.toLocaleString('en-GB')
-    const expect = { cells: grid.cells.length, weeks: grid.weeks, total, label: fill(contributions.home.label, { total }) }
+    const expect = {
+      cells: grid.cells.length,
+      weeks: grid.weeks,
+      width: grid.width,
+      total,
+      title: fill(contributions.home.title, { total }),
+      label: fill(contributions.home.label, { total }),
+      sentences: grid.cells.map((c) => daySentence(c.count, c.date, contributions.home.day)),
+    }
 
     sourceAssertions(ctx.root, fail)
 
@@ -320,7 +450,7 @@ const contrib = {
       // live data: the shape is the live year's, so only what does not depend on it
       if (present) {
         const block = contribBlock(home.text) ?? ''
-        if (!/<svg\b[^>]*role="img"/.test(block)) fail.push('the calendar is not a server-rendered <svg role="img">')
+        if (!/<svg\b/.test(block) || !/<title>/.test(block)) fail.push('the calendar is not a server-rendered <svg> with a <title> a day')
         if (/<script\b/i.test(block)) fail.push('a <script> inside the calendar')
       }
     }
@@ -357,7 +487,10 @@ const contrib = {
       if (prerendered(ctx.root, DIST) === false) fail.push(`${where}: / is not prerendered`)
       const manifest = clientManifest(ctx.root, DIST)
       if (manifest === null) notes.push(`${where}: no client reference manifest for / to read`)
-      else if (manifest.includes('components/site/contributions')) fail.push(`${where}: the calendar is in /'s client reference manifest, so it ships JS`)
+      else {
+        if (manifest.includes('components/site/contributions')) fail.push(`${where}: the calendar is in /'s client reference manifest, so it ships JS`)
+        if (!manifest.includes('components/site/contrib-hover')) notes.push(`${where}: the hover layer is not in /'s client reference manifest`)
+      }
       await browserAssertions(ctx, server.base, expect, where, fail, notes)
     } finally {
       server?.stop()

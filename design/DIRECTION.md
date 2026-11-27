@@ -95,6 +95,30 @@ colours off the live page in the server's cached Chromium, and it **fails when i
 browser** rather than skipping (`CONTRAST_SKIP=1` is the one deliberate way past). Do not eyeball
 this — 20 themes is far past what eyes catch, and the last build shipped a token at 4.23:1.
 
+### The contributions calendar on `/`
+
+The one place the site borrows someone else's palette: Aahil asked for "the classic github look"
+(27 Nov), so the squares are GitHub's own greens, picked by the theme's `dark` flag (the one
+`withLabTokens` reads). The frame around them stays the site's: 2px `--border`, hard offset.
+
+| Level | 0 | 1 | 2 | 3 | 4 |
+|---|---|---|---|---|---|
+| Light themes | `#ebedf0` | `#9be9a8` | `#40c463` | `#30a14e` | `#216e39` |
+| Dark themes | `#161b22` | `#0e4429` | `#006d32` | `#26a641` | `#39d353` |
+
+- **Squares:** 10px, 3px gaps (a 13px step), radius 2px, drawn 1:1 at every width. Each carries
+  GitHub's inner 1px outline, built the way GitHub builds it, from the ink: `--ink` at 6% on
+  light themes and 10% on dark ones. GitHub's dark `#161b22` is within 1.1:1 of several dark
+  surfaces here (Mocha 1.01:1), and the outline is what keeps an empty day visible: the empty
+  level reaches ≥ 1.1:1 against the surface by its fill or its outline in all 18 themes (lowest
+  1.14:1, One Dark). The greens are not text, so they are held to that, not to 4.5:1.
+- **Labels:** months across the top, Mon / Wed / Fri down the side, "Less … More" under the
+  right edge, all at 0.75rem in `--ink-subtle`, as GitHub sets them.
+- **Hover:** a dark tooltip above the square, GitHub's: `#24292f` on light themes, `#3d444d` on
+  dark ones, white 0.75rem text, 6px radius, a 5px caret. The hovered square gets a 1.5px `--ink`
+  ring. No animation: it moves from square to square with the pointer, as GitHub's does. It stays
+  inside the block's frame, sliding its caret rather than clipping at either end.
+
 ## Geometry
 
 ```css
