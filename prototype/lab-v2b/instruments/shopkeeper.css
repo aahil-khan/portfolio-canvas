@@ -1,0 +1,79 @@
+/* Shopkeeper instruments: the scenario browser, the concession schedule, the spec's tables.
+   Tokens only (lab.css); every size is an existing --fs-* token. */
+
+/* ---------- the scenario browser (chapter 07's lead) ---------- */
+.scn { padding: 18px 20px 20px; display: grid; gap: 14px; }
+.scn-top { display: grid; gap: 10px; }
+.scn-groups { display: inline-flex; flex-wrap: wrap; gap: 4px; padding: 3px; border-radius: 10px; box-shadow: inset 0 0 0 var(--rule-w) var(--p-line); justify-self: start; }
+.scn-groups button { font-family: var(--sans); border: 0; background: transparent; color: var(--p-muted); min-height: 36px; padding: 0 12px; border-radius: 7px;
+  font-size: var(--fs-meta); font-weight: 500; display: inline-flex; align-items: center; gap: 6px;
+  transition: background-color var(--t-hover) var(--ease), color var(--t-hover) var(--ease); }
+.scn-groups button[aria-pressed="true"] { background: var(--p-ink); color: var(--p-bg); }
+.scn-groups .scn-n { font-size: var(--fs-meta); }
+.scn-line { font-size: var(--fs-meta); line-height: 1.5; color: var(--p-muted); }
+.scn-list { list-style: none; margin: 0; padding: 0; display: grid; grid-template-columns: repeat(auto-fill, minmax(250px, 1fr)); gap: 10px; }
+.scn-item { padding: 14px 14px 12px; border-radius: 10px; background: var(--p-field); box-shadow: inset 0 0 0 var(--rule-w) var(--p-line);
+  display: grid; gap: 6px; align-content: start; outline-offset: 2px; }
+.scn-item:focus-visible { outline: 2px solid var(--focus); }
+.scn-head { display: flex; align-items: baseline; justify-content: space-between; gap: 10px; }
+.scn-id { font-size: var(--fs-meta); color: var(--p-ink, var(--ink)); }
+.scn-out { font-size: var(--fs-meta); font-weight: 700; color: var(--p-ink); }
+.scn-who { color: var(--p-ink); line-height: 1.5; }
+.scn-meta { font-size: var(--fs-meta); line-height: 1.5; color: var(--p-ink, var(--ink)); }
+.scn-k { font-weight: 500; color: var(--p-ink); }
+.scn-later { padding-top: 6px; box-shadow: 0 calc(-1 * var(--rule-w)) 0 0 var(--p-line); }
+.scn-foot { font-size: var(--fs-meta); line-height: 1.5; }
+.scn-card { padding: 14px; gap: 10px; }
+.scn-card .scn-list { grid-template-columns: 1fr; }
+
+/* ---------- the concession schedule (chapter 04's lead) ---------- */
+.sch { --plot-h: 190px; --label-h: 22px; --below: calc(var(--label-h) + 18px + 8px + 16px); margin: 0; }
+.sch-card { --plot-h: 110px; }
+.sch-plot { position: relative; padding: 30px 18px 16px; }
+.sch-cols { list-style: none; margin: 0; padding: 0; display: grid; grid-template-columns: repeat(5, minmax(0, 1fr)); gap: 10px; position: relative; z-index: 1; }
+.sch-col { display: grid; grid-template-rows: var(--plot-h) var(--label-h) 18px; row-gap: 4px; justify-items: stretch; text-align: center; }
+.sch-bar { align-self: end; position: relative; border-radius: 6px 6px 2px 2px;
+  background: color-mix(in srgb, var(--ink) 10%, transparent); box-shadow: inset 0 var(--rule-w) 0 0 var(--ink); }
+.sch-col:first-child .sch-bar { background: color-mix(in srgb, var(--ink) 18%, transparent); }
+.sch-v { position: absolute; left: 0; right: 0; top: -24px; font-size: var(--fs-meta); color: var(--ink); line-height: 20px; background: var(--surface); }
+.sch-label { font-size: var(--fs-meta); font-weight: 500; line-height: 1.3; color: var(--ink); }
+.sch-step { line-height: 18px; }
+.sch-floor { position: absolute; left: 18px; right: 18px; bottom: calc(var(--below) + var(--f) * var(--plot-h)); height: 0;
+  border-top: 2px dashed var(--ink); z-index: 2; }
+.sch-floor-label { position: absolute; right: 0; bottom: 4px; font-size: var(--fs-meta); font-weight: 500; color: var(--ink);
+  background: var(--surface); padding: 0 6px; border-radius: 4px; }
+.sch-card .sch-v, .sch-card .sch-step { display: none; }
+
+/* ---------- a table from the spec ---------- */
+.spec-wrap { overflow: hidden; }
+.spec-table { width: 100%; border-collapse: collapse; font-size: var(--fs-meta); line-height: 1.5; }
+.spec-table th, .spec-table td { text-align: left; vertical-align: top; padding: 10px 14px;
+  box-shadow: 0 calc(-1 * var(--rule-w)) 0 0 color-mix(in srgb, var(--line) 30%, transparent) inset; }
+html[data-look="premium"] .spec-table th, html[data-look="premium"] .spec-table td { box-shadow: 0 -1px 0 0 var(--border) inset; }
+.spec-table tbody tr:last-child > * { box-shadow: none; }
+.spec-table thead th { font-weight: 700; color: var(--ink); padding-top: 14px; }
+.spec-table tbody th { font-weight: 500; color: var(--ink); white-space: nowrap; }
+.spec-table td { color: var(--ink-muted); }
+.spec-table .n { text-align: right; font-variant-numeric: tabular-nums; white-space: nowrap; }
+
+@media (max-width: 760px) {
+  .scn { padding: 14px; }
+  .scn-groups { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); justify-self: stretch; }
+  .scn-groups button { min-height: 52px; padding: 6px 4px; flex-direction: column; justify-content: center; gap: 2px; text-align: center; line-height: 1.2; }
+  .scn-list { grid-template-columns: 1fr; }
+  .sch { --plot-h: 150px; --label-h: 34px; }
+  .sch-plot { padding: 28px 10px 16px; }
+  .sch-cols { gap: 6px; }
+  .sch-label { word-spacing: 100vw; }   /* every counter label on two lines, so the columns line up */
+  .sch-floor { left: 10px; right: 10px; }
+  .spec-table thead { position: absolute; width: 1px; height: 1px; overflow: hidden; clip: rect(0 0 0 0); }
+  .spec-table, .spec-table tbody, .spec-table tr, .spec-table th, .spec-table td { display: block; }
+  .spec-table tr { padding: 10px 14px; box-shadow: 0 calc(-1 * var(--rule-w)) 0 0 color-mix(in srgb, var(--line) 30%, transparent) inset; }
+  html[data-look="premium"] .spec-table tr { box-shadow: 0 -1px 0 0 var(--border) inset; }
+  .spec-table tbody tr:last-child { box-shadow: none; }
+  .spec-table th, .spec-table td, html[data-look="premium"] .spec-table th, html[data-look="premium"] .spec-table td { padding: 2px 0; box-shadow: none; }
+  .spec-table tbody th { white-space: normal; }
+  .spec-table td { display: grid; grid-template-columns: 7.5em minmax(0, 1fr); gap: 8px; }
+  .spec-table td::before { content: attr(data-col); font-weight: 500; color: var(--ink); }
+  .spec-table .n { text-align: left; }
+}

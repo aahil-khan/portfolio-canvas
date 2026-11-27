@@ -1,0 +1,49 @@
+/* Figures for builds and notes. Same tokens as lab.css. */
+
+/* pass@k against pass^k (note T02): arithmetic in the instrument panel */
+.passk { padding: 18px 20px 16px; display: grid; gap: 14px; }
+.pk-p { display: grid; gap: 6px; }
+.pk-p-label { font-size: var(--fs-meta); font-weight: 500; color: var(--p-ink); }
+.pk-p [data-num], .pk-p-label [data-num] { font-size: var(--fs-meta); }
+.pk-p input { width: 100%; height: 28px; margin: 0; accent-color: var(--accent); background: transparent; cursor: pointer; }
+.pk-rows { display: grid; gap: 10px; }
+.pk-row { display: grid; grid-template-columns: 4.5em minmax(0, 1fr) 11.5em; gap: 14px; align-items: center; }
+.pk-k [data-num] { font-size: var(--fs-code); color: var(--p-muted); }
+.pk-bars { display: grid; gap: 4px; }
+.pk-bar { display: block; height: 8px; border-radius: 3px; box-shadow: inset 0 0 0 1px var(--p-line); overflow: hidden; }
+.pk-bar i { display: block; height: 100%; border-radius: 3px; transition: width 180ms var(--ease); }
+.pk-at i { background: var(--p-muted); opacity: .55; }
+.pk-hat i { background: var(--p-ink); }
+.pk-row[data-k="5"] .pk-hat i { background: var(--accent); }
+.pk-vals { display: grid; gap: 2px; font-size: var(--fs-meta); line-height: 1.35; }
+.pk-v { display: flex; justify-content: space-between; gap: 8px; }
+.pk-v [data-num] { font-size: var(--fs-code); font-variant-numeric: tabular-nums; color: var(--p-ink); }
+.pk-key { display: flex; flex-wrap: wrap; align-items: center; gap: 6px 10px; font-size: var(--fs-meta); }
+.pk-swatch { display: inline-block; width: 18px; height: 8px; border-radius: 3px; }
+.pk-swatch.pk-at { background: var(--p-muted); opacity: .55; }
+.pk-swatch.pk-hat { background: var(--p-ink); margin-left: 8px; }
+.passk-card { padding: 14px 16px 12px; gap: 10px; }
+.passk-card .pk-row { grid-template-columns: 4em minmax(0, 1fr) 10em; }
+
+/* bars against a baseline (Lab.charts: Holt's MCC) */
+.figure.chart .bars { padding: 16px 18px; display: grid; gap: 14px; }
+.bar-row { display: grid; grid-template-columns: minmax(9em, 14em) minmax(0, 1fr) 6.5em; gap: 6px 16px; align-items: center; }
+.bar-label { font-size: var(--fs-meta); font-weight: 500; line-height: 1.35; }
+.bar-track { position: relative; height: 14px; border-radius: 4px; box-shadow: inset 0 0 0 1px color-mix(in srgb, var(--ink) 22%, transparent); }
+.bar-fill { position: absolute; inset: 0 auto 0 0; border-radius: 4px; background: var(--ink); }
+.bar-range { position: absolute; top: 0; bottom: 0; background: var(--accent); box-shadow: inset 0 0 0 1px var(--ink); border-radius: 0 4px 4px 0; }
+.bar-row.is-base .bar-fill { background: color-mix(in srgb, var(--ink) 38%, transparent); }
+.bar-value { font-size: var(--fs-code); text-align: right; font-variant-numeric: tabular-nums; }
+.bar-note { grid-column: 2 / -1; }
+
+@media (max-width: 760px) {
+  .passk { padding: 16px 16px 14px; }
+  .pk-p input { height: 44px; }
+  .pk-row { grid-template-columns: 3.6em minmax(0, 1fr); gap: 6px 10px; }
+  .pk-vals { grid-column: 2; grid-template-columns: 1fr 1fr; gap: 12px; }
+  .pk-v { justify-content: flex-start; }
+  .passk-card .pk-row { grid-template-columns: 3.6em minmax(0, 1fr); }
+  .bar-row { grid-template-columns: minmax(0, 1fr) auto; }
+  .bar-label { grid-column: 1 / -1; }
+  .bar-track { grid-column: 1; }
+}

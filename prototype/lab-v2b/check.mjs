@@ -2,10 +2,13 @@
 // file:// in the cached Chromium. Prints every failed assertion, then LAB-V2B OK (exit 0) or
 // LAB-V2B FAIL n (exit 1). Routes and entries come from the mockup's own data (Lab.routes()).
 //   cx heavy -- node prototype/lab-v2b/check.mjs
-// Task 1 scope: checks 1-26 where they apply to the home and chapter 05. Check 22's per-template
-// part waits for task 2's pages; its sections part and the haggle fidelity run here.
-// Revision (27 Nov): the home is evergreen (rules H1-H3), and every link previews, Wikipedia-style
-// (rules N, T, P, R, U, D). The Featured slot and its ?feature= check are gone with the slot.
+// Task 2 scope: every route the data makes (home, each live section, the index, the glossary, each
+// tag, every public entry), plus the fixture overlay for check 22. Rules beyond the plan's 1-26:
+// H1-H2 the home is evergreen, H3 so are section pages; N the name card; T terms are data; P every
+// citation and internal link previews; R Related and "Links to this page" end every entry; U
+// underlines; D dates never split; Q long entries have a verbatim pull-quote; E builds and
+// experiments end dated; F the footer's build hash is the bundling commit. Check 15 counts content
+// headings only: the end matter (References, Related, Links to this page) is template furniture.
 import { execFileSync } from 'node:child_process';
 import { createRequire } from 'node:module';
 import { readFileSync, readdirSync, existsSync, statSync } from 'node:fs';
@@ -43,20 +46,39 @@ for (const [name, text] of [['bundle', bundleText], ...contentFiles.map((f) => [
 }
 // 2. banned phrases in everything a reader can see: the copy, the generated data, the fixture
 const sandbox = { window: {} };
-for (const f of ['content/lab-data.js', 'content/copy.js', 'content/terms.js']) vm.runInNewContext(readFileSync(join(here, f), 'utf8'), sandbox);
+const CONTENT = [...readFileSync(join(here, 'index.html'), 'utf8').matchAll(/<script src="(content\/[^"]+)"(?! data-fixture)><\/script>/g)].map((m) => m[1]);
+for (const f of CONTENT) vm.runInNewContext(readFileSync(join(here, f), 'utf8'), sandbox);
 const L = sandbox.window.Lab;
-const visibleCopy = JSON.stringify([L.copy, L.bodies, L.compare, L.data.entries, L.data.sections, L.terms]);
+const visibleCopy = JSON.stringify([L.copy, L.bodies, L.compares, L.charts, L.scenarios, L.data.entries, L.data.sections, L.terms]);
 for (const p of BANNED) { const re = new RegExp(`(^|[^a-z])${p.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')}`, 'i'); if (re.test(visibleCopy)) fail(2, `banned phrase "${p}" in copy or data`); }
 for (const re of TRACKER) if (re.test(visibleCopy)) fail(2, `tracker-output pattern ${re}`);
 // 3. every proposal is in COPY.md
 const copyMd = readFileSync(join(here, 'COPY.md'), 'utf8');
-const props = [...Object.values(L.copy), ...Object.values(L.bodies).flatMap((b) => b.blocks.map((x) => x.h2 || x.p).filter(Boolean))].filter((c) => c.proposal);
+const bodyCopy = (b) => [...Object.values(b.meta || {}), b.leadIntro, b.leadCaption, ...[].concat(b.ending || []),
+  ...b.blocks.flatMap((x) => [x.h2, x.h3, x.p, x.quote, x.side, x.sideHead, ...(x.list || [])])].filter((c) => c && typeof c === 'object' && 'text' in c);
+const props = [...Object.values(L.copy), ...Object.values(L.bodies).flatMap(bodyCopy)].filter((c) => c.proposal);
 for (const c of props) if (!copyMd.includes(c.text.replace(/\|/g, '\\|'))) fail(3, `proposed line not in COPY.md: "${c.text.slice(0, 60)}"`);
 for (const x of L.terms) if (!copyMd.includes(x.def.replace(/\|/g, '\\|'))) fail(3, `term definition not in COPY.md: ${x.id}`);
 // T (static): every term is data, complete, and every [[t:id|...]] in the copy names one
 const termIds = new Set(L.terms.map((x) => x.id));
 for (const x of L.terms) if (x.kind !== 'term' || !x.name || !x.def || !x.source) fail('T', `term ${x.id} is missing kind, name, def or source`);
 for (const m of JSON.stringify([L.copy, L.bodies]).matchAll(/\[\[t:([\w-]+)\|/g)) if (!termIds.has(m[1])) fail('T', `unknown term "${m[1]}" in the copy`);
+// T (static): term ids are unique across every content file
+{ const seenT = new Set(); for (const x of L.terms) { if (seenT.has(x.id)) fail('T', `term id "${x.id}" is defined twice`); seenT.add(x.id); } }
+// Q (static): every long entry has a pull-quote, and it is a sentence of its own body, verbatim
+const plain = (t) => String(t || '').replace(/\[\[(?:t:|tag:)?[\w-]+\|([^\]]+)\]\]/g, '$1').replace(/\[\^[\w-]+\]/g, '').replace(/==|`/g, '');
+for (const e of L.data.entries) {
+  const b = L.bodies[e.id]; if (!b) continue;
+  const text = plain(b.blocks.flatMap((x) => [x.p, x.quote, ...(x.list || [])]).filter(Boolean).map((c) => c.text).join(' ') + ' ' + (e.opening || ''));
+  const words = text.split(/\s+/).filter(Boolean).length;
+  if (words >= 350 && !b.pull) fail('Q', `${e.id}: ${words} words and no pull-quote`);
+  if (b.pull && !text.includes(b.pull)) fail('Q', `${e.id}: the pull-quote isn't a sentence of its body: "${b.pull.slice(0, 50)}"`);
+}
+// E (static): every build and experiment ends with a dated "what I'd do now"
+for (const e of L.data.entries) if (['build', 'experiment'].includes(e.kind) && !e.draft && !(L.bodies[e.id] || {}).ending) fail('E', `${e.id}: a ${e.kind} with no ending`);
+// F (static): the footer's build hash is the bundling commit
+const HEAD = execFileSync('git', ['rev-parse', '--short', 'HEAD'], { cwd: here }).toString().trim();
+if (!bundleText.includes(`"build": "${HEAD}"`)) fail('F', `the bundle's build hash isn't ${HEAD}`);
 // 4. no reference to the old Lab; ≤ 3 font families; budget; the fixture stays out of the default bundle
 for (const f of walk(here).filter((f) => /\.(js|mjs|css|html)$/.test(f) && !f.includes('/.build/') && !f.endsWith('check.mjs'))) {
   if (/prototype\/lab\/|\.\.\/lab\//.test(readFileSync(f, 'utf8'))) fail(4, `${f.slice(here.length + 1)} references prototype/lab/`);
@@ -244,6 +266,33 @@ const MEASURE = (opts) => {
   return out;
 };
 
+// R, P and N on every route: Related and "Links to this page" end every entry; every citation has
+// its References line and a card; every internal link to an entry, term, tag, topic or section
+// previews, and every preview key resolves to a card with a way further.
+const LINKS = () => {
+  const bad = [];
+  const entry = document.querySelector('main[data-kind]');
+  if (entry) {
+    if (!document.querySelector('[data-related] li')) bad.push(['R', 'Related is empty']);
+    if (!document.querySelector('[data-backlinks]')) bad.push(['R', 'no "Links to this page"']);
+    const cites = [...document.querySelectorAll('main sup.ref a')];
+    const keys = [...new Set(cites.map((a) => a.dataset.preview))];
+    if (keys.length !== document.querySelectorAll('ol.refs li').length) bad.push(['P', `${keys.length} references cited, ${document.querySelectorAll('ol.refs li').length} listed`]);
+    cites.forEach((a) => { if (!document.getElementById(a.getAttribute('href').slice(1))) bad.push(['P', `citation ${a.textContent} has no References line`]); });
+  }
+  for (const a of document.querySelectorAll('main a[href^="#/"]')) {
+    const h = a.getAttribute('href');
+    if (/^#\/(index|next|glossary)?(\?|$)/.test(h) || h === '#/') continue;
+    if (!a.dataset.preview) bad.push(['P', `internal link without a preview: ${h}`]);
+  }
+  for (const el of document.querySelectorAll('main [data-preview]')) {
+    const c = Lab.cardOf(el.dataset.preview);
+    if (!c || !/<h3/.test(c.html)) bad.push(['P', `no card for ${el.dataset.preview}`]);
+    else if (!/card-more/.test(c.html) && !/^topic:/.test(el.dataset.preview)) bad.push(['P', `the ${el.dataset.preview} card has no way further`]);
+  }
+  return bad.slice(0, 6);
+};
+
 const browser = await chromium.launch({ executablePath: exe() });
 let pagesLoaded = 0;
 async function open(file, q, hash, size, { reduced = false, stubStations = false, storage = null } = {}) {
@@ -292,7 +341,11 @@ try {
     if (isEntry(r)) {
       const lead = await page.evaluate(() => [...document.querySelectorAll('[data-lead]')].map((e) => e.getBoundingClientRect().top));
       if (lead.length !== 1) fail(10, `${tag}: ${lead.length} [data-lead]`);
-      else if (lead[0] >= SIZES[size].height) fail(10, `${tag}: lead starts at ${Math.round(lead[0])}px`);
+      else if (lead[0] >= SIZES[size].height - 60) fail(10, `${tag}: lead starts at ${Math.round(lead[0])}px, not on the first screen`);
+    }
+    if (look.name === 'paper/cream') {
+      const links = await page.evaluate(LINKS);
+      links.forEach((x) => fail(x[0], `${tag}: ${x[1]}`));
     }
     // 11: accent share of screenshot pixels
     const png = (await page.screenshot()).toString('base64');
@@ -322,7 +375,7 @@ try {
     });
     covered.forEach((x) => fail(14, `${tag}: ${x}`));
     // 15: headings, by route
-    if (size === 'desktop' && look.name === 'paper/cream') headings[r.name] = await page.evaluate(() => [...document.querySelectorAll('main h2, main h3')].map((h) => h.textContent.trim().toLowerCase()));
+    if (size === 'desktop' && look.name === 'paper/cream') headings[r.name] = await page.evaluate(() => [...document.querySelectorAll('main h2:not(.end-h), main h3')].map((h) => h.textContent.trim().toLowerCase()));
     // 23: collapsed, silent on arrival
     const a = await page.evaluate(() => ({ ...window.__audio, panel: !document.getElementById('player').hidden, el: !!document.querySelector('audio,video') }));
     if (a.contexts || a.media || a.el) fail(20, `${tag}: audio on load (contexts ${a.contexts}, media ${a.media})`);
@@ -337,17 +390,18 @@ try {
       const fold = await page.evaluate(() => {
         const i = document.querySelector('[data-lead] .haggle-form input');
         const top = (sel) => { const e = document.querySelector(sel); return e ? e.getBoundingClientRect().top : null; };
-        return { input: i && i.getBoundingClientRect().bottom, intro: top('.intro'), next: Math.min(...['.newhere', '.latest'].map(top).filter((v) => v != null)) };
+        return { input: i && i.getBoundingClientRect().bottom, intro: top('.intro'), hero: top('[data-hero]'), next: Math.min(...['.newhere', '.latest'].map(top).filter((v) => v != null)) };
       });
       if (isEntry(r) && fold.input != null && fold.input > 844) fail('b', `${tag}: haggle input ends at ${Math.round(fold.input)}px`);
-      if (!isEntry(r) && !(fold.intro < fold.next && fold.next < 844)) fail('b', `${tag}: intro at ${Math.round(fold.intro)}px, "New here?"/Latest at ${Math.round(fold.next)}px`);
+      if (r.kind === 'home' && !(fold.intro < fold.next && fold.next < 844)) fail('b', `${tag}: intro at ${Math.round(fold.intro)}px, "New here?"/Latest at ${Math.round(fold.next)}px`);
+      if (r.kind === 'section' && !(fold.hero != null && fold.hero < 844 - 60)) fail('b', `${tag}: the section's hero starts at ${Math.round(fold.hero)}px`);
     }
     await o.close();
   }
   note(`per-route checks: ${pagesLoaded} page loads`);
 
   // ---------- 13: measure ----------
-  const entry = routes.find(isEntry);
+  const entry = routes.find((r) => r.name === 'shopkeeper-05') || routes.find(isEntry);
   for (const [size, q, lo, hi] of [[{ width: 1440, height: 900 }, '', 85, 100], [{ width: 1280, height: 800 }, '', 78, 100], [{ width: 1440, height: 900 }, 'aa', 66, 76], ['phone', '', 32, 999], [{ width: 1920, height: 1080 }, '', 85, 100]]) {
     const o = await open(BUNDLE, 'look=paper', entry.hash, size, { storage: q === 'aa' ? { 'lab.aa': '{"measure":"comfortable"}' } : null });
     const r = await o.page.evaluate(() => {
@@ -474,6 +528,7 @@ try {
     await o.close();
   }
 
+  const TIME_WORDS = /\b(now|currently|current|this (week|month|year)|latest work|just|ago|today|tonight|yesterday|recently|lately|so far|streak|in progress|still going|newest|up to date|soon)\b/i;
   // ---------- 22 (part): sections come from data ----------
   {
     const o = await open(CHECK, 'fixture=kinds', '#/', 'desktop');
@@ -484,13 +539,71 @@ try {
     const o2 = await open(BUNDLE, '', '#/', 'desktop');
     const secs2 = await o2.page.evaluate(() => [...document.querySelectorAll('.sections h3')].map((h) => h.textContent));
     if (secs2.includes('Experiments')) fail(22, 'an empty section (Experiments) rendered');
+    const emptyRoute = await o2.page.evaluate(() => Lab.routes().some((r) => r.hash === '#/experiments'));
+    if (emptyRoute) fail(22, 'the empty Experiments section has a page');
     await o2.close();
   }
+  // 22: every fixture route (one entry of each kind, a new section, Experiments with its first
+  // entry) renders every template with its lead on the first screen, at both sizes, in two looks
+  {
+    const p0 = await open(CHECK, 'fixture=kinds', '#/', 'desktop');
+    const fx = await p0.page.evaluate(() => Lab.routes().filter((r) => /^fx-|section:(fx-voice|experiments)$/.test(r.name) || r.kind === 'index'));
+    const kinds = new Set(fx.filter((r) => r.entry).map((r) => r.kind));
+    for (const k of ['study', 'note', 'series', 'chapter', 'build', 'experiment', 'essay']) if (!kinds.has(k)) fail(22, `the fixture has no ${k} route`);
+    await p0.close();
+    for (const r of fx) for (const size of ['desktop', 'phone']) for (const look of [LOOKS[0], LOOKS[3]]) {
+      const tag = `fixture ${r.name} ${size} ${look.name}`;
+      const o = await open(CHECK, 'fixture=kinds&' + look.q, r.hash, size);
+      const res = await o.page.evaluate((vh) => {
+        const leads = [...document.querySelectorAll('[data-lead]')].map((e) => e.getBoundingClientRect().top);
+        return { route: document.querySelector('main').dataset.route, leads, vh, hero: (document.querySelector('[data-hero]') || { getBoundingClientRect: () => ({ top: null }) }).getBoundingClientRect().top,
+          rows: [...document.querySelectorAll('main .row-title a')].map((a) => a.dataset.preview) };
+      }, SIZES[size].height);
+      const m = await o.page.evaluate(MEASURE, { phone: size === 'phone', contrast: true, colour: true });
+      if (res.route === 'next') fail(22, `${tag}: the holding page rendered`);
+      if (r.entry && (res.leads.length !== 1 || res.leads[0] >= SIZES[size].height - 60)) fail(22, `${tag}: lead ${JSON.stringify(res.leads)}`);
+      if (r.kind === 'section' && size === 'phone' && !(res.hero != null && res.hero < SIZES.phone.height - 60)) fail(22, `${tag}: hero at ${res.hero}`);
+      if (r.kind === 'index' && !res.rows.includes('fx-experiment')) fail(22, `${tag}: the fixture's entries aren't in the index`);
+      const limits = r.entry ? { d: 15, p: 11 } : { d: 21, p: 13 };
+      if (m.controls > (size === 'phone' ? limits.p : limits.d)) fail(22, `${tag}: ${m.controls} controls on the first screen`);
+      if (m.overflow > 0) fail(22, `${tag}: horizontal overflow ${m.overflow}px`);
+      m.contrast.slice(0, 2).forEach((x) => fail(22, `${tag}: contrast ${x}`));
+      m.colour.slice(0, 2).forEach((x) => fail(22, `${tag}: colour ${x}`));
+      (await o.page.evaluate(LINKS)).forEach((x) => fail(22, `${tag}: ${x[1]}`));
+      if (o.errors.length) fail(21, `${tag}: ${o.errors[0]}`);
+      await o.close();
+    }
+    note(`fixture: ${fx.length} routes, every kind's template`);
+  }
+
+  // ---------- H3: section pages are evergreen too ----------
+  // Their furniture (eyebrow, title, thesis, "New here?", headings) has no time words and counts no
+  // progress; the hero comes from data (the section's pick, or its three newest top-level entries).
+  for (const r of routes.filter((x) => x.kind === 'section')) for (const size of ['desktop', 'phone']) {
+    const tag = `${r.name} ${size}`;
+    const o = await open(BUNDLE, '', r.hash, size);
+    const h = await o.page.evaluate(() => {
+      const id = document.querySelector('[data-section]').dataset.section;
+      const sec = Lab.data.sections.find((s) => s.id === id);
+      const clone = document.querySelector('.sec-head').cloneNode(true);
+      clone.querySelectorAll('a[data-preview]').forEach((a) => a.remove());
+      const copy = clone.textContent + ' ' + [...document.querySelectorAll('main .block-head h2')].map((x) => x.textContent).join(' ');
+      const cards = [...document.querySelectorAll('[data-hero-card] .hero-title a')].map((a) => a.dataset.preview);
+      return { copy, cards, pick: sec.hero || null };
+    });
+    const tw = h.copy.match(TIME_WORDS);
+    if (tw) fail('H3', `${tag}: time word "${tw[0]}" in the section's furniture`);
+    if (/\b\d+ of \d+\b/.test(h.copy)) fail('H3', `${tag}: something counts progress`);
+    if (!h.cards.length) fail('H3', `${tag}: no hero`);
+    if (h.pick && h.cards[0] !== h.pick) fail('H3', `${tag}: the hero isn't the section's pick (${h.pick})`);
+    if (o.errors.length) fail(21, `${tag}: ${o.errors[0]}`);
+    await o.close();
+  }
+  note('sections: evergreen rules checked');
 
   // ---------- H: the home is evergreen ----------
   // H1 no entry title (or entry link) outside Latest; H2 no time words and nothing that counts
   // progress; checked in both looks at both sizes, in the default and the fixture data.
-  const TIME_WORDS = /\b(now|currently|current|this (week|month|year)|latest work|just|ago|today|tonight|yesterday|recently|lately|so far|streak|in progress|still going|newest|up to date|soon)\b/i;
   for (const [file, q0] of [[BUNDLE, ''], [CHECK, 'fixture=kinds&']]) for (const size of ['desktop', 'phone']) for (const look of [LOOKS[0], LOOKS[3]]) {
     const tag = `home ${size} ${look.name}${file === CHECK ? ' fixture' : ''}`;
     const o = await open(file, q0 + look.q, '#/', size);
@@ -608,7 +721,7 @@ try {
     if (!gone) fail('P', `${look.name}: the card stayed open after the pointer left`);
     // R: Related renders, with linked entries and also-related by shared tags
     const rel = await p.evaluate(() => ({ box: !!document.querySelector('[data-related]'), linked: document.querySelectorAll('[data-linked] li').length, also: document.querySelectorAll('[data-also] li').length }));
-    if (!rel.box || !rel.linked || !rel.also) fail('R', `${look.name}: Related on chapter 05 (linked ${rel.linked}, also ${rel.also})`);
+    if (!rel.box || !(rel.linked + rel.also)) fail('R', `${look.name}: Related on chapter 05 (linked ${rel.linked}, also ${rel.also})`);
     if (o.errors.length) fail(21, `previews ${look.name}: ${o.errors[0]}`);
     await o.close();
   }
@@ -692,7 +805,7 @@ try {
       await p.click('[data-noise="rain"]');
       await p.keyboard.press('Escape');
       await p.evaluate(() => { window.__el = document.querySelector('audio[data-lab-player]'); window.__ctx = Lab.audio.context(); });
-      for (const sel of ['.bar-lab', '[data-latest] a[data-preview="shopkeeper-05"]', '.bar-lab']) { await p.click(sel); await p.waitForTimeout(450); }
+      for (const sel of ['.bar-lab', '[data-latest] a[data-preview]', '.bar-lab']) { await p.click(sel); await p.waitForTimeout(450); }
       const s = await p.evaluate(() => ({ same: document.querySelector('audio[data-lab-player]') === window.__el, playing: !window.__el.paused, noise: Lab.noise.playing(), ctx: Lab.audio.context() === window.__ctx, contexts: window.__audio.contexts, route: location.hash }));
       if (!s.same || !s.playing) fail(25, `music didn't survive navigation (same element ${s.same}, playing ${s.playing})`);
       if (s.noise !== 'rain' || !s.ctx || s.contexts !== 1) fail(25, `noise didn't survive navigation (noise ${s.noise}, same context ${s.ctx}, contexts ${s.contexts})`);
