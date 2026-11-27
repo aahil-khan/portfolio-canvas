@@ -106,16 +106,21 @@ The one place the site borrows someone else's palette: Aahil asked for "the clas
 | Light themes | `#ebedf0` | `#9be9a8` | `#40c463` | `#30a14e` | `#216e39` |
 | Dark themes | `#161b22` | `#0e4429` | `#006d32` | `#26a641` | `#39d353` |
 
-- **Squares:** 10px, 3px gaps (a 13px step), radius 2px, drawn 1:1 at every width. Each carries
+- **Width:** the block is as wide as `.wrap`'s content box, like the project cards above it
+  (Aahil, 27 Nov: centred, and not "smaller than rest of the site").
+- **Squares:** GitHub's proportions, 10 on a 13 step with radius 2, scaled so the year fills the
+  block's inner width. Never under 10px: where it would be, the grid is 1:1 and scrolls sideways,
+  opening on the newest weeks, its left edge faded over 32px so no label is sliced. The heading is a card heading, 1.375rem (1.1875rem at ≤ 560px).
+  Each carries
   GitHub's inner 1px outline, built the way GitHub builds it, from the ink: `--ink` at 6% on
   light themes and 10% on dark ones. GitHub's dark `#161b22` is within 1.1:1 of several dark
   surfaces here (Mocha 1.01:1), and the outline is what keeps an empty day visible: the empty
   level reaches ≥ 1.1:1 against the surface by its fill or its outline in all 18 themes (lowest
   1.14:1, One Dark). The greens are not text, so they are held to that, not to 4.5:1.
 - **Labels:** months across the top, Mon / Wed / Fri down the side, "Less … More" under the
-  right edge, all at 0.75rem in `--ink-subtle`, as GitHub sets them.
+  right edge, all at 0.8125rem, the page's meta size, in `--ink-subtle`, as GitHub sets them.
 - **Hover:** a dark tooltip above the square, GitHub's: `#24292f` on light themes, `#3d444d` on
-  dark ones, white 0.75rem text, 6px radius, a 5px caret. The hovered square gets a 1.5px `--ink`
+  dark ones, white 0.8125rem text, 6px radius, a 5px caret. The hovered square gets a 1.5px `--ink`
   ring. No animation: it moves from square to square with the pointer, as GitHub's does. It stays
   inside the block's frame, sliding its caret rather than clipping at either end.
 
