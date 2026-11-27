@@ -51,7 +51,9 @@ export function ContribHover({ weeks, children }: { weeks: number; children: Rea
 
     const show = (e: PointerEvent) => {
       const s = svg.getBoundingClientRect()
-      const at = cellAt(e.clientX - s.left, e.clientY - s.top, weeks)
+      // CSS scales the SVG to fill the block: rendered px per SVG unit
+      const k = s.width / svg.viewBox.baseVal.width
+      const at = cellAt((e.clientX - s.left) / k, (e.clientY - s.top) / k, weeks)
       // in a gap, keep the last square: moving between neighbours should not flicker
       if (!at) return
       const key = `${at.week},${at.day}`
@@ -61,8 +63,9 @@ export function ContribHover({ weeks, children }: { weeks: number; children: Rea
       shown = key
 
       const b = root.getBoundingClientRect()
-      const x = s.left - b.left + at.week * STEP
-      const y = s.top - b.top + at.day * STEP
+      const x = s.left - b.left + at.week * STEP * k
+      const y = s.top - b.top + at.day * STEP * k
+      r.style.width = r.style.height = `${CELL * k}px`
       r.style.transform = `translate(${x}px, ${y}px)`
       r.hidden = false
 
@@ -70,7 +73,7 @@ export function ContribHover({ weeks, children }: { weeks: number; children: Rea
       t.hidden = false
       // centred on the square, then held inside the block so it never clips at either end
       const w = t.offsetWidth
-      const mid = x + CELL / 2
+      const mid = x + (CELL * k) / 2
       const left = Math.min(Math.max(0, mid - w / 2), Math.max(0, b.width - w))
       t.style.transform = `translate(${left}px, ${y - t.offsetHeight - LIFT}px)`
       t.style.setProperty('--caret', `${mid - left}px`)

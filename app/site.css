@@ -857,17 +857,18 @@
  * (`--c-tip`) are set per theme by `scaleCss()` in lib/contrib-grid.ts, from each theme's `dark`
  * flag, in a <style> the component hoists into <head>.
  *
- * The SVG is drawn 1:1: a 10px square on a 13px step (`--contrib-step`), at every width. The month
- * labels sit on a grid of the same step and the weekday labels on rows of it, which keeps each
- * over its week and beside its day.
+ * The block is as wide as the wrap, like the cases above it, and the calendar scales to fill it.
+ * `--contrib-step` is the width left of the weekday labels shared among the weeks (the last has no
+ * gap: 3/13 of a step), so squares and gaps grow together. It never drops under 13px: there the
+ * SVG is 1:1 (10px squares) and the strip scrolls. The month labels sit on a grid of the same step
+ * and the weekday labels on rows of it, which keeps each over its week and beside its day.
  */
 .site .contrib {
-  --contrib-step: 13px;
-  --contrib-months-h: 15px;
-  --contrib-label: 0.75rem;
+  --contrib-months-h: 17px;
+  --contrib-days-w: 2rem;
+  /* the size of the meta lines on this page (`.case__no`) */
+  --contrib-label: 0.8125rem;
   position: relative;
-  width: fit-content;
-  max-width: 100%;
   margin-top: clamp(3.5rem, 10vh, 7rem);
   min-width: 0;
   border: var(--bw) solid var(--border);
@@ -878,25 +879,30 @@
 }
 .site .contrib__title {
   margin-bottom: 1rem;
-  font-size: 1.125rem;
-  font-weight: 500;
-  line-height: 1.3;
+  /* a card's heading on this page, as `.job h3` */
+  font-size: 1.375rem;
+  letter-spacing: -0.015em;
 }
-.site .contrib__body { position: relative; min-width: 0; }
+.site .contrib__body { position: relative; min-width: 0; container-type: inline-size; }
+/* on the children, so `cqw` is the body's width */
+.site .contrib__body > * {
+  --contrib-step: max(13px, calc((100cqw - var(--contrib-days-w) - 6px) / (var(--weeks) - 3 / 13)));
+  --contrib-cell: calc(var(--contrib-step) * 10 / 13);
+}
 
 .site .contrib__cal {
   display: grid;
-  grid-template-columns: auto minmax(0, 1fr);
+  grid-template-columns: var(--contrib-days-w) minmax(0, 1fr);
   column-gap: 6px;
   font-size: var(--contrib-label);
   color: var(--ink-subtle);
 }
 .site .contrib__days {
   display: grid;
-  grid-template-rows: repeat(7, calc(var(--contrib-step) - 3px));
-  row-gap: 3px;
+  grid-template-rows: repeat(7, var(--contrib-cell));
+  row-gap: calc(var(--contrib-step) - var(--contrib-cell));
   padding-top: calc(var(--contrib-months-h) + 4px);
-  line-height: calc(var(--contrib-step) - 3px);
+  line-height: var(--contrib-cell);
   white-space: nowrap;
 }
 
@@ -916,12 +922,18 @@
 
 .site .contrib__months {
   display: grid;
-  grid-template-columns: repeat(var(--weeks), var(--contrib-step));
+  /* the last week is never labelled (LABEL_WEEKS), and its column would outrun the SVG */
+  grid-template-columns: repeat(calc(var(--weeks) - 1), var(--contrib-step));
   height: var(--contrib-months-h);
   line-height: var(--contrib-months-h);
   white-space: nowrap;
 }
-.site .contrib__svg { display: block; overflow: visible; }
+.site .contrib__svg {
+  display: block;
+  overflow: visible;
+  width: calc(var(--contrib-step) * (var(--weeks) - 3 / 13));
+  height: calc(var(--contrib-step) * (7 - 3 / 13));
+}
 .site .contrib__svg rect {
   fill: var(--c0);
   stroke: var(--c-line);
@@ -956,9 +968,9 @@
 }
 .site .contrib__key { display: inline-flex; align-items: center; gap: 3px; }
 .site .contrib__key i {
-  width: 10px;
-  height: 10px;
-  border-radius: 2px;
+  width: var(--contrib-cell);
+  height: var(--contrib-cell);
+  border-radius: calc(var(--contrib-cell) / 5);
   background: var(--c0);
   box-shadow: inset 0 0 0 1px var(--c-line);
 }
@@ -1007,9 +1019,8 @@
 }
 .site .contrib__ring {
   z-index: 1;
-  width: 10px;
-  height: 10px;
-  border-radius: 2px;
+  /* its size is the hovered square's, set by contrib-hover.tsx */
+  border-radius: 3px;
   outline: 1.5px solid var(--ink);
   outline-offset: 1px;
 }
@@ -1017,6 +1028,7 @@
 @media (max-width: 560px) {
   /* a thumb's target on a phone, as the case links have */
   .site .contrib__foot a { min-height: 44px; }
+  .site .contrib__title { font-size: 1.1875rem; }
 }
 
 /* ---------- credentials ---------- */

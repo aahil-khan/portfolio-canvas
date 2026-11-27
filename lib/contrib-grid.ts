@@ -7,7 +7,7 @@
  * of the component so a recorded GraphQL response can be checked by `node --test`.
  *
  * The look is GitHub's own profile calendar (design/DIRECTION.md, "The contributions calendar on
- * `/`"): 10px squares on a 13px step, drawn 1:1, so the SVG's units are CSS pixels at every width.
+ * `/`"): 10px squares on a 13px step. Those are the SVG's units; CSS draws it 1:1 or larger.
  */
 import type { Contributions } from './github.ts'
 
@@ -20,7 +20,7 @@ export const RADIUS = 2
 /** Days in a week: the rows. */
 export const ROWS = 7
 /**
- * The fewest weeks a month label may have to itself. A 0.75rem "Sep" is about 22px, under two
+ * The fewest weeks a month label may have to itself. A 0.8125rem "Sep" is about 24px, under two
  * steps, so a month that starts closer than this to the next one (the partial first month,
  * usually) or to the calendar's right edge is left unlabelled rather than overprinted.
  */

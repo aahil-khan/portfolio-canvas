@@ -15,8 +15,8 @@ import { fetchContributions } from '@/lib/github'
  * GitHub is slow, it is null and the block is left out entirely, so `/` still renders and nothing
  * on the page apologises.
  *
- * The look is GitHub's profile calendar: its greens, picked by the theme's `dark` flag, its 10px
- * squares and its labels (design/DIRECTION.md). On a narrow screen the strip scrolls sideways and
+ * The look is GitHub's profile calendar: its greens, picked by the theme's `dark` flag, its
+ * squares (scaled to fill the block, never under 10px) and its labels (design/DIRECTION.md). On a narrow screen the strip scrolls sideways and
  * opens on the newest weeks, with no script (see `.contrib__scroll` in site.css). The only client
  * code is the hover layer, `contrib-hover.tsx`.
  */
