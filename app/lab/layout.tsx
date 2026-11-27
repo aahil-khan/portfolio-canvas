@@ -11,6 +11,7 @@ import { SoftNav } from '@/components/lab/motion/soft-nav'
 import { PreviewRoot } from '@/components/lab/preview'
 import { Progress } from '@/components/lab/progress'
 import { getLab } from '@/lib/lab/content'
+import { labFallbackCss, labInkCss } from '@/lib/lab/ink'
 import { labMetadata } from '@/lib/lab/seo'
 
 import './lab.css'
@@ -41,19 +42,37 @@ const hand = localFont({
   adjustFontFallback: false,
 })
 
+/*
+ * The reading serif, one of Aa's three fonts (DIRECTION, "The Lab → Type"). Declared here but
+ * never preloaded, and only the reading text under `html[data-aa-font="serif"]` names it, so a
+ * browser fetches it once a reader chooses it, and never otherwise (the check holds that).
+ */
+// the const's name is the family name next/font gives it
+const literata = localFont({
+  src: [
+    { path: './fonts/literata-latin-wght-normal.woff2', weight: '200 900', style: 'normal' },
+    { path: './fonts/literata-latin-wght-italic.woff2', weight: '200 900', style: 'italic' },
+  ],
+  variable: '--font-lab-serif',
+  display: 'swap',
+  preload: false,
+  adjustFontFallback: 'Times New Roman',
+})
+
 export const metadata = labMetadata()
 
 /**
- * Every Lab page: the look's boot script before anything paints (after the root layout's theme
- * boot script), the bar and its reading progress, the page, the footer, and the slots
+ * Every Lab page: the theme and reader settings' boot script before anything paints (after the root
+ * layout's theme boot script), the Lab's contrast CSS, the bar and its reading progress, the page, the footer, and the slots
  * (API.md §6). `<VisitPing/>` counts Lab visits through the site's one admission gate.
  */
 export default function LabLayout({ children }: { children: ReactNode }) {
   const { copy } = getLab()
   return (
-    <div className={`lab ${mono.variable} ${hand.variable}`} data-lab data-scroll-page>
+    <div className={`lab ${mono.variable} ${hand.variable} ${literata.variable}`} data-lab data-scroll-page>
       <LookBoot />
-      <span className="lab-rail-sentinel" data-rail-sentinel aria-hidden="true" />
+      {/* dark palettes' ink lifted for reading, and Lab Dark for a reader without JavaScript (lib/lab/ink.ts) */}
+      <style dangerouslySetInnerHTML={{ __html: `${labInkCss()}\n${labFallbackCss()}` }} />
       <MotionProvider>
         <SmoothScroll />
         <SoftNav />

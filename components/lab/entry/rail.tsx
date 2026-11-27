@@ -4,43 +4,43 @@ import { useEffect, useRef, type ReactNode } from 'react'
 
 import type { TocItem } from '@/components/lab/entry/body'
 import { prefersReducedMotion } from '@/lib/motion/reduced'
-import { LAB } from '@/lib/motion/tokens'
 
 /**
- * The rail (decision 6, NEXT.md shortcut 5; DIRECTION "Layout"). From 1200px it is a sticky column
- * beside the text, centred with it, scrolling on its own when taller than the screen; below that,
- * a block after the text without On this page or its copy of Share (CSS does both).
- *
- * It waits for the first scroll: `data-waiting` until the reader is a quarter of a screen down,
- * found by an IntersectionObserver on a sentinel 25vh tall at the top of the page, so a short
- * entry's first screen stays the lead and the text (rules 5 and 7). A page too short to scroll
- * that far shows it at once. With JavaScript off the attribute is inert (its CSS needs
- * `scripting: enabled`), so the rail is simply there.
+ * The rail (decision 6, revised 27 Nov; DIRECTION "Layout"). From 1200px in the Side panel layout it
+ * is a column beside the text, centred with it and there from the first screen: one sticky box as
+ * tall as the room under the bar, whose sections (On this page, Share, Links to this page, Related,
+ * Tags) each keep their heading and scroll their own list when it is long (CSS). Below 1200px, and
+ * in the Centred layout, it is a block after the text, without On this page or its copy of Share.
  *
  * On this page marks the heading being read (`aria-current="location"`): the last heading to pass a
  * line just under the bar, found by an IntersectionObserver on the headings. Its accent bar slides
- * between them in 180ms.
+ * between them in 180ms, and its list scrolls to keep the marked heading in view.
  */
 export function Rail({ label, toc, children }: { label: string; toc: TocItem[]; children: ReactNode }) {
   const ref = useRef<HTMLElement>(null)
 
-  // waiting for the first quarter-screen of scroll
+  // each scrolling list says whether there is more below or above it (`data-more`, `data-less`), so
+  // CSS can fade that edge: a reader sees a list continues even where scrollbars are hidden
   useEffect(() => {
     const rail = ref.current
-    const sentinel = document.querySelector('[data-rail-sentinel]')
     if (!rail) return
-    const reveal = (on: boolean) => rail.toggleAttribute('data-waiting', !on)
-    const short = () => document.documentElement.scrollHeight - window.innerHeight < window.innerHeight * LAB.rail.after
-    if (!sentinel || short()) {
-      // a page too short to scroll: the rail shows at once, without its copy of Share, since the
-      // one at the end is on the same screen (mockup README, "The entry rail")
-      rail.toggleAttribute('data-short', true)
-      reveal(true)
-      return
+    const lists = [...rail.querySelectorAll<HTMLElement>('[data-rail-list]')]
+    const edge = (l: HTMLElement) => {
+      l.toggleAttribute('data-more', l.scrollTop + l.clientHeight < l.scrollHeight - 2)
+      l.toggleAttribute('data-less', l.scrollTop > 2)
     }
-    const io = new IntersectionObserver(([e]) => reveal(!e.isIntersecting || short()))
-    io.observe(sentinel)
-    return () => io.disconnect()
+    const ro = new ResizeObserver(() => lists.forEach(edge))
+    const onScroll = (e: Event) => edge(e.currentTarget as HTMLElement)
+    for (const l of lists) {
+      ro.observe(l)
+      if (l.firstElementChild) ro.observe(l.firstElementChild)
+      l.addEventListener('scroll', onScroll, { passive: true })
+      edge(l)
+    }
+    return () => {
+      ro.disconnect()
+      for (const l of lists) l.removeEventListener('scroll', onScroll)
+    }
   }, [])
 
   // On this page: the heading being read
@@ -62,13 +62,21 @@ export function Rail({ label, toc, children }: { label: string; toc: TocItem[]; 
       if (cur === current) return
       current = cur
       links.forEach((a, i) => (i === cur ? a.setAttribute('aria-current', 'location') : a.removeAttribute('aria-current')))
+      const a = links[cur]
       if (bar) {
-        const a = links[cur]
         bar.style.opacity = a ? '1' : '0'
         if (a) {
           bar.style.height = `${a.offsetHeight}px`
           bar.style.transform = `translateY(${a.offsetTop}px)`
         }
+      }
+      // keep the marked heading in view inside its own list, never by scrolling the page
+      const list = a?.closest<HTMLElement>('[data-rail-list]')
+      if (a && list && list.scrollHeight > list.clientHeight) {
+        const lr = list.getBoundingClientRect()
+        const ar = a.getBoundingClientRect()
+        if (ar.top < lr.top) list.scrollTop -= lr.top - ar.top + 8
+        else if (ar.bottom > lr.bottom) list.scrollTop += ar.bottom - lr.bottom + 8
       }
     }
     // Observers say when a heading crosses the reading line (one watches below it, one the strip above
@@ -102,8 +110,10 @@ export function Rail({ label, toc, children }: { label: string; toc: TocItem[]; 
   }, [toc])
 
   return (
-    <aside ref={ref} className="lab-rail" data-rail data-waiting="" data-lenis-prevent aria-label={label}>
-      {children}
+    <aside ref={ref} className="lab-rail" data-rail aria-label={label}>
+      <div className="lab-rail-in" data-rail-in>
+        {children}
+      </div>
     </aside>
   )
 }
@@ -112,20 +122,31 @@ export function Rail({ label, toc, children }: { label: string; toc: TocItem[]; 
 export function Toc({ title, toc }: { title: string; toc: TocItem[] }) {
   if (toc.length < 2) return null
   return (
-    <nav className="lab-toc lab-rail-wide" data-toc aria-labelledby="lab-toc-h">
+    <nav className="lab-toc lab-rail-wide lab-rail-sec" data-toc data-rail-section="toc" aria-labelledby="lab-toc-h">
       <h2 className="end-h" id="lab-toc-h">
         {title}
       </h2>
-      <div style={{ position: 'relative' }}>
-        <span className="lab-toc-bar" data-toc-bar aria-hidden="true" />
-        <ol>
-          {toc.map((t) => (
-            <li key={t.id}>
-              <a href={`#${t.id}`}>{t.text}</a>
-            </li>
-          ))}
-        </ol>
-      </div>
+      <RailList>
+        <div className="lab-toc-track">
+          <span className="lab-toc-bar" data-toc-bar aria-hidden="true" />
+          <ol>
+            {toc.map((t) => (
+              <li key={t.id}>
+                <a href={`#${t.id}`}>{t.text}</a>
+              </li>
+            ))}
+          </ol>
+        </div>
+      </RailList>
     </nav>
+  )
+}
+
+/** A rail section's list: from 1200px it scrolls on its own when long (CSS), apart from the page. */
+export function RailList({ children }: { children: ReactNode }) {
+  return (
+    <div className="lab-rail-list" data-rail-list data-lenis-prevent>
+      {children}
+    </div>
   )
 }

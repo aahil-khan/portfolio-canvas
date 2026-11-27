@@ -150,8 +150,13 @@ find things by these attributes, never by class names:
 | `article[data-entry="<id>"]` | the entry: lead, body, ending. Previews fetch a page and take this element |
 | `[data-body-end]` | an empty marker after the body's last block, before References. Progress reaches 1 exactly when it meets the viewport's bottom edge |
 | `[data-lead]` | exactly one per entry: the lead |
-| `[data-rail]` | the rail (from 1200px) or its block after the text |
+| `[data-rail]` | the rail: from 1200px in the Side panel layout a column beside the text, there from the first screen; below 1200px, or Centred, a block after the text |
+| `[data-rail-in]` | the rail's sticky box, no taller than the room under the bar; it never scrolls as one block |
+| `[data-rail-section]`, `[data-rail-list]` | one rail section (`toc`, `share`, `backlinks`, `related`, `tags`) and its list, which scrolls on its own when longer than its share |
 | `[data-toc]` | On this page |
+| `[data-share="end"\|"rail"]` | Share: one row of `button[data-share-copy]`, `a[data-share-x]`, `a[data-share-linkedin]`, and `button[data-share-native]` only where `navigator.share` exists. No menu |
+| `button[data-theme-open]` → `[data-theme-panel]` | the theme picker: `button[data-theme-option="<id>"][aria-pressed]` for each of the 20, in a Light and a Dark group, each with a `[data-swatch]` |
+| `button[data-aa]` → `[data-aa-panel]` | the reader settings: `[data-aa-row="size\|font\|leading\|measure\|layout"]`, `button[data-aa-option="<key>:<value>"]`, `[data-aa-smaller]`, `[data-aa-larger]`, `[data-aa-reset]`. Either panel is a popover, or a sheet at ≤ 760px with `button[data-panel-close]` |
 | `[data-tool-log]`, `[data-num]` | text set in Space Mono |
 | `[data-annot]`, `time[datetime]` | text set in Caveat (with `[data-dot]`, the reading dot) |
 | `[data-demo-marker]` | the "Demo content" marker in the bar, only while demo is on |
@@ -188,20 +193,28 @@ DOM `CustomEvent`s dispatched on `document`, so lanes never import each other.
     `--lab-measure`, `--lab-bar-h`, `--lab-pad`, `--lab-gutter`, `--lab-rail`,
     `--lab-margin-col`, `--lab-edge`, and the Lab theme's `--border-strong`, `--highlight`,
     `--tb-tint`, `--focus`.
-- **Themes.** `themes` is the site's 18. `labThemes` is the Lab theme's two palettes,
-  `lab-light` and `lab-dark`, each `labOnly: true`. `allThemes` is both, and only
-  `themeCss()` and the contrast check read it. **No picker outside the Lab may list a Lab theme**,
-  and none can: they import `themes`. `lib/theme.ts` accepts only the 18.
-- **The look** (`lib/lab/look.ts`, the one owner): Paper is the site's theme; the Lab theme sets
-  `data-theme` to its palette and leaves `canvas.theme` alone. State lives on `<html>`:
-  `data-look` (`paper | lab`), `data-mode` (`light | dark`), `data-theme`, `data-paper-theme`,
-  `data-dark` (`1 | 0`), `data-aa-measure` (`wide | comfortable`), `data-aa-size` (`16 | 17 | 19`).
-  `lookBootScript` writes them before first paint; the Lab layout renders it as the first thing in
-  its tree, after the root layout's theme boot script. React reads them only through
-  `useSyncExternalStore(subscribeLook, getLookSnapshot, getLookServerSnapshot)`. The setters are
-  `setLook`, `setLabMode`, `setPaperTheme` (through `lib/theme.ts`), `toggleDark`, `setAa`.
-  For one visit, `?look=paper|lab`, `?mode=light|dark` and `?theme=<site theme>` override the
-  stored look without saving it; the check opens pages that way.
+- **Themes.** `themes` is the site's 18. `labThemes` is the Lab's two palettes, `lab-light`
+  (Lab Light) and `lab-dark` (Lab Dark), each `labOnly: true`. `allThemes` is both: `themeCss()`,
+  the contrast check and the Lab's own picker read it. **No picker outside the Lab may list a Lab
+  palette**, and none can: they import `themes`. `lib/theme.ts` accepts only the 18.
+- **Contrast in the Lab** (`lib/lab/ink.ts`): inside `.lab` every dark palette's ink tiers are
+  lifted for reading, to body ≥ 10:1, secondary ≥ 7:1 and the smallest labels ≥ 5.5:1
+  (`labInkCss()`), and `labFallbackCss()` makes a page with no `data-look` (JavaScript off) Lab
+  Dark. The Lab layout renders both; the canvas and `/` never load them.
+- **The theme and the reader settings** (`lib/lab/look.ts`, the one owner). The Lab keeps its
+  own theme, any of the 20, in `lab.theme`, **Lab Dark by default** whatever the system prefers;
+  it never reads or writes `canvas.theme`. State lives on `<html>`: `data-theme` (the palette),
+  `data-look` (`lab` for the two Lab palettes, `paper` for a site theme; derived, the CSS keys its
+  frame constants on it), `data-dark` (`1 | 0`), and the reader settings `data-aa-size`
+  (`14`…`22`), `data-aa-font` (`grotesk | serif | system`), `data-aa-leading`
+  (`tight | normal | relaxed`), `data-aa-measure` (`narrow | comfortable | wide`) and
+  `data-aa-layout` (`side | centred`). `lookBootScript` writes them before first paint; the Lab
+  layout renders it as the first thing in its tree, after the root layout's theme boot script.
+  With JavaScript off none is written, and their absence reads as the defaults. React reads them
+  only through `useSyncExternalStore(subscribeLook, getLookSnapshot, getLookServerSnapshot)`. The
+  setters are `setLabTheme`, `setAa` and `resetAa`. For one visit, `?theme=<id>` (any of the 20)
+  overrides the stored theme without saving it; the check opens pages that way, and sets reader
+  settings through `lab.aa`.
 - **`lib/motion/tokens.ts`**: `EASE` (`cubic-bezier(0.16, 1, 0.3, 1)`), `EASE_BEZIER` for Motion,
   `SITE`, `LAB` (every Lab duration and distance from NEXT shortcut 3), `INTENT` (300 / 90 / 600 /
   220), `REDUCED.maxDuration` (120), and `sec()` (ms → s). Components never type a duration.
@@ -236,17 +249,17 @@ change when it starts sending.
 
 | Key | Store | Owner | Holds |
 |---|---|---|---|
-| `canvas.theme` | local | `lib/theme.ts` | the site theme, which Paper follows |
+| `canvas.theme` | local | `lib/theme.ts` | the site theme. The Lab never reads or writes it |
 | `canvas.sound` | local | `lib/audio.ts` | mute |
 | `canvas.station`, `canvas.ambience`, `canvas.masterVolume`, `canvas.ambienceVolume`, `canvas.uiVolume` | local | `lib/audio.ts`, `lib/ambience.ts` | the shared Sound menu |
-| `lab.look` | local | `lib/lab/look.ts` | `paper \| lab` |
-| `lab.mode` | local | `lib/lab/look.ts` | `light \| dark` |
-| `lab.aa` | local | `lib/lab/look.ts` | `{"measure":"wide\|comfortable","size":16\|17\|19}` |
+| `lab.theme` | local | `lib/lab/look.ts` | the Lab's theme, any of the 20 ids; absent means `lab-dark` |
+| `lab.aa` | local | `lib/lab/look.ts` | `{"size":14…22,"font":"grotesk\|serif\|system","leading":"tight\|normal\|relaxed","measure":"narrow\|comfortable\|wide","layout":"side\|centred"}`; a missing or bad field is its default |
 | `lab.from` | session | `lib/canvas/session.ts` (PR 16) | `desk` while the reader came from the canvas |
 | `canvas.admitted` | session | `lib/admission.ts` | `1` once this tab passed the admission gate; never sent |
 
-The mockup's `lab.theme` key is gone: Paper is the site's own theme. Every read and write is in a
-`try`, because storage can be absent.
+The first build's `lab.look` and `lab.mode` are gone (27 Nov: one picker with every theme instead
+of Paper or the Lab theme plus light and dark). Every read and write is in a `try`, because storage
+can be absent.
 
 ## 11. The check
 
@@ -283,7 +296,7 @@ built" into a failure**; without it, "not built" is reported and passes. A rule 
 | `root`, `base`, `fixtureBase` | the repo, the server under test, the fixture server (or `null`) |
 | `lab` | `{ built, routes }` from `scripts/lab-routes.ts`, which reads `routes()`; `built` is false until PR 2 |
 | `visibility` | `{ labPublic, labDemo, DEMO_CONTENT, DEMO_PUBLIC }` |
-| `widths`, `looks` | the matrix: 390×844, 768×1024, 1024×768, 1440×900, 1920×1080; Paper cream, Paper tokyo-night, Lab theme Light, Lab theme Dark (each a `query` string for §8's overrides). `--quick` narrows to 390 and 1440 in one look, for iteration only |
+| `widths`, `looks` | the matrix: 390×844, 768×1024, 1024×768, 1440×900, 1920×1080; Lab Dark (first: the default), Lab Light, cream, tokyo-night (each a `theme=<id>` query string, §8). `--quick` narrows to 390 and 1440 in Lab Dark, for iteration only |
 | `get(path, { fixture })` | `{ status, headers, text }`, redirects not followed |
 | `page(path, contextOptions)` | `{ page, context, errors, close }` in the one shared Chromium (cached, never installed), console and page errors collected |
 | `quick`, `lighthouse` | the flags |
@@ -355,7 +368,7 @@ proper page, and nothing crashes on empty data:
 - `/lab/index` and `/lab/glossary` render with an empty-state line from `copy`.
 - Section, entry and tag routes 404 cleanly: there are none to generate, and
   `dynamicParams = false` refuses the rest.
-- The bar, the footer, the look switch and Aa work as on any page.
+- The bar, the footer, the theme picker and Aa work as on any page.
 - `homeBands()`, `latest()`, `related()` and `backlinks()` return `[]`, `newHere()` returns `null`,
   and `routes()` returns the home, the index and the glossary.
 

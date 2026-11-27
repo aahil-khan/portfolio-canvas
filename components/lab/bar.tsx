@@ -1,14 +1,14 @@
 import Link from 'next/link'
 
 import { Aa } from '@/components/lab/aa'
-import { DarkToggle, LookSwitch } from '@/components/lab/look-switch'
 import { SoundControl } from '@/components/lab/sound'
+import { ThemePicker } from '@/components/lab/theme-picker'
 import { labDemo } from '@/lib/lab/visibility'
 
 /**
  * The Lab's bar: AK (home, a full page load out of the Lab), Lab, the "Demo content" marker while
- * demo is on, then Look, Aa, light and dark, and the Sound slot. Fixed, never inside anything that
- * pans. The trail and the dot are `Progress`, rendered beside it by the layout. Controls that need
+ * demo is on, then the theme picker, Aa (the reader settings) and the Sound slot. Fixed, never
+ * inside anything that pans. The trail and the dot are `Progress`, rendered beside it by the layout. Controls that need
  * JavaScript carry `data-needs-js` and hide without it.
  */
 export function Bar({ copy }: { copy: Record<string, string> }) {
@@ -34,13 +34,33 @@ export function Bar({ copy }: { copy: Record<string, string> }) {
         ) : null}
       </div>
       <div className="lab-bar-right">
-        <LookSwitch
-          labels={{ group: copy.lookLabel, paper: copy.lookPaper, lab: copy.lookLab, toPaper: copy.lookToPaper, toLab: copy.lookToLab }}
-        />
+        <ThemePicker labels={{ label: copy.themeLabel, light: copy.themeLight, dark: copy.themeDark, close: copy.panelClose }} />
         <Aa
-          labels={{ label: copy.aaLabel, measure: copy.aaMeasure, wide: copy.aaWide, comfortable: copy.aaComfortable, size: copy.aaSize, px: copy.aaPx }}
+          labels={{
+            label: copy.aaLabel,
+            close: copy.panelClose,
+            size: copy.aaSize,
+            smaller: copy.aaSmaller,
+            larger: copy.aaLarger,
+            px: copy.aaPx,
+            font: copy.aaFont,
+            fontGrotesk: copy.aaFontGrotesk,
+            fontSerif: copy.aaFontSerif,
+            fontSystem: copy.aaFontSystem,
+            leading: copy.aaLeading,
+            tight: copy.aaTight,
+            normal: copy.aaNormal,
+            relaxed: copy.aaRelaxed,
+            measure: copy.aaMeasure,
+            narrow: copy.aaNarrow,
+            comfortable: copy.aaComfortable,
+            wide: copy.aaWide,
+            layout: copy.aaLayout,
+            side: copy.aaSide,
+            centred: copy.aaCentred,
+            reset: copy.aaReset,
+          }}
         />
-        <DarkToggle toDark={copy.themeToDark} toLight={copy.themeToLight} />
         <SoundControl />
       </div>
     </header>
