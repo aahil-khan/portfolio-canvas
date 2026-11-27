@@ -920,6 +920,16 @@
 .site .contrib__scroll > * { direction: ltr; }
 .site .contrib__in { display: grid; gap: 4px; width: max-content; }
 
+/*
+ * Where the year does not fit (under 724px: the weekday column, its gap and 53 weeks at 1:1), the
+ * strip fades out at its left edge, so a month label or square is never sliced there. The same
+ * width of padding before the oldest week keeps that week clear when scrolled to the far end.
+ */
+@container (max-width: 723px) {
+  .site .contrib__scroll { mask-image: linear-gradient(to right, transparent 6px, #000 32px); }
+  .site .contrib__in { padding-left: 32px; }
+}
+
 .site .contrib__months {
   display: grid;
   /* the last week is never labelled (LABEL_WEEKS), and its column would outrun the SVG */

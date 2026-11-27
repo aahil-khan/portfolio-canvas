@@ -201,6 +201,7 @@ function measure() {
     scrolls: scroll.scrollWidth > scroll.clientWidth + 1,
     newestInView: lb.right <= sb.right + 1 && lb.left >= sb.left - 1,
     focusable: scroll.tabIndex === 0,
+    mask: getComputedStyle(scroll).maskImage,
     stops: [...block.querySelectorAll('a, [tabindex]')].filter((e) => e.tabIndex >= 0).length,
   }
 }
@@ -352,6 +353,8 @@ async function browserAssertions(ctx, base, expect, where, fail, notes) {
         if (m.unfilled > 4) fail.push(`${tag}: the grid stops ${m.unfilled.toFixed(1)}px short of the block's inner width`)
         if (m.scrolls) fail.push(`${tag}: the strip scrolls, but the year should fit`)
       }
+      // a strip that scrolls fades its left edge, so no label is sliced there; one that fits does not
+      if (m.scrolls !== (m.mask !== 'none')) fail.push(`${tag}: the strip ${m.scrolls ? 'scrolls without a fade at its edge' : 'fits but is faded'}`)
       if (!m.focusable) fail.push(`${tag}: the strip is not a keyboard stop`)
       if (m.stops !== 2) fail.push(`${tag}: ${m.stops} keyboard stops in the block, expected 2 (the strip and the login)`)
       if (m.overflowX > 0) fail.push(`${tag}: the page overflows sideways by ${m.overflowX}px`)

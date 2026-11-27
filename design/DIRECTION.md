@@ -110,7 +110,7 @@ The one place the site borrows someone else's palette: Aahil asked for "the clas
   (Aahil, 27 Nov: centred, and not "smaller than rest of the site").
 - **Squares:** GitHub's proportions, 10 on a 13 step with radius 2, scaled so the year fills the
   block's inner width. Never under 10px: where it would be, the grid is 1:1 and scrolls sideways,
-  opening on the newest weeks. The heading is a card heading, 1.375rem (1.1875rem at ≤ 560px).
+  opening on the newest weeks, its left edge faded over 32px so no label is sliced. The heading is a card heading, 1.375rem (1.1875rem at ≤ 560px).
   Each carries
   GitHub's inner 1px outline, built the way GitHub builds it, from the ink: `--ink` at 6% on
   light themes and 10% on dark ones. GitHub's dark `#161b22` is within 1.1:1 of several dark
