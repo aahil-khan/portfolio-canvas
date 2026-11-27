@@ -8,7 +8,8 @@
 //   C  contrast: every visible text node ≥ 4.5:1 (3:1 when large) on its real ground, in cream, tokyo-night, and the Lab theme's Light and Dark
 //   A  accent ≤ 5% of the screen's pixels
 //   G  every share card is exactly 1200 × 630, there are 18 (6 kinds × 3 looks), and no entry image is cropped
-//   P  every name take decodes, is 0.5–2 s long, and plays
+//   P  eight name takes, each a male American or British voice, aa/hil 0.9–1.15 as measured, ≤ 20 KB, decodes, is
+//      0.5–2 s long, and plays
 //   F  the name's Devanagari and Arabic faces load from the page and cover every glyph; both hover states are open and on
 //      screen without a second Latin "Aahil"; hovering plays nothing; the voice bubble plays the clip and its dots move
 //      only while it plays
@@ -205,7 +206,7 @@ for (const [view, looks] of RUNS) {
           await document.fonts.ready;
           const has = (fam, txt) => document.fonts.check(`20px "${fam}"`, txt) && [...document.fonts].some((x) => x.family.replace(/"/g, '') === fam && x.status === 'loaded');
           const tips = [...document.querySelectorAll('.nt')].map((t) => t.getBoundingClientRect());
-          return { dev: has('Tiro Devanagari Hindi', 'आहिल'), ar: has('Noto Naskh Arabic', 'عاهل'), latin: [...document.querySelectorAll('.nt')].some((t) => /Aahil/.test(t.textContent.replace(/how Aahil is said/, ''))), tips: tips.length, off: tips.filter((r) => r.width === 0 || r.left < 0 || r.right > innerWidth).length,
+          return { dev: has('Tiro Devanagari Hindi', 'आहिल'), ar: has('Noto Naskh Arabic', 'اءحل'), latin: [...document.querySelectorAll('.nt')].some((t) => /Aahil/.test(t.textContent.replace(/how Aahil is said/, ''))), tips: tips.length, off: tips.filter((r) => r.width === 0 || r.left < 0 || r.right > innerWidth).length,
             sr: [...document.querySelectorAll('button.name')].every((b) => b.textContent === 'Aahil' && document.getElementById(b.getAttribute('aria-describedby'))) };
         });
         if (!f.dev) fail('F', `${tag}: the Devanagari face did not load`);
@@ -244,21 +245,26 @@ for (const [view, looks] of RUNS) {
           for (const li of document.querySelectorAll('.take')) {
             const a = li.querySelector('audio'), k = li.dataset.take;
             try {
-              const buf = await ac.decodeAudioData(await (await fetch(a.src)).arrayBuffer());
+              const bytes = await (await fetch(a.src)).arrayBuffer(), kb = bytes.byteLength / 1024;
+              const t = TAKES.find((x) => x.k === k);
+              const buf = await ac.decodeAudioData(bytes);
               if (a.readyState < 1) await new Promise((r) => a.addEventListener('loadedmetadata', r, { once: true }));
               li.querySelector('.play').click();
               const t0 = performance.now();
               while (a.currentTime < 0.25 && !a.ended && performance.now() - t0 < 3000) await new Promise((r) => setTimeout(r, 50));
-              out.push({ k, dur: buf.duration, played: a.currentTime >= 0.25 || a.ended, ui: li.classList.contains('is-playing') || a.ended });
+              out.push({ k, kb, ratio: t.aa / t.hil, voice: t.voice, accent: t.accent, dur: buf.duration, played: a.currentTime >= 0.25 || a.ended, ui: li.classList.contains('is-playing') || a.ended });
               a.pause(); li.classList.remove('is-playing');
             } catch (e) { out.push({ k, error: String(e) }); }
           }
           return out;
         });
-        if (res.length !== 9) fail('P', `${res.length} takes, not 9`);
+        if (res.length !== 8) fail('P', `${res.length} takes, not 8`);
         for (const r of res) {
           if (r.error) fail('P', `take ${r.k}: ${r.error}`);
           else {
+            if (!/^(am_\w+ American|bm_\w+ British)$/.test(`${r.voice} ${r.accent}`)) fail('P', `take ${r.k}: ${r.voice} ${r.accent} is not a male US or UK voice`);
+            if (r.ratio < 0.9 || r.ratio > 1.15) fail('P', `take ${r.k}: aa/hil ${r.ratio.toFixed(2)}`);
+            if (r.kb > 20) fail('P', `take ${r.k}: ${r.kb.toFixed(1)} KB`);
             if (r.dur < 0.5 || r.dur > 2) fail('P', `take ${r.k}: ${r.dur.toFixed(2)} s long`);
             if (!r.played) fail('P', `take ${r.k} did not play`);
             if (!r.ui) fail('P', `take ${r.k}: its button didn't show it playing`);

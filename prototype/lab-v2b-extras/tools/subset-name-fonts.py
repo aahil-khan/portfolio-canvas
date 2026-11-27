@@ -1,5 +1,5 @@
 # Usage: <venv with fonttools+brotli>/python subset-name-fonts.py <font.ttf> <out.woff2> <text> [wght]
-#   Tiro Devanagari Hindi: "आहिलऽ"   Noto Naskh Arabic (variable; 4th arg pins wght, here 500): "عاهل"
+#   Tiro Devanagari Hindi: "आहिल"   Noto Naskh Arabic (variable; 4th arg pins wght, here 500): "اءحل"
 # Subset the two script faces to the glyphs of the name alone, with full shaping, as woff2.
 import sys
 from fontTools import subset

@@ -16,10 +16,10 @@ node prototype/lab-v2b-extras/check.mjs --bundle      # bundle only: .build/ and
 |---|---|
 | `index.html` | every view, rendered from the sample data at the top of its script |
 | `extras.css` | the tokens, plus rules copied from `app/site.css` (`.site`), `app/desktop.css` (`.desk`, `.card`, `#dock`) and `lab-v2b/lab.css` (`.lab`), and the new surfaces |
-| `audio/` | the nine name takes (one Kokoro reference, eight Piper), as Opus, 3.6 to 5.5 KB each |
-| `fonts/` | Tiro Devanagari Hindi and Noto Naskh Arabic, subset to the name's glyphs (3.9 and 3.1 KB), with their OFL licences |
+| `audio/` | the eight name takes (Kokoro-82M, American and British male voices), as Opus, 3.6 to 8.0 KB each |
+| `fonts/` | Tiro Devanagari Hindi and Noto Naskh Arabic, subset to the name's glyphs, आहिल and اءحل (3.8 and 2.5 KB), with their OFL licences |
 | `assets/` | a tall photo (his archive's smartwatch board, 420 × 560 WebP) for the share-card proof |
-| `tools/` | `render-takes.py` (Kokoro), `render-piper.py` (Piper), `measure-takes.py` and `subset-name-fonts.py`: how the takes and fonts were made |
+| `tools/` | `render-takes.py` (Kokoro), `measure-takes.py` (syllable lengths), `score-takes.py` (which syllable carries the stress) and `subset-name-fonts.py`: how the takes and fonts were made |
 | `check.mjs` | the bundler and the check |
 | `COPY.md` | every line written for this page, for veto |
 
@@ -53,9 +53,20 @@ the canvas and Paper), or `?look=lab&mode=light|dark` (the Lab theme). `?bare` h
 - **The bubble's dots move** for exactly as long as the clip plays, tied to the audio's `playing` and
   `ended`/`pause` events. Under reduced motion they pulse in opacity only. (`shot` always emulates reduced motion,
   so the PR adds one frame from a normal-motion browser.)
-- **Arabic script replaces Urdu:** عاهل in Noto Naskh Arabic, `lang="ar" dir="rtl"`, with the spelling still to
-  confirm. Nastaliq is gone.
+- **Arabic script replaces Urdu:** عاهل in Noto Naskh Arabic, `lang="ar" dir="rtl"`, with the spelling then still to
+  confirm (final in round 4: اءحل). Nastaliq is gone.
 - **Voices:** see below. He confirmed the pronunciation and disliked Kokoro's voices.
+
+## Round 4 (Aahil's verdict)
+
+> "spelling is fine, i hate all hindi voices go for american or british or leave the voice part"
+
+- **The spellings are final:** आहिल, and اءحل (what he typed on an Arabic keyboard: ا ء ح ل). The Naskh subset now
+  carries ء and ح. "Spelling to confirm" is gone.
+- **Every Hindi and Indian take is gone,** the round-3 Kokoro reference (`hm_omega`, a Hindi voice) included.
+- **Eight takes in American and British male voices** (the `voices` view). **This is the last voice round:** if none
+  of them is right, the name ships with no voice.
+- `name-hover`'s bubble plays take 1 unless another is picked on the voices page.
 
 ## Sample content
 
@@ -147,46 +158,38 @@ These are Lab pages, with the Lab bar and footer, in all four looks.
 - how to cite.
 
 ### The name: new voices (`voices`)
-The target is still **AA-hil**: two roughly equal syllables, an open "aa" and a short "hil", with the h heard. He
-confirmed that pronunciation in round 3 and disliked Kokoro's voices. So the page holds:
+The target is the pronunciation he approved in round 3: **"aaa hil"**, two syllables about equal in length, the
+stress on the first, never "ah-HILL".
 
-- **The reference:** one Kokoro take (`hm_omega`, from आऽहिल, aa 0.33 s and hil 0.33 s), kept for how it should
-  sound.
-- **Eight new takes** in Piper's Indian male voices, rendered locally (`tools/render-piper.py`, through `cx heavy`):
-  - each from its own script's spelling, at length scales 1.3, 1.5 and 1.7, four tries each (Piper varies per call);
-  - measured by `tools/measure-takes.py`. Where the h is voiced and has no aspiration burst (`rohan`), the split
-    falls back to the dip in voicing. The spectrograms confirmed the splits.
-  - Kept within ±25%.
+- **Rendered:** `tools/render-takes.py`, through `cx heavy`. Kokoro-82M (Apache 2.0, local) in its twelve American
+  (`am_*`) and British (`bm_*`) male voices, `am_santa` left out as a novelty voice. Each read eight phoneme strings
+  (back or front *a*, held or not, a secondary stress on *hil*, or as two words) and two spellings ("Aahil",
+  "Aah-hil"), at speeds 0.8 to 1.1: 474 renders (the slot's timeout cut the last six, all `bm_lewis` spellings).
+- **Measured:** `tools/measure-takes.py` splits each take at the h. 119 renders came out at 0.9–1.15; `am_eric` had none.
+  `tools/score-takes.py` then compares the two syllables' pitch and loudness, so a take that puts the weight on
+  *hil* is caught.
+- **Picked:** one take per voice, from the eight voices Kokoro's own notes grade highest, alternating US and UK. Each
+  split was checked on a spectrogram, and each take was re-measured **from the shipped Opus file**. One first pick
+  (`am_fenrir` at 0.8) moved to 0.79 after encoding and was swapped for one that holds.
+- **Not listened to:** I can't hear. The choice by ear is his.
 
-| Take | Engine · voice | Licence of the voice | Spoken as |
-|---|---|---|---|
-| 2–4 | Piper · `hi_IN` rohan (Hindi) | IndicTTS, IIT Madras: royalty-free, derivative works "freely distributed". It requires keeping their copyright notice and referencing IITM. | ˈaːhɪl, ˈaːːhɪl |
-| 5–6 | Piper · `ml_IN` arjun (Malayalam) | The IndicTTS Malayalam corpus, under the same IIT Madras licence | ˈaːhil |
-| 7–8 | Piper · `te_IN` venkatesh (Telugu) | CC BY 4.0 (AI4Bharat IndicVoices-R) | ˈaːhil |
-| 9 | Piper · `ne_NP` chitwan (Nepali) | CC0. The card gives no gender; its median pitch is 137 Hz, in the male range. | ˈaːːhɪl |
+| Take | Voice | Accent | Input | Speed | aa / hil (s) | Ratio | aa pitch / hil pitch | KB |
+|---|---|---|---|---|---|---|---|---|
+| 1 | `am_michael` | American | `ˈɑːhɪl` | 0.9 | 0.26 / 0.26 | 1.00 | 139 / 108 Hz | 4.7 |
+| 2 | `bm_george` | British | `ˈaːːhɪl` | 0.8 | 0.41 / 0.42 | 0.98 | 185 / 115 Hz | 8.0 |
+| 3 | `am_fenrir` | American | `ˈɑːːˌhɪl` | 1.0 | 0.20 / 0.21 | 0.95 | 192 / 121 Hz | 3.6 |
+| 4 | `bm_fable` | British | `ˈɑːhɪl` | 0.9 | 0.24 / 0.23 | 1.04 | 168 / 99 Hz | 5.0 |
+| 5 | `am_puck` | American | `ˈɑːːˌhɪl` | 0.8 | 0.25 / 0.25 | 1.00 | 143 / 124 Hz | 4.7 |
+| 6 | `bm_lewis` | British | `ˈɑː hɪl` | 0.8 | 0.33 / 0.33 | 1.00 | 107 / 80 Hz | 5.6 |
+| 7 | `am_liam` | American | "Aah-hil" | 0.8 | 0.35 / 0.32 | 1.09 | 154 / 98 Hz | 6.9 |
+| 8 | `bm_daniel` | British | `ˈɑːːhɪl` | 0.9 | 0.30 / 0.28 | 1.07 | 148 / 114 Hz | 6.9 |
 
-- **The engines:**
-  - Piper (`piper-tts` 1.8, GPL-3.0) and Kokoro (Apache-2.0) run offline at build time. Only the clips ship, and
-    the GPL doesn't reach the audio.
-  - Piper's voice files are MIT; the voices' licences above are those of their training data.
-- **The IndicTTS licence:** read from the Wayback Machine's copy of `iitm.ac.in/donlab/indictts/downloads/license.pdf`,
-  because the live site didn't answer.
-- **Excluded:**
-  - `hi_IN` pratham: CC BY-NC-SA, non-commercial.
-  - `ur_PK` fasih: unstable, with erratic 0.2–0.6 s takes, and none passed.
-  - AI4Bharat Indic Parler-TTS (Apache-2.0, with named Hindi and Indian-English male speakers): it is gated, and
-    downloading needs a signed-in Hugging Face account that accepts its terms. That is Aahil's call. It is the best
-    remaining candidate if none of these works.
-  - espeak-ng: not installed, and robotic.
-  - Meta MMS and Coqui XTTS: non-commercial licences.
-- **Downloads:** the four Piper voices used (~240 MB) stay under the TTS notes directory. The unused `fasih`
-  download is deleted.
-
-"Use on the name" picks the take the bubble plays, on this page and on `name-hover`.
+Every voice is Kokoro-82M's, under its Apache 2.0 licence. The engine runs offline at build time, and only the
+clips ship. "Use on the name" picks the take the bubble plays, on this page and on `name-hover`.
 
 ### The name on hover (`name-hover`)
 It is drawn open twice: **Hovering** (the bubble waits) and **Playing** (after a press on the bubble).
-- **The lockup:** आहिल · عاهل, set to one optical size, in the look's window frame with a 3px hard shadow, kept
+- **The lockup:** आहिल · اءحل, set to one optical size, in the look's window frame with a 3px hard shadow, kept
   small because it is a hover. The scripts are in ink, and the only accent is the bubble.
   - Devanagari: Tiro Devanagari Hindi, 1.31rem.
   - Arabic: Noto Naskh Arabic Medium, 1.25rem.
@@ -198,7 +201,7 @@ It is drawn open twice: **Hovering** (the bubble waits) and **Playing** (after a
   - `lang="hi"` on the Devanagari, and `lang="ar" dir="rtl"` on the Arabic.
   - A screen reader hears "Aahil" once, then "pronounced AA-hil". The bubble is labelled "Play how Aahil is said:
     AA-hil", and the scripts are `aria-hidden`.
-- **Spellings to confirm:** आहिल and عاهل.
+- **Spellings:** आहिल and اءحل, final (round 4).
 
 ## Found on the way
 
@@ -231,7 +234,7 @@ for the Lab's pages), at 390 × 844 and 1440 × 900. That is 60 screens.
 | C | Every visible text run is at least 4.5:1 (3:1 when large) on the ground it is drawn on, composited through every translucent layer. Text that something else covers, such as the drawer's scrim, is skipped. |
 | A | The accent is at most 5% of the screen's pixels, counting every accent on screen, so the Dark cards count too. |
 | G | 18 share cards, each exactly 1200 × 630, and no entry image cropped: each is drawn at its own aspect ratio, inside its area. One wide image and one tall image must be present. |
-| P | All nine takes decode in an `AudioContext`, are 0.5 to 2 s long, and play from their buttons. |
+| P | Eight takes, each a male American (`am_*`) or British (`bm_*`) voice with aa/hil at 0.9–1.15 and at most 20 KB. Each decodes in an `AudioContext`, is 0.5 to 2 s long, and plays from its button. |
 | F | On `name-hover`, the Devanagari and Arabic faces load from the page and cover the name's glyphs. Both states are open and on screen, with no second Latin "Aahil", and each name button reads "Aahil" with a description. Hovering plays nothing. The bubble plays the clip once, and its dots move only while it plays. |
 | N | No request leaves `data:` or `file:` on load, and no script error. |
 | S | The bundle is under 8 MB and points at no local file. |

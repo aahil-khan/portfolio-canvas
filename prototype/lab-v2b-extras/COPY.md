@@ -84,7 +84,7 @@ Not listed here:
 | The voice bubble | AA-hil | Aahil's own description of the name ("aaa hil") |
 | The bubble's label, for a screen reader | Play how Aahil is said: AA-hil | Says what pressing it does |
 | The name's description | pronounced AA-hil | Read once after the name |
-| The two scripts | आहिल · عاهل | **Spellings to confirm.** आहिल is the plain Devanagari, and عاهل the Arabic-script spelling |
+| The two scripts | आहिल · اءحل | **Final** (Aahil, round 4). आहिल in Devanagari; اءحل is what he typed on an Arabic keyboard (ا ء ح ل) |
 
 ## The Lab theme
 

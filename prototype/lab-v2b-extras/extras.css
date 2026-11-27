@@ -567,14 +567,13 @@ html[data-bare] .mock-tag { display: none; }
 .namedemo .in { padding: 18px 20px 20px; }
 .lab .takes-h { font-size: var(--fs-h2); letter-spacing: -.01em; margin-top: 40px; }
 .lab .takes-h + .takes { margin-top: 14px; }
-.take .in-txt[lang="hi"] { font-family: 'Tiro Devanagari Hindi', var(--sans); font-weight: 400; font-size: 1.125rem; color: var(--ink-muted); }
 .take .lic { color: var(--ink); }
 .syl { display: flex; gap: 3px; width: 120px; margin: 6px 0 6px auto; }
 .syl i { display: block; height: 6px; border-radius: 2px; background: var(--ink-muted); }
 .syl i + i { background: var(--ink); }
 
 /* ---------- NEW: the name on hover ----------
-   Round 3: one line, no second "Aahil" (the reader is hovering it): आहिल · عاهل and a voice bubble. Small, as a
+   Round 3: one line, no second "Aahil" (the reader is hovering it): आहिल · اءحل and a voice bubble. Small, as a
    hover should be: the look's window frame with a hard 3px offset; the scripts in ink; the one accent is the bubble.
    The scripts are set to one optical size. Sound only from the bubble; its dots move while the clip plays. */
 .lab button.name { display: inline; font: inherit; color: inherit; background: none; border: 0; padding: 0; cursor: pointer;
@@ -612,7 +611,7 @@ html[data-bare] .mock-tag { display: none; }
 .lab .hover-specs { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 20px; margin-top: 32px; }
 .lab .hover-spec .in { padding: 96px 20px 22px; }
 .lab .name-line { font-size: var(--fs-lede); line-height: 1.45; }
-.lab .confirm { margin-top: 20px; color: var(--ink-muted); display: flex; flex-wrap: wrap; gap: 6px 10px; align-items: baseline; }
+.lab .confirm { margin-top: 20px; color: var(--ink-muted); }
 .lab .cf-dev { font: 400 1.25rem/1.4 'Tiro Devanagari Hindi', serif; color: var(--ink); }
 .lab .cf-ar { font: 500 1.1875rem/1.6 'Noto Naskh Arabic', serif; color: var(--ink); }
 @media (max-width: 900px) { .lab .hover-specs { grid-template-columns: 1fr; } }

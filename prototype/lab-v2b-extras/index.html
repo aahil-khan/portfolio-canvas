@@ -35,15 +35,14 @@
   <img data-k="laptop" src="../lab-v2b/assets/essay-old-laptop-1.webp" alt="">
   <img data-k="watch" src="assets/watch-front.webp" alt="">
   <img data-k="github" src="../../public/logos/github-original.svg" alt="">
-  <audio data-k="hm-omega-devx-90" src="audio/hm-omega-devx-90.opus"></audio>
-  <audio data-k="piper-rohan-devx-150-1" src="audio/piper-rohan-devx-150-1.opus"></audio>
-  <audio data-k="piper-rohan-dev-170-0" src="audio/piper-rohan-dev-170-0.opus"></audio>
-  <audio data-k="piper-rohan-devx-130-0" src="audio/piper-rohan-devx-130-0.opus"></audio>
-  <audio data-k="piper-arjun-mal-150-3" src="audio/piper-arjun-mal-150-3.opus"></audio>
-  <audio data-k="piper-arjun-mal-170-0" src="audio/piper-arjun-mal-170-0.opus"></audio>
-  <audio data-k="piper-venkatesh-tel-170-3" src="audio/piper-venkatesh-tel-170-3.opus"></audio>
-  <audio data-k="piper-venkatesh-tel-130-2" src="audio/piper-venkatesh-tel-130-2.opus"></audio>
-  <audio data-k="piper-chitwan-devx-170-3" src="audio/piper-chitwan-devx-170-3.opus"></audio>
+  <audio data-k="kokoro-am-michael-p1-90" src="audio/kokoro-am-michael-p1-90.opus"></audio>
+  <audio data-k="kokoro-bm-george-p6-80" src="audio/kokoro-bm-george-p6-80.opus"></audio>
+  <audio data-k="kokoro-am-fenrir-p4-100" src="audio/kokoro-am-fenrir-p4-100.opus"></audio>
+  <audio data-k="kokoro-bm-fable-p1-90" src="audio/kokoro-bm-fable-p1-90.opus"></audio>
+  <audio data-k="kokoro-am-puck-p4-80" src="audio/kokoro-am-puck-p4-80.opus"></audio>
+  <audio data-k="kokoro-bm-lewis-p8-80" src="audio/kokoro-bm-lewis-p8-80.opus"></audio>
+  <audio data-k="kokoro-am-liam-t2-80" src="audio/kokoro-am-liam-t2-80.opus"></audio>
+  <audio data-k="kokoro-bm-daniel-p2-90" src="audio/kokoro-bm-daniel-p2-90.opus"></audio>
 </template>
 
 <script>
@@ -234,9 +233,9 @@ var VIEWS = {
     render: renderColophon },
   'agents': { title: 'For AI agents', looks: LOOKS_LAB, what: 'Where the plain-text versions are, how to cite, and a usage note that is his to write.',
     render: renderAgents },
-  'voices': { title: 'The name · new voices', looks: LOOKS_LAB, what: 'One Kokoro take as the pronunciation reference, then eight takes in free, local Indian male voices (Piper), each labelled engine, voice and licence, with its syllable lengths.',
+  'voices': { title: 'The name · new voices', looks: LOOKS_LAB, what: 'Eight takes in American and British male voices (Kokoro-82M, local), each labelled voice, accent and licence, with its measured syllable lengths.',
     render: renderVoices },
-  'name-hover': { title: 'The name · the hover', looks: LOOKS_LAB, what: 'Hovering the name shows आहिल · عاهل and a voice bubble. Pressing the bubble plays the name and its dots move while it plays. Nothing plays on hover.',
+  'name-hover': { title: 'The name · the hover', looks: LOOKS_LAB, what: 'Hovering the name shows आहिल · اءحل and a voice bubble. Pressing the bubble plays the name and its dots move while it plays. Nothing plays on hover.',
     render: renderNameHover },
 };
 
@@ -395,32 +394,31 @@ function renderAgents() {
 }
 
 // ---------- the name: takes, and the hover ----------
-// "Aahil" alone, aimed at AA-hil: two even syllables, an open aa, a short hil, the h heard. Aahil, round 3: the
-// pronunciation of the Kokoro takes is right, the voices are not, so one Kokoro take stays as the reference and the
-// rest are free, local engines with Indian male voices. aa / hil are measured from each waveform
-// (tools/measure-takes.py). Every licence below was read at its source; none is non-commercial.
+// "Aahil" alone, as "aaa hil": two syllables about equal, the stress on the first, never ah-HILL. Round 4 (Aahil:
+// "i hate all hindi voices go for american or british"): Kokoro-82M's American and British male voices, one take
+// each, from 474 renders (tools/render-takes.py). aa / hil are measured from each shipped Opus file
+// (tools/measure-takes.py), all within 0.95-1.09; tools/score-takes.py checked that aa is not quieter or lower than hil.
 var TAKES = [
-  { k: 'hm-omega-devx-90', g: 'ref', engine: 'Kokoro-82M', voice: 'hm_omega', lic: 'Apache 2.0', input: 'आऽहिल', ph: 'ˈaːːhɪl', how: 'Devanagari', sp: 'speed 0.9', aa: 0.33, hil: 0.33, kb: 5.5 },
-  { k: 'piper-rohan-devx-150-1', g: 'hi', engine: 'Piper', voice: 'hi_IN rohan', lic: 'IndicTTS (IIT Madras), royalty-free, credit kept', input: 'आऽहिल', ph: 'ˈaːːhɪl', how: 'Devanagari', sp: 'length 1.5', aa: 0.24, hil: 0.24, kb: 4.3 },
-  { k: 'piper-rohan-dev-170-0', g: 'hi', engine: 'Piper', voice: 'hi_IN rohan', lic: 'IndicTTS (IIT Madras), royalty-free, credit kept', input: 'आहिल', ph: 'ˈaːhɪl', how: 'Devanagari', sp: 'length 1.7', aa: 0.29, hil: 0.24, kb: 4.6 },
-  { k: 'piper-rohan-devx-130-0', g: 'hi', engine: 'Piper', voice: 'hi_IN rohan', lic: 'IndicTTS (IIT Madras), royalty-free, credit kept', input: 'आऽहिल', ph: 'ˈaːːhɪl', how: 'Devanagari', sp: 'length 1.3', aa: 0.20, hil: 0.23, kb: 3.8 },
-  { k: 'piper-arjun-mal-150-3', g: 'in', engine: 'Piper', voice: 'ml_IN arjun', lic: 'IndicTTS (IIT Madras), royalty-free, credit kept', input: null, ph: 'ˈaːhil', how: 'the Malayalam spelling', sp: 'length 1.5', aa: 0.31, hil: 0.31, kb: 4.4 },
-  { k: 'piper-arjun-mal-170-0', g: 'in', engine: 'Piper', voice: 'ml_IN arjun', lic: 'IndicTTS (IIT Madras), royalty-free, credit kept', input: null, ph: 'ˈaːhil', how: 'the Malayalam spelling', sp: 'length 1.7', aa: 0.36, hil: 0.38, kb: 5.3 },
-  { k: 'piper-venkatesh-tel-170-3', g: 'in', engine: 'Piper', voice: 'te_IN venkatesh', lic: 'CC BY 4.0', input: null, ph: 'ˈaːhil', how: 'the Telugu spelling', sp: 'length 1.7', aa: 0.33, hil: 0.35, kb: 5.1 },
-  { k: 'piper-venkatesh-tel-130-2', g: 'in', engine: 'Piper', voice: 'te_IN venkatesh', lic: 'CC BY 4.0', input: null, ph: 'ˈaːhil', how: 'the Telugu spelling', sp: 'length 1.3', aa: 0.22, hil: 0.22, kb: 3.6 },
-  { k: 'piper-chitwan-devx-170-3', g: 'in', engine: 'Piper', voice: 'ne_NP chitwan', lic: 'CC0', input: 'आऽहिल', ph: 'ˈaːːhɪl', how: 'Devanagari (Nepali)', sp: 'length 1.7', aa: 0.19, hil: 0.22, kb: 3.9 },
+  { k: 'kokoro-am-michael-p1-90', engine: 'Kokoro-82M', voice: 'am_michael', accent: 'American', lic: 'Apache 2.0', input: 'ˈɑːhɪl', how: 'phonemes', sp: 'speed 0.9', aa: 0.26, hil: 0.26, kb: 4.7 },
+  { k: 'kokoro-bm-george-p6-80', engine: 'Kokoro-82M', voice: 'bm_george', accent: 'British', lic: 'Apache 2.0', input: 'ˈaːːhɪl', how: 'phonemes', sp: 'speed 0.8', aa: 0.41, hil: 0.42, kb: 8.0 },
+  { k: 'kokoro-am-fenrir-p4-100', engine: 'Kokoro-82M', voice: 'am_fenrir', accent: 'American', lic: 'Apache 2.0', input: 'ˈɑːːˌhɪl', how: 'phonemes', sp: 'speed 1.0', aa: 0.20, hil: 0.21, kb: 3.6 },
+  { k: 'kokoro-bm-fable-p1-90', engine: 'Kokoro-82M', voice: 'bm_fable', accent: 'British', lic: 'Apache 2.0', input: 'ˈɑːhɪl', how: 'phonemes', sp: 'speed 0.9', aa: 0.24, hil: 0.23, kb: 5.0 },
+  { k: 'kokoro-am-puck-p4-80', engine: 'Kokoro-82M', voice: 'am_puck', accent: 'American', lic: 'Apache 2.0', input: 'ˈɑːːˌhɪl', how: 'phonemes', sp: 'speed 0.8', aa: 0.25, hil: 0.25, kb: 4.7 },
+  { k: 'kokoro-bm-lewis-p8-80', engine: 'Kokoro-82M', voice: 'bm_lewis', accent: 'British', lic: 'Apache 2.0', input: 'ˈɑː hɪl', how: 'phonemes, as two words', sp: 'speed 0.8', aa: 0.33, hil: 0.33, kb: 5.6 },
+  { k: 'kokoro-am-liam-t2-80', engine: 'Kokoro-82M', voice: 'am_liam', accent: 'American', lic: 'Apache 2.0', input: 'Aah-hil', how: 'the respelling', sp: 'speed 0.8', aa: 0.35, hil: 0.32, kb: 6.9 },
+  { k: 'kokoro-bm-daniel-p2-90', engine: 'Kokoro-82M', voice: 'bm_daniel', accent: 'British', lic: 'Apache 2.0', input: 'ˈɑːːhɪl', how: 'phonemes', sp: 'speed 0.9', aa: 0.30, hil: 0.28, kb: 6.9 },
 ];
-var GROUPS = [['ref', 'The pronunciation reference · Kokoro'], ['hi', 'Hindi · Piper'], ['in', 'Other Indian voices · Piper']];
-var DEFAULT_TAKE = 'piper-rohan-devx-150-1';
+window.TAKES = TAKES;   // read by check.mjs (rule P)
+var DEFAULT_TAKE = TAKES[0].k;   // the bubble plays take 1 unless the reader picks another
 var pickedTake = function () { try { var k = localStorage.getItem('extras.take'); return TAKES.some(function (t) { return t.k === k; }) ? k : DEFAULT_TAKE; } catch (e) { return DEFAULT_TAKE; } };
 
-// The hover (Aahil, round 3): one line, no second "Aahil" (the reader is already hovering it): आहिल · عاهل and a
+// The hover (Aahil, round 3): one line, no second "Aahil" (the reader is already hovering it): आहिल · اءحل and a
 // voice bubble. Sound only from the bubble (click, tap, Enter); its dots move for exactly as long as the clip plays.
 // A screen reader hears the button's "Aahil" once, then "pronounced AA-hil"; the scripts are decorative.
 function nameTip(id) {
   return '<span class="nt" role="group" aria-label="Aahil, written and said">' +
     '<span class="nt-dev nt-x" lang="hi" aria-hidden="true">आहिल</span><i class="nt-rule" aria-hidden="true"></i>' +
-    '<span class="nt-ar nt-x" lang="ar" dir="rtl" aria-hidden="true">عاهل</span>' +
+    '<span class="nt-ar nt-x" lang="ar" dir="rtl" aria-hidden="true">اءحل</span>' +
     '<button type="button" class="nt-say" aria-label="Play how Aahil is said: AA-hil"><span class="nt-dots" aria-hidden="true"><i></i><i></i><i></i></span>' +
     '<span id="' + id + '"><span class="sr">pronounced </span>AA-hil</span></button></span>';
 }
@@ -450,21 +448,19 @@ function wireName(root) {
 }
 
 function renderVoices() {
-  var bar = function (t) { var max = 0.4; return '<span class="syl" aria-hidden="true"><i style="width:' + Math.round(t.aa / max * 100) + '%"></i><i style="width:' + Math.round(t.hil / max * 100) + '%"></i></span>'; };
+  var bar = function (t) { var max = 0.45; return '<span class="syl" aria-hidden="true"><i style="width:' + Math.round(t.aa / max * 100) + '%"></i><i style="width:' + Math.round(t.hil / max * 100) + '%"></i></span>'; };
   return '<div class="lab">' + labBar(false) + '<div class="page"><article>' +
     '<p class="eyebrow">Mockup · the name</p><h1 class="title">“Aahil”, in new voices</h1>' +
-    '<p class="lede">The Kokoro takes said it right and sounded wrong, so one stays as the reference for how it should sound, and the rest are free voices that run on this machine: Piper’s Hindi and other Indian male voices. Each keeps the AA-hil balance, two syllables within a quarter of each other’s length, measured from the waveform.</p>' +
-    GROUPS.map(function (g) {
-      return '<h2 class="takes-h">' + g[1] + '</h2><ol class="takes">' + TAKES.filter(function (t) { return t.g === g[0]; }).map(function (t) {
-        var n = TAKES.indexOf(t) + 1;
-        return '<li class="box take" data-take="' + t.k + '"><button type="button" class="play" aria-label="Play take ' + n + ', ' + t.engine + ' ' + t.voice + '">' + ICON.play + '</button>' +
-          '<h3><span class="n">TAKE ' + n + '</span>' + t.engine + ' · ' + t.voice + ' ' + (t.input ? '<span class="in-txt" lang="hi">' + t.input + '</span>' : '') + '</h3>' +
-          '<p class="fed">From ' + t.how + ', spoken as <code>' + t.ph + '</code>, ' + t.sp + ' · <span class="lic">' + t.lic + '</span></p>' +
-          '<p class="facts-mini">aa ' + t.aa.toFixed(2) + ' s · hil ' + t.hil.toFixed(2) + ' s' + bar(t) + t.kb.toFixed(1) + ' KB Opus</p>' +
+    '<p class="lede">The last round of voices: eight American and British men, one take each, all Kokoro-82M on this machine. Each says “aaa hil”, the two syllables within a few hundredths of a second of each other and the stress on the first, measured from the clip itself. If none of them is right, the name ships without a voice.</p>' +
+    '<h2 class="takes-h">American and British · Kokoro-82M</h2><ol class="takes">' + TAKES.map(function (t, i) {
+        var n = i + 1;
+        return '<li class="box take" data-take="' + t.k + '"><button type="button" class="play" aria-label="Play take ' + n + ', ' + t.voice + ', ' + t.accent + '">' + ICON.play + '</button>' +
+          '<h3><span class="n">TAKE ' + n + '</span>' + t.voice + ' · ' + t.accent + ' male</h3>' +
+          '<p class="fed">' + t.engine + ', from ' + t.how + ' <code>' + t.input + '</code>, ' + t.sp + ' · <span class="lic">' + t.lic + '</span></p>' +
+          '<p class="facts-mini">aa ' + t.aa.toFixed(2) + ' s · hil ' + t.hil.toFixed(2) + ' s · ratio ' + (t.aa / t.hil).toFixed(2) + bar(t) + t.kb.toFixed(1) + ' KB Opus</p>' +
           '<div class="use"><button type="button" data-pick="' + t.k + '" aria-pressed="' + (t.k === pickedTake()) + '">Use on the name</button></div>' +
           '<audio preload="auto" src="' + asset(t.k) + '"></audio></li>';
-      }).join('') + '</ol>';
-    }).join('') +
+      }).join('') + '</ol>' +
     '<div class="box namedemo"><div class="window-bar"><span>On the name</span><span class="meta" data-picked></span></div><div class="in">' + nameLine('say-demo', null) +
       '<p class="meta" style="margin-top:10px">Hover the name, then press the voice bubble.</p></div></div>' +
     '</article></div>' + labFoot('') + '</div>';
@@ -502,14 +498,14 @@ function renderNameHover() {
     '<p class="eyebrow">Mockup · the name, on hover</p><h1 class="title">Aahil, on hover</h1>' +
     '<p class="lede">Hovering his name shows it in Devanagari and Arabic script, with a voice bubble. Pressing the bubble plays the name, and its dots move for as long as the clip lasts. Nothing plays on hover.</p>' +
     '<div class="hover-specs">' + spec('open', 'Hovering', 'the bubble waits') + spec('playing', 'Playing', 'after a press on the bubble') + '</div>' +
-    '<p class="confirm"><span class="sample-flag">spelling to confirm</span> <span lang="hi" class="cf-dev">आहिल</span> in Devanagari, <span lang="ar" dir="rtl" class="cf-ar">عاهل</span> in Arabic script.</p>' +
+    '<p class="confirm">The spellings are final: <span lang="hi" class="cf-dev">आहिल</span> in Devanagari, <span lang="ar" dir="rtl" class="cf-ar">اءحل</span> in Arabic script. The bubble plays take 1 unless another is picked on the voices page.</p>' +
     '</article></div>' + labFoot('') + '</div>';
 }
 
 // ---------- the index ----------
 function renderIndex() {
   return '<div class="ix"><h1>The surfaces the mockup never drew</h1>' +
-    '<p>Plan plan-the-real-lab, PR 3. A static proof of every door into the Lab, the share cards, the colophon, For AI agents, GitHub contributions on /, and the six takes of the name, for a verdict before any of it is built in React.</p>' +
+    '<p>Plan plan-the-real-lab, PR 3. A static proof of every door into the Lab, the share cards, the colophon, For AI agents, GitHub contributions on /, and the takes of the name, for a verdict before any of it is built in React.</p>' +
     '<p>Every entry title, date and count is sample content: the real Lab starts empty and shows demo content until Aahil adds his own. Judge the surfaces, not the words in them.</p>' +
     '<div class="ix-grid">' + Object.keys(VIEWS).map(function (id) {
       var v = VIEWS[id];
@@ -517,11 +513,10 @@ function renderIndex() {
         return '<li><a href="?view=' + id + (l[1] ? '&' + l[1] : '') + '">' + esc(l[0]) + '</a></li>';
       }).join('') + '</ul></div>';
     }).join('') + '</div>' +
-    '<div class="ix-decide"><h2>What to decide in round 3</h2><ol>' +
-      '<li>The voice: one of the eight new takes, by ear, against the Kokoro reference.</li>' +
-      '<li>The two spellings, आहिल and عاهل.</li>' +
+    '<div class="ix-decide"><h2>What to decide in round 4</h2><ol>' +
+      '<li>The voice: one of the eight American and British takes, by ear, or no voice at all.</li>' +
       '<li>The share cards’ look: Paper, or the Lab theme in Light or Dark.</li>' +
-    '</ol><p>Approved: the band, the Lab tile’s colour, the agents note (round 1), and the one-line hover (round 3).</p></div></div>';
+    '</ol><p>Approved: the band, the Lab tile’s colour, the agents note (round 1), the one-line hover (round 3), and the spellings आहिल and اءحل (round 4).</p></div></div>';
 }
 
 // ---------------------------------------------------------------------------------------------
