@@ -96,9 +96,10 @@ export function Progress() {
       flag(trail, 'data-on', !!article && p > 0)
       flag(bar, 'data-scrolled', y > 4)
 
-      // a phone's bar slides away while reading down, and comes back on any scroll up
+      // a phone's bar slides away while reading down, and comes back on any scroll up; never while
+      // one of its panels is open, since a sheet is the bar's own
       const phone = w <= PHONE
-      if (!phone || y < 120) away = false
+      if (!phone || y < 120 || bar?.querySelector('[aria-expanded="true"]')) away = false
       else if (y > lastY + 2) away = true
       else if (y < lastY - 2) away = false
       flag(bar, 'data-away', away)

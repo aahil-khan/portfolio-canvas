@@ -12,7 +12,7 @@
  * The trail is read from computed style, so a CSS-driven implementation passes too. Scrolls go
  * through `window.__lenis` when Lenis runs (html.lenis), else `window.scrollTo`.
  */
-import { builtRoutes, collector, openPage, pool } from './layout.mjs'
+import { builtRoutes, collector, fifthChapter, openPage, pool } from './layout.mjs'
 
 const STEPS = 12
 
@@ -49,6 +49,9 @@ async function TRACK({ steps }) {
     const p = L.scaleX(trail)
     reads.push({ y: Math.round(scrollY), p, hop: hop(), off: Math.round(end.getBoundingClientRect().top - innerHeight) })
     if (vis == null && p > 0.05) {
+      // the trail fades in over 180ms once p > 0 (DIRECTION "Hover"); read it once that has run,
+      // or a loaded machine samples the transition's first, unpainted frame
+      await new Promise((r) => setTimeout(r, 260))
       const s = getComputedStyle(trail)
       const bg = L.parse(s.backgroundColor)
       vis = { opacity: L.opacity(trail), painted: bg[3] > 0 || s.backgroundImage !== 'none', shown: L.visible(trail), bg: s.backgroundColor }
@@ -62,9 +65,29 @@ async function TRACK({ steps }) {
   return { s0, fullWidth, reads, vis, dot: !!dot, hopEnd: hop(), footIn, foot: !!foot, target }
 }
 
+/** At the top of the page: the bar's bottom edge is drawn, and the reading dot sits on it. */
+function REST() {
+  const L = window.__lc
+  const bar = document.querySelector('header[data-bar]')
+  const dot = document.querySelector('[data-reading-dot]')
+  if (!bar || !dot) return { missing: !bar ? 'header[data-bar]' : '[data-reading-dot]' }
+  L.scrollToY(0)
+  const st = getComputedStyle(bar)
+  const sh = st.boxShadow && st.boxShadow !== 'none' ? st.boxShadow : ''
+  const col = sh.match(/(rgba?|color|oklab|lab)\([^)]*\)/)?.[0]
+  const nums = sh.replace(/(rgba?|color|oklab|lab)\([^)]*\)/g, '').trim().split(/\s+/).map(parseFloat)
+  const ground = L.resolve('var(--canvas-base)')
+  let edge = null
+  if (col && nums[1] > 0) edge = L.ratio(L.over(L.parse(col), ground), ground)
+  else if (parseFloat(st.borderBottomWidth) > 0) edge = L.ratio(L.over(L.parse(st.borderBottomColor), ground), ground)
+  const b = bar.getBoundingClientRect()
+  const d = dot.getBoundingClientRect()
+  return { edge, barBottom: Math.round(b.bottom), dotMid: Math.round((d.top + d.bottom) / 2), dotShown: L.visible(dot) && L.opacity(dot) > 0.5 }
+}
+
 export default {
   id: 'G',
-  title: 'Progress: 0 at the top, monotonic, 1.000 ± 0.005 when the body meets the viewport bottom; the hop after; visible in every look',
+  title: 'Progress: 0 at the top, monotonic, 1.000 ± 0.005 when the body meets the viewport bottom; the hop after; visible in every look; at rest the bar edge shows and the dot sits on it',
   needs: ['server', 'browser'],
   async run(ctx) {
     const info = await builtRoutes(ctx)
@@ -113,6 +136,26 @@ export default {
         }
         if (!r.vis) c.fail('G', `${tag}: the trail never read above 0.05 while scrolling`)
         else if (!(r.vis.opacity > 0) || !r.vis.shown || !r.vis.painted) c.fail('G', `${tag}: the trail is not visible once p > 0 (opacity ${r.vis.opacity}, background ${r.vis.bg})`)
+      } catch (e) {
+        c.fail('G', `${tag}: threw ${e.message.split('\n')[0]}`)
+      } finally {
+        await o.close()
+      }
+    })
+    // at rest (scrollY 0), chapter 05 at every width and in every look: the edge is there from the
+    // first frame, ≥ 3:1, and the dot sits on it rather than floating under the bar's words
+    const chapter = fifthChapter(info.entries) ?? info.entries[0]
+    const rest = chapter ? ctx.widths.flatMap((w) => ctx.looks.map((look) => ({ w, look }))) : []
+    await pool(rest, 2, async ({ w, look }) => {
+      const tag = `${chapter.path} @${w.width} ${look.name} at rest`
+      const o = await openPage(ctx, chapter.path, { width: w.width, height: w.height, query: look.query })
+      try {
+        const r = await o.page.evaluate(REST)
+        if (r.missing) return c.fail('G', `${tag}: no ${r.missing}`)
+        if (r.edge == null) c.fail('G', `${tag}: the bar draws no bottom edge before any scroll`)
+        else if (r.edge < 3) c.fail('G', `${tag}: the bar's edge is ${r.edge.toFixed(2)}:1 against the page, need 3`)
+        if (!r.dotShown) c.fail('G', `${tag}: the reading dot is not shown at the top of the page`)
+        else if (Math.abs(r.dotMid - r.barBottom) > 3) c.fail('G', `${tag}: the dot's middle is at ${r.dotMid}px, not on the bar's edge at ${r.barBottom}px`)
       } catch (e) {
         c.fail('G', `${tag}: threw ${e.message.split('\n')[0]}`)
       } finally {

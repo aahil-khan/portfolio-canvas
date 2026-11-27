@@ -6,7 +6,7 @@ import { Meta } from '@/components/lab/entry/meta'
 import { Picker } from '@/components/lab/entry/picker'
 import { Pull } from '@/components/lab/entry/pull'
 import { References } from '@/components/lab/entry/references'
-import { Rail, Toc } from '@/components/lab/entry/rail'
+import { Rail, RailList, Toc } from '@/components/lab/entry/rail'
 import { SeriesLine } from '@/components/lab/entry/series-line'
 import { Share } from '@/components/lab/entry/share'
 import { Lead } from '@/components/lab/instruments'
@@ -62,7 +62,8 @@ export async function EntryPage({ entry: e }: { entry: Entry }) {
   const opening = e.kind === 'essay' ? await inline(e.opening, e) : undefined
 
   const back = backlinks(e.id)
-  const rel = related(e.id).filter((x) => !back.some((b) => b.id === x.id)).slice(0, 5)
+  // the rail scrolls each list on its own, so Related can hold more than a screen's worth
+  const rel = related(e.id).filter((x) => !back.some((b) => b.id === x.id)).slice(0, 8)
   const kindOf = (x: Entry) => {
     const p = 'parent' in x && x.parent ? byId.get(x.parent) : undefined
     return kindWords(copy, x, p?.title)
@@ -223,27 +224,38 @@ export async function EntryPage({ entry: e }: { entry: Entry }) {
       <Rail label={copy.railLabel} toc={text.toc}>
         <Toc title={copy.tocTitle} toc={text.toc} />
         <Share where="rail" url={url} title={e.title} path={path} labels={shareLabels} />
-        <div data-backlinks>
+        <div className="lab-rail-sec" data-backlinks data-rail-section="backlinks">
           <h2 className="end-h">{copy.backlinks.replace(/:$/, '')}</h2>
-          {back.length ? <ul className="lab-end-list">{back.map(item)}</ul> : <p className="meta">{copy.backlinksNone}</p>}
+          {back.length ? (
+            <RailList>
+              <ul className="lab-end-list">{back.map(item)}</ul>
+            </RailList>
+          ) : (
+            <p className="meta">{copy.backlinksNone}</p>
+          )}
         </div>
-        <div data-related>
+        <div className="lab-rail-sec" data-related data-rail-section="related">
           <h2 className="end-h">{copy.relatedTitle}</h2>
-          <ul className="lab-end-list">{rel.map(item)}</ul>
-          {e.tags?.length ? (
-            <p className="meta lab-tags">
-              {copy.relatedTags}{' '}
-              {e.tags.map((g, i) => (
-                <span key={g}>
-                  {i ? ', ' : ''}
-                  <a href={`/lab/tags/${g}`} data-preview={`tag:${g}`}>
-                    {lab.tags.find((x) => x.id === g)?.title ?? g}
-                  </a>
-                </span>
-              ))}
-            </p>
-          ) : null}
+          <RailList>
+            <ul className="lab-end-list">{rel.map(item)}</ul>
+          </RailList>
         </div>
+        {e.tags?.length ? (
+          <div className="lab-rail-sec" data-tags data-rail-section="tags">
+            <h2 className="end-h">{copy.tagsTitle}</h2>
+            <RailList>
+              <ul className="lab-tag-list">
+                {e.tags.map((g) => (
+                  <li key={g}>
+                    <a href={`/lab/tags/${g}`} data-preview={`tag:${g}`}>
+                      {lab.tags.find((x) => x.id === g)?.title ?? g}
+                    </a>
+                  </li>
+                ))}
+              </ul>
+            </RailList>
+          </div>
+        ) : null}
       </Rail>
 
       {prev || next ? (

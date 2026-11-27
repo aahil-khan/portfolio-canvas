@@ -33,13 +33,11 @@ export const LAB = {
   bandStagger: 30,
   /** The rail's On this page accent bar sliding between headings. */
   tocSlide: 180,
-  /** The rail appearing once the reader has scrolled a quarter of a screen, and hiding again. */
-  rail: { in: 240, out: 160, after: 0.25 },
   /** Share's "Link copied": the crossfade, and how long it stays before returning. */
   copied: { fade: 140, hold: 1800 },
   /** Leads and figures drawing on first view (PR 11). */
   lead: { duration: 450, stagger: 30 },
-  /** Look and light/dark switches crossfade colours. */
+  /** A theme change crossfades colours. */
   look: 320,
   /** The bar sliding away and back. */
   bar: 280,
