@@ -89,9 +89,11 @@ Every theme **must** define all of the tokens above. `--border` is a *token*, ne
 `#000` — pure black borders are correct in `cream` and wrong in Mocha or Dracula. `--accent-ink`
 is per-theme too, because whether text on the accent should be light or dark flips between them.
 
-`scripts/contrast.mjs` enforces ≥ 4.5:1 for every `--ink*` on every `--surface*`, in every
-theme. It fails the build. Do not eyeball this — 17 themes is far past what eyes catch, and the
-last build shipped a token at 4.23:1.
+`scripts/check-contrast.mjs` enforces ≥ 4.5:1 for every `--ink*` on every `--surface*` (and
+`--raised`), in every theme, the Lab's two Premium palettes included: 20 in all. It reads computed
+colours off the live page in the server's cached Chromium, and it **fails when it finds no
+browser** rather than skipping (`CONTRAST_SKIP=1` is the one deliberate way past). Do not eyeball
+this — 20 themes is far past what eyes catch, and the last build shipped a token at 4.23:1.
 
 ## Geometry
 
@@ -147,6 +149,198 @@ halves are different beasts: the music is a mastered track through an `<audio>` 
 of full scale, continuous and full band, while a cue is a 1.8kHz-rolled transient lasting a tenth
 of a second. Matched by the numbers, they are ~25dB apart to a listener. Change the make-up gain
 in `lib/audio.ts`, never the cue table, or the cues drift out of balance with each other.
+
+## The Lab
+
+`/lab` is a reading surface, built from the approved mockup `prototype/lab-v2b/` (#35–#39). Every
+value below is from that mockup's `lab.css` or from `prototype/lab-v2b/NEXT.md`, which records
+Aahil's decisions of 27 Nov. The code copies are `content/themes.ts` (colour) and
+`lib/motion/tokens.ts` (motion). The contract between PRs is `content/lab/API.md`.
+
+### Two looks
+
+| Look | What it is | Palette | Who owns it |
+|---|---|---|---|
+| **Paper** (default) | The site's own theme, whichever of the 18 `canvas.theme` holds. The Lab keeps no theme of its own: the mockup's `lab.theme` key is gone. | the theme's tokens | `lib/theme.ts` |
+| **Premium** | The same layout in a richer palette, Day or Night. It keeps the window language: the 2px `--border` frame and a zero-blur offset on every box, window, card, figure and menu, title bars, 12px radii. | `lab-premium-day`, `lab-premium-night` | `lib/lab/look.ts` |
+
+The Premium palettes are **Lab-only**. They are `labThemes` in `content/themes.ts`, apart from the
+site's `themes`, so the canvas's Themes window, its dock menu, the command palette, the terminal
+and `/`'s toggle still list exactly 18 and cannot list them by mistake. `allThemes` (20) is read
+only by `themeCss()` and the contrast check. While Premium is on, `data-theme` names its palette
+and `canvas.theme` is left alone.
+
+Premium's first mode is **Night**, unless the system prefers light. Switching between the looks
+moves nothing: both draw the same 2px edge, and Premium draws its 1px hairline inside it.
+
+| Premium token | Day | Night |
+|---|---|---|
+| `--canvas-base` | `#FAFAF7` | `#0B0B0A` |
+| `--surface` | `#FFFFFF` | `#131311` |
+| `--raised` | `#F3F2EE` | `#1B1A17` |
+| `--ink` / `--ink-muted` / `--ink-subtle` | `#141413` / .70 / .60 | `#EEECE5` / .66 / .54 |
+| `--border` | `#262520`, a warm near-black | **`#7F6C45`, brass** (decision 3: "pick brass") |
+| `--shadow-ink` | `#B9B4A6`, a softer warm stone | **`#7F6C45`**: frame and offset are one colour, as on the canvas |
+| `--hair` | `rgba(20,20,19,.10)` | `rgba(238,236,229,.08)` |
+| `--accent` / `--accent-ink` | `#FACC00` / `#141413` | `#F5C518` / `#0B0B0A` |
+| `--mark` | `color-mix(#FACC00 55%, #FFF)` | `color-mix(#F5C518 85%, #131311)` |
+| `--trail` | `#FACC00` | `rgba(238,236,229,.66)` |
+| `--canvas-grid` | `transparent` | `transparent` |
+
+The look-level constants Premium adds in the Lab's CSS, not in `themes.ts` because no other surface
+needs them:
+
+| Constant | Day | Night | Used for |
+|---|---|---|---|
+| `--border-strong` | `rgba(20,20,19,.18)` | `rgba(238,236,229,.18)` | control hover rings, the bar's edge at Night |
+| `--highlight` | `rgba(255,255,255,.9)` | `rgba(255,255,255,.05)` | the 1px inset top light on boxes |
+| `--tb-tint` | 16% | 9% | accent mixed into title bars |
+| `--focus` | `#141413` (yellow on Day is a fill, never a line) | `#F5C518` | the focus ring |
+
+Paper's title bar is `color-mix(--accent 25%, --surface)`, 12% on dark themes. Paper rules are the
+border at 2px (`--rule-w: 2px`); Premium's are `--hair` at 1px.
+
+### Tokens
+
+Five tokens join every theme (`content/themes.ts`). Premium states them outright (above). The site's
+18 derive them by one rule, written once in `withLabTokens`:
+
+| Token | CSS | Light site theme | Dark site theme | For |
+|---|---|---|---|---|
+| `trail` | `--trail` | the accent | `--ink-muted` | the reading-progress line under the bar |
+| `raised` | `--raised` | `--surface` | `--surface` | menus, popovers, panels |
+| `shadowInk` | `--shadow-ink` | `--border` | `--border` | the offset shadow's colour |
+| `hair` | `--hair` | `--border` | `--border` | the rule between rows |
+| `mark` | `--mark` | `color-mix(accent 70%, surface)` | the accent | `<mark>` and selections, under `--accent-ink` |
+
+**The trail** (NEXT shortcut 12, decision 13) is visible in every look. On a dark ground it is a
+2px line of its own under the bar, filling from the left to the dot, so it is held to **3:1 against
+the bar's ground** (`--canvas-base`). On a light ground (Paper light themes, Day) the bar's edge is
+ink, so the trail is the accent, **4px, laid over that edge** (`bottom: -3px`), and read as the edge
+changing colour; there it is held to **3:1 against the edge** (`--border`). The contrast check
+measures both. `--accent-ink` must reach 4.5:1 on `--mark` too.
+
+### Type
+
+Three families on a Lab page, at most. Space Grotesk is preloaded; the other two are
+`display: optional`, so they never delay the first paint.
+
+| Family | Weight | Only in |
+|---|---|---|
+| Space Grotesk | 400 / 500 / 700 | everything else |
+| Space Mono | 400 | `pre, code, kbd, [data-tool-log], [data-num]` |
+| Caveat | 500 | `time, [data-annot], [data-dot]`, never more than 8 words |
+
+| Token | Value | Role |
+|---|---|---|
+| `--lab-fs-hero` | `clamp(3rem, 9vw, 7rem)` | a section page's title, the only hero |
+| `--lab-fs-num` | `clamp(4.5rem, 12vw, 9rem)` | a chapter's faint big number |
+| `--lab-fs-title` | `clamp(2.5rem, 5.2vw, 4rem)` | the home's and an entry's title. A 2.5rem floor keeps title ÷ meta ≥ 3 on a phone |
+| `--lab-fs-h2` | `clamp(1.375rem, 2.2vw, 1.75rem)` | in-body h2, band titles |
+| `--lab-fs-lede` | `clamp(1.1875rem, 1.6vw, 1.375rem)` | ledes, quotes, an essay's opening |
+| `--lab-fs-pull` | `var(--lab-fs-lede)` | the pull-quote, **at the lede's size**, never display size (decision 5: "the quotes are too big") |
+| `--lab-fs-body` | `1.0625rem` (17px); Aa offers 16px and 19px | body |
+| `--lab-lh-body` | `1.75` | body line height (rule 13: ≥ 1.7 on desktop) |
+| `--lab-fs-meta` | `.8125rem` (13px) | meta, chips, the rail, references |
+| `--lab-fs-hand` | `1.375rem` | Caveat at 500: 22px reads like 17px of Space Grotesk |
+| `--lab-fs-code` | `.8125rem` | code |
+
+Rule 8 holds the page to ≤ 6 sizes, largest ÷ smallest ≥ 3, smallest ≥ 13px, ≤ 2 sizes in 13–17px.
+
+### Layout
+
+| Token | Value | Note |
+|---|---|---|
+| `--lab-measure` | `47.5em`, about **96ch** of Space Grotesk at 17px | the wide measure (approved with the mockup) |
+| Comfortable (Aa) | `37em`, about **72ch** | `data-aa-measure="comfortable"` |
+| `--lab-bar-h` | `56px` | the fixed bar |
+| `--lab-pad` | `24px` | page side padding |
+| `--lab-gutter` | `48px` | between the column and the rail or margin |
+| `--lab-rail` | **`272px`, from 1200px** (decision 6) | On this page, Share, Links to this page, Related |
+| `--lab-margin-col` | `280px`, from 1440px | sidenotes' margin on list pages |
+| `--lab-edge` | `2px` | every box's edge, in both looks |
+
+- **The rail** (decision 6, shortcut 5). From 1200px an entry is two columns, column plus rail,
+  **centred together** (decision 8; rule C: |left gap − right gap| ≤ 24px at 1440 and 1920). The
+  rail is sticky at `top: calc(--lab-bar-h + 24px)`, at most `100vh − bar − 48px` tall, and scrolls
+  on its own when taller. **It appears after the first scroll**: hidden until the reader has
+  scrolled a quarter of a screen (an IntersectionObserver sentinel at `0.25 × innerHeight`), so a
+  short entry's first screen stays within rules 5 and 7. Aahil confirmed this on 27 Nov, answering
+  the plan's open question 2. Below 1200px the rail is a block after the text, without On this
+  page or its copy of Share. On entries, sidenotes and the pull-quote sit in the text column.
+- **On this page** marks the heading being read: an IntersectionObserver, with the accent bar
+  (`inset 2px 0 0 --accent`) sliding between headings.
+- **Home and section pages** centre at 1440 and 1920 already.
+
+### Windows, cards and the sheet
+
+Previews follow decisions 10 and 11.
+
+| | Value |
+|---|---|
+| Card (term, tag, ref, link out) | **360px** wide, `max-width: calc(100vw − 32px)` |
+| Window (a whole entry) | **460px** wide, height at most **`min(60vh, 500px)`**, scrolling inside |
+| Placement | below the link when it fits, else above, else the roomier side with the height capped. **Never over its link.** The link stays clickable. |
+| Stack | at most 3, cascading to the right; Esc closes the top one only |
+| Phone sheet | pinned to the bottom, one surface: it draws only its top edge (`--lab-edge` solid, plus the mockup's `0 −12px 32px −20px` ink-35% lift, the one blurred shadow, because the sheet is the screen's own edge), at most 55vh for a card and **92vh** for a whole entry, a 44px Close, the tapped words scrolled clear |
+| Unfurl card | image (640×336 WebP), favicon (32px), domain, a two-line title, a three-line description; text only when a site has no image |
+
+### Motion and hover timing
+
+One easing, `cubic-bezier(0.16, 1, 0.3, 1)`. Durations are milliseconds. From NEXT shortcuts 2 and
+3; `lib/motion/tokens.ts` is the code copy (`LAB`, `INTENT`).
+
+| What | Value |
+|---|---|
+| Hover before a first preview opens | **300ms** |
+| Hover before the next opens, within the grace | **90ms** |
+| The grace after a preview was open | **600ms** |
+| Leaving before a preview closes | **220ms**, cancelled by any re-entry, and never while the pointer moves through the safe triangle toward the window |
+| Placement | re-runs on resize and when the window's own content grows |
+| A window entering | 180ms; rises 6px and scales from 0.98 at the link's corner; opacity over the first 120ms. A cascaded window enters from the side it steps to |
+| A window leaving | 120ms; opacity, 4px down, no scale |
+| Controls | 120ms in, 180ms out; chips and buttons lift 1px and grow their offset by 1px; press to 1px on `:active` at 80ms; underlines darken from `--ink-muted` to `--ink` |
+| A page change | scroll to the top first, never animated; then the column fades and rises 8px over 240ms. The bar and the rail don't move |
+| Home band rows | a 30ms stagger, the first time each band enters the viewport, once a visit |
+| On this page's accent bar | 180ms transform between headings |
+| The rail appearing / hiding | 240ms / 160ms opacity |
+| "Link copied" | 140ms crossfade; returns after 1.8s |
+| Leads drawing on first view | 450ms, 30ms stagger |
+| Look and light/dark switches | 320ms colour crossfade |
+| The bar sliding away | 280ms |
+| The reading dot | follows in 320ms; blinks every 4.2s; falls asleep after 20s still |
+| The name's tooltip | 140ms opacity, 180ms transform |
+| Hover | 180ms |
+
+**Reduced motion** (one owner, `lib/motion/reduced.ts`): every animation is opacity only and ≤ 120ms,
+nothing travels, the dot stays still, and Lenis never starts. Motion's `MotionConfig` is fed from the
+owner, never `reducedMotion="user"`, so the query is not read twice. No hover sounds anywhere; the
+`peek` cue plays only for a tap, click or focus-open.
+
+### The reading progress
+
+Progress is the body's own: `p = clamp((scrollY − bodyTop) / (bodyHeight − innerHeight), 0, 1)`,
+where the body ends at `[data-body-end]`, before References (shortcut 1). Finishing the text fills
+the trail exactly. The trail is `transform: scaleX(p)` on a full-width element, never a width, and
+the dot rides its end. The dot (22px) is ink-outlined; at Night its outline is ink at 85%, 1.75px,
+filled `--raised`. The footer hop happens only once `p = 1`. Chapter ticks are 14×6px,
+`--ink` at 18% on light grounds and **34% on dark ones** (decision 13), the current one filled
+`--accent`.
+
+### Demo content
+
+Until Aahil writes the real Lab, it can show a **demo set**: `content/data/lab.json` → `"demo": true`
+(Aahil, 27 Nov: "have a demo mode with pre populated content so that i can understand look and feel
+on prod, we'll delete everything in the end"). While it is on, every Lab page shows a small, quiet
+**"Demo content"** marker in the bar, at `--lab-fs-meta` and `--ink-muted`, with no fill and no
+accent, so it reads as a label rather than a warning. Its words are `copy.demoMarker`. The rules are
+in API.md, "Demo mode".
+
+### Open questions, answered (27 Nov)
+
+- The essays keep names as published. No value.
+- **The rail appears after the first scroll** (above, Layout).
+- The Lab goes live without Tracks. No value until Aahil approves a list.
 
 ## Non-negotiables
 

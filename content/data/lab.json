@@ -1,0 +1,10 @@
+{
+  "public": false,
+  "demo": true,
+  "copy": {
+    "demoMarker": "Demo content"
+  },
+  "sections": [],
+  "tags": [],
+  "entries": []
+}
