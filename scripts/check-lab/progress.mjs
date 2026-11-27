@@ -49,6 +49,9 @@ async function TRACK({ steps }) {
     const p = L.scaleX(trail)
     reads.push({ y: Math.round(scrollY), p, hop: hop(), off: Math.round(end.getBoundingClientRect().top - innerHeight) })
     if (vis == null && p > 0.05) {
+      // the trail fades in over 180ms once p > 0 (DIRECTION "Hover"); read it once that has run,
+      // or a loaded machine samples the transition's first, unpainted frame
+      await new Promise((r) => setTimeout(r, 260))
       const s = getComputedStyle(trail)
       const bg = L.parse(s.backgroundColor)
       vis = { opacity: L.opacity(trail), painted: bg[3] > 0 || s.backgroundImage !== 'none', shown: L.visible(trail), bg: s.backgroundColor }
