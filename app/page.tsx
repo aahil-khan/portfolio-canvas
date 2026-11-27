@@ -17,6 +17,9 @@ import { VisitPing } from '@/components/desktop/visit-ping'
 import { profile } from '@/content'
 import { validateContent } from '@/content/validate'
 import { consoleHelloScript } from '@/lib/console-hello'
+import { jsonLd, personLd } from '@/lib/seo/json-ld'
+import { pageMeta } from '@/lib/seo/meta'
+import { SITE_URL } from '@/lib/site'
 
 import './site.css'
 
@@ -34,15 +37,28 @@ import './site.css'
  */
 validateContent()
 
-export const metadata: Metadata = {
-  /*
-   * The name alone. The role belongs in the OG card, where there is room for it; in a tab strip
-   * it is truncated to noise long before the interesting half is reached.
-   */
+/*
+ * The name alone in the tab. The role belongs in the share card, where there is room for it; in a
+ * tab strip it is truncated to noise long before the interesting half is reached.
+ */
+export const metadata: Metadata = pageMeta({
+  path: '/',
   title: profile.name,
+  shareTitle: `${profile.name} — ${profile.role.prefix} ${profile.role.emphasis}`,
   description: profile.intro,
-  alternates: { canonical: '/' },
-}
+  type: 'profile',
+})
+
+/* Who the site is about, for search engines: the owner, their role and where else they are. */
+const person = personLd({
+  name: profile.name,
+  url: SITE_URL,
+  jobTitle: `${profile.role.prefix} ${profile.role.emphasis}`,
+  description: profile.intro,
+  image: profile.portrait ? `${SITE_URL}${profile.portrait}` : undefined,
+  location: profile.location,
+  sameAs: profile.links.map((l) => l.href),
+})
 
 export default function Page() {
   return (
@@ -50,6 +66,8 @@ export default function Page() {
     <main id="top">
       {/* a hello for whoever opens devtools; the copy is content/console.ts */}
       <script dangerouslySetInnerHTML={{ __html: consoleHelloScript }} />
+      {/* jsonLd() escapes <, so no field can close the script */}
+      <script type="application/ld+json" dangerouslySetInnerHTML={{ __html: jsonLd(person) }} />
       {/* counts the visit, on first input — it moved here with the landing page */}
       <VisitPing />
       {/*

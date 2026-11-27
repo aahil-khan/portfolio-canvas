@@ -275,6 +275,13 @@ const writing: Field = {
       year: { kind: 'num', label: 'Year', int: true, min: 2000, max: 2100 },
       readingTime: { kind: 'str', label: 'Reading time', help: 'e.g. "6 min".' },
       href: { kind: 'url', label: 'URL' },
+      lab: {
+        kind: 'str',
+        label: 'Lab entry',
+        optional: true,
+        max: 80,
+        help: 'The id of the Lab entry this post also is. Once the Lab is public, the feed lists that entry instead of this post. Matched by this id, never by title.',
+      },
     },
   },
 }

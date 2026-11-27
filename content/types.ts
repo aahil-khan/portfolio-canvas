@@ -114,6 +114,11 @@ export interface Post {
   year: number
   readingTime: string
   href: string
+  /**
+   * The Lab entry this post also is, by id. Once the Lab is public, `/feed.xml` lists the entry
+   * instead of the post (`lib/seo/feed-items.ts`), matched by this field and never by title.
+   */
+  lab?: string
 }
 
 export interface Tool {
