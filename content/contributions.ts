@@ -20,12 +20,23 @@ export const contributions = {
    * left out, because a front page that apologises for a missing token reads as broken.
    */
   home: {
-    title: 'On GitHub this year',
-    /** The calendar's text alternative. `{total}` is replaced with the real number. */
-    label: '{total} contributions in the last year, one square a day',
-    /** Names the strip that scrolls sideways on a phone, for the keyboard stop it needs. */
-    scroll: 'Contribution calendar, newest weeks on the right',
-    /** One day's tooltip. `{count}` and `{date}` (YYYY-MM-DD) are replaced. */
-    day: '{count} on {date}',
+    /** GitHub's own line, and the block's heading. `{total}` is replaced with the real number. */
+    title: '{total} contributions in the last year',
+    /**
+     * The keyboard stop's name: the strip scrolls sideways on a phone, so it takes focus, and what
+     * it announces is the summary. `{total}` is replaced.
+     */
+    label: '{total} contributions in the last year, one square a day, newest on the right',
+    /** The rows that carry a label down the side, Sunday first, as GitHub labels them. */
+    weekdays: ['', 'Mon', '', 'Wed', '', 'Fri', ''],
+    /**
+     * One day's sentence: the hover tooltip, and each square's `<title>` with JavaScript off.
+     * `{count}` and `{date}` ("November 3rd") are replaced.
+     */
+    day: {
+      none: 'No contributions on {date}.',
+      one: '{count} contribution on {date}.',
+      many: '{count} contributions on {date}.',
+    },
   },
 } as const

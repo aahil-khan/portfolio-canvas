@@ -848,23 +848,26 @@
 
 /* ---------- GitHub contributions, at the end of Work ----------
  *
- * The canvas card's calendar (`.gh` in desktop.css: the same weeks, key and login) as a framed
- * block, drawn as one server-rendered SVG. Its own class names, because desktop.css is global and
- * `.gh` would bring the card's styles along. Approved in prototype/lab-v2b-extras (site-contrib).
+ * GitHub's own profile calendar (design/DIRECTION.md, "The contributions calendar on `/`") in the
+ * site's frame: the border and the offset are ours, the squares, labels and tooltip are GitHub's.
+ * Its own class names, because desktop.css is global and the canvas card's `.gh` would bring the
+ * card's styles along.
  *
- * An ink ramp, not a colour: `/` has no card colour, and a yellow ramp would spend the accent.
+ * The greens (`--c0`…`--c4`), the squares' outline (`--c-line`) and the tooltip's ground
+ * (`--c-tip`) are set per theme by `scaleCss()` in lib/contrib-grid.ts, from each theme's `dark`
+ * flag, in a <style> the component hoists into <head>.
  *
- * `--contrib-step` is one square plus its gap (15 + 3 in the SVG's units), so 18px draws the SVG
- * 1:1 and the phone's 15.6px draws a 13px square. The month labels sit on a grid of the same
- * step, which keeps each one over its week at any size.
+ * The SVG is drawn 1:1: a 10px square on a 13px step (`--contrib-step`), at every width. The month
+ * labels sit on a grid of the same step and the weekday labels on rows of it, which keeps each
+ * over its week and beside its day.
  */
 .site .contrib {
-  --contrib-step: 18px;
-  --c0: color-mix(in srgb, var(--ink) 7%, var(--surface));
-  --c1: color-mix(in srgb, var(--ink) 24%, var(--surface));
-  --c2: color-mix(in srgb, var(--ink) 45%, var(--surface));
-  --c3: color-mix(in srgb, var(--ink) 70%, var(--surface));
-  --c4: var(--ink);
+  --contrib-step: 13px;
+  --contrib-months-h: 15px;
+  --contrib-label: 0.75rem;
+  position: relative;
+  width: fit-content;
+  max-width: 100%;
   margin-top: clamp(3.5rem, 10vh, 7rem);
   min-width: 0;
   border: var(--bw) solid var(--border);
@@ -873,17 +876,29 @@
   box-shadow: var(--shadow-hard-lg);
   padding: clamp(1.25rem, 3vw, 1.75rem);
 }
-.site .contrib__head {
-  display: flex;
-  flex-wrap: wrap;
-  align-items: baseline;
-  justify-content: space-between;
-  gap: 0.5rem 1.5rem;
-  margin-bottom: 1.25rem;
+.site .contrib__title {
+  margin-bottom: 1rem;
+  font-size: 1.125rem;
+  font-weight: 500;
+  line-height: 1.3;
 }
-.site .contrib__head h3 { font-size: clamp(1.25rem, 2.2vw, 1.625rem); }
-.site .contrib__head p { color: var(--ink-muted); }
-.site .contrib__head strong { color: var(--ink); }
+.site .contrib__body { position: relative; min-width: 0; }
+
+.site .contrib__cal {
+  display: grid;
+  grid-template-columns: auto minmax(0, 1fr);
+  column-gap: 6px;
+  font-size: var(--contrib-label);
+  color: var(--ink-subtle);
+}
+.site .contrib__days {
+  display: grid;
+  grid-template-rows: repeat(7, calc(var(--contrib-step) - 3px));
+  row-gap: 3px;
+  padding-top: calc(var(--contrib-months-h) + 4px);
+  line-height: calc(var(--contrib-step) - 3px);
+  white-space: nowrap;
+}
 
 /*
  * Scrolls sideways when the year is wider than the frame. `direction: rtl` starts it at the right,
@@ -897,27 +912,28 @@
 }
 .site .contrib__scroll::-webkit-scrollbar { display: none; }
 .site .contrib__scroll > * { direction: ltr; }
-.site .contrib__in { display: grid; gap: 6px; width: max-content; }
+.site .contrib__in { display: grid; gap: 4px; width: max-content; }
 
 .site .contrib__months {
   display: grid;
   grid-template-columns: repeat(var(--weeks), var(--contrib-step));
-  font-size: 0.8125rem;
-  line-height: 1;
-  color: var(--ink-subtle);
+  height: var(--contrib-months-h);
+  line-height: var(--contrib-months-h);
   white-space: nowrap;
 }
-.site .contrib__svg {
-  display: block;
-  /* the last square has no gap after it: a sixth of a step */
-  width: calc(var(--weeks) * var(--contrib-step) - var(--contrib-step) / 6);
-  height: auto;
+.site .contrib__svg { display: block; overflow: visible; }
+.site .contrib__svg rect {
+  fill: var(--c0);
+  stroke: var(--c-line);
+  stroke-width: 1px;
+  shape-rendering: geometricPrecision;
 }
-.site .contrib__svg rect { fill: var(--c0); }
 .site .contrib__svg [data-l='1'] { fill: var(--c1); }
 .site .contrib__svg [data-l='2'] { fill: var(--c2); }
 .site .contrib__svg [data-l='3'] { fill: var(--c3); }
 .site .contrib__svg [data-l='4'] { fill: var(--c4); }
+/* the hover layer reads the pointer off the SVG; the squares' own `<title>` would double it */
+.site .contrib__body[data-hover] rect { pointer-events: none; }
 
 .site .contrib__foot {
   display: flex;
@@ -925,8 +941,8 @@
   align-items: center;
   justify-content: space-between;
   gap: 0.25rem 1rem;
-  margin-top: 10px;
-  font-size: 0.8125rem;
+  margin-top: 8px;
+  font-size: var(--contrib-label);
   color: var(--ink-subtle);
 }
 .site .contrib__foot a {
@@ -934,18 +950,71 @@
   align-items: center;
   min-height: 24px;
   color: var(--ink);
+  font-size: 0.8125rem;
   text-decoration: underline;
   text-underline-offset: 3px;
 }
-.site .contrib__key { display: inline-flex; align-items: center; gap: 4px; }
-.site .contrib__key i { width: 12px; height: 12px; border-radius: 3px; background: var(--c0); }
+.site .contrib__key { display: inline-flex; align-items: center; gap: 3px; }
+.site .contrib__key i {
+  width: 10px;
+  height: 10px;
+  border-radius: 2px;
+  background: var(--c0);
+  box-shadow: inset 0 0 0 1px var(--c-line);
+}
+.site .contrib__key i:first-of-type { margin-left: 2px; }
+.site .contrib__key i:last-of-type { margin-right: 2px; }
 .site .contrib__key [data-l='1'] { background: var(--c1); }
 .site .contrib__key [data-l='2'] { background: var(--c2); }
 .site .contrib__key [data-l='3'] { background: var(--c3); }
 .site .contrib__key [data-l='4'] { background: var(--c4); }
 
+/* GitHub's tooltip: a dark ground, white text, a caret that points at the square */
+.site .contrib__tip,
+.site .contrib__ring {
+  position: absolute;
+  top: 0;
+  left: 0;
+  pointer-events: none;
+  /*
+   * They jump from square to square, never glide. Stated, because the reduced-motion rule in
+   * globals.css gives every element a 0.01ms transition on `all`, and a moved tooltip would then
+   * be read (and, for a frame, drawn) where the last square was.
+   */
+  transition: none;
+}
+.site .contrib__tip[hidden],
+.site .contrib__ring[hidden] { display: none; }
+.site .contrib__tip {
+  z-index: 2;
+  padding: 5px 8px;
+  border-radius: 6px;
+  background: var(--c-tip);
+  color: #fff;
+  font-size: var(--contrib-label);
+  font-weight: 500;
+  line-height: 1.4;
+  white-space: nowrap;
+}
+.site .contrib__tip::after {
+  content: '';
+  position: absolute;
+  top: 100%;
+  left: var(--caret, 50%);
+  border: 5px solid transparent;
+  border-top-color: var(--c-tip);
+  transform: translateX(-50%);
+}
+.site .contrib__ring {
+  z-index: 1;
+  width: 10px;
+  height: 10px;
+  border-radius: 2px;
+  outline: 1.5px solid var(--ink);
+  outline-offset: 1px;
+}
+
 @media (max-width: 560px) {
-  .site .contrib { --contrib-step: 15.6px; }
   /* a thumb's target on a phone, as the case links have */
   .site .contrib__foot a { min-height: 44px; }
 }
