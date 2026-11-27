@@ -12,6 +12,7 @@ import {
   site,
   toolGroups,
 } from '@/content'
+import { Contributions } from '@/components/site/contributions'
 import { JobCard } from '@/components/site/job-card'
 import { NavDrawer } from '@/components/site/nav-drawer'
 import { Portrait } from '@/components/site/portrait'
@@ -320,6 +321,8 @@ export function Work() {
             </article>
           ))}
         </div>
+
+        <Contributions />
       </div>
     </section>
   )
