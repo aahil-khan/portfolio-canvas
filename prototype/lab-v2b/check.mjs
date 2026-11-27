@@ -497,7 +497,7 @@ try {
     const h = await o.page.evaluate(() => {
       const titles = Lab.data.entries.map((e) => e.title);
       const latest = document.querySelector('[data-latest]');
-      const outside = [], words = [];
+      const outside = [];
       const tw = document.createTreeWalker(document.body, NodeFilter.SHOW_TEXT);
       let copy = '';
       for (let n; (n = tw.nextNode());) {
