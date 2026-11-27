@@ -21,6 +21,7 @@ npm run content:check                              # validate content/data/*.jso
 ```
 
 Check command: npm run check
+Quick check command: npm run typecheck && npm run lint
 
 Needs Node ≥ 22.6: the tests and `content:check` run `.ts` directly via `--experimental-strip-types`.
 
