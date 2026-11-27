@@ -88,6 +88,9 @@ H2 still forbids time words (so the furniture never says "newest") and anything 
 
 ## His name
 
+**Decided 27 Nov: the build plays one pre-rendered Kokoro clip** (free, open weights; voice `af_heart`), the
+same half-second "AH-hil" on every device. The mockup still uses the device voice described below.
+
 His underlined name has its own mark, a double underline, never a term's dotted one. Hover it (tap on
 a phone, or focus it) and a small tooltip says just **AH-hil**, and the name is spoken once: no title,
 no button, no link. Resting on the name doesn't repeat it; leaving and coming back does; each tap on a
@@ -132,6 +135,45 @@ scrollable within the hover window, only external links get the previews".
 The check (W) opens a window from chapter 05, compares its paragraphs with the page's, wheels inside
 it and asserts the page didn't scroll, stacks three, presses Esc once, and hovers a link out.
 
+## Link previews are real unfurls
+
+Amended 27 Nov: "link previews are too generic, show actual ones like WhatsApp does". A link out (a
+reference with a URL, a build's repo or live link, a term's source) opens its page's own preview: the
+OG image across the top, then the favicon and domain, the title (two lines) and the description (three),
+the way a chat app unfurls a link. A citation's card adds the one line saying why it's cited.
+
+`node unfurl.mjs` fetches them once, with one honest user agent (`lab-unfurl/1.0`), and commits
+`content/unfurls.js` plus the images, re-encoded by ImageMagick: OG images to 640×336 WebP
+(`assets/og-*.webp`), favicons to 32px PNGs (`assets/fav-*.png`). The bundle inlines them like any
+other asset, so the page still makes no network request. `--keep` fetches only links not already there.
+
+| Link | What its card shows |
+|---|---|
+| a site with an OG image (Anthropic, The Working Prototype, Lenny's, hamel.dev, GitHub, githolt.com, GNOME GitLab) | the real unfurl |
+| a site with no OG image (Wikipedia ×3, GNOME Extensions, Wayland, MySQL docs) | title, description and domain, no image |
+| **Stand-in:** his two Medium essays | medium.com answers 403 to any script, so the card is built from his own copy of the essay: the Medium title, the essay's opening as the description, its first picture. Marked `standIn: true` |
+| oracle.com (PeopleSoft) | refuses the fetch (403), so it keeps the card from the content |
+
+## The entry rail
+
+Amended 27 Nov: "right section of pages looks empty, better to put related and other stuff there, also
+there is no share option at end of pages / put it on side too, plus the site looks too left sided".
+From 1200px an entry is two columns centred together: the reading column at the full measure (96ch is
+unchanged) and a 272px sticky rail beside it, scrolling on its own if it's taller than the screen. The
+title and the lead span both. The rail holds **On this page** (the entry's headings, when it has two or
+more, marking the one being read), **Share this page**, **Links to this page** and **Related**. Below
+1200px it's a block after the text, without On this page or its copy of Share. On desktop it fades in once the
+reader has scrolled a quarter of a screen, so the first screen stays the lead and the text (rules 5 and 7). Sidenotes and the
+pull-quote sit in the text column on entries now, since the rail took the margin.
+
+**Share** is at the end of every entry, and in the rail: one **Share…** button that opens the device's own
+share sheet where the browser has one (`navigator.share`), and otherwise a small row of Copy link, X and
+LinkedIn (plain links that load nothing until pressed; Esc or a press outside closes it). One control rather
+than four keeps a short entry's first screen within rule 5; on a page too short to scroll, the rail drops
+its copy since the end's is on the same screen.
+
+Pull-quotes are 1.3rem ("the quotes are too big").
+
 ## Inline links, the Wikipedia model
 
 Markup in any copy or body text:
@@ -143,7 +185,7 @@ Markup in any copy or body text:
 | `[[tag:id\|words]]` | a tag, dotted underline | the tag's page, in a window |
 | `[^key]` | a numbered superscript citation | the source's title, site and one line |
 
-- **Desktop** (a fine pointer that hovers): a mini canvas window by the words, after a 300ms hover
+- **Desktop** (a fine pointer that hovers): a mini canvas window (360px; a whole page 460px, at most 60vh) just below the words, or above them when there's no room below, never over them: the link stays clickable and the pointer moves down into the window to read it, after a 300ms hover
   intent, kept open while the pointer is on it, closed 220ms after it leaves. Focus opens it too.
 - **Touch:** the first tap opens a sheet at the bottom with a Close button, scrolled so the tapped
   words stay above it; the sheet's own link goes further, and a second tap on the same words follows
@@ -214,8 +256,8 @@ are the site's. What Premium changes is colour, tuned per palette:
 
 | | Night | Day |
 |---|---|---|
-| `--border` (the frame) | `#4A453B`, a warm umber | `#262520`, a step softer than the ink |
-| `--shadow-ink` (the offset) | `#2B2822`, a step above the ground, never black on black | `#B9B4A6`, warm stone |
+| `--border` (the frame) | `#7F6C45`, brass (Aahil's pick of three, 27 Nov: the old `#4A453B` offset barely read on the dark ground) | `#262520`, a step softer than the ink |
+| `--shadow-ink` (the offset) | `#7F6C45`, the frame's own colour, the canvas's construction | `#B9B4A6`, warm stone |
 | `--hair` (rules between rows) | `rgba(238,236,229,.08)` | `rgba(20,20,19,.10)` |
 
 Rule K checks every visible box, panel, window, card and the menu, in Day and Night, for a frame and a
