@@ -193,7 +193,10 @@ function measure() {
     svgHeight: svg.getBoundingClientRect().height,
     rects: rects.length,
     drawn: rects.filter((r) => r.getBoundingClientRect().width > 0).length,
-    cell: rects[0].getBoundingClientRect().width + Number(getComputedStyle(rects[0]).strokeWidth.replace('px', '')),
+    // the rect is measured on screen; its stroke is in SVG units, so it scales with the SVG
+    cell:
+      rects[0].getBoundingClientRect().width +
+      Number(getComputedStyle(rects[0]).strokeWidth.replace('px', '')) * (svg.getBoundingClientRect().width / svg.viewBox.baseVal.width),
     overflowX: document.documentElement.scrollWidth - window.innerWidth,
     scrolls: scroll.scrollWidth > scroll.clientWidth + 1,
     newestInView: lb.right <= sb.right + 1 && lb.left >= sb.left - 1,
