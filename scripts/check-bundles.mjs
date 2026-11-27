@@ -110,16 +110,25 @@ const OWN_CODE = [
   { id: 'editor code', paths: ['components/edit/', 'lib/edit/'], only: '/edit' },
 ]
 
+/*
+ * `**` stands for any depth and `*` for one segment. The two are swapped for placeholders first,
+ * so the `*` that `**` expands to is never read again as a single `*` (which once made `scripts/**`
+ * match only one directory deep).
+ */
 const glob = (pattern) =>
   new RegExp(
     '^' +
       pattern
         .replace(/[.+^${}()|[\]\\]/g, '\\$&')
-        .replace(/\*\*\//g, '(?:.*/)?')
-        .replace(/\*\*/g, '.*')
-        .replace(/\*/g, '[^/]*') +
+        .replace(/\*\*\//g, '\u0001')
+        .replace(/\*\*/g, '\u0002')
+        .replace(/\*/g, '[^/]*')
+        .replace(/\u0001/g, '(?:.*/)?')
+        .replace(/\u0002/g, '.*') +
       '$',
   )
+for (const [g, f, want] of [['scripts/**', 'scripts/once/x.ts', true], ['components/site/*', 'components/site/a/b.tsx', false], ['app/**/route.ts', 'app/route.ts', true]])
+  if (glob(g).test(f) !== want) throw new Error(`check-bundles: glob ${g} ${want ? 'misses' : 'matches'} ${f}`)
 const routeMatch = (pattern, route) =>
   pattern === '*' || (pattern.endsWith('/**') ? route === pattern.slice(0, -3) || route.startsWith(pattern.slice(0, -2)) : route === pattern)
 const pkgMatch = (pattern, spec) => {

@@ -23,6 +23,14 @@ const nextConfig: NextConfig = {
   distDir: process.env.NEXT_DIST_DIR || '.next',
 
   /*
+   * The Lab's loaders read files by computed paths at build, so the tracer lists most of the
+   * project for any route that validates content (`/` and `/canvas` do). The test fixture must
+   * never travel with a default build (check-lab rule 4), so it is left out of every trace unless
+   * it is the fixture build.
+   */
+  outputFileTracingExcludes: process.env.LAB_FIXTURE === 'kinds' ? {} : { '/**': ['content/lab/fixture/**/*'] },
+
+  /*
    * `/resume` was the plain, printable surface back when `/` was the canvas. The front page is
    * that surface now, so the route is gone — but the URL has been shared, so it redirects rather
    * than 404s. Permanent, because it is never coming back.

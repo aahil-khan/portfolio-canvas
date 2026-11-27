@@ -2,6 +2,8 @@ import { existsSync } from 'node:fs'
 import path from 'node:path'
 
 import { validateSet } from '../lib/edit/rules.ts'
+import { loadSet } from '../lib/lab/content.ts'
+import { parseBody } from '../lib/lab/markdown/pipeline.ts'
 import { formatLabIssue, validateLabSets } from '../lib/lab/validate-sets.ts'
 import { apps, dockLayout, externalApps } from './apps'
 import { props } from './props'
@@ -45,6 +47,19 @@ export function validateContent(): void {
 
   // the Lab: both sets, real and demo, whichever is active
   for (const i of validateLabSets()) errors.push(formatLabIssue(i))
+  // and every body through the pipeline that renders it, which `content:check` (plain Node) cannot
+  // load: a body it cannot parse (an unknown directive, an image with no size, a link left open)
+  // fails the build rather than the page
+  for (const name of ['real', 'demo'] as const) {
+    const set = loadSet(name)
+    for (const [id, md] of Object.entries(set.bodies)) {
+      try {
+        parseBody(md)
+      } catch (e) {
+        errors.push(`${set.bodyFiles[id]}: ${(e as Error).message} [${name} set]`)
+      }
+    }
+  }
 
   const dupes = (label: string, slugs: readonly string[]) => {
     const seen = new Set<string>()
