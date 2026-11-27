@@ -197,13 +197,17 @@ var Lab = window.Lab = window.Lab || {};
         return '<p><strong>' + t('new.' + k + '.h') + '.</strong> ' + Lab.inline(Lab.raw('new.' + k)) + '</p>';
       }).join('') + '</div></section>'));
 
-    // Sections: one column per section that has public entries; thesis and count, nothing dated
+    // Sections: one framed band per section with public entries: heading, thesis and count, then its
+    // first five entries by date and a link to all of them. Nothing pinned, nothing about progress.
     var secs = D.sections.filter(function (s) { return pub.some(function (e) { return e.section === s.id; }); });
-    page.appendChild(Lab.html('<section class="block wide" aria-labelledby="sec-title"><div class="block-head"><h2 id="sec-title">' + t('home.sections') + '</h2></div><div class="sections">' +
+    page.appendChild(Lab.html('<section class="block wide" aria-labelledby="sec-title"><div class="block-head"><h2 id="sec-title">' + t('home.sections') + '</h2></div><div class="bands">' +
       secs.map(function (s) {
-        var n = pub.filter(function (e) { return e.section === s.id; }).length;
-        return '<div><h3><a class="quiet" href="' + Lab.sectionHref(s.id) + '" data-preview="section:' + s.id + '">' + esc(s.title) + '</a></h3><p>' + (s.thesisKey ? t(s.thesisKey) : esc(s.thesis)) + '</p>' +
-          '<p class="meta">' + (n === 1 ? t('count.one') : t('count.many', { n: n })) + '</p></div>';
+        var es = pub.filter(function (e) { return e.section === s.id; }).sort(byPublished), n = es.length;
+        return '<section class="band box" data-band="' + s.id + '" aria-labelledby="band-' + s.id + '"><div class="band-head">' +
+          '<h3 id="band-' + s.id + '"><a class="quiet" href="' + Lab.sectionHref(s.id) + '" data-preview="section:' + s.id + '">' + esc(s.title) + '</a></h3>' +
+          '<p>' + (s.thesisKey ? t(s.thesisKey) : esc(s.thesis)) + '</p><p class="meta">' + (n === 1 ? t('count.one') : t('count.many', { n: n })) + '</p></div>' +
+          '<div class="band-list"><ul class="rows" data-band-rows>' + es.slice(0, BAND).map(function (e) { return entryRow(e); }).join('') + '</ul>' +
+          '<p class="all"><a href="' + Lab.sectionHref(s.id) + '" data-preview="section:' + s.id + '" data-band-all>' + t('home.sec.all', { n: n, section: s.title }) + ' →</a></p></div></section>';
       }).join('') + '</div></section>'));
 
     // Latest: the newest N, mixed kinds, absolute handwritten dates
@@ -215,9 +219,9 @@ var Lab = window.Lab = window.Lab || {};
       '<p class="all"><a href="#/index">' + t('home.all', { n: all.length }) + ' →</a></p></section>'));
     return page;
   }
-  var LATEST = 6;
+  var LATEST = 6, BAND = 5;
 
-  function entryPage(e) {
+  function entryPage(e, inWindow) {
     var parent = e.parent && byId[e.parent];
     var siblings = parent ? Lab.childrenOf(parent.id) : [];
     var idx = siblings.indexOf(e);
@@ -245,7 +249,7 @@ var Lab = window.Lab = window.Lab || {};
     var leadBox = Lab.html('<div class="lead-block wide" data-lead data-lead-kind="' + lead.name + '"></div>');
     var intro = body.leadIntro ? body.leadIntro.text : lead.name === 'haggle' ? Lab.raw('haggle.intro') : '';
     if (intro) leadBox.appendChild(Lab.html('<p class="lead-intro">' + Lab.inline(intro) + '</p>'));
-    leadBox.appendChild(lead.render('full'));
+    leadBox.appendChild(lead.render(inWindow ? 'card' : 'full'));
     if (lead.name === 'haggle') leadBox.appendChild(Lab.html('<p class="caption">' + t('haggle.caption') + '</p>'));
     if (body.leadCaption) leadBox.appendChild(Lab.html('<p class="caption">' + Lab.inline(body.leadCaption.text) + '</p>'));
     if (e.kind === 'build' && lead.name !== 'install') leadBox.appendChild(tryIt(e));
@@ -335,8 +339,8 @@ var Lab = window.Lab = window.Lab || {};
   /** A build's way in, under its lead: the install line, then the source and the live site. */
   function tryIt(e) {
     var links = [];
-    if (e.live) links.push('<a class="ext" href="' + esc(e.live) + '" rel="noopener">' + t('try.live') + '</a>');
-    if (e.repo) links.push('<a class="ext" href="' + esc(e.repo) + '" rel="noopener">' + t('try.repo') + '</a>');
+    if (e.live) links.push('<a class="ext" href="' + esc(e.live) + '" rel="noopener" data-preview="ext:' + esc(e.live) + '">' + t('try.live') + '</a>');
+    if (e.repo) links.push('<a class="ext" href="' + esc(e.repo) + '" rel="noopener" data-preview="ext:' + esc(e.repo) + '">' + t('try.repo') + '</a>');
     return Lab.html('<div class="try">' + (e.install ? '<p class="try-label"><strong>' + t('try.install') + '</strong></p><pre class="install"><code>' + esc(e.install) + '</code></pre>' : '') +
       (links.length ? '<p class="try-links">' + links.join('') + '</p>' : '') + '</div>');
   }
@@ -471,14 +475,14 @@ var Lab = window.Lab = window.Lab || {};
     page.appendChild(Lab.html('<dl class="glossary">' + terms.map(function (x) {
       var to = x.link ? Lab.termTarget(x) : null;
       return '<div class="gl-item" id="term-' + x.id + '"><dt>' + Lab.inline(x.name.replace(/^(\w+_\w+)$/, '`$1`')) + '</dt><dd><p>' + esc(x.def) + '</p>' +
-        (to ? '<p class="meta"><a href="' + esc(to.href) + '"' + (to.ext ? ' class="ext" rel="noopener"' : ' data-preview="' + x.link + '"') + '>' + to.label + '</a></p>' : '') + '</dd></div>';
+        (to ? '<p class="meta"><a href="' + esc(to.href) + '"' + (to.ext ? ' class="ext" rel="noopener" data-preview="ext:' + esc(to.href) + '"' : ' data-preview="' + x.link + '"') + '>' + to.label + '</a></p>' : '') + '</dd></div>';
     }).join('') + '</dl>'));
     if (focus) setTimeout(function () { var el = document.getElementById('term-' + focus); if (el) { el.scrollIntoView({ block: 'center' }); el.classList.add('is-target'); setTimeout(function () { el.classList.remove('is-target'); }, 1600); } }, 0);
     return page;
   }
 
   function refLine(r) {
-    var title = r.url ? '<a class="ext" href="' + esc(r.url) + '" rel="noopener">' + esc(r.title) + '</a>' : '<span class="ref-title">' + esc(r.title) + '</span>';
+    var title = r.url ? '<a class="ext" href="' + esc(r.url) + '" rel="noopener" data-preview="ext:' + esc(r.url) + '">' + esc(r.title) + '</a>' : '<span class="ref-title">' + esc(r.title) + '</span>';
     return title + ' <span class="meta">' + esc(r.site) + '</span><span class="ref-line">' + esc(r.line.text) + '</span>';
   }
 
@@ -522,7 +526,7 @@ var Lab = window.Lab = window.Lab || {};
   var first = true;
   function render() {
     var swap = function () {
-      closePreview(true);
+      closePreview(); hideTip();
       var r = route();
       main.innerHTML = '';
       main.setAttribute('data-route', r.name);
@@ -540,209 +544,368 @@ var Lab = window.Lab = window.Lab || {};
     else swap();
   }
 
-  // ---------- the name: underlined where it carries the voice; its card says it ----------
+  // ---------- his name: hover (or tap) and it says itself ----------
+  // Aahil, 27 Nov: "the say it one should be a special hover, it will just say AH-hil and play audio
+  // automatically without any button". A tooltip with just "AH-hil", spoken once per hover. This is
+  // the one sound that isn't muted on arrival; an explicit Mute in the Sound menu still silences it.
+  // Browsers refuse speech before the page's first gesture (navigator.userActivation), so a hover
+  // before any click shows the tooltip and the name is said on the first click or tap while it shows.
   function nameTrigger() {
-    return '<button type="button" class="term name" data-preview="name" aria-haspopup="dialog" aria-expanded="false">' + esc(D.owner.short) + '</button>';
+    return '<button type="button" class="name" data-name aria-describedby="name-tip">' + esc(D.owner.short) + '</button>';
   }
-  /** Speaks the name. Called only from the card's play button: a click, a tap or Enter. */
-  function sayName(btn) {
-    if (!('speechSynthesis' in window)) { var n = btn.parentNode.querySelector('.say-none'); if (n) n.hidden = false; return; }
-    var u = new SpeechSynthesisUtterance(D.owner.name);
-    u.lang = 'en-IN'; u.rate = 0.85;
+  var tip = null, tipFor = null, spoke = false, queued = false, tipT = null, tipHide = null;
+  function nameTip() {
+    if (!tip) {
+      tip = Lab.html('<span class="name-tip" id="name-tip" role="tooltip" lang="en" hidden><span class="tip-say">' + t('name.say') + '</span><span class="tip-wave" aria-hidden="true"><i></i><i></i><i></i></span></span>');
+      document.body.appendChild(tip);
+    }
+    return tip;
+  }
+  var activated = function () { return !navigator.userActivation || navigator.userActivation.hasBeenActive; };
+  function showTip(el) {
+    var tp = nameTip();
+    clearTimeout(tipHide);
+    tipFor = el;
+    tp.hidden = false;
+    var r = el.getBoundingClientRect(), w = tp.offsetWidth, h = tp.offsetHeight;
+    tp.style.left = Math.round(Math.min(Math.max(8, r.left + r.width / 2 - w / 2), window.innerWidth - w - 8)) + 'px';
+    tp.style.top = Math.round(r.top - h - 10 > Lab.barH ? r.top - h - 10 : r.bottom + 10) + 'px';
+    requestAnimationFrame(function () { tp.classList.add('is-open'); });
+  }
+  function hideTip() {
+    if (!tip) return;
+    tip.classList.remove('is-open', 'is-saying');
+    if (tipFor) tipFor.classList.remove('is-saying');
+    tip.hidden = true; tipFor = null; spoke = false; queued = false;
+  }
+  /** Says "Aahil" once. Only an explicit Mute stops it; interface sounds being off doesn't. */
+  function sayName() {
+    spoke = true; queued = false;
+    if (Lab.audio.muted || !('speechSynthesis' in window)) return;
     var voices = speechSynthesis.getVoices ? speechSynthesis.getVoices() : [];
     var v = voices.find(function (x) { return /en-IN/i.test(x.lang); });
+    // an Indian English voice says "Aahil" right; any other voice gets the spelling of the sound
+    var u = new SpeechSynthesisUtterance(v ? D.owner.short : 'Ah-hil');
+    u.lang = 'en-IN'; u.rate = 0.85; u.volume = Lab.audio.levels.master;
     if (v) u.voice = v;
+    var el = tipFor;
+    var done = function () { if (tip) tip.classList.remove('is-saying'); if (el) el.classList.remove('is-saying'); };
+    u.onend = done; u.onerror = done;
+    if (tip) tip.classList.add('is-saying');
+    if (el) el.classList.add('is-saying');
+    setTimeout(done, 1400);
     speechSynthesis.cancel();
     speechSynthesis.speak(u);
   }
+  function enterName(el) {
+    showTip(el);
+    if (spoke || queued) return;
+    if (activated()) sayName(); else queued = true;
+  }
+  var nameOf = function (t) { return t && t.closest && t.closest('[data-name]'); };
+  document.addEventListener('pointerover', function (ev) {
+    var n = nameOf(ev.target);
+    if (!n || ev.pointerType === 'touch' || tipFor === n) return;
+    clearTimeout(tipT);
+    tipT = setTimeout(function () { enterName(n); }, 120);   // a pointer passing over says nothing
+  });
+  document.addEventListener('pointerout', function (ev) {
+    var n = nameOf(ev.target);
+    if (!n || n.contains(ev.relatedTarget)) return;
+    clearTimeout(tipT);
+    if (ev.pointerType !== 'touch' && !n.matches(':focus-visible')) hideTip();
+  });
+  // the first gesture: a queued hover is said now, while its tooltip still shows
+  ['click', 'keydown'].forEach(function (type) {
+    document.addEventListener(type, function () { if (queued && tipFor) sayName(); }, true);
+  });
+  document.addEventListener('click', function (ev) {
+    var n = nameOf(ev.target);
+    if (!n) { if (tipFor && (lastPointer === 'touch' || !hoverable())) hideTip(); return; }
+    ev.preventDefault();
+    if (lastPointer === 'touch' || !hoverable()) {          // a tap: each one shows it and says it once
+      spoke = false; showTip(n); sayName();
+      clearTimeout(tipHide); tipHide = setTimeout(hideTip, 2600);
+      return;
+    }
+    if (tipFor !== n) showTip(n);
+    if (!spoke) sayName();                                   // Enter or Space, or a click before the hover settled
+  });
+  document.addEventListener('focusin', function (ev) { var n = nameOf(ev.target); if (n && n.matches(':focus-visible')) showTip(n); });
+  document.addEventListener('focusout', function (ev) { if (nameOf(ev.target) && tipFor === ev.target) hideTip(); });
 
-  // ---------- previews: one card for entries, terms, tags, references and the name ----------
-  // Desktop (a fine pointer that hovers): a mini canvas window by the link, after a hover-intent
-  // delay, kept open while the pointer is on it, closed after a dismiss delay. Touch: the first tap
-  // opens it as a sheet at the bottom with a Close button, scrolled so the tapped words stay in
-  // view; the card's own link goes further, and a second tap on the same words follows the link.
-  // Outside taps and Esc close it. No sound on hover; the peek cue plays only on a tap, click or focus.
-  var INTENT = 300, DISMISS = 220;
-  var pv = null, pvFor = null, pvMode = null, pvHow = null, openT = null, closeT = null, lastPointer = 'mouse';
+  // ---------- windows: a link to a Lab page opens the whole page; everything else gets a card ----------
+  // Aahil, 27 Nov: hovering a link to another Lab page "should be fully viewable and scrollable within the
+  // hover window, only external links get the previews". So entry, section and tag links open a window
+  // holding the whole page (lead, body, figures, references, the ends), scrolled inside it. Terms keep
+  // their definition cards, references their source cards, board squares their topic cards, and links
+  // out get a small card (title, site, one line).
+  // Desktop (a fine pointer that hovers): a window by the link after a 300ms hover intent; it stays while
+  // the pointer is on it, its link or any window of the stack, and closes 220ms after the pointer leaves. A link inside a
+  // window opens a further window above it, up to three. Esc or a click outside closes the top one; a
+  // click on the link itself still navigates. Touch: the first tap opens a sheet with a Close (a full
+  // entry is a near-full-height sheet), the sheet's links open the next sheet, a second tap follows the
+  // link. No sound on hover; the peek cue plays only when a window opens from a tap, click or focus.
+  var INTENT = 300, DISMISS = 220, MAX = 3;
+  var stack = [], openT = null, closeT = null, trimAt = null, lastPointer = 'mouse', wid = 0;
   var hoverable = function () { return window.matchMedia('(hover: hover) and (pointer: fine)').matches; };
+
+  // links out: url -> { title, site, line }, from every entry's references and the builds' repo and live links
+  var extMap = {};
+  var hostOf = function (u) { try { return new URL(u).hostname.replace(/^www\./, ''); } catch { return u; } };
+  Object.keys(Lab.bodies).forEach(function (id) {
+    var refs = Lab.bodies[id].refs || {};
+    Object.keys(refs).forEach(function (k) { var r = refs[k]; if (r.url && !extMap[r.url]) extMap[r.url] = { title: r.title, site: r.site, line: r.line && (r.line.text || r.line) }; });
+  });
+  D.entries.forEach(function (e) {
+    if (e.repo && !extMap[e.repo]) extMap[e.repo] = { title: e.title, site: hostOf(e.repo), line: Lab.raw('ext.repo').replace('{title}', e.title) };
+    if (e.live && !extMap[e.live]) extMap[e.live] = { title: e.title, site: hostOf(e.live), line: Lab.raw('ext.live').replace('{title}', e.title) };
+  });
+  (Lab.terms || []).forEach(function (x) {
+    if (!x.link || !/^https:\/\//.test(x.link) || extMap[x.link]) return;
+    var title = String(x.source || '').replace(/\s*\(.*\)$/, '').split(', ').slice(1).join(', ') || hostOf(x.link);
+    extMap[x.link] = { title: title, site: hostOf(x.link), line: Lab.raw('ext.term').replace('{term}', x.name) };
+  });
+
+  /** 'full' (a window holding a whole page), 'card', or null when the key names nothing. */
+  function previewKind(key) {
+    if (byId[key]) return isPublic(byId[key]) ? 'full' : 'card';
+    if (key.indexOf('section:') === 0) return D.sections.some(function (x) { return x.id === key.slice(8); }) ? 'full' : null;
+    if (key.indexOf('tag:') === 0) return allTags().indexOf(key.slice(4)) >= 0 ? 'full' : null;
+    return cardOf(key) ? 'card' : null;
+  }
   function cardOf(key) {
     var more = null, bar, bodyHtml, label;
-    if (key === 'name') {
-      bar = '<span>' + t('name.bar') + '</span>';
-      label = D.owner.name;
-      bodyHtml = '<h3>' + esc(D.owner.name) + '</h3><p class="pron" lang="en">' + t('name.say') + '</p>' +
-        '<p class="say-row"><button type="button" class="btn btn-say" data-say aria-label="' + t('name.playLabel') + '"><span class="i-speaker" aria-hidden="true"></span>' + t('name.play') + '</button></p>' +
-        '<p class="meta say-none" hidden>' + t('name.none') + '</p>';
-      more = { href: '#/next?to=%2F', label: t('name.more') };
-    } else if (key.indexOf('term:') === 0) {
+    if (key.indexOf('term:') === 0) {
       var x = termById[key.slice(5)];
+      if (!x) return null;
       bar = '<span>' + t('card.term') + '</span>';
       label = x.name;
       bodyHtml = '<h3>' + Lab.inline(x.name.replace(/^(\w+_\w+)$/, '`$1`')) + '</h3><p>' + esc(x.def) + '</p>';
       more = Lab.termTarget(x);
-    } else if (key.indexOf('section:') === 0) {
-      var sc = D.sections.find(function (x) { return x.id === key.slice(8); });
-      var ses = publicEntries().filter(function (x) { return x.section === sc.id; }).sort(byPublished);
-      bar = '<span>' + t('card.section') + '</span><span class="meta">' + (ses.length === 1 ? t('count.one') : t('count.many', { n: ses.length })) + '</span>';
-      label = sc.title;
-      bodyHtml = '<h3>' + esc(sc.title) + '</h3><p>' + (sc.thesisKey ? t(sc.thesisKey) : esc(sc.thesis)) + '</p><ul class="card-list">' + ses.slice(0, 4).map(function (x) { return '<li>' + esc(x.title) + ' <span class="meta">' + Lab.kindWords(x) + '</span></li>'; }).join('') + '</ul>';
-      more = { href: Lab.sectionHref(sc.id), label: t('card.section.open', { section: sc.title }) };
     } else if (key.indexOf('topic:') === 0) {
       var tp = D.study.topics.find(function (x) { return x.id === key.slice(6); });
+      if (!tp) return null;
       var note = publicEntries().find(function (x) { return x.topic === tp.id; });
       bar = '<span>' + t('topic.bar') + '</span><span class="meta">' + t('status.' + tp.status) + '</span>';
       label = tp.topic;
       bodyHtml = '<h3>' + esc(tp.topic) + '</h3><p>' + t('topic.track', { track: tp.track, phase: tp.phase }) + '</p>' + (tp.finished ? '<p>' + t('status.done') + ' ' + Lab.date(tp.finished, true) + '</p>' : '');
       if (note) more = { href: Lab.href(note), label: t('topic.note') };
-    } else if (key.indexOf('tag:') === 0) {
-      var tag = key.slice(4), es = Lab.tagged(tag);
-      bar = '<span>' + t('card.tag') + '</span><span class="meta">' + (es.length === 1 ? t('count.one') : t('count.many', { n: es.length })) + '</span>';
-      label = tag;
-      bodyHtml = '<h3>' + esc(tag) + '</h3><ul class="card-list">' + es.slice(0, 5).map(function (e) { return '<li>' + esc(e.title) + ' <span class="meta">' + Lab.kindWords(e) + '</span></li>'; }).join('') + '</ul>';
-      more = { href: tagHref(tag), label: t('card.tagged', { tag: tag }) };
     } else if (key.indexOf('ref:') === 0) {
-      var parts = key.split(':'), r = (Lab.bodies[parts[1]] || {}).refs[parts[2]];
+      var parts = key.split(':'), r = ((Lab.bodies[parts[1]] || {}).refs || {})[parts[2]];
+      if (!r) return null;
       var mark = document.querySelector('[data-preview="' + key + '"]');
       bar = '<span>' + t('card.ref', { n: mark ? mark.textContent : '' }) + '</span>';
       label = r.title;
       bodyHtml = '<h3>' + esc(r.title) + '</h3><p class="meta">' + esc(r.site) + '</p><p>' + esc(r.line.text) + '</p>' + (r.url ? '' : '<p class="meta">' + (r.note ? esc(r.note.text || r.note) : t('card.internal')) + '</p>');
       more = r.url ? { href: r.url, label: t('card.source'), ext: true } : { href: '#ref-' + parts[2], jump: 'ref-' + parts[2], label: t('card.refs') };
+    } else if (key.indexOf('ext:') === 0) {
+      var url = key.slice(4), m = extMap[url] || { title: hostOf(url), site: hostOf(url), line: '' };
+      bar = '<span>' + t('card.ext') + '</span>';
+      label = m.title;
+      bodyHtml = '<h3>' + esc(m.title) + '</h3><p class="meta">' + esc(m.site) + '</p>' + (m.line ? '<p>' + esc(m.line) + '</p>' : '');
+      more = { href: url, label: t('card.visit', { site: m.site }), ext: true };
     } else {
-      var e = byId[key];
+      var e = byId[key];                                    // an unpublished entry: a card, never its page
       if (!e) return null;
-      var b = Lab.bodies[e.id];
-      var firstP = b && b.blocks.find(function (x) { return x.p; });
-      var lede = Lab.plain(Lab.ledeOf(e));
       bar = '<span>' + Lab.kindWords(e) + '</span>' + Lab.date(e.updated || e.published);
       label = e.title;
-      bodyHtml = '<h3>' + esc(e.title) + '</h3>' + (lede ? '<p>' + esc(lede) + '</p>' : '') + (firstP ? '<p>' + esc(Lab.plain(firstP.p.text)) + '</p>' : '');
-      more = { href: Lab.href(e), label: t('card.open') };
+      bodyHtml = '<h3>' + esc(e.title) + '</h3>' + (Lab.ledeOf(e) ? '<p>' + esc(Lab.plain(Lab.ledeOf(e))) + '</p>' : '');
+      more = { href: Lab.href(e), label: t('next.title') };
     }
     return {
       label: label,
       html: '<div class="window-bar">' + bar + '<button type="button" class="card-close" data-card-close aria-label="' + t('card.close') + '">' + t('card.close') + '</button></div>' +
         '<div class="preview-body">' + bodyHtml +
-        (more ? '<p class="card-more"><a href="' + esc(more.href) + '"' + (more.ext ? ' class="ext" rel="noopener"' : '') + (more.jump ? ' data-jump="' + more.jump + '"' : '') + '>' + more.label + '</a></p>' : '') + '</div>',
+        (more ? '<p class="card-more"><a href="' + esc(more.href) + '"' + (more.ext ? ' class="ext" rel="noopener" data-preview="ext:' + esc(more.href) + '"' : '') + (more.jump ? ' data-jump="' + more.jump + '"' : '') + '>' + more.label + '</a></p>' : '') + '</div>',
     };
   }
-  function openPreview(trigger, how) {
-    var key = trigger.getAttribute('data-preview'), card = cardOf(key);
-    if (!card) return;
-    clearTimeout(openT); clearTimeout(closeT);
-    if (!pv) {
-      pv = Lab.html('<div class="preview" role="dialog" hidden></div>');
-      document.body.appendChild(pv);
-      pv.addEventListener('pointerenter', function () { clearTimeout(closeT); });
-      pv.addEventListener('pointerleave', function (ev) { if (pvMode === 'float' && pvHow === 'hover' && ev.pointerType !== 'touch' && !(pvFor && pvFor.contains(ev.relatedTarget))) closeSoon(); });
-      pv.addEventListener('click', function (ev) {
-        if (ev.target.closest('[data-card-close]')) { var back = pvFor; closePreview(); if (back) back.focus({ preventScroll: true }); return; }
-        var say = ev.target.closest('[data-say]');
-        if (say) { sayName(say); return; }
-      });
-    }
-    if (pvFor && pvFor !== trigger) setExpanded(pvFor, false);
-    var sheet = how === 'tap' || !hoverable();
-    pvMode = sheet ? 'sheet' : 'float';
-    pv.innerHTML = card.html;
-    pv.setAttribute('aria-label', card.label);
-    pv.setAttribute('data-for', key);
-    pv.className = 'preview' + (sheet ? ' is-sheet' : '');
-    pv.hidden = false;
-    if (sheet) {
-      main.style.paddingBottom = pv.offsetHeight + 'px';   // room to scroll the tapped words clear
-      var sheetTop = window.innerHeight - pv.offsetHeight, r = trigger.getBoundingClientRect();
-      if (r.bottom > sheetTop - 12) window.scrollBy(0, r.bottom - sheetTop + 28);
-      else if (r.top < Lab.barH) window.scrollBy(0, r.top - Lab.barH - 16);
+  /** Every id inside a window, and every reference to one, gets the window's prefix, so a citation in a
+   *  window jumps within that window and never to the page behind it. */
+  function prefixIds(root, p) {
+    root.querySelectorAll('[id]').forEach(function (el) { el.id = p + el.id; });
+    ['aria-labelledby', 'aria-describedby', 'aria-controls', 'aria-activedescendant', 'for', 'data-jump'].forEach(function (a) {
+      root.querySelectorAll('[' + a + ']').forEach(function (el) { el.setAttribute(a, el.getAttribute(a).split(/\s+/).map(function (x) { return p + x; }).join(' ')); });
+    });
+    root.querySelectorAll('a[href^="#"]:not([href^="#/"])').forEach(function (a) { a.setAttribute('href', '#' + p + a.getAttribute('href').slice(1)); });
+  }
+  function fullWindow(key, prefix) {
+    var page, bar, label, href;
+    if (byId[key]) {
+      var e = byId[key];
+      page = entryPage(e, true); label = e.title; href = Lab.href(e);
+      bar = '<span class="win-title">' + t('win.entry', { kind: Lab.kindWords(e) }) + '</span>' + Lab.date(e.updated || e.published, true);
+    } else if (key.indexOf('section:') === 0) {
+      var s = D.sections.find(function (x) { return x.id === key.slice(8); });
+      var n = publicEntries().filter(function (x) { return x.section === s.id; }).length;
+      page = sectionPage(s); label = s.title; href = Lab.sectionHref(s.id);
+      bar = '<span class="win-title">' + t('card.section') + '</span><span class="meta">' + (n === 1 ? t('count.one') : t('count.many', { n: n })) + '</span>';
     } else {
-      var r2 = trigger.getBoundingClientRect(), w = Math.min(420, window.innerWidth - 32);
-      pv.style.left = Math.min(Math.max(16, r2.left), window.innerWidth - w - 16) + 'px';
-      pv.style.top = '0px';
-      var h = pv.offsetHeight, below = r2.bottom + 10;
-      pv.style.top = (below + h < window.innerHeight - 8 ? below : Math.max(Lab.barH + 8, r2.top - h - 10)) + 'px';
+      var tag = key.slice(4), es = Lab.tagged(tag);
+      page = tagPage(tag); label = tag; href = tagHref(tag);
+      bar = '<span class="win-title">' + t('card.tag') + '</span><span class="meta">' + (es.length === 1 ? t('count.one') : t('count.many', { n: es.length })) + '</span>';
     }
-    requestAnimationFrame(function () { pv.classList.add('is-open'); });
-    if (pvFor !== trigger && how !== 'hover') Lab.audio.cue('peek');
-    pvFor = trigger;
-    pvHow = how;
+    // the page's own title becomes the way through: on a phone the sheet covers the tapped words
+    var h1 = page.querySelector('h1');
+    if (h1) { var a = document.createElement('a'); a.href = href; a.textContent = h1.textContent; h1.textContent = ''; h1.appendChild(a); }
+    prefixIds(page, prefix);
+    var frag = Lab.html('<div class="window-frame"><div class="window-bar">' + bar + '<button type="button" class="card-close" data-card-close aria-label="' + t('card.close') + '">' + t('card.close') + '</button></div><div class="window-body"></div></div>');
+    frag.querySelector('.window-body').appendChild(page);
+    return { label: label, nodes: [].slice.call(frag.childNodes) };
+  }
+  var winOf = function (el) { for (var i = stack.length - 1; i >= 0; i--) if (stack[i].el.contains(el)) return i; return -1; };
+  function openPreview(trigger, how) {
+    var key = trigger.getAttribute('data-preview'), kind = previewKind(key);
+    var parent = winOf(trigger), level = parent + 1;
+    if (!kind || level >= MAX) return;
+    clearTimeout(openT);
+    if (stack[level] && stack[level].trigger === trigger) { if (how !== 'hover') stack[level].how = how; return; }
+    closeFrom(level);
+    clearTimeout(closeT); trimAt = null;
+    var prefix = 'w' + (++wid) + '-', content;
+    if (kind === 'full') content = fullWindow(key, prefix);
+    else {
+      var c = cardOf(key), pp = parent >= 0 ? stack[parent].prefix : '';
+      var html = pp ? c.html.replace(/data-jump="/g, 'data-jump="' + pp).replace(/href="#ref-/g, 'href="#' + pp + 'ref-') : c.html;
+      content = { label: c.label, nodes: [].slice.call(Lab.html('<div>' + html + '</div>').childNodes) };
+    }
+    var sheet = how === 'tap' || !hoverable();
+    var el = document.createElement('div');
+    el.className = 'preview' + (kind === 'full' ? ' is-full' : '') + (sheet ? ' is-sheet' : '');
+    el.setAttribute('role', 'dialog');
+    el.setAttribute('aria-label', content.label);
+    el.setAttribute('data-for', key);
+    el.setAttribute('data-level', String(level));
+    el.style.zIndex = String(45 + level);
+    content.nodes.forEach(function (n) { el.appendChild(n); });
+    document.body.appendChild(el);
+    var w = { el: el, trigger: trigger, key: key, how: how, mode: sheet ? 'sheet' : 'float', prefix: prefix, full: kind === 'full' };
+    stack.push(w);
+    if (w.full) {
+      // the wheel over the title bar scrolls the body too, never the page behind
+      var body = el.querySelector('.window-body');
+      el.addEventListener('wheel', function (ev) { if (!body.contains(ev.target)) { body.scrollTop += ev.deltaY; ev.preventDefault(); } }, { passive: false });
+    }
+    place(w);
+    requestAnimationFrame(function () { el.classList.add('is-open'); });
+    if (how !== 'hover') Lab.audio.cue('peek');
     setExpanded(trigger, true);
   }
+  function place(w) {
+    var el = w.el, r = w.trigger.getBoundingClientRect();
+    if (w.mode === 'sheet') {
+      if (w.full || stack.length > 1) return;
+      main.style.paddingBottom = el.offsetHeight + 'px';   // room to scroll the tapped words clear
+      var sheetTop = window.innerHeight - el.offsetHeight;
+      if (r.bottom > sheetTop - 12) window.scrollBy(0, r.bottom - sheetTop + 28);
+      else if (r.top < Lab.barH) window.scrollBy(0, r.top - Lab.barH - 16);
+      return;
+    }
+    var width = Math.min(w.full ? 560 : 420, window.innerWidth - 32), vw = window.innerWidth, vh = window.innerHeight;
+    var under = stack.length > 1 ? stack[stack.length - 2].el.getBoundingClientRect() : null;
+    el.style.top = '0px';
+    var h = el.offsetHeight, top, left;
+    if (under) {
+      // a window opened from a window cascades to the right of it, overlapping its edge, so both read
+      left = Math.min(under.right - 72, vw - width - 16);
+      if (left < under.left + 48) left = Math.min(under.left + 48, vw - width - 16);
+      top = Math.min(Math.max(Lab.barH + 8, r.top - 40), vh - h - 8);
+    } else {
+      var below = r.bottom + 10, above = r.top - h - 10;
+      left = Math.min(Math.max(16, r.left), vw - width - 16);
+      if (below + h < vh - 8) top = below;
+      else if (above > Lab.barH + 8) top = above;
+      else top = Math.max(Lab.barH + 8, vh - h - 8);
+    }
+    el.style.left = left + 'px';
+    el.style.top = Math.max(Lab.barH + 8, top) + 'px';
+  }
   function setExpanded(el, on) { if (el.hasAttribute('aria-expanded')) el.setAttribute('aria-expanded', String(on)); }
-  function closeSoon() { clearTimeout(closeT); closeT = setTimeout(closePreview, DISMISS); }
-  function closePreview(now) {
-    clearTimeout(openT); clearTimeout(closeT);
-    if (pvFor) setExpanded(pvFor, false);
-    pvFor = null;
-    if (!pv) return;
-    pv.classList.remove('is-open');
-    pv.hidden = true;
-    pv.removeAttribute('data-for');
-    if (main) main.style.paddingBottom = '';
-    if (now) pv.innerHTML = '';
+  /** Closes window i and everything above it. */
+  function closeFrom(i) {
+    clearTimeout(closeT); trimAt = null;
+    while (stack.length > Math.max(0, i)) {
+      var w = stack.pop();
+      setExpanded(w.trigger, false);
+      w.el.remove();
+    }
+    if (!stack.length) { clearTimeout(openT); if (main) main.style.paddingBottom = ''; }
+  }
+  function closePreview() { closeFrom(0); }
+  /** The deepest window the pointer is on, or whose link it is on; -1 for the page. */
+  function keepLevel(target) {
+    for (var i = stack.length - 1; i >= 0; i--) if (stack[i].el.contains(target) || stack[i].trigger.contains(target)) return i;
+    return -1;
+  }
+  /** Hover-opened windows above the keep level close after the dismiss delay, unless the pointer comes back. */
+  function trim(keep) {
+    var j = -1;
+    for (var i = keep + 1; i < stack.length; i++) if (stack[i].how === 'hover' && stack[i].mode === 'float') { j = i; break; }
+    if (j < 0) { clearTimeout(closeT); trimAt = null; return; }
+    if (trimAt === j) return;
+    clearTimeout(closeT); trimAt = j;
+    closeT = setTimeout(function () { trimAt = null; closeFrom(j); }, DISMISS);
   }
   Lab.cardOf = cardOf;
-  Lab.preview = { open: openPreview, close: closePreview, el: function () { return pv; }, INTENT: INTENT, DISMISS: DISMISS };
+  Lab.previewKind = previewKind;
+  Lab.preview = { open: openPreview, close: closePreview, stack: function () { return stack; }, el: function () { return stack.length ? stack[stack.length - 1].el : null; }, INTENT: INTENT, DISMISS: DISMISS, MAX: MAX };
   var triggerOf = function (el) { return el && el.closest && el.closest('[data-preview]'); };
   document.addEventListener('pointerdown', function (ev) {
     lastPointer = ev.pointerType || 'mouse';
-    if (pv && !pv.hidden && !pv.contains(ev.target) && !(pvFor && pvFor.contains(ev.target))) closePreview();
+    if (!stack.length) return;
+    var top = stack[stack.length - 1], i = winOf(ev.target);
+    if (i >= 0) { closeFrom(i + 1); return; }                       // inside a window: close what's above it
+    if (!top.trigger.contains(ev.target)) closeFrom(stack.length - 1);  // outside every window: the top one
   }, true);
   document.addEventListener('pointerover', function (ev) {
+    if (ev.pointerType === 'touch') return;
+    // anywhere on the stack keeps the whole stack (a cascaded window is reached across its parent);
+    // the page closes the hover-opened ones after the dismiss delay
+    if (stack.length) trim(keepLevel(ev.target) >= 0 ? stack.length - 1 : -1);
     var a = triggerOf(ev.target);
-    if (!a || ev.pointerType === 'touch' || !hoverable() || (pv && pv.contains(a))) return;
-    clearTimeout(closeT);
-    if (pvFor === a) return;
+    if (!a || !hoverable()) { clearTimeout(openT); return; }
+    var lvl = winOf(a) + 1;
+    if (stack[lvl] && stack[lvl].trigger === a) { clearTimeout(openT); return; }
     clearTimeout(openT);
-    openT = setTimeout(function () { openPreview(a, 'hover'); }, INTENT);
+    if (lvl < MAX) openT = setTimeout(function () { openPreview(a, 'hover'); }, INTENT);
   });
-  document.addEventListener('pointerout', function (ev) {
-    var a = triggerOf(ev.target);
-    if (!a || ev.pointerType === 'touch' || a.contains(ev.relatedTarget)) return;
-    clearTimeout(openT);
-    if (pvFor === a && pvMode === 'float' && pvHow === 'hover' && !(pv && pv.contains(ev.relatedTarget))) closeSoon();
-  });
+  document.documentElement.addEventListener('pointerleave', function () { clearTimeout(openT); if (stack.length) trim(-1); });
   document.addEventListener('click', function (ev) {
+    var x = ev.target.closest && ev.target.closest('[data-card-close]');
+    if (x) { var wi = winOf(x), back = stack[wi] && stack[wi].trigger; closeFrom(wi); if (back && document.contains(back)) back.focus({ preventScroll: true }); return; }
     var j = ev.target.closest && ev.target.closest('a[data-jump]');
     var a = triggerOf(ev.target);
-    if (a && !(pv && pv.contains(a))) {
-      var touch = lastPointer === 'touch' || !hoverable();
-      if (a.matches('button')) {                 // the name: a click or Enter opens (or keeps) its card; a second one closes it
-        ev.preventDefault();
-        if (pvFor === a && pvHow !== 'hover') closePreview();
-        else { if (pvFor === a) pvHow = 'click'; else openPreview(a, touch ? 'tap' : 'click'); if (ev.detail === 0) focusCard(); }
-        return;
-      }
-      if (touch && pvFor !== a) { ev.preventDefault(); openPreview(a, 'tap'); return; }   // first tap: the card
+    if (a) {
+      var touch = lastPointer === 'touch' || !hoverable(), lvl = winOf(a) + 1;
+      var shown = stack[lvl] && stack[lvl].trigger === a;
+      if (touch && !shown && lvl < MAX && previewKind(a.dataset.preview)) { ev.preventDefault(); openPreview(a, 'tap'); return; }   // first tap: the window
     }
     if (j) {                                     // in-page jumps never touch the hash router
       ev.preventDefault();
       var to = document.getElementById(j.getAttribute('data-jump'));
-      closePreview();
+      closeFrom(to ? winOf(to) + 1 : 0);
       if (to) { to.scrollIntoView({ block: 'center', behavior: Lab.look.reduced() ? 'auto' : 'smooth' }); to.classList.add('is-target'); setTimeout(function () { to.classList.remove('is-target'); }, 1600); }
     }
   });
-  /** Keyboard opens move focus into the card: play first, then the link further, then Close. */
-  function focusCard() {
-    if (!pv) return;
-    var f = ['[data-say]', '.card-more a', '[data-card-close]'].map(function (s) { return pv.querySelector(s); }).find(Boolean);
-    if (f) f.focus();
-  }
   document.addEventListener('focusin', function (ev) {
     var a = triggerOf(ev.target);
-    if (a && (a.tagName === 'A' || a.hasAttribute('data-sq')) && a.matches(':focus-visible') && !(pv && pv.contains(a))) openPreview(a, 'focus');
+    if (a && (a.tagName === 'A' || a.hasAttribute('data-sq')) && a.matches(':focus-visible') && winOf(a) < 0) openPreview(a, 'focus');
   });
   document.addEventListener('focusout', function (ev) {
-    if (!pv || pv.hidden || pvMode === 'sheet') return;
+    if (!stack.length || stack[0].mode === 'sheet' || stack[0].how !== 'focus') return;
     var to = ev.relatedTarget;
-    if (to && (pv.contains(to) || (pvFor && pvFor.contains(to)))) return;
-    if (triggerOf(ev.target) === pvFor || pv.contains(ev.target)) closeSoon();
+    if (to && (winOf(to) >= 0 || stack[0].trigger.contains(to))) return;
+    clearTimeout(closeT); closeT = setTimeout(closePreview, DISMISS);
   });
   document.addEventListener('keydown', function (e) {
-    if (e.key !== 'Escape' || !pv || pv.hidden) return;
-    var back = pvFor, inside = pv.contains(document.activeElement);
-    closePreview();
-    if (back && inside) back.focus({ preventScroll: true });
+    if (e.key !== 'Escape' || !stack.length) return;
+    var top = stack[stack.length - 1], inside = top.el.contains(document.activeElement);
+    closeFrom(stack.length - 1);
+    if (inside && document.contains(top.trigger)) top.trigger.focus({ preventScroll: true });
   });
-  window.addEventListener('scroll', function () { if (pv && !pv.hidden && pvMode === 'float') closePreview(); }, { passive: true });
+  // a page scroll moves the words a floating window points at, so it closes; a scroll inside a window
+  // doesn't reach here (scroll events don't bubble to window, and the body has overscroll containment)
+  window.addEventListener('scroll', function () { if (stack.length && stack[0].mode === 'float') closePreview(); }, { passive: true });
 
   // ---------- the dot: reading progress with a face ----------
   var lastX = -1, lastStep = 0, idle = null, inFooter = false, footObs = null;
@@ -820,6 +983,7 @@ var Lab = window.Lab = window.Lab || {};
   Lab.barH = 56;
   function start() {
     renderBar();
+    nameTip();
     main = Lab.html('<main class="lab-main" id="main"></main>');
     document.body.appendChild(main);
     window.addEventListener('hashchange', render);

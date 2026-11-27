@@ -7,7 +7,7 @@ are marked there with their source and aren't listed here. Regenerate with `node
 | Key | Where it shows | Proposed line | Reason |
 |---|---|---|---|
 | `home.title` | Home, the title | What I’m studying, building and breaking. | In his voice; three lines on a phone, so the featured card still starts above the fold |
-| `home.intro` | Home intro, before the brand line | I’m {name}. | His name carries the name card; the brand line follows |
+| `home.intro` | Home intro, before the brand line | I’m {name}. | His name says itself on hover; the brand line follows |
 | `new.title` | Home, the orientation’s heading | New here? | His words: account for people who are new here |
 | `new.what.h` | New here, first item | What this is |  |
 | `new.what` | New here, what the Lab is | The Lab is the bench behind the desk: what I study, build and test, written up with the working shown, including what didn’t work. | Says what it is without naming any entry, so it stays true |
@@ -16,15 +16,15 @@ are marked there with their source and aren't listed here. Regenerate with `node
 | `new.start.h` | New here, third item | Where to start |  |
 | `new.start` | New here, where to start | Pick a section below; each one says in a line what it holds. Every page carries the date it was written, and the date it last changed. | Points at sections, never at a named project |
 | `home.latest` | Home, heading over the newest entries | Latest | His word for it |
-| `name.bar` | The name card’s title bar | How to say it |  |
-| `name.play` | The name card’s play button | Say it | Plays only on a click, tap or Enter |
-| `name.playLabel` | The play button, for screen readers | Say Aahil Khan out loud |  |
-| `name.none` | The name card, when speech isn’t available | This browser has no voice to say it with. | Honest fallback, no fake audio |
-| `name.more` | The name card’s link to the front page | More about me | The link to go further |
 | `card.term` | Preview title bar, a glossary term | A term |  |
 | `card.tag` | Preview title bar, a tag | A tag |  |
 | `card.ref` | Preview title bar, a reference | Reference {n} |  |
-| `card.open` | Preview link, an entry | Open the page | The link to go further, on a phone |
+| `card.ext` | Preview title bar, a link to another site | A link out |  |
+| `card.visit` | Preview link, a link to another site | Go to {site} | Names where it goes |
+| `ext.repo` | Link card, a build’s repository | The source code for {title}. |  |
+| `ext.term` | Link card, a glossary term’s source | The source for the term “{term}”. |  |
+| `ext.live` | Link card, a build’s live site | {title}, running live. |  |
+| `win.entry` | Full-entry window, title bar | {kind} · read it here | Says the window holds the whole page |
 | `card.read` | Preview link, a term that has an entry | Read {title} |  |
 | `card.source` | Preview link, an external source | Read the source |  |
 | `card.refs` | Preview link, a reference | See all references |  |
@@ -42,6 +42,7 @@ are marked there with their source and aren't listed here. Regenerate with `node
 | `card.section.open` | Preview link, a section | Open {section} |  |
 | `related.tags` | Related, before the tag links | Tagged |  |
 | `home.sections` | Home, heading over Sections | Sections | The orientation says to pick a section, so the heading uses the same word |
+| `home.sec.all` | Home, the link under each section’s first five entries | All {n} in {section} | Count in words of what the link opens |
 | `home.all` | Home, link under Latest | All {n} entries | Count in words of what the link opens |
 | `sec.studies` | Section thesis, Studies | Things I study over months, with the log and the projects that come out of them. | One sentence per section, from the plan’s table |
 | `sec.builds` | Section thesis, Builds | Tools people use, and what broke on the way. | From the plan’s table |
@@ -152,7 +153,19 @@ are marked there with their source and aren't listed here. Regenerate with `node
 | `haggle.decides` | Log, option A | decides |  |
 | `haggle.note` | Sidenote heading | How the toy decides. |  |
 | `haggle.schedule` | Chapter 05, sidenote | It opens at list (rule 1) and concedes ₹40, ₹30, ₹20 and ₹10, so its counters run ₹859, ₹829, ₹809, ₹799: the first step is under 5% of list and each one is smaller (rule 2), and every counter ends in 9 (rule 3). It accepts any offer at or above its last counter, and from your third offer anything at or above the floor (rule 4). It never reopens lower (rule 5), holds after five rejections (rule 6), and never counters below your standing offer (P7). | The derived schedule, citing the spec’s rules |
-| `pl.tracks` | Side player, the empty Tracks tab | No tracks here yet. A short list of free-licensed lofi tracks is waiting for approval; the radio and the noises work now. | Says why it is empty and what works |
+| `pl.title` | The Sound menu, for screen readers | Sound and music |  |
+| `pl.ui.hint` | Sound menu, under Interface sounds | soft cues on a page turn and an opened card | The canvas line, for the Lab’s four cues |
+| `pl.source` | Sound menu, the Radio / Noise / Tracks row, for screen readers | Source |  |
+| `pl.tab.radio` | Sound menu, segmented row | Radio |  |
+| `pl.tab.noise` | Sound menu, segmented row | Noise |  |
+| `pl.tab.tracks` | Sound menu, segmented row | Tracks |  |
+| `pl.under` | Sound menu, Noise list, the switch to layer a noise under the radio | Play under the music | Says what the switch does in four words |
+| `pl.noise` | Sound menu, the noise level | Noise |  |
+| `pl.mute` | Sound menu, the mute button, for screen readers | Mute everything | The one explicit mute; it also silences his name |
+| `pl.mix.show` | Sound menu, the mixer chevron, for screen readers | Show the music, noise and interface levels | The canvas’s label, plus noise |
+| `pl.mix.hide` | Sound menu, the mixer chevron, for screen readers | Hide the music, noise and interface levels |  |
+| `pl.credit` | Sound menu, the credit line | Public online radio · noises made in your browser | The canvas’s credit, plus where the noise comes from |
+| `pl.tracks` | Sound menu, the empty Tracks list | No tracks yet: a short list of free-licensed lofi is waiting for approval. The radio and the noises work now. | Says why it is empty and what works |
 | `scn.groups` | Scenario browser, the group buttons, for screen readers | Scenario group |  |
 | `scn.list` | Scenario browser, the list, for screen readers | Scenarios in this group |  |
 | `scn.SALE` | Scenario card, expected outcome SALE | Must sell | The outcome in words, never a code |
