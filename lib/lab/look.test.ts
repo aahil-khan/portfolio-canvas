@@ -46,31 +46,31 @@ function boot({ stored = {}, search = '', prefersLight = false, siteTheme = 'cre
 
 test('a first visit is Paper, in the site theme it already has', () => {
   assert.deepEqual(boot({ siteTheme: 'gruvbox-dark' }), {
-    theme: 'gruvbox-dark', look: 'paper', mode: 'night', paperTheme: 'gruvbox-dark', dark: '1',
+    theme: 'gruvbox-dark', look: 'paper', mode: 'dark', paperTheme: 'gruvbox-dark', dark: '1',
     aaMeasure: 'wide', aaSize: '17', writes: [],
   })
 })
 
-test("Premium shows its own palette and keeps the reader's site theme beside it", () => {
-  const d = boot({ stored: { 'lab.look': 'premium' }, siteTheme: 'latte' })
-  assert.equal(d.theme, 'lab-premium-night')
+test("the Lab theme shows its own palette and keeps the reader's site theme beside it", () => {
+  const d = boot({ stored: { 'lab.look': 'lab' }, siteTheme: 'latte' })
+  assert.equal(d.theme, 'lab-dark')
   assert.equal(d.paperTheme, 'latte')
   assert.equal(d.dark, '1')
 })
 
-test("Premium's first mode is Night, unless the system prefers light", () => {
-  assert.equal(boot({ stored: { 'lab.look': 'premium' }, prefersLight: true }).theme, 'lab-premium-day')
-  assert.equal(boot({ stored: { 'lab.look': 'premium', 'lab.premiumMode': 'night' }, prefersLight: true }).theme, 'lab-premium-night')
+test("the Lab theme's first mode is Dark, unless the system prefers light", () => {
+  assert.equal(boot({ stored: { 'lab.look': 'lab' }, prefersLight: true }).theme, 'lab-light')
+  assert.equal(boot({ stored: { 'lab.look': 'lab', 'lab.mode': 'dark' }, prefersLight: true }).theme, 'lab-dark')
 })
 
 test('query parameters override for one visit and are never saved', () => {
-  const premium = boot({ search: '?look=premium&mode=light' })
-  assert.equal(premium.theme, 'lab-premium-day')
-  assert.equal(premium.dark, '0')
-  assert.deepEqual(premium.writes, [])
+  const lab = boot({ search: '?look=lab&mode=light' })
+  assert.equal(lab.theme, 'lab-light')
+  assert.equal(lab.dark, '0')
+  assert.deepEqual(lab.writes, [])
   assert.equal(boot({ search: '?mode=dark' }).theme, 'tokyo-night')
   assert.equal(boot({ search: '?theme=nord' }).theme, 'nord')
-  assert.equal(boot({ search: '?theme=lab-premium-night' }).theme, 'cream', 'a Premium palette is not a Paper theme')
+  assert.equal(boot({ search: '?theme=lab-dark' }).theme, 'cream', 'a Lab palette is not a Paper theme')
 })
 
 test('Aa is read from storage, and a bad value falls back to the default', () => {
@@ -84,12 +84,12 @@ test('Aa is read from storage, and a bad value falls back to the default', () =>
 test('the server snapshot is fixed, so hydration always matches the HTML', () => {
   const s = look.getLookServerSnapshot()
   assert.equal(s, look.getLookServerSnapshot())
-  assert.deepEqual(s, { look: 'paper', mode: 'night', theme: 'cream', paperTheme: 'cream', dark: false, aa: { measure: 'wide', size: 17 } })
+  assert.deepEqual(s, { look: 'paper', mode: 'dark', theme: 'cream', paperTheme: 'cream', dark: false, aa: { measure: 'wide', size: 17 } })
   assert.ok(Object.isFrozen(s))
 })
 
 test('the client snapshot is stable until <html> changes', () => {
-  const dataset: Record<string, string> = { look: 'premium', mode: 'day', theme: 'lab-premium-day', paperTheme: 'nord', dark: '0', aaMeasure: 'wide', aaSize: '16' }
+  const dataset: Record<string, string> = { look: 'lab', mode: 'light', theme: 'lab-light', paperTheme: 'nord', dark: '0', aaMeasure: 'wide', aaSize: '16' }
   const g = globalThis as { document?: unknown }
   g.document = { documentElement: { dataset } }
   try {

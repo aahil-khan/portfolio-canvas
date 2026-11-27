@@ -70,3 +70,46 @@
   text-transform: uppercase;
   color: var(--ink-subtle);
 }
+
+/* tables with a header row: opens against visits, and the events */
+.stats__table--cols th {
+  padding: 0 0 6px;
+  font-size: 0.75rem;
+  font-weight: 500;
+  line-height: 1.3;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+  color: var(--ink-subtle);
+  text-align: right;
+  white-space: nowrap;
+  padding-left: 12px;
+}
+.stats__table--cols th:first-child {
+  text-align: left;
+  padding-left: 0;
+}
+.stats__table--cols tbody tr:first-child td {
+  border-top: 1.5px solid color-mix(in srgb, var(--ink) 12%, transparent);
+}
+.stats__table--cols .stats__n {
+  font-weight: 500;
+}
+.stats__table--cols .stats__n:last-child {
+  font-weight: 700;
+}
+.stats__sub {
+  margin: 28px 0 6px;
+  font-size: 0.75rem;
+  font-weight: 500;
+  line-height: 1.3;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+  color: var(--ink-subtle);
+}
+.stats__grid--after {
+  margin-top: 24px;
+}
+.stats__table code,
+.stats__note code {
+  font-size: 0.8125rem;
+}
