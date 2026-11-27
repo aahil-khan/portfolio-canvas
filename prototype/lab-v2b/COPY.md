@@ -33,6 +33,13 @@ are marked there with their source and aren't listed here. Regenerate with `node
 | `card.close` | Preview close button | Close | Every card can be closed |
 | `card.internal` | Reference card, the spec | Not published. The chapters are written from it. | Says why there is no link |
 | `refs.title` | End of an entry | References |  |
+| `toc.title` | Entry rail, the list of its headings | On this page | Says what the list is, in the reader’s words |
+| `share.title` | Entry rail and the end of every page | Share this page | He asked for a share option |
+| `share.native` | Share, the device’s own share sheet (only where the browser has one) | Share… |  |
+| `share.copy` | Share | Copy link |  |
+| `share.copied` | Share, after Copy link | Link copied | Confirms without a toast |
+| `share.x` | Share, a post on X | X | The network’s own name |
+| `share.linkedin` | Share, a post on LinkedIn | LinkedIn | The network’s own name |
 | `related.title` | End of an entry, beside Links to this page | Related | He asked for it |
 | `related.also` | Related, the second list | Also related, by shared tags |  |
 | `related.section` | Related, when nothing links and no tag is shared | Also in {section} | Related is never empty |

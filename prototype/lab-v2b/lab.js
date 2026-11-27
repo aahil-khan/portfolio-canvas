@@ -39,6 +39,8 @@ var Lab = window.Lab = window.Lab || {};
   var isPublic = function (e) { return !e.draft; };
   var publicEntries = function () { return D.entries.filter(isPublic); };
   Lab.entry = function (id) { return byId[id]; };
+  /** A top-level entry: one that isn't a chapter or note of another (a series under a study counts). */
+  Lab.isTop = function (e) { return !(e.parent && byId[e.parent]); };
   Lab.childrenOf = function (id) { return D.entries.filter(function (e) { return e.parent === id; }).sort(function (a, b) { return (a.order || 0) - (b.order || 0) || (a.published || '').localeCompare(b.published || ''); }); };
   var liveSections = function () { var pub = publicEntries(); return D.sections.filter(function (s) { return pub.some(function (e) { return e.section === s.id; }); }); };
   var allTags = function () { var out = []; publicEntries().forEach(function (e) { (e.tags || []).forEach(function (g) { if (out.indexOf(g) < 0) out.push(g); }); }); return out.sort(); };
@@ -198,15 +200,18 @@ var Lab = window.Lab = window.Lab || {};
       }).join('') + '</div></section>'));
 
     // Sections: one framed band per section with public entries: heading, thesis and count, then its
-    // first five entries by date and a link to all of them. Nothing pinned, nothing about progress.
+    // first five top-level entries by date (studies, series, builds, essays, standalone notes; never a
+    // chapter or a study's note, so one series can't fill a band) and a link to all of them. A row that
+    // holds others says how many, so the band's rows add up to its count. Nothing pinned, no progress.
     var secs = D.sections.filter(function (s) { return pub.some(function (e) { return e.section === s.id; }); });
     page.appendChild(Lab.html('<section class="block wide" aria-labelledby="sec-title"><div class="block-head"><h2 id="sec-title">' + t('home.sections') + '</h2></div><div class="bands">' +
       secs.map(function (s) {
-        var es = pub.filter(function (e) { return e.section === s.id; }).sort(byPublished), n = es.length;
+        var all = pub.filter(function (e) { return e.section === s.id; }), n = all.length;
+        var es = all.filter(Lab.isTop).sort(byPublished);
         return '<section class="band box" data-band="' + s.id + '" aria-labelledby="band-' + s.id + '"><div class="band-head">' +
           '<h3 id="band-' + s.id + '"><a class="quiet" href="' + Lab.sectionHref(s.id) + '" data-preview="section:' + s.id + '">' + esc(s.title) + '</a></h3>' +
           '<p>' + (s.thesisKey ? t(s.thesisKey) : esc(s.thesis)) + '</p><p class="meta">' + (n === 1 ? t('count.one') : t('count.many', { n: n })) + '</p></div>' +
-          '<div class="band-list"><ul class="rows" data-band-rows>' + es.slice(0, BAND).map(function (e) { return entryRow(e); }).join('') + '</ul>' +
+          '<div class="band-list"><ul class="rows" data-band-rows>' + es.slice(0, BAND).map(function (e) { return entryRow(e, { holds: true }); }).join('') + '</ul>' +
           '<p class="all"><a href="' + Lab.sectionHref(s.id) + '" data-preview="section:' + s.id + '" data-band-all>' + t('home.sec.all', { n: n, section: s.title }) + ' →</a></p></div></section>';
       }).join('') + '</div></section>'));
 
@@ -221,6 +226,71 @@ var Lab = window.Lab = window.Lab || {};
   }
   var LATEST = 6, BAND = 5;
 
+  /** Share: the device's own sheet where there is one, else (and beside it) copy link, X and LinkedIn.
+   *  Plain links and one clipboard call: nothing loads until it's pressed. */
+  function shareBlock(e, where) {
+    // one control: the device's own share sheet where there is one, else a small menu of Copy link, X and
+    // LinkedIn (one control, not four, keeps a short page's first screen within rule 5)
+    var url = location.href, text = e.title + ' · Aahil Khan';
+    var el = Lab.html('<section class="share share-' + where + (where === 'rail' ? ' rail-wide' : '') + '" aria-label="' + t('share.title') + '" data-share="' + where + '">' +
+      '<h2 class="end-h">' + t('share.title') + '</h2><div class="share-wrap">' +
+      '<button type="button" class="chip" data-share-open aria-expanded="false">' + t('share.native') + '</button>' +
+      '<div class="share-row share-menu" data-share-menu hidden>' +
+        '<button type="button" class="chip" data-share-copy aria-live="polite">' + t('share.copy') + '</button>' +
+        '<a class="chip" rel="noopener" target="_blank" href="https://x.com/intent/post?url=' + encodeURIComponent(url) + '&amp;text=' + encodeURIComponent(text) + '">' + t('share.x') + '</a>' +
+        '<a class="chip" rel="noopener" target="_blank" href="https://www.linkedin.com/sharing/share-offsite/?url=' + encodeURIComponent(url) + '">' + t('share.linkedin') + '</a>' +
+      '</div></div></section>');
+    var open = el.querySelector('[data-share-open]'), menu = el.querySelector('[data-share-menu]');
+    var setMenu = function (on) { menu.hidden = !on; open.setAttribute('aria-expanded', String(on)); };
+    open.addEventListener('click', function () {
+      if (navigator.share) { navigator.share({ title: text, url: location.href }).catch(function () { /* dismissed */ }); return; }
+      setMenu(menu.hidden);
+    });
+    var shut = function (ev) {
+      if (!document.contains(el)) { document.removeEventListener('pointerdown', shut, true); document.removeEventListener('keydown', shut); return; }
+      if (menu.hidden) return;
+      if (ev.type === 'keydown' ? ev.key === 'Escape' : !el.contains(ev.target)) { setMenu(false); if (ev.type === 'keydown') open.focus(); }
+    };
+    document.addEventListener('pointerdown', shut, true); document.addEventListener('keydown', shut);
+    var copy = el.querySelector('[data-share-copy]');
+    copy.addEventListener('click', function () {
+      var done = function () { copy.textContent = t('share.copied'); copy.classList.add('is-done'); clearTimeout(copy.t); copy.t = setTimeout(function () { copy.textContent = t('share.copy'); copy.classList.remove('is-done'); }, 1800); };
+      if (navigator.clipboard && navigator.clipboard.writeText) navigator.clipboard.writeText(location.href).then(done, done); else done();
+    });
+    return el;
+  }
+  /** The rail stays out of the first screen (the lead and the text have it) and fades in once the
+   *  reader has scrolled a quarter of a screen; it stays once shown. */
+  function waitRail(rail) {
+    var at = function () { return window.innerHeight * 0.25; };
+    if (window.scrollY > at()) return;
+    rail.classList.add('is-waiting');
+    var on = function () {
+      if (!document.contains(rail)) { window.removeEventListener('scroll', on); return; }
+      if (window.scrollY > at()) { rail.classList.remove('is-waiting'); window.removeEventListener('scroll', on); }
+    };
+    window.addEventListener('scroll', on, { passive: true });
+    // a page too short to scroll that far shows it at once, without its copy of Share (the end's is on the same screen)
+    setTimeout(function () {
+      if (document.documentElement.scrollHeight - window.innerHeight > at()) return;
+      rail.classList.remove('is-waiting'); window.removeEventListener('scroll', on);
+      var sh = rail.querySelector('[data-share="rail"]'); if (sh) sh.hidden = true;
+    }, 0);
+  }
+  /** The rail's "On this page" marks the section being read: the last heading above the top third. */
+  function spyToc(rail, heads) {
+    var links = [].slice.call(rail.querySelectorAll('[data-toc-link]')), raf = 0;
+    var mark = function () {
+      raf = 0;
+      if (!document.contains(rail)) { window.removeEventListener('scroll', on); return; }
+      var cur = -1, line = window.innerHeight / 3;
+      heads.forEach(function (h, i) { if (h.getBoundingClientRect().top < line) cur = i; });
+      links.forEach(function (a, i) { if (i === cur) a.setAttribute('aria-current', 'location'); else a.removeAttribute('aria-current'); });
+    };
+    var on = function () { if (!raf) raf = requestAnimationFrame(mark); };
+    window.addEventListener('scroll', on, { passive: true });
+    setTimeout(mark, 0);
+  }
   function entryPage(e, inWindow) {
     var parent = e.parent && byId[e.parent];
     var siblings = parent ? Lab.childrenOf(parent.id) : [];
@@ -232,8 +302,8 @@ var Lab = window.Lab = window.Lab || {};
     var series = parent && e.kind === 'chapter' ?
       '<details class="series"><summary aria-expanded="false">' + esc(parent.title) + ' · <span data-num>' + pad(e.order) + '</span> of <span data-num>' + pad(siblings.length) + '</span>' +
         '<span class="ticks" aria-hidden="true">' + siblings.map(function (s) { return '<i' + (s === e ? ' class="on"' : '') + '></i>'; }).join('') + '</span><span class="chev" aria-hidden="true"></span></summary>' +
-        '<ol class="chapters">' + siblings.map(function (s) { return '<li><span data-num>' + pad(s.order) + '</span>' + (s === e ? '<span>' + esc(s.title) + '</span>' : Lab.linkTo(s.id)) + '</li>'; }).join('') + '</ol>' +
-        '<p class="meta">' + Lab.linkTo(parent.id, t('chapters.all')) + '</p></details>' : '';
+        '<div class="series-panel box"><ol class="chapters">' + siblings.map(function (s) { return '<li><span data-num>' + pad(s.order) + '</span>' + (s === e ? '<span aria-current="page">' + esc(s.title) + '</span>' : Lab.linkTo(s.id)) + '</li>'; }).join('') + '</ol>' +
+        '<p class="meta">' + Lab.linkTo(parent.id, t('chapters.all')) + '</p></div></details>' : '';
     if (parent && e.kind !== 'chapter') series = '<p class="series series-line"><span class="meta">' + t('kind.note', { parent: '' }).trim() + '</span> ' + Lab.linkTo(parent.id, null, 'meta-link') + '</p>';
     var updated = e.updated && e.updated !== e.published ? ' · ' + t('updated') + ' ' + Lab.date(e.updated) : '';
     page.appendChild(Lab.html('<div class="entry-head">' + series +
@@ -243,7 +313,16 @@ var Lab = window.Lab = window.Lab || {};
       // a build says in one line what it is before it shows itself (plan: title, one line, then the demo)
       (e.kind === 'build' && Lab.ledeOf(e) ? '<p class="entry-sub">' + Lab.inline(Lab.ledeOf(e), refs) + '</p>' : '') + '</div>'));
     var det = page.querySelector('.series');
-    if (det) det.addEventListener('toggle', function () { det.querySelector('summary').setAttribute('aria-expanded', String(det.open)); });
+    if (det) {
+      det.addEventListener('toggle', function () { det.querySelector('summary').setAttribute('aria-expanded', String(det.open)); });
+      // a drop-down: a press outside or Esc closes it
+      var shut = function (ev) {
+        if (!document.contains(det)) { document.removeEventListener('pointerdown', shut, true); document.removeEventListener('keydown', shut); return; }
+        if (!det.open) return;
+        if (ev.type === 'keydown' ? ev.key === 'Escape' : !det.contains(ev.target)) { det.open = false; if (ev.type === 'keydown') det.querySelector('summary').focus(); }
+      };
+      if (!inWindow) { document.addEventListener('pointerdown', shut, true); document.addEventListener('keydown', shut); }
+    }
 
     var lead = Lab.leadOf(e);
     var leadBox = Lab.html('<div class="lead-block wide" data-lead data-lead-kind="' + lead.name + '"></div>');
@@ -271,15 +350,17 @@ var Lab = window.Lab = window.Lab || {};
         pulled = true;
       }
     });
-    page.appendChild(prose);
-    if (e.kind === 'study' || e.kind === 'series') page.appendChild(childrenBlock(e));
-    if (e.kind === 'study') page.appendChild(studyBlocks(e));
-    if (body.ending) page.appendChild(Lab.html('<aside class="ending prose" data-ending aria-labelledby="end-' + e.id + '">' +
+    // the reading column; the rail sits beside it at 1200px and up, and after it below that
+    var main = Lab.html('<div class="entry-main"></div>');
+    main.appendChild(prose);
+    if (e.kind === 'study' || e.kind === 'series') main.appendChild(childrenBlock(e));
+    if (e.kind === 'study') main.appendChild(studyBlocks(e));
+    if (body.ending) main.appendChild(Lab.html('<aside class="ending prose" data-ending aria-labelledby="end-' + e.id + '">' +
       '<p class="end-label" id="end-' + e.id + '"><strong>' + t('ending.' + (body.endingKind || 'do')) + '</strong> <span class="meta">' + t('ending.asof') + '</span> ' + Lab.date(e.updated || e.published, true) + '</p>' +
       [].concat(body.ending).map(function (x) { return '<p>' + Lab.inline(x.text, refs) + '</p>'; }).join('') + '</aside>'));
 
     // References, numbered by first use
-    if (refs.order.length) page.appendChild(Lab.html('<section class="refs-block" aria-labelledby="refs-title"><h2 id="refs-title" class="end-h">' + t('refs.title') + '</h2><ol class="refs">' +
+    if (refs.order.length) main.appendChild(Lab.html('<section class="refs-block" aria-labelledby="refs-title"><h2 id="refs-title" class="end-h">' + t('refs.title') + '</h2><ol class="refs">' +
       refs.order.map(function (k) { var r = refs.map[k]; return '<li id="ref-' + k + '">' + refLine(r) + '</li>'; }).join('') + '</ol></section>'));
 
     // Links to this page, beside Related (linked entries, then also related by shared tags)
@@ -294,14 +375,23 @@ var Lab = window.Lab = window.Lab || {};
     if (!linked.length && !also.length && !sameSec.length) { elsewhere = true; sameSec = publicEntries().filter(function (x) { return x.id !== e.id && back.indexOf(x.id) < 0 && !x.parent; }).sort(byPublished).map(function (x) { return x.id; }); }
     var secOf = D.sections.find(function (x) { return x.id === e.section; });
     var item = function (id) { return '<li>' + Lab.linkTo(id) + ' <span class="meta">' + Lab.kindWords(byId[id]) + '</span></li>'; };
-    page.appendChild(Lab.html('<section class="ends" aria-label="Links">' +
-      '<div class="backlinks" data-backlinks><h2 class="end-h">' + t('backlinks') + '</h2>' + (back.length ? '<ul class="end-list">' + back.map(item).join('') + '</ul>' : '<p class="meta">' + t('backlinks.none') + '</p>') + '</div>' +
+    main.appendChild(shareBlock(e, 'end'));
+    page.appendChild(main);
+    var heads2 = [].slice.call(prose.querySelectorAll('h2[id]'));
+    var toc = heads2.length >= 2 ? '<nav class="toc rail-wide" aria-labelledby="toc-' + e.id + '" data-toc><h2 class="end-h" id="toc-' + e.id + '">' + t('toc.title') + '</h2><ol class="toc-list">' +
+      heads2.map(function (h) { return '<li><a href="#' + h.id + '" data-jump="' + h.id + '" data-toc-link>' + esc(h.textContent) + '</a></li>'; }).join('') + '</ol></nav>' : '';
+    var rail = Lab.html('<aside class="rail ends" aria-label="About this page">' + toc +
+      '<div class="backlinks" data-backlinks><h2 class="end-h">' + t('backlinks').replace(/:$/, '') + '</h2>' + (back.length ? '<ul class="end-list">' + back.map(item).join('') + '</ul>' : '<p class="meta">' + t('backlinks.none') + '</p>') + '</div>' +
       '<div class="related" data-related><h2 class="end-h">' + t('related.title') + '</h2>' +
         (linked.length ? '<ul class="end-list" data-linked>' + linked.map(item).join('') + '</ul>' : '') +
         (also.length ? '<p class="meta also">' + t('related.also') + '</p><ul class="end-list" data-also>' + also.slice(0, 4).map(item).join('') + '</ul>' : '') +
         (sameSec.length ? '<p class="meta also">' + (elsewhere ? t('related.elsewhere') : t('related.section', { section: secOf ? secOf.title : '' })) + '</p><ul class="end-list" data-also>' + sameSec.slice(0, 4).map(item).join('') + '</ul>' : '') +
         ((e.tags || []).length ? '<p class="meta tags">' + t('related.tags') + ' ' + e.tags.map(function (g) { return Lab.tagLink(g); }).join(', ') + '</p>' : '') +
-      '</div></section>'));
+      '</div></aside>');
+    if (!inWindow) rail.insertBefore(shareBlock(e, 'rail'), rail.querySelector('.backlinks'));
+    page.appendChild(rail);
+    if (!inWindow && heads2.length >= 2) spyToc(rail, heads2);
+    if (!inWindow) waitRail(rail);
 
     if (parent && idx >= 0) {
       var prev = siblings[idx - 1], next = siblings[idx + 1];
@@ -316,8 +406,9 @@ var Lab = window.Lab = window.Lab || {};
   // ---------- body blocks ----------
   //   { h2 }  { p }  { list: [..], ordered }  { quote, cite }  { code }  { side } a sidenote
   //   { img: { src, w, h, alt, caption } }  { figure: '<instrument>', of: '<data key>' }
+  var slugOf = function (x) { return String(x).toLowerCase().replace(/[’']/g, '').replace(/[^a-z0-9]+/g, '-').replace(/^-|-$/g, '').slice(0, 48); };
   function renderBlock(b, e, refs) {
-    if (b.h2) return Lab.html('<h2>' + Lab.inline(b.h2.text, refs) + '</h2>');
+    if (b.h2) return Lab.html('<h2 id="s-' + slugOf(Lab.plain(b.h2.text)) + '">' + Lab.inline(b.h2.text, refs) + '</h2>');
     if (b.h3) return Lab.html('<h3>' + Lab.inline(b.h3.text, refs) + '</h3>');
     if (b.p) return Lab.html('<p>' + Lab.inline(b.p.text, refs) + '</p>');
     if (b.list) { var tag = b.ordered ? 'ol' : 'ul'; return Lab.html('<' + tag + ' class="list">' + b.list.map(function (i) { return '<li>' + Lab.inline(i.text, refs) + '</li>'; }).join('') + '</' + tag + '>'); }
@@ -386,13 +477,19 @@ var Lab = window.Lab = window.Lab || {};
   var NUM = ['no', 'one', 'two', 'three', 'four', 'five', 'six', 'seven', 'eight', 'nine', 'ten', 'eleven', 'twelve'];
   var counted = function (n, kind) { var w = Lab.raw('noun.' + kind).split('|'); return (NUM[n] || n) + ' ' + w[n === 1 ? 0 : 1]; };
   var listJoin = function (xs) { return xs.length < 2 ? xs.join('') : xs.slice(0, -1).join(', ') + ' and ' + xs[xs.length - 1]; };
+  /** " · 8 chapters" for an entry that holds others (its public children), else nothing. */
+  var holdsWords = function (x) {
+    var kids = Lab.childrenOf(x.id).filter(isPublic);
+    var kinds = KIND_ORDER.filter(function (k) { return kids.some(function (c) { return c.kind === k; }); });
+    return kids.length ? ' · ' + listJoin(kinds.map(function (k) { return counted(kids.filter(function (c) { return c.kind === k; }).length, k); })) : '';
+  };
   var byOldest = function (a, b) { return (a.published || '').localeCompare(b.published || ''); };
   /** One row of a list: handwritten date, title, kind in words, and the lede under the title. */
   function entryRow(x, opts) {
     var lede = opts && opts.lede ? Lab.plain(Lab.ledeOf(x)) : '';
     return '<li class="row" data-kind="' + x.kind + '">' + Lab.date(x.published, !(opts && opts.noYear)) +
       '<span class="row-main"><span class="row-title">' + Lab.linkTo(x.id) + '</span>' + (lede ? '<span class="row-lede">' + esc(lede) + '</span>' : '') + '</span>' +
-      '<span class="row-kind">' + Lab.kindWords(x) + '</span></li>';
+      '<span class="row-kind">' + Lab.kindWords(x) + (opts && opts.holds ? holdsWords(x) : '') + '</span></li>';
   }
   /** A lead at card size, framed as a mini window: the section pages' hero. */
   function heroCard(x) {
@@ -667,6 +764,17 @@ var Lab = window.Lab = window.Lab || {};
     extMap[x.link] = { title: title, site: hostOf(x.link), line: Lab.raw('ext.term').replace('{term}', x.name) };
   });
 
+  // a link out's own preview, as a chat app unfurls it: the page's OG image, its domain and favicon,
+  // its title and description. Fetched once by unfurl.mjs and inlined, so nothing loads from the network.
+  var unfurlOf = function (url) { return (Lab.unfurls || {})[url] || (Lab.unfurls || {})[url.trim()] || null; };
+  function unfurlHtml(url) {
+    var u = unfurlOf(url);
+    return '<div class="unfurl' + (u.img ? ' has-img' : '') + '" data-unfurl>' +
+      (u.img ? '<img class="uf-img" src="' + Lab.asset(u.img) + '" width="640" height="336" alt="" loading="lazy" decoding="async">' : '') +
+      '<p class="uf-site meta">' + (u.icon ? '<img class="uf-ico" src="' + Lab.asset(u.icon) + '" width="16" height="16" alt="">' : '') + '<span>' + esc(u.domain) + '</span></p>' +
+      '<h3 class="uf-title">' + esc(u.title) + '</h3>' + (u.description ? '<p class="uf-desc">' + esc(u.description) + '</p>' : '') + '</div>';
+  }
+
   /** 'full' (a window holding a whole page), 'card', or null when the key names nothing. */
   function previewKind(key) {
     if (byId[key]) return isPublic(byId[key]) ? 'full' : 'card';
@@ -697,13 +805,14 @@ var Lab = window.Lab = window.Lab || {};
       var mark = document.querySelector('[data-preview="' + key + '"]');
       bar = '<span>' + t('card.ref', { n: mark ? mark.textContent : '' }) + '</span>';
       label = r.title;
-      bodyHtml = '<h3>' + esc(r.title) + '</h3><p class="meta">' + esc(r.site) + '</p><p>' + esc(r.line.text) + '</p>' + (r.url ? '' : '<p class="meta">' + (r.note ? esc(r.note.text || r.note) : t('card.internal')) + '</p>');
+      bodyHtml = r.url && unfurlOf(r.url) ? unfurlHtml(r.url) + '<p class="uf-why">' + esc(r.line.text) + '</p>' :
+        '<h3>' + esc(r.title) + '</h3><p class="meta">' + esc(r.site) + '</p><p>' + esc(r.line.text) + '</p>' + (r.url ? '' : '<p class="meta">' + (r.note ? esc(r.note.text || r.note) : t('card.internal')) + '</p>');
       more = r.url ? { href: r.url, label: t('card.source'), ext: true } : { href: '#ref-' + parts[2], jump: 'ref-' + parts[2], label: t('card.refs') };
     } else if (key.indexOf('ext:') === 0) {
       var url = key.slice(4), m = extMap[url] || { title: hostOf(url), site: hostOf(url), line: '' };
       bar = '<span>' + t('card.ext') + '</span>';
       label = m.title;
-      bodyHtml = '<h3>' + esc(m.title) + '</h3><p class="meta">' + esc(m.site) + '</p>' + (m.line ? '<p>' + esc(m.line) + '</p>' : '');
+      bodyHtml = unfurlOf(url) ? unfurlHtml(url) : '<h3>' + esc(m.title) + '</h3><p class="meta">' + esc(m.site) + '</p>' + (m.line ? '<p>' + esc(m.line) + '</p>' : '');
       more = { href: url, label: t('card.visit', { site: m.site }), ext: true };
     } else {
       var e = byId[key];                                    // an unpublished entry: a card, never its page
@@ -801,24 +910,23 @@ var Lab = window.Lab = window.Lab || {};
       else if (r.top < Lab.barH) window.scrollBy(0, r.top - Lab.barH - 16);
       return;
     }
-    var width = Math.min(w.full ? 560 : 420, window.innerWidth - 32), vw = window.innerWidth, vh = window.innerHeight;
+    // Never over the link that opened it (Aahil, 27 Nov: "i should be able to click on the link"): below
+    // the link when it fits, which is where the pointer goes to read it, else above, else on the roomier
+    // side with its height capped to the room there (a whole-page window scrolls inside anyway).
+    var width = Math.min(w.full ? 460 : 360, window.innerWidth - 32), vw = window.innerWidth, vh = window.innerHeight;
     var under = stack.length > 1 ? stack[stack.length - 2].el.getBoundingClientRect() : null;
-    el.style.top = '0px';
-    var h = el.offsetHeight, top, left;
-    if (under) {
-      // a window opened from a window cascades to the right of it, overlapping its edge, so both read
-      left = Math.min(under.right - 72, vw - width - 16);
-      if (left < under.left + 48) left = Math.min(under.left + 48, vw - width - 16);
-      top = Math.min(Math.max(Lab.barH + 8, r.top - 40), vh - h - 8);
-    } else {
-      var below = r.bottom + 10, above = r.top - h - 10;
-      left = Math.min(Math.max(16, r.left), vw - width - 16);
-      if (below + h < vh - 8) top = below;
-      else if (above > Lab.barH + 8) top = above;
-      else top = Math.max(Lab.barH + 8, vh - h - 8);
-    }
+    el.style.top = '0px'; el.style.maxHeight = ''; el.style.overflowY = '';
+    var h = el.offsetHeight, top, left, GAP = 8, roof = Lab.barH + 8, floor = vh - 8;
+    // a window opened from a window steps right of its link, so the link and the window under it both show
+    left = under ? Math.min(Math.max(16, r.left + 32), vw - width - 16) : Math.min(Math.max(16, r.left), vw - width - 16);
+    var roomBelow = floor - (r.bottom + GAP), roomAbove = (r.top - GAP) - roof;
+    if (h <= roomBelow) top = r.bottom + GAP;
+    else if (h <= roomAbove) top = r.top - GAP - h;
+    else if (roomBelow >= roomAbove) { top = r.bottom + GAP; el.style.maxHeight = roomBelow + 'px'; }
+    else { el.style.maxHeight = roomAbove + 'px'; top = r.top - GAP - roomAbove; }
+    if (el.style.maxHeight && !w.full) el.style.overflowY = 'auto';
     el.style.left = left + 'px';
-    el.style.top = Math.max(Lab.barH + 8, top) + 'px';
+    el.style.top = top + 'px';
   }
   function setExpanded(el, on) { if (el.hasAttribute('aria-expanded')) el.setAttribute('aria-expanded', String(on)); }
   /** Closes window i and everything above it. */
@@ -884,7 +992,7 @@ var Lab = window.Lab = window.Lab || {};
       ev.preventDefault();
       var to = document.getElementById(j.getAttribute('data-jump'));
       closeFrom(to ? winOf(to) + 1 : 0);
-      if (to) { to.scrollIntoView({ block: 'center', behavior: Lab.look.reduced() ? 'auto' : 'smooth' }); to.classList.add('is-target'); setTimeout(function () { to.classList.remove('is-target'); }, 1600); }
+      if (to) { to.scrollIntoView({ block: j.hasAttribute('data-toc-link') ? 'start' : 'center', behavior: Lab.look.reduced() ? 'auto' : 'smooth' }); to.classList.add('is-target'); setTimeout(function () { to.classList.remove('is-target'); }, 1600); }
     }
   });
   document.addEventListener('focusin', function (ev) {
@@ -917,6 +1025,8 @@ var Lab = window.Lab = window.Lab || {};
     var p = max > 0 ? Math.min(1, Math.max(0, window.scrollY / max)) : 0;
     var x = Math.round(x0 + p * (window.innerWidth - x0 - 16 - 22));
     dot.style.setProperty('--dot-x', x + 'px');
+    var barEl = dot.closest('.bar') || document.querySelector('.bar');
+    if (barEl) { barEl.style.setProperty('--read-x', (x + 11) + 'px'); barEl.classList.add('has-trail'); }
     var now = performance.now();
     if (lastX >= 0 && Math.abs(x - lastX) > 3 && now - lastStep > 320) {
       lastStep = now;
