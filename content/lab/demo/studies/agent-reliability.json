@@ -1,0 +1,447 @@
+{
+  "id": "agent-reliability",
+  "tracks": [
+    "Evals & error analysis",
+    "Observability & tracing",
+    "Reliability engineering",
+    "Latency & performance",
+    "Voice agents",
+    "Guardrails & security",
+    "Deployment",
+    "Open source"
+  ],
+  "topics": [
+    {
+      "id": "T01",
+      "track": "Evals & error analysis",
+      "topic": "Eval anatomy",
+      "phase": "Phase 1 · Evals core",
+      "est": 5,
+      "spent": 1.5,
+      "status": "done",
+      "finished": "2026-11-19",
+      "learn": "Tasks, trials, graders, transcripts vs outcomes (final environment state), eval harness. Grade what was produced, not the exact path."
+    },
+    {
+      "id": "T02",
+      "track": "Evals & error analysis",
+      "topic": "pass@k vs pass^k, multi-trial runs, variance",
+      "phase": "Phase 1 · Evals core",
+      "est": 3,
+      "spent": 1.75,
+      "status": "done",
+      "finished": "2026-11-20",
+      "learn": "Run each task k times; pass@k = succeeded at least once, pass^k = succeeded every time. Report intervals, not single scores."
+    },
+    {
+      "id": "T03",
+      "track": "Evals & error analysis",
+      "topic": "Error analysis: open → axial coding",
+      "phase": "Phase 1 · Evals core",
+      "est": 10,
+      "spent": 0.5,
+      "status": "doing",
+      "finished": null
+    },
+    {
+      "id": "T04",
+      "track": "Evals & error analysis",
+      "topic": "Code-based graders",
+      "phase": "Phase 1 · Evals core",
+      "est": 4,
+      "spent": 0.25,
+      "status": "doing",
+      "finished": null
+    },
+    {
+      "id": "T05",
+      "track": "Evals & error analysis",
+      "topic": "LLM-as-judge design",
+      "phase": "Phase 1 · Evals core",
+      "est": 5,
+      "spent": 0.5,
+      "status": "doing",
+      "finished": null
+    },
+    {
+      "id": "T06",
+      "track": "Evals & error analysis",
+      "topic": "Judge calibration & bias",
+      "phase": "Phase 1 · Evals core",
+      "est": 8,
+      "spent": 0,
+      "status": "todo",
+      "finished": null
+    },
+    {
+      "id": "T07",
+      "track": "Evals & error analysis",
+      "topic": "Capability vs regression evals; CI gates",
+      "phase": "Phase 2 · Tracing, latency, voice basics",
+      "est": 4,
+      "spent": 0,
+      "status": "todo",
+      "finished": null
+    },
+    {
+      "id": "T08",
+      "track": "Evals & error analysis",
+      "topic": "Online / production evals",
+      "phase": "Phase 2 · Tracing, latency, voice basics",
+      "est": 5,
+      "spent": 0,
+      "status": "todo",
+      "finished": null
+    },
+    {
+      "id": "T09",
+      "track": "Evals & error analysis",
+      "topic": "User simulation for multi-turn agents",
+      "phase": "Phase 3 · Voice harness",
+      "est": 10,
+      "spent": 0,
+      "status": "todo",
+      "finished": null
+    },
+    {
+      "id": "T10",
+      "track": "Evals & error analysis",
+      "topic": "Benchmark literacy",
+      "phase": "Parked (P2)",
+      "est": 4,
+      "spent": 0,
+      "status": "parked",
+      "finished": null
+    },
+    {
+      "id": "T11",
+      "track": "Observability & tracing",
+      "topic": "Traces, spans, runs, threads",
+      "phase": "Phase 1 · Evals core",
+      "est": 3,
+      "spent": 0,
+      "status": "todo",
+      "finished": null
+    },
+    {
+      "id": "T12",
+      "track": "Observability & tracing",
+      "topic": "OpenTelemetry fundamentals",
+      "phase": "Phase 2 · Tracing, latency, voice basics",
+      "est": 8,
+      "spent": 0,
+      "status": "todo",
+      "finished": null
+    },
+    {
+      "id": "T13",
+      "track": "Observability & tracing",
+      "topic": "OTel GenAI semantic conventions",
+      "phase": "Phase 2 · Tracing, latency, voice basics",
+      "est": 3,
+      "spent": 0,
+      "status": "todo",
+      "finished": null
+    },
+    {
+      "id": "T14",
+      "track": "Observability & tracing",
+      "topic": "Hands-on with an LLM observability platform",
+      "phase": "Phase 1 · Evals core",
+      "est": 6,
+      "spent": 0,
+      "status": "todo",
+      "finished": null
+    },
+    {
+      "id": "T15",
+      "track": "Observability & tracing",
+      "topic": "Agent SLOs & incident budgets",
+      "phase": "Phase 2 · Tracing, latency, voice basics",
+      "est": 3,
+      "spent": 0,
+      "status": "todo",
+      "finished": null
+    },
+    {
+      "id": "T16",
+      "track": "Reliability engineering",
+      "topic": "Reliability framing",
+      "phase": "Phase 1 · Evals core",
+      "est": 3,
+      "spent": 0,
+      "status": "todo",
+      "finished": null
+    },
+    {
+      "id": "T17",
+      "track": "Reliability engineering",
+      "topic": "Failure taxonomies",
+      "phase": "Phase 4 · Hardening",
+      "est": 3,
+      "spent": 0,
+      "status": "todo",
+      "finished": null
+    },
+    {
+      "id": "T18",
+      "track": "Reliability engineering",
+      "topic": "Tool-call reliability",
+      "phase": "Phase 2 · Tracing, latency, voice basics",
+      "est": 6,
+      "spent": 0,
+      "status": "todo",
+      "finished": null
+    },
+    {
+      "id": "T19",
+      "track": "Reliability engineering",
+      "topic": "Durable execution",
+      "phase": "Phase 4 · Hardening",
+      "est": 6,
+      "spent": 0,
+      "status": "todo",
+      "finished": null
+    },
+    {
+      "id": "T20",
+      "track": "Reliability engineering",
+      "topic": "Idempotency & side-effect safety",
+      "phase": "Phase 4 · Hardening",
+      "est": 4,
+      "spent": 0,
+      "status": "todo",
+      "finished": null
+    },
+    {
+      "id": "T21",
+      "track": "Reliability engineering",
+      "topic": "Workflow vs agent design",
+      "phase": "later",
+      "est": 2,
+      "spent": 0,
+      "status": "later",
+      "finished": null
+    },
+    {
+      "id": "T22",
+      "track": "Reliability engineering",
+      "topic": "Context engineering",
+      "phase": "later",
+      "est": 4,
+      "spent": 0,
+      "status": "later",
+      "finished": null
+    },
+    {
+      "id": "T23",
+      "track": "Reliability engineering",
+      "topic": "Calibration, abstention, escalation",
+      "phase": "Parked (P2)",
+      "est": 4,
+      "spent": 0,
+      "status": "parked",
+      "finished": null
+    },
+    {
+      "id": "T24",
+      "track": "Latency & performance",
+      "topic": "Latency metrics",
+      "phase": "Phase 2 · Tracing, latency, voice basics",
+      "est": 3,
+      "spent": 0,
+      "status": "todo",
+      "finished": null
+    },
+    {
+      "id": "T25",
+      "track": "Latency & performance",
+      "topic": "Agent turn model & critical path",
+      "phase": "Phase 2 · Tracing, latency, voice basics",
+      "est": 5,
+      "spent": 0,
+      "status": "todo",
+      "finished": null
+    },
+    {
+      "id": "T26",
+      "track": "Latency & performance",
+      "topic": "Latency levers",
+      "phase": "Phase 2 · Tracing, latency, voice basics",
+      "est": 6,
+      "spent": 0,
+      "status": "todo",
+      "finished": null
+    },
+    {
+      "id": "T27",
+      "track": "Latency & performance",
+      "topic": "Routing, cascades, latency–quality–cost",
+      "phase": "Phase 2 · Tracing, latency, voice basics",
+      "est": 6,
+      "spent": 0,
+      "status": "todo",
+      "finished": null
+    },
+    {
+      "id": "T28",
+      "track": "Latency & performance",
+      "topic": "Load & tail testing for LLM systems",
+      "phase": "Parked (P2)",
+      "est": 3,
+      "spent": 0,
+      "status": "parked",
+      "finished": null
+    },
+    {
+      "id": "T29",
+      "track": "Latency & performance",
+      "topic": "Serving internals (conceptual)",
+      "phase": "Parked (P2)",
+      "est": 5,
+      "spent": 0,
+      "status": "parked",
+      "finished": null
+    },
+    {
+      "id": "T30",
+      "track": "Voice agents",
+      "topic": "Voice pipeline architecture & real-time transport",
+      "phase": "Phase 2 · Tracing, latency, voice basics",
+      "est": 6,
+      "spent": 0,
+      "status": "todo",
+      "finished": null
+    },
+    {
+      "id": "T31",
+      "track": "Voice agents",
+      "topic": "Turn-taking: VAD, endpointing, barge-in",
+      "phase": "Phase 3 · Voice harness",
+      "est": 6,
+      "spent": 0,
+      "status": "todo",
+      "finished": null
+    },
+    {
+      "id": "T32",
+      "track": "Voice agents",
+      "topic": "Voice latency budgets & streaming overlap",
+      "phase": "Phase 2 · Tracing, latency, voice basics",
+      "est": 5,
+      "spent": 0,
+      "status": "todo",
+      "finished": null
+    },
+    {
+      "id": "T33",
+      "track": "Voice agents",
+      "topic": "Voice failure modes, red-teaming, Hindi/Hinglish",
+      "phase": "Phase 3 · Voice harness",
+      "est": 5,
+      "spent": 0,
+      "status": "todo",
+      "finished": null
+    },
+    {
+      "id": "T34",
+      "track": "Voice agents",
+      "topic": "Voice evals",
+      "phase": "Phase 3 · Voice harness",
+      "est": 8,
+      "spent": 0,
+      "status": "todo",
+      "finished": null
+    },
+    {
+      "id": "T35",
+      "track": "Voice agents",
+      "topic": "LiveKit Agents hands-on",
+      "phase": "Phase 3 · Voice harness",
+      "est": 8,
+      "spent": 0,
+      "status": "todo",
+      "finished": null
+    },
+    {
+      "id": "T36",
+      "track": "Voice agents",
+      "topic": "Pipecat hands-on (optional)",
+      "phase": "Parked (P2)",
+      "est": 6,
+      "spent": 0,
+      "status": "parked",
+      "finished": null
+    },
+    {
+      "id": "T37",
+      "track": "Guardrails & security",
+      "topic": "Prompt injection & OWASP LLM Top 10",
+      "phase": "Phase 4 · Hardening",
+      "est": 4,
+      "spent": 0,
+      "status": "todo",
+      "finished": null
+    },
+    {
+      "id": "T38",
+      "track": "Guardrails & security",
+      "topic": "Permissions & approval gates",
+      "phase": "Phase 4 · Hardening",
+      "est": 3,
+      "spent": 0,
+      "status": "todo",
+      "finished": null
+    },
+    {
+      "id": "T39",
+      "track": "Deployment",
+      "topic": "Enterprise infra basics",
+      "phase": "Parked (P2)",
+      "est": 12,
+      "spent": 0,
+      "status": "parked",
+      "finished": null
+    },
+    {
+      "id": "T40",
+      "track": "Deployment",
+      "topic": "Integrations: APIs, webhooks, auth",
+      "phase": "Parked (P2)",
+      "est": 3,
+      "spent": 0,
+      "status": "parked",
+      "finished": null
+    },
+    {
+      "id": "T41",
+      "track": "Deployment",
+      "topic": "Customer-facing skills",
+      "phase": "later",
+      "est": 4,
+      "spent": 0,
+      "status": "later",
+      "finished": null
+    },
+    {
+      "id": "T42",
+      "track": "Deployment",
+      "topic": "SQL on traces and logs",
+      "phase": "Parked (P2)",
+      "est": 2,
+      "spent": 0,
+      "status": "parked",
+      "finished": null
+    },
+    {
+      "id": "T48",
+      "track": "Open source",
+      "topic": "OSS contributions",
+      "phase": "Ongoing · OSS",
+      "est": 15,
+      "spent": 0,
+      "status": "todo",
+      "finished": null
+    }
+  ]
+}

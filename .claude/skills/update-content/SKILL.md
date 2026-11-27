@@ -44,6 +44,43 @@ Never edit the `content/*.ts` wrappers to change content — they only type the 
    (push, or merge the PR). Then tell them: live in ~3 minutes, and `curl -s <site>/api/version`
    shows the live commit (the site is https://www.aahil-khan.xyz). Vercel deploys `main` by itself.
 
+## The Lab (`/lab`)
+
+The Lab's content is data too, but not in `/edit` yet (that is the Lab's editor PR). Its contract
+is `content/lab/API.md`; read it before a Lab change. Validation is `validateLab`
+(`lib/lab/rules.ts`), run by `npm run content:check` and the build over **both** sets below.
+
+**Two sets, one switch.** `content/data/lab.json` → `"demo"` picks which one every Lab page shows:
+
+- **The real set** is Aahil's own, and starts **empty** on purpose: he writes everything himself.
+  Never seed it with the demo's content, the mockup's, or anything he hasn't given you.
+- **The demo set** (`content/lab/demo/`, images in `public/lab/demo/`) is pre-populated demo content
+  so he can judge the look and feel on prod. It is **temporary**: while `"demo": true` every Lab page
+  says "Demo content" in its bar, and at the end it is deleted (API.md, "Demo mode", lists the one
+  clean-up PR). Don't edit it to say real things, and don't link to it from anything real.
+- `copy` (the Lab's chrome words) is in `content/data/lab.json` and is real in both modes.
+
+How his real content slots in. Ids are lowercase with dashes and never `index`, `tags`, `glossary`,
+`demo` or `fixture`.
+
+| To add | Write | Notes |
+|---|---|---|
+| a section | `content/data/lab.json` → `sections[]`: `{ id, title, thesis }` | it shows once it holds a top-level entry |
+| a tag | `lab.json` → `tags[]`: `{ id, title }` | at most 8 in the whole Lab |
+| an entry | `lab.json` → `entries[]`, fields by kind in `content/schema/lab.ts` | `published` is a `YYYY-MM-DD` day; a draft has `"draft": true, "published": null` |
+| its body | `content/lab/<section>/<slug>.md`, or `content/lab/<section>/<parent-slug>/<slug>.md` for a chapter or a study's note | Markdown, no HTML: `[[id\|words]]`, `[[t:id\|words]]`, `[[tag:id\|words]]`, `[^key]`, `::figure{of="id"}`, `:::side[Heading]` … `:::`, `![alt](/lab/<id>/x.webp "w=1200 h=675 \| caption")` |
+| a reference | the entry's `refs`: `{ key: { title, site, line, url } }` | cite it `[^key]` in the body; every one must be cited; give a `line` when the site has no unfurl |
+| a glossary term | `content/data/lab-terms.json`: `{ id, name, def, link?, source }` | |
+| figure data | `content/data/lab-figures.json`: `{ id: { instrument, caption?, data } }` | |
+| a link card | `content/data/lab-unfurls.json`, by URL | written by the unfurl script, not by hand |
+| a study's board | `node --experimental-strip-types scripts/lab-import-study.ts --id=<study>` | reads the tracker by a column allowlist; never paste tracker columns by hand |
+| images | `public/lab/<entry-id>/*.webp` | sizes declared wherever they're used |
+
+The rules that refuse a save are in `lib/lab/rules.ts`: every link and reference resolves, a long
+entry has a `pull` that is a sentence of its body word for word, a build or experiment ends with
+`ending`, every link out has a card, and the **privacy denylist** (companies, the hiring track, the
+tracker's private phases) holds over every Lab file. Run `npm run content:check` after any change.
+
 ## Don't
 
 - Don't add keys the schema doesn't know — `content:check` rejects them, and so does `/edit`.

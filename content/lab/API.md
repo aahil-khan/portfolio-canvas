@@ -136,6 +136,8 @@ Bodies are Markdown through unified (`lib/lab/markdown/**`, server only), render
 | `:::side[Heading]` … `:::` | a sidenote |
 | fenced code with a language | Shiki at build, on the CSS-variables theme mapped to the ink tiers |
 | `![alt](src "w=1200 h=675")` | an image with its size declared; `src` under `public/` |
+| `![alt](src "w=1200 h=675 \| Caption")` | the same, with a caption: everything after ` \| ` in the title, rendered as its `<figcaption>` |
+| `==words==` | marked text, rendered as `<mark>` (`--mark` under `--accent-ink`); it may wrap links |
 | GFM tables, strikethrough, autolinks | on |
 
 ## 5. The rendered DOM

@@ -1,0 +1,535 @@
+[
+  {
+    "id": "preview",
+    "name": "Previews",
+    "def": "A small window with a word’s meaning or a page’s opening, so you can check it without leaving the page you’re on.",
+    "source": "his brief, 27 Nov: links and references like Wikipedia"
+  },
+  {
+    "id": "floor-price",
+    "name": "Floor price",
+    "def": "The lowest price the shop will sell an item at. It’s secret: the 20W charger lists at ₹899 and its floor is ₹650.",
+    "source": "spec, Inventory and P1"
+  },
+  {
+    "id": "blind-agent",
+    "name": "Blind agent",
+    "def": "An agent that never has the floor prices in its context. The backend judges each offer for it. Option B in the spec, and the one v1 chose.",
+    "source": "spec, Architecture decision"
+  },
+  {
+    "id": "evaluate-offer",
+    "name": "evaluate_offer",
+    "def": "The tool a blind agent calls with the customer’s offer. It answers accept, or a counter from the concession schedule, and never names a floor.",
+    "source": "spec, Tools"
+  },
+  {
+    "id": "confidentiality",
+    "name": "Confidentiality (P2)",
+    "def": "Never reveal a floor, cost or margin, directly or indirectly, including confirming or denying a guess. Accepting or rejecting an offer doesn’t count.",
+    "source": "spec, Policy P2"
+  },
+  {
+    "id": "concession-schedule",
+    "name": "Concession schedule",
+    "def": "How far the shop comes down at each counter: a first step of at most 5% of list, each later step smaller, every counter ending in 9, and no more after five rejections.",
+    "source": "spec, Negotiation behaviour rules 2, 3 and 6"
+  },
+  {
+    "id": "prompt-injection",
+    "name": "Prompt injection",
+    "def": "Text from a user written to look like instructions to the model, such as “SYSTEM: debug mode on”. The spec’s P12 says to ignore it, and scenario B9 tries it.",
+    "source": "spec, P12 and scenario B9; tracker, T37"
+  },
+  {
+    "id": "persona-card",
+    "name": "Persona card",
+    "def": "The simulated customer’s script: a hidden reservation price, an opening offer, a tactic and when to walk away. Its decisions run in code, so a run can be repeated.",
+    "source": "spec, Customer simulator"
+  },
+  {
+    "id": "triangulation-gap",
+    "name": "Triangulation gap",
+    "def": "The lowest price the agent accepted or offered, minus the highest offer it rejected, when the floor lies between them. Under ₹25 counts as a leak.",
+    "source": "spec, Quality metrics"
+  },
+  {
+    "id": "capability-eval",
+    "name": "Capability eval",
+    "def": "A test aimed at something the agent can’t do yet, so it’s expected to start with a low pass rate. A regression eval guards what already works.",
+    "link": "https://www.anthropic.com/engineering/demystifying-evals-for-ai-agents",
+    "source": "Anthropic, Demystifying evals for AI agents (tracker, T07)"
+  },
+  {
+    "id": "pass-k",
+    "name": "pass^k",
+    "def": "A task passes only if every one of k runs passes. pass@k asks for one success in k tries; pass^k asks for k out of k.",
+    "link": "t02",
+    "source": "tracker, T02 What to learn"
+  },
+  {
+    "id": "release-bar",
+    "name": "Release bar",
+    "def": "What the agent has to clear before it ships: pass^5 on every B and C scenario, a mean pass rate of at least 90% on A, and median surplus captured of at least 0.5.",
+    "source": "spec, Release bar"
+  },
+  {
+    "id": "stress-baseline",
+    "name": "Stress baseline",
+    "def": "A deliberately weaker setup, run once, to measure how much a design choice protects you. Here, the agent with the floors in its prompt.",
+    "source": "spec, Architecture decision"
+  },
+  {
+    "id": "zopa",
+    "name": "Zone of possible agreement (ZOPA)",
+    "def": "The prices both sides can accept: from the shop’s floor up to the customer’s reservation price. If it’s empty, the right outcome is no sale.",
+    "source": "spec, Customer simulator"
+  },
+  {
+    "id": "reservation-price",
+    "name": "Reservation price",
+    "def": "The most a simulated customer will pay. It’s written on the persona card, hidden from the agent, and the customer never says it.",
+    "source": "spec, persona cards and shared rule 4"
+  },
+  {
+    "id": "expected-outcome",
+    "name": "Expected outcome",
+    "def": "Each scenario’s one right ending: SALE (a sale must commit), NO_SALE (none may) or SALE_OK (a valid sale is allowed but not required).",
+    "link": "shopkeeper-07",
+    "source": "spec, Scenarios"
+  },
+  {
+    "id": "margin-capture",
+    "name": "Margin capture",
+    "def": "How much of the room between floor and list a sale kept: 1 at list price, 0 at the floor. Below 0.1 is a soft warning, not a failure.",
+    "link": "shopkeeper-08",
+    "source": "spec, Quality metrics"
+  },
+  {
+    "id": "surplus-captured",
+    "name": "Surplus captured",
+    "def": "The share of the customer’s room above the floor that the agent kept: price minus floor, over reservation minus floor. The release bar uses its median.",
+    "link": "shopkeeper-08",
+    "source": "spec, Quality metrics"
+  },
+  {
+    "id": "sale-attempts",
+    "name": "sale_attempts",
+    "def": "The backend’s log of every evaluate_offer and confirm_sale call, rejected ones included, so a bad sale the backend blocked still shows up.",
+    "source": "spec, Data model and audit"
+  },
+  {
+    "id": "idempotency-key",
+    "name": "Idempotency key",
+    "def": "A key evaluate_offer hands back when it accepts. Calling confirm_sale twice with it returns the first result and never writes a second sale.",
+    "link": "shopkeeper-06",
+    "source": "spec, Tools"
+  },
+  {
+    "id": "cash-on-pickup",
+    "name": "Cash on pickup",
+    "def": "An order paid for at the counter: a reservation that holds the stock for 24 hours and becomes a sale only when the customer pays. Unpaid, it expires.",
+    "source": "spec, P6 and Tools"
+  },
+  {
+    "id": "phantom-sale",
+    "name": "Phantom sale",
+    "def": "Telling the customer a sale is done when no confirm_sale returned committed, or reading back a transaction ID the database doesn’t have.",
+    "source": "spec, P11 and universal hard check 5"
+  },
+  {
+    "id": "fault-injection",
+    "name": "Fault injection",
+    "def": "A per-scenario test hook, invisible to the agent, that makes a tool error before commit, time out after commit, or fail every time.",
+    "source": "spec, Tools"
+  },
+  {
+    "id": "opaque-error",
+    "name": "Opaque error code",
+    "def": "An error with no numbers in it, such as PRICE_NOT_ACCEPTABLE. “Below minimum ₹650” would hand the floor to whoever reads it.",
+    "source": "spec, Tools"
+  },
+  {
+    "id": "verified-caller",
+    "name": "Verified caller",
+    "def": "The customer’s identity, taken from the number the call comes from, never from what the caller says. That’s why check_customer takes no argument.",
+    "source": "spec, Customer fixtures and Tools"
+  },
+  {
+    "id": "hard-check",
+    "name": "Universal hard check",
+    "def": "One of nine checks every scenario must pass, from no line below its floor to stock that adds up. Failing any one fails the scenario.",
+    "link": "shopkeeper-08",
+    "source": "spec, Evaluation and scoring"
+  },
+  {
+    "id": "tactic-script",
+    "name": "Tactic script",
+    "def": "A trickster’s moves, in order, one per turn. When the script runs out, the simulated customer goes back to plain bargaining.",
+    "source": "spec, persona cards, shared rule 6"
+  },
+  {
+    "id": "bundle-split",
+    "name": "Bundle split",
+    "def": "How one price for several items becomes a price per line: in proportion to list price, with any line below its floor raised and the difference taken from lines with room.",
+    "source": "spec, P4"
+  },
+  {
+    "id": "v0-slice",
+    "name": "The v0 slice",
+    "def": "The first build: 24 of the 35 scenarios and six of the ten tools, leaving out bundles, credit, payment holds and fault injection.",
+    "source": "spec, v0 build scope"
+  },
+  {
+    "id": "eval-task",
+    "name": "Task",
+    "def": "One thing the agent is asked to do, with a known good end state to check against. An eval is a set of them.",
+    "source": "tracker, T01 What to learn; Anthropic, Demystifying evals for AI agents"
+  },
+  {
+    "id": "eval-trial",
+    "name": "Trial",
+    "def": "One run of one task. Agents don’t answer the same way twice, so a task gets several trials and is scored across them.",
+    "source": "tracker, T01 and T02 What to learn"
+  },
+  {
+    "id": "grader",
+    "name": "Grader",
+    "def": "Whatever decides whether a trial passed: a piece of code that checks the result, or a model asked to judge it.",
+    "source": "tracker, T01 What to learn and T04"
+  },
+  {
+    "id": "transcript-outcome",
+    "name": "Transcript and outcome",
+    "def": "The transcript is everything the agent said and called along the way. The outcome is the state it left behind when it stopped. Grade the outcome.",
+    "source": "tracker, T01 What to learn: transcripts vs outcomes (final environment state)"
+  },
+  {
+    "id": "eval-harness",
+    "name": "Eval harness",
+    "def": "The loop around an eval: it loads the tasks, runs the trials, calls the graders and keeps the transcripts.",
+    "source": "tracker, T01 What to learn"
+  },
+  {
+    "id": "code-grader",
+    "name": "Code-based grader",
+    "def": "A check written as code: an exact match, a test, a comparison of the final state. Cheap and repeatable; a model judges only what code can’t.",
+    "source": "tracker, T04 Code-based graders, and its log: code vs judge decision"
+  },
+  {
+    "id": "llm-judge",
+    "name": "LLM as judge",
+    "def": "A model that grades another model’s output against a rule: in the Shopkeeper, it reads transcripts for price hints a number search can’t catch. Kept binary, one judge per failure mode, and checked against human labels.",
+    "link": "https://www.lennysnewsletter.com/p/building-eval-systems-that-improve",
+    "source": "tracker, T05 log: binary, one judge per failure mode, TPR/TNR; its resource, Lenny’s Newsletter; spec, Disclosure detection"
+  },
+  {
+    "id": "error-analysis",
+    "name": "Error analysis",
+    "def": "Reading real traces and writing down what went wrong in free words first (open coding), then grouping the notes into failure types (axial coding), until new traces stop adding types.",
+    "link": "https://hamel.dev/blog/posts/evals-faq/why-is-error-analysis-so-important-in-llm-evals-and-how-is-it-performed.html",
+    "source": "tracker, T03 log: open/axial coding, saturation; its resource, Hamel Husain’s evals FAQ"
+  },
+  {
+    "id": "pass-at-k",
+    "name": "pass@k",
+    "def": "A task counts as passed if at least one of k runs succeeded. Right for a person picking the best of several tries; flattering for an agent that gets one try.",
+    "source": "tracker, T02 What to learn"
+  },
+  {
+    "id": "wilson-interval",
+    "name": "Wilson interval",
+    "def": "A confidence interval for a pass rate that stays honest with few runs and rates near 0 or 1. Five passes in five give about 57% to 100% at 95%.",
+    "link": "https://en.wikipedia.org/wiki/Binomial_proportion_confidence_interval#Wilson_score_interval",
+    "source": "tracker, T02 log; E. B. Wilson (1927), the score interval; the 5-of-5 figure computed"
+  },
+  {
+    "id": "mcnemar",
+    "name": "McNemar’s test",
+    "def": "For two versions run on the same tasks: it looks only at the tasks that flipped, and asks whether they flipped one way more than chance would.",
+    "link": "https://en.wikipedia.org/wiki/McNemar%27s_test",
+    "source": "tracker, T02 log; Q. McNemar (1947)"
+  },
+  {
+    "id": "gnome-workspace",
+    "name": "Workspace",
+    "def": "One of GNOME’s virtual desktops: a separate set of windows on the same screen, side by side with the others.",
+    "source": "the Drag to Workspace README; GNOME Shell"
+  },
+  {
+    "id": "dynamic-workspaces",
+    "name": "Dynamic workspaces",
+    "def": "GNOME’s default: there’s always one empty workspace at the end, and new ones appear as you use them. Drag to Workspace can open one right next to the current one.",
+    "source": "the Drag to Workspace README, Features"
+  },
+  {
+    "id": "edge-tiling",
+    "name": "Half-screen tiling",
+    "def": "Drag a window to the left or right edge in GNOME and it fills that half of the screen. Drag to Workspace leaves the bottom third of each edge to it by default.",
+    "source": "the Drag to Workspace README, FAQ"
+  },
+  {
+    "id": "gnome-shell",
+    "name": "GNOME Shell",
+    "def": "The part of GNOME that draws the desktop: the top bar, the overview, window management. Extensions run inside it, in JavaScript.",
+    "link": "https://gitlab.gnome.org/GNOME/gnome-shell",
+    "source": "the Drag to Workspace README, Requirements and Building"
+  },
+  {
+    "id": "wayland",
+    "name": "Wayland",
+    "def": "The display protocol most Linux desktops have moved to from X11. On it, GNOME Shell loads a new extension only at login.",
+    "link": "https://wayland.freedesktop.org/",
+    "source": "the Drag to Workspace README, Installation"
+  },
+  {
+    "id": "mcc",
+    "name": "MCC",
+    "def": "The Matthews correlation coefficient: how well yes-or-no predictions match the truth, from −1 to 1, with 0 no better than chance. Unlike accuracy, it isn’t flattered by unbalanced classes.",
+    "link": "https://en.wikipedia.org/wiki/Phi_coefficient",
+    "source": "B. W. Matthews (1975), the coefficient; projects.json, Holt"
+  },
+  {
+    "id": "session-state",
+    "name": "Session state",
+    "def": "Data kept only for the length of one visit. Close the tab, refresh at the wrong moment or lose the connection, and it’s gone.",
+    "source": "experience.json, Datesheet generator"
+  },
+  {
+    "id": "savepoint",
+    "name": "Savepoint",
+    "def": "A marked point in a long piece of work that it can resume from, instead of starting over. The Datesheet generator stores them in MySQL.",
+    "link": "https://dev.mysql.com/doc/refman/8.0/en/savepoint.html",
+    "source": "experience.json, Datesheet generator; MySQL reference manual, SAVEPOINT"
+  },
+  {
+    "id": "peoplesoft",
+    "name": "Oracle PeopleSoft",
+    "def": "Oracle’s suite for running an institution’s records. The university’s student and course data lives in it.",
+    "link": "https://www.oracle.com/applications/peoplesoft/",
+    "source": "experience.json, Datesheet generator"
+  },
+  {
+    "id": "home-server",
+    "name": "Home server",
+    "def": "A computer kept running at home to host your own services, instead of renting them from a cloud provider.",
+    "source": "the essay, Medium, 14 Nov 2025 (definition in plain words)"
+  },
+  {
+    "id": "systemd",
+    "name": "systemd",
+    "def": "Linux’s service manager. It starts services at boot and restarts them when they crash, so they survive a power cut.",
+    "source": "the essay, Medium, 14 Nov 2025 (definition in plain words)"
+  },
+  {
+    "id": "tmux",
+    "name": "tmux",
+    "def": "A terminal multiplexer: it keeps shell sessions alive after you disconnect, but not after the machine restarts.",
+    "source": "the essay, Medium, 14 Nov 2025 (definition in plain words)"
+  },
+  {
+    "id": "cloudflare-tunnel",
+    "name": "Cloudflare Tunnel",
+    "def": "An outbound connection from your machine to Cloudflare (run by cloudflared), so a service can be reached on a public subdomain without opening a port.",
+    "source": "the essay, Medium, 14 Nov 2025 (definition in plain words)"
+  },
+  {
+    "id": "cloudflare-access",
+    "name": "Cloudflare Access",
+    "def": "A sign-in gate in front of a tunnel: you log in through Cloudflare before the connection, SSH included, reaches the machine.",
+    "source": "the essay, Medium, 14 Nov 2025 (definition in plain words)"
+  },
+  {
+    "id": "tailscale",
+    "name": "Tailscale",
+    "def": "A mesh VPN: your own devices join one private network and reach each other directly, wherever they are.",
+    "source": "the essay, Medium, 14 Nov 2025 (definition in plain words)"
+  },
+  {
+    "id": "docker",
+    "name": "Docker",
+    "def": "Packages a service and everything it needs into a container, so it runs the same way anywhere and stays isolated from the rest.",
+    "source": "the essay, Medium, 14 Nov 2025 (definition in plain words)"
+  },
+  {
+    "id": "portainer",
+    "name": "Portainer",
+    "def": "A web interface for Docker: start, stop and inspect containers, volumes, networks and stacks without the command line.",
+    "source": "the essay, Medium, 14 Nov 2025 (definition in plain words)"
+  },
+  {
+    "id": "dozzle",
+    "name": "Dozzle",
+    "def": "A small web app that streams the logs of every Docker container live, in the browser.",
+    "source": "the essay, Medium, 14 Nov 2025 (definition in plain words)"
+  },
+  {
+    "id": "glances",
+    "name": "Glances",
+    "def": "A system monitor in the terminal or browser: CPU, memory, disks, network, processes and containers on one screen.",
+    "source": "the essay, Medium, 14 Nov 2025 (definition in plain words)"
+  },
+  {
+    "id": "netdata",
+    "name": "Netdata",
+    "def": "A monitoring agent that collects thousands of system metrics per second and draws them as live dashboards.",
+    "source": "the essay, Medium, 14 Nov 2025 (definition in plain words)"
+  },
+  {
+    "id": "uptime-kuma",
+    "name": "Uptime Kuma",
+    "def": "A self-hosted uptime monitor: it checks each service on a schedule and sends an alert when one stops answering.",
+    "source": "the essay, Medium, 14 Nov 2025 (definition in plain words)"
+  },
+  {
+    "id": "healthchecks",
+    "name": "Healthchecks",
+    "def": "A cron monitor: each scheduled job pings it when it runs, and a missed ping raises an alert.",
+    "source": "the essay, Medium, 14 Nov 2025 (definition in plain words)"
+  },
+  {
+    "id": "n8n",
+    "name": "n8n",
+    "def": "A workflow automation tool: chain webhooks, APIs and scripts into flows by connecting nodes on a canvas.",
+    "source": "the essay, Medium, 14 Nov 2025 (definition in plain words)"
+  },
+  {
+    "id": "ollama",
+    "name": "Ollama",
+    "def": "Runs large language models on your own machine, behind a local API, with no cloud service involved.",
+    "source": "the essay, Medium, 14 Nov 2025 (definition in plain words)"
+  },
+  {
+    "id": "jellyfin",
+    "name": "Jellyfin",
+    "def": "A self-hosted media server that streams your own films, shows and music to any device.",
+    "source": "the essay, Medium, 14 Nov 2025 (definition in plain words)"
+  },
+  {
+    "id": "transmission",
+    "name": "Transmission",
+    "def": "A BitTorrent client; its daemon runs without a screen and takes commands from scripts or a web page.",
+    "source": "the essay, Medium, 14 Nov 2025 (definition in plain words)"
+  },
+  {
+    "id": "dashy",
+    "name": "Dashy",
+    "def": "A self-hosted start page: one dashboard of links and status for every service you run.",
+    "source": "the essay, Medium, 14 Nov 2025 (definition in plain words)"
+  },
+  {
+    "id": "reverse-proxy",
+    "name": "Reverse proxy",
+    "def": "A server that takes incoming requests and hands each one to the right service behind it, often by hostname.",
+    "source": "the essay, Medium, 14 Nov 2025 (definition in plain words)"
+  },
+  {
+    "id": "vps",
+    "name": "VPS",
+    "def": "A virtual private server: a slice of a machine in a data centre, rented by the month.",
+    "source": "the essay, Medium, 14 Nov 2025 (definition in plain words)"
+  },
+  {
+    "id": "manifest-v3",
+    "name": "Manifest V3",
+    "def": "Chrome’s current rules for extensions: background pages became short-lived service workers, and many old freedoms were narrowed.",
+    "source": "the essay, Medium, 19 Mar 2026 (definition in plain words)"
+  },
+  {
+    "id": "service-worker",
+    "name": "Service worker",
+    "def": "A background script the browser starts when needed and stops when idle, so it can’t hold state or memory for long.",
+    "source": "the essay, Medium, 19 Mar 2026 (definition in plain words)"
+  },
+  {
+    "id": "content-script",
+    "name": "Content script",
+    "def": "Extension code injected into the web pages you visit, under rules about where and when it may run.",
+    "source": "the essay, Medium, 19 Mar 2026 (definition in plain words)"
+  },
+  {
+    "id": "plasmo",
+    "name": "Plasmo",
+    "def": "A framework for building browser extensions with React and TypeScript, with hot reload while you work.",
+    "source": "the essay, Medium, 19 Mar 2026 (definition in plain words)"
+  },
+  {
+    "id": "wasm",
+    "name": "WebAssembly (WASM)",
+    "def": "A compact binary format browsers run at near-native speed; it lets heavy code, such as a model, run in a web page.",
+    "source": "the essay, Medium, 19 Mar 2026 (definition in plain words)"
+  },
+  {
+    "id": "embedding",
+    "name": "Embedding",
+    "def": "A list of numbers that stands for a piece of text, placed so that texts with similar meaning sit close together.",
+    "source": "the essay, Medium, 19 Mar 2026 (definition in plain words)"
+  },
+  {
+    "id": "knowledge-graph",
+    "name": "Knowledge graph",
+    "def": "Things as nodes and the relationships between them as edges, so you can follow connections rather than scan a list.",
+    "source": "the essay, Medium, 19 Mar 2026 (definition in plain words)"
+  },
+  {
+    "id": "sessionization",
+    "name": "Sessionization",
+    "def": "Cutting a stream of events, here page visits, into sessions: groups split by gaps of inactivity or changes of context.",
+    "source": "the essay, Medium, 19 Mar 2026 (definition in plain words)"
+  },
+  {
+    "id": "tf-idf",
+    "name": "TF-IDF",
+    "def": "A classic way to score a word’s importance in a document: frequent here, rare elsewhere, scores high.",
+    "source": "the essay, Medium, 19 Mar 2026 (definition in plain words)"
+  },
+  {
+    "id": "cosine-similarity",
+    "name": "Cosine similarity",
+    "def": "How alike two vectors point, from 1 (the same direction) down to 0 (unrelated). Used to rank texts by closeness.",
+    "source": "the essay, Medium, 19 Mar 2026 (definition in plain words)"
+  },
+  {
+    "id": "transformers-js",
+    "name": "Transformers.js",
+    "def": "A JavaScript library that runs machine-learning models directly in the browser, with no server.",
+    "source": "the essay, Medium, 19 Mar 2026 (definition in plain words)"
+  },
+  {
+    "id": "minilm",
+    "name": "all-MiniLM-L6-v2",
+    "def": "A small sentence-embedding model (about 22M parameters), light enough to run inside a browser tab.",
+    "source": "the essay, Medium, 19 Mar 2026 (definition in plain words)"
+  },
+  {
+    "id": "louvain",
+    "name": "Louvain community detection",
+    "def": "An algorithm that finds clusters in a graph: groups of nodes linked more to each other than to the rest.",
+    "source": "the essay, Medium, 19 Mar 2026 (definition in plain words)"
+  },
+  {
+    "id": "indexeddb",
+    "name": "IndexedDB",
+    "def": "The database built into every browser. Data stored there stays on your machine.",
+    "source": "the essay, Medium, 19 Mar 2026 (definition in plain words)"
+  },
+  {
+    "id": "tab-group",
+    "name": "Tab group",
+    "def": "Chrome’s way to gather tabs under one coloured, named label that can be collapsed or reopened together.",
+    "source": "the essay, Medium, 19 Mar 2026 (definition in plain words)"
+  },
+  {
+    "id": "local-first",
+    "name": "Local-first",
+    "def": "Software whose data lives on your own device first, and works fully without a server.",
+    "source": "the essay, Medium, 19 Mar 2026 (definition in plain words)"
+  },
+  {
+    "id": "holt-verdict",
+    "name": "Holt’s verdicts",
+    "def": "The six answers Holt gives about a repository: worth your time, a long shot, not worth your time, not enough evidence, a personal project, or a list rather than code.",
+    "link": "https://githolt.com",
+    "source": "Checked 27 Nov 2026. githolt.com, section 06, names four: “Worth your time.”, “Long shot.”, “Not worth your time.”, “Not enough evidence.”. The other two, “Personal project” and “A list, not code”, are not on githolt.com or githolt.com/how-it-works; they are in the verdict list Holt’s own MCP server publishes, which names all six."
+  }
+]
