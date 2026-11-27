@@ -15,16 +15,16 @@ test('the allowlist is the twelve names the plan names, no more', () => {
 
 const valid = [
   { name: 'lab_view', props: { path: '/lab', kind: 'home', source: 'direct' } },
-  { name: 'lab_view', props: { path: '/lab/shopkeeper/05-haggle', kind: 'chapter', source: 'linkedin' } },
+  { name: 'lab_view', props: { path: '/lab/sample-run/05-step', kind: 'chapter', source: 'linkedin' } },
   { name: 'read_depth', props: { path: '/lab/notes/x', depth: 75 } },
-  { name: 'lead_use', props: { path: '/lab/builds/konta', lead: 'tool-log' } },
+  { name: 'lead_use', props: { path: '/lab/sample-kind/sample-item', lead: 'tool-log' } },
   { name: 'preview_open', props: { via: 'tap', target: 'term' } },
   { name: 'look_switch', props: { look: 'lab', mode: 'dark' } },
   { name: 'look_switch', props: { look: 'paper' } },
   { name: 'name_say', props: {} },
   { name: 'player_start', props: { source: 'noise' } },
   { name: 'player_minutes', props: { minutes: 15 } },
-  { name: 'share', props: { path: '/lab/essays/a', via: 'copy' } },
+  { name: 'share', props: { path: '/lab/sample-pile/a', via: 'copy' } },
   { name: 'md_view', props: { path: '/work/konta.md' } },
   { name: 'agents_view', props: {} },
   { name: 'back_to_desk', props: {} },
@@ -79,11 +79,11 @@ test('parseBatch takes { events } and nothing else, and refuses the whole batch 
 test('eventFields: closed props become counts, open ones are kept apart, never crossed', () => {
   assert.deepEqual(eventFields(parseEvent(valid[1])!), {
     counts: ['lab_view', 'lab_view.kind:chapter', 'lab_view.source:linkedin'],
-    open: ['lab_view|/lab/shopkeeper/05-haggle'],
+    open: ['lab_view|/lab/sample-run/05-step'],
   })
   assert.deepEqual(eventFields(parseEvent(valid[3])!), {
     counts: ['lead_use'],
-    open: ['lead_use|/lab/builds/konta', 'lead_use.lead|tool-log'],
+    open: ['lead_use|/lab/sample-kind/sample-item', 'lead_use.lead|tool-log'],
   })
   assert.deepEqual(eventFields(parseEvent(valid[7])!), { counts: ['name_say'], open: [] })
 })
