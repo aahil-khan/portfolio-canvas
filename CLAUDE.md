@@ -15,15 +15,21 @@ npm run dev          # localhost:3000
 npm run build        # must stay green; TS strict, no ignoreBuildErrors
 npm run lint
 node scripts/shot.mjs <url> [--w 1440] [--h 900]   # screenshots to .shots/
-node scripts/contrast.mjs                          # WCAG check, all themes — must exit 0
+npm run check:contrast                             # WCAG check, all 20 themes — must exit 0
 npm test                                           # editor + content rules (node --test)
 npm run content:check                              # validate content/data/*.json in a second
+npm run check:bundles                              # the import table below, after a build
+npm run check:lab -- --require=<ids>               # the Lab's check: builds, serves on $PORT, runs the rules
 ```
 
 Check command: npm run check
 Quick check command: npm run typecheck && npm run lint
 
 Needs Node ≥ 22.6: the tests and `content:check` run `.ts` directly via `--experimental-strip-types`.
+
+`check:contrast` and `check:lab` drive the server's cached Chromium through the playwright-core in
+`~/.local/share/cx-tools`, the one `shot` uses. Nothing installs a browser. With no browser,
+`check:contrast` **fails** instead of skipping (`CONTRAST_SKIP=1` skips it on purpose).
 
 `scripts/shot.mjs` drives Chrome through the puppeteer-core bundled with the chrome-devtools-mcp
 plugin. There is no local puppeteer dependency, and that is deliberate.
@@ -64,6 +70,7 @@ wrappers.
 | `profile.ts`, `projects.ts`, … | thin wrappers that type the JSON; components import from `@/content` as before |
 | `apps.ts`, `themes.ts`, `tutorial.ts`, `eggs.ts`, `props.ts`, … | still code — not editable in `/edit` |
 | `edit.ts` | the editor's own copy |
+| `data/lab.json`, `lab/` | the Lab (`/lab`): its two switches (`public`, `demo`), its copy, sections, tags and entries; bodies are Markdown under `content/lab/`, the demo set under `content/lab/demo/`. **`content/lab/API.md` is the contract every Lab PR builds on.** Not in `/edit` until the Lab's editor PR. |
 
 The "wins" headline number is computed from `awards` (`{"derived":"wins"}` in `profile.json`).
 
@@ -88,30 +95,65 @@ Card heights are never declared — they're measured from real content at runtim
 plus rAF covers every animation there, so there is no motion library, and pointer/wheel/pinch
 are hand-rolled. This is a canvas app where main-thread budget matters — keep it that way.
 
-**`/` is the one exception.** The scrolling front page uses `gsap`, `gsap/ScrollTrigger`,
-`@gsap/react` and `lenis`, because scroll-linked scrub, velocity-reactive motion and smooth
-scrolling are genuinely not worth hand-rolling a second time. The rule that replaces "no
-dependencies" is narrower and testable:
+The other surfaces each take a few, and each package is held to where it may be imported from and
+which pages may load it. Every package is pinned exactly. All of them were installed at once (the
+Lab's foundations PR), so later PRs never touch `package.json` or `package-lock.json`.
 
-> Those four packages may only be imported from `components/site/*` and `lib/site-motion.ts`.
-> **`/canvas` must not load a byte of them.**
+| Package | May be imported from | Must load on | Must not load on |
+|---|---|---|---|
+| `gsap`, `gsap/ScrollTrigger`, `@gsap/react` | `components/site/*`, `lib/site-motion.ts` | `/` | `/canvas`, `/lab/**`, `/edit` |
+| `lenis` | `components/site/motion.tsx`, `components/lab/motion/*` | `/` | `/canvas`, `/edit` |
+| `motion` | `components/lab/**` | `/lab/**` | `/`, `/canvas`, `/edit` |
+| `@floating-ui/react` | `components/lab/preview/**`, `components/lab/menus/**` | on demand only | `/`, `/canvas`, `/edit` |
+| `unified`, `remark-*`, `rehype-*`, `hast-*`, `mdast-*`, `micromark-*`, `shiki` | `lib/lab/markdown/**`, each file marked `import 'server-only'` | none | **any** client chunk |
+| `open-graph-scraper`, `sharp` | `scripts/` | none | anything in `app/` |
+| `feed` | route handlers (`app/**/route.ts`) | none | any client chunk |
+| editor code | `app/edit`, `components/edit`, `lib/edit`, `app/api/edit` | `/edit` | every other page |
 
-That is a real constraint, not an intention — they are all reached through one client component,
-`components/site/motion.tsx`, so the code splitter keeps them in a chunk `/canvas` never
-references. Verify after any change to the site's imports:
+**`/canvas` loads none of them**, and no Lab or editor code either. The Lab's own JavaScript on an
+entry page's first load is **≤ 60 KB gzipped**, Next and React excluded.
+
+Why each one: `/` keeps GSAP and Lenis for scroll-linked scrub and smooth scrolling. The Lab uses
+Motion for every enter, exit, page change and scroll-linked progress, not GSAP (Motion's core is
+8 KB to GSAP + ScrollTrigger's 45 KB), and Lenis on desktop only. Previews place with Floating UI,
+loaded on first intent. Bodies are Markdown through unified, rendered on the server, never MDX:
+bodies are edited at `/edit` and each save commits to `main`, and MDX would put executable JSX in
+that content. Plan `plan-the-real-lab` has the measurements.
+
+That is a real constraint, not an intention. **`npm run check:bundles` proves every row** after
+`npm run build`: it reads each page's client reference manifest for the chunks its first load
+takes, follows chunk names to what it can load later, finds each package by a marker string, and
+scans the source for where each package is imported. A marker must match a chunk once something
+imports its package, or the check fails as stale. Run it after any change to imports:
 
 ```bash
-npm run build
-# then confirm the gsap chunk is referenced by /'s HTML and not by /canvas's
-node -e "const fs=require('fs'),p=require('path');const d='.next/static/chunks';
-const w=x=>fs.readdirSync(x,{withFileTypes:true}).flatMap(e=>e.isDirectory()?w(p.join(x,e.name)):[p.join(x,e.name)]);
-const g=w(d).filter(f=>f.endsWith('.js')&&/ScrollTrigger|lenis|gsap/i.test(fs.readFileSync(f,'utf8')));
-for(const[n,f]of[['/','.next/server/app/index.html'],['/canvas','.next/server/app/canvas.html']])
-  console.log(n, g.some(c=>fs.readFileSync(f,'utf8').includes(p.basename(c)))?'LOADS GSAP':'clean')"
+npm run build && npm run check:bundles
 ```
 
-Expected: `/ LOADS GSAP`, `/canvas clean`. `npm run check:bundles` runs the same check and also
-proves neither page loads any of the editor's code.
+Expected: every row holds. `/` loads gsap and lenis; `/canvas` is clean for every package and for
+editor code; `/edit` loads the editor and nothing from the Lab.
+
+## The Lab
+
+`/lab` is being built in 17 PRs (plan `plan-the-real-lab`), **hidden** until the last one:
+`content/data/lab.json` → `"public": false`. While hidden, every `/lab` response is `noindex` (meta
+and an `X-Robots-Tag` header), no sitemap, feed or `llms.txt` lists it, and nothing links to it.
+The URL still answers, so it can be reviewed on the live site. It shows **demo content** until
+Aahil writes the real Lab (`"demo": true`), with a "Demo content" marker in its bar.
+
+- **`content/lab/API.md` is the contract**: types, loaders, URLs, Markdown syntax, the rendered
+  DOM, slot modules, events, tokens, storage keys, the check's interface, the demo rules. It is
+  frozen: a worker who finds it wrong tells the orchestrator, who lands a one-file contract PR.
+- **`lib/lab/visibility.ts` is the only reader of `public` and `demo`.** Everything else asks it.
+- **`lib/lab/look.ts` owns the look** (Paper or Premium), Premium's mode and Aa. Paper is the site's
+  own theme; Premium is two Lab-only palettes (`labThemes` in `content/themes.ts`), which no picker
+  outside the Lab can list.
+- **`lib/motion/reduced.ts` owns reduced motion** for the whole site; `lib/motion/tokens.ts` holds
+  every duration. Nothing else reads the media query in TypeScript, apart from the canvas's seven
+  older effect-time calls, which `check:lab` rule 4 allowlists by path and count.
+- **The check:** `npm run check:lab -- --require=<ids>`. Each lane's rules are one file under
+  `scripts/check-lab/`. A rule whose feature isn't built yet reports "not built", and `--require`
+  turns that into a failure.
 
 ## The editor and deploys
 

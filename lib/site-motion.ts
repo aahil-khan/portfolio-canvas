@@ -1,7 +1,10 @@
 'use client'
 
+import { MOTION_QUERY, REDUCED_QUERY, prefersReducedMotion as reduced } from '@/lib/motion/reduced'
+
 /**
- * The one owner of "should this page move?" for the `/` route.
+ * The `/` route's view of "should this page move?". The answer itself comes from
+ * `lib/motion/reduced.ts`, the one owner of reduced motion for the whole site.
  *
  * DIRECTION.md: *"Reduced motion collapses all of it to opacity-only... One owner. Not a branch
  * scattered per component — that is how the last build produced a hydration mismatch (React
@@ -9,7 +12,7 @@
  * `matchMedia` while rendering produces different markup on the server (where the query cannot
  * be evaluated) than on the client.
  *
- * So nothing on this page reads `prefers-reduced-motion` directly. `components/site/motion.tsx`
+ * So nothing on this page reads the reduced-motion query directly. `components/site/motion.tsx`
  * asks these functions from inside `useGSAP`, which runs only on the client and only after
  * hydration, and the answer decides whether Lenis starts at all and which `gsap.matchMedia()`
  * branch builds animations.
@@ -27,8 +30,8 @@ export const SITE_NARROW = 900
  * a window dragged across the breakpoint or a preference toggled mid-session.
  */
 export const SITE_MEDIA = {
-  motion: '(prefers-reduced-motion: no-preference)',
-  reduce: '(prefers-reduced-motion: reduce)',
+  motion: MOTION_QUERY,
+  reduce: REDUCED_QUERY,
 } as const
 
 /**
@@ -38,8 +41,7 @@ export const SITE_MEDIA = {
  * to construct a Lenis instance at all, and whether the hero's cursor light should track.
  */
 export function prefersReducedMotion(): boolean {
-  if (typeof window === 'undefined') return true
-  return window.matchMedia(SITE_MEDIA.reduce).matches
+  return reduced()
 }
 
 /** True only where a real pointer can hover — the cursor dot and the hero light need one. */
