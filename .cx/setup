@@ -1,5 +1,0 @@
-#!/usr/bin/env bash
-# Run by cx in a fresh worktree: install dependencies from the lockfile.
-set -euo pipefail
-cd "$(dirname "$0")/.."
-npm ci --no-audit --no-fund
