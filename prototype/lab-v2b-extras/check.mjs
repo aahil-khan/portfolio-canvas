@@ -5,10 +5,11 @@
 //   node prototype/lab-v2b-extras/check.mjs --bundle     bundle only, no browser
 // Rules:
 //   O  no overflow: nothing scrolls sideways, no box clips its text, every card's content fits its frame
-//   C  contrast: every visible text node ≥ 4.5:1 (3:1 when large) on its real ground, in cream, tokyo-night, Day and Night
+//   C  contrast: every visible text node ≥ 4.5:1 (3:1 when large) on its real ground, in cream, tokyo-night, and the Lab theme's Light and Dark
 //   A  accent ≤ 5% of the screen's pixels
-//   G  every share card is exactly 1200 × 630, and there are 15 (5 kinds × 3 looks)
+//   G  every share card is exactly 1200 × 630, there are 18 (6 kinds × 3 looks), and no entry image is cropped
 //   P  every name take decodes, is 0.5–2 s long, and plays
+//   F  the name's Devanagari and Urdu faces load from the page, cover every glyph, and both lockups are open and on screen
 //   N  no network request on load, and no script error
 //   S  the bundle is under 8 MB
 import { readFileSync, writeFileSync, mkdirSync, existsSync, readdirSync } from 'node:fs';
@@ -63,10 +64,10 @@ function exe() {
 }
 const SIZES = { phone: { width: 390, height: 844 }, desktop: { width: 1440, height: 900 } };
 const SITE = ['theme=cream', 'theme=tokyo-night'];
-const LAB = ['look=paper&theme=cream', 'look=paper&theme=tokyo-night', 'look=premium&mode=day', 'look=premium&mode=night'];
+const LAB = ['look=paper&theme=cream', 'look=paper&theme=tokyo-night', 'look=lab&mode=light', 'look=lab&mode=dark'];
 const RUNS = [
   ['site-nav', SITE], ['site-band', SITE], ['site-contrib', SITE], ['canvas-lab', SITE],
-  ['back-desk', LAB], ['colophon', LAB], ['agents', LAB], ['voices', LAB],
+  ['back-desk', LAB], ['colophon', LAB], ['agents', LAB], ['voices', LAB], ['name-hover', LAB],
   ['cards', ['']], ['index', ['']],
 ];
 
@@ -91,12 +92,12 @@ const MEASURE = () => {
   const lum = (c) => { const f = (v) => { v /= 255; return v <= 0.03928 ? v / 12.92 : ((v + 0.055) / 1.055) ** 2.4; }; return 0.2126 * f(c[0]) + 0.7152 * f(c[1]) + 0.0722 * f(c[2]); };
   const ratio = (a, b) => { const x = lum(a), y = lum(b); return (Math.max(x, y) + 0.05) / (Math.min(x, y) + 0.05); };
   const visible = (el) => { for (let e = el; e; e = e.parentElement) { const s = getComputedStyle(e); if (s.display === 'none' || s.visibility === 'hidden' || +s.opacity === 0 || e.hidden) return false; } return true; };
-  const out = { overflow: [], contrast: [], cards: [], accents: [], texts: 0 };
+  const out = { overflow: [], contrast: [], cards: [], accents: [], texts: 0, cropped: [], shapes: [] };
   // O: sideways scroll, and boxes that clip their content
   const sw = document.documentElement.scrollWidth - innerWidth;
   if (sw > 0) out.overflow.push(`the page scrolls sideways by ${sw}px`);
   for (const el of document.querySelectorAll('body *')) {
-    if (!visible(el) || el.closest('[data-scroll-x], .og-fit, .mock-tag')) continue;
+    if (!visible(el) || el.closest('[data-scroll-x], .og-fit, .mock-tag, .sr')) continue;   // .sr is clipped on purpose
     const s = getComputedStyle(el);
     if (!/hidden|clip|auto|scroll/.test(s.overflowX)) continue;
     if (el.classList.contains('desk')) continue;   // the canvas: off-screen cards are its nature
@@ -117,6 +118,14 @@ const MEASURE = () => {
     for (const t of [title, lede]) if (t && t.scrollHeight > t.clientHeight + parseFloat(getComputedStyle(t).lineHeight) / 2) out.overflow.push(`card ${og.dataset.og}: "${t.textContent.slice(0, 30)}" is cut off`);
     const path = og.querySelector('.og-path'); if (path.scrollWidth > path.clientWidth + 1) out.overflow.push(`card ${og.dataset.og}: the address is cut off`);
     out.accents.push(getComputedStyle(og).getPropertyValue('--accent').trim());
+    // G: an entry's image is never cropped: drawn at its own aspect ratio, inside its area, not cover
+    for (const img of og.querySelectorAll('.og-still img')) {
+      const box = img.getBoundingClientRect(), area = img.parentElement.getBoundingClientRect(), s = getComputedStyle(img);
+      const drawn = (img.clientWidth) / (img.clientHeight), natural = img.naturalWidth / img.naturalHeight;
+      if (!img.naturalWidth || Math.abs(drawn / natural - 1) > 0.02 || s.objectFit === 'cover') out.cropped.push(`card ${og.dataset.og}: image drawn at ${drawn.toFixed(2)}, its own shape is ${natural.toFixed(2)}`);
+      if (box.left < area.left - 1 || box.right > area.right + 1 || box.top < area.top - 1 || box.bottom > area.bottom + 1) out.cropped.push(`card ${og.dataset.og}: image spills out of its area`);
+      out.shapes.push(natural);
+    }
   }
   out.accents.push(getComputedStyle(document.documentElement).getPropertyValue('--accent').trim());
   // C: every text node on screen, against what it is drawn on (skipping text something else covers)
@@ -124,7 +133,7 @@ const MEASURE = () => {
   for (let n; (n = tw.nextNode());) {
     if (!n.data.trim()) continue;
     const el = n.parentElement;
-    if (!el || el.closest('script,style,template,.mock-tag,[aria-hidden="true"]') || !visible(el)) continue;
+    if (!el || el.closest('script,style,template,.mock-tag') || (el.closest('[aria-hidden="true"]') && !el.closest('.nt-x')) || !visible(el)) continue;   // the name's scripts are aria-hidden but seen
     const r = document.createRange(); r.selectNodeContents(n);
     const rect = [...r.getClientRects()].find((x) => x.width > 0 && x.height > 0);
     if (!rect || rect.bottom <= 0 || rect.top >= innerHeight || rect.right <= 0 || rect.left >= innerWidth) continue;
@@ -172,8 +181,10 @@ for (const [view, looks] of RUNS) {
       net.forEach((u) => fail('N', `${tag}: network request ${u}`));
       errors.forEach((e) => fail('N', `${tag}: ${e}`));
       if (view === 'cards') {
-        if (m.cards.length !== 15) fail('G', `${tag}: ${m.cards.length} cards, not 15`);
+        if (m.cards.length !== 18) fail('G', `${tag}: ${m.cards.length} cards, not 18`);
         m.cards.forEach(([k, w, h]) => { if (w !== 1200 || h !== 630) fail('G', `${tag}: card ${k} is ${w}×${h}`); });
+        m.cropped.slice(0, 4).forEach((x) => fail('G', `${tag}: ${x}`));
+        if (!m.shapes.some((r) => r > 1.3) || !m.shapes.some((r) => r < 0.9)) fail('G', `${tag}: the cards need one wide and one tall image`);
       }
       // A: accent share of the screen
       const accents = [...new Set(m.accents.filter(Boolean))].map(hex);
@@ -186,6 +197,20 @@ for (const [view, looks] of RUNS) {
         return n / (d.length / 4);
       }, [png, accents]);
       if (share > 0.05) fail('A', `${tag}: accent is ${(share * 100).toFixed(1)}% of pixels`);
+      // F: the name's scripts
+      if (view === 'name-hover') {
+        const f = await page.evaluate(async () => {
+          await document.fonts.ready;
+          const has = (fam, txt) => document.fonts.check(`20px "${fam}"`, txt) && [...document.fonts].some((x) => x.family.replace(/"/g, '') === fam && x.status === 'loaded');
+          const tips = [...document.querySelectorAll('.nt')].map((t) => t.getBoundingClientRect());
+          return { dev: has('Tiro Devanagari Hindi', 'आहिल'), ur: has('Noto Nastaliq Urdu', 'عاہل'), tips: tips.length, off: tips.filter((r) => r.width === 0 || r.left < 0 || r.right > innerWidth).length,
+            sr: [...document.querySelectorAll('button.name')].every((b) => b.textContent === 'Aahil' && document.getElementById(b.getAttribute('aria-describedby'))) };
+        });
+        if (!f.dev) fail('F', `${tag}: the Devanagari face did not load`);
+        if (!f.ur) fail('F', `${tag}: the Nastaliq face did not load`);
+        if (f.tips !== 2 || f.off) fail('F', `${tag}: ${f.tips} lockups, ${f.off} off screen`);
+        if (!f.sr) fail('F', `${tag}: a name button doesn't read as "Aahil" with its description`);
+      }
       // P: every take decodes and plays
       if (view === 'voices' && size === 'desktop' && look === LAB[0]) {
         const res = await page.evaluate(async () => {
@@ -205,7 +230,7 @@ for (const [view, looks] of RUNS) {
           }
           return out;
         });
-        if (res.length !== 6) fail('P', `${res.length} takes, not 6`);
+        if (res.length !== 12) fail('P', `${res.length} takes, not 12`);
         for (const r of res) {
           if (r.error) fail('P', `take ${r.k}: ${r.error}`);
           else {
@@ -214,7 +239,7 @@ for (const [view, looks] of RUNS) {
             if (!r.ui) fail('P', `take ${r.k}: its button didn't show it playing`);
           }
         }
-        note(`samples: ${res.filter((r) => !r.error && r.played).length}/6 decoded and played (${res.map((r) => r.dur ? r.dur.toFixed(2) + 's' : 'x').join(', ')})`);
+        note(`samples: ${res.filter((r) => !r.error && r.played).length}/${res.length} decoded and played (${res.map((r) => r.dur ? r.dur.toFixed(2) + 's' : 'x').join(', ')})`);
       }
       await ctx.close();
     }

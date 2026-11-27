@@ -48,7 +48,7 @@ Not listed here:
 | Section, kind | A section of the Lab | Plain |
 | Section, count | {n} entries · a study, a series, two notes | Counts by kind, from the data |
 | Chapter, kind | {series} · Chapter {nn} of {total} | The approved series line |
-| Build, kind / Essay, kind | A build / An essay | Plain |
+| Build, kind / Experiment, kind / Essay, kind | A build / An experiment / An essay | Plain |
 | Every card, right of the foot | Aahil Khan | The byline |
 
 ## Colophon
@@ -77,6 +77,19 @@ Not listed here:
 | `/feed.xml` | New Lab pages as RSS and Atom, newest first. | The plan (`feed`) |
 | **Using what you read** | Quote and summarise freely, with a link to the page. Say when a page is dated or marked as a draft: the dates are there so a reader can tell what is current. | **A placeholder for his own usage note.** The plan calls it "his usage note"; this is only a starting point |
 
-## The name page (mockup only, not shipped)
+## The name on hover
 
-The take labels and the explanatory lines are notes for choosing a take, not site copy.
+| Where | Line | Why |
+|---|---|---|
+| The pronunciation chip | AA-hil | Aahil's own description of the name ("aaa hil"): two even syllables, an open aa |
+| Its screen-reader description | pronounced AA-hil | Read once after the name |
+| The two scripts | आहिल · عاہل | **Spellings to confirm.** आहिल is the plain Devanagari, and عاہل the usual Urdu spelling of Aahil |
+
+## The Lab theme
+
+"Premium" is now **Lab theme**, with **Light** and **Dark** (Aahil, round 2). On this page that covers the bar's
+look switch ("Paper · Lab theme"), the card captions and every label.
+
+## The name pages (mockup only, not shipped)
+
+The take labels, the measurements and the explanatory lines are notes for choosing, not site copy.

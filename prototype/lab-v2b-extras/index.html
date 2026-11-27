@@ -8,18 +8,18 @@
 <script>
 // The one owner of the view and the look, before first paint. Query params only:
 //   ?view=<id>   one of VIEWS below; none = the index of every view
-//   ?look=paper|premium  ?theme=cream|tokyo-night (Paper and the site)  ?mode=day|night (Premium)
+//   ?look=paper|lab  ?theme=cream|tokyo-night (Paper and the site)  ?mode=light|dark (the Lab theme)
 //   ?bare        hides the mockup's corner tag, for screenshots and the check
 (function () {
   var q = new URLSearchParams(location.search), h = document.documentElement;
   var view = q.get('view') || 'index';
   var family = { 'site-nav': 'site', 'site-band': 'site', 'site-contrib': 'site', 'canvas-lab': 'site' }[view] || 'lab';
-  var look = family === 'lab' && q.get('look') === 'premium' ? 'premium' : 'paper';
+  var look = family === 'lab' && q.get('look') === 'lab' ? 'lab' : 'paper';
   var theme = q.get('theme') === 'tokyo-night' ? 'tokyo-night' : 'cream';
   if (view === 'index' || view === 'cards') { look = 'paper'; theme = 'cream'; }
   h.setAttribute('data-view', view);
   h.setAttribute('data-look', look);
-  if (look === 'premium') { h.removeAttribute('data-theme'); h.setAttribute('data-mode', q.get('mode') === 'day' ? 'day' : 'night'); }
+  if (look === 'lab') { h.removeAttribute('data-theme'); h.setAttribute('data-mode', q.get('mode') === 'light' ? 'light' : 'dark'); }
   else h.setAttribute('data-theme', theme);
   if (q.has('bare')) h.setAttribute('data-bare', '');
 })();
@@ -33,13 +33,20 @@
 <template id="assets">
   <img data-k="dtw" src="../lab-v2b/assets/dtw-poster.webp" alt="">
   <img data-k="laptop" src="../lab-v2b/assets/essay-old-laptop-1.webp" alt="">
+  <img data-k="watch" src="assets/watch-front.webp" alt="">
   <img data-k="github" src="../../public/logos/github-original.svg" alt="">
-  <audio data-k="plain" src="audio/name-plain.opus"></audio>
-  <audio data-k="respell" src="audio/name-respell.opus"></audio>
-  <audio data-k="respell2" src="audio/name-respell2.opus"></audio>
-  <audio data-k="sentence" src="audio/name-sentence.opus"></audio>
-  <audio data-k="ipa" src="audio/name-ipa.opus"></audio>
-  <audio data-k="ipa-long" src="audio/name-ipa-long.opus"></audio>
+  <audio data-k="hm-omega-devx-90" src="audio/hm-omega-devx-90.opus"></audio>
+  <audio data-k="hm-omega-a3-90" src="audio/hm-omega-a3-90.opus"></audio>
+  <audio data-k="hm-psi-dev-90" src="audio/hm-psi-dev-90.opus"></audio>
+  <audio data-k="hm-psi-devx-100" src="audio/hm-psi-devx-100.opus"></audio>
+  <audio data-k="hm-psi-a3-100" src="audio/hm-psi-a3-100.opus"></audio>
+  <audio data-k="am-michael-txt-90" src="audio/am-michael-txt-90.opus"></audio>
+  <audio data-k="am-adam-txt-90" src="audio/am-adam-txt-90.opus"></audio>
+  <audio data-k="am-liam-txt-100" src="audio/am-liam-txt-100.opus"></audio>
+  <audio data-k="am-fenrir-a2-90" src="audio/am-fenrir-a2-90.opus"></audio>
+  <audio data-k="bm-daniel-b2-90" src="audio/bm-daniel-b2-90.opus"></audio>
+  <audio data-k="bm-lewis-txt-90" src="audio/bm-lewis-txt-90.opus"></audio>
+  <audio data-k="bm-fable-txt-90" src="audio/bm-fable-txt-90.opus"></audio>
 </template>
 
 <script>
@@ -84,7 +91,7 @@ var ICON = {
   arrowL: '<svg class="arr" viewBox="0 0 20 20" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M16 10H4M9 5l-5 5 5 5"/></svg>',
   play: '<svg class="ic-play" viewBox="0 0 20 20" aria-hidden="true"><path d="M6 3.5v13l11-6.5z" fill="currentColor"/></svg><svg class="ic-stop" viewBox="0 0 20 20" aria-hidden="true"><rect x="5" y="5" width="10" height="10" rx="1.5" fill="currentColor"/></svg>',
 };
-var themeIsDark = function () { var h = document.documentElement; return h.getAttribute('data-theme') === 'tokyo-night' || h.getAttribute('data-mode') === 'night'; };
+var themeIsDark = function () { var h = document.documentElement; return h.getAttribute('data-theme') === 'tokyo-night' || h.getAttribute('data-mode') === 'dark'; };
 
 // ---------------------------------------------------------------------------------------------
 // / (the front page): the bar, with Lab
@@ -172,14 +179,14 @@ function contrib() {
 // The Lab's own furniture: the bar (with Back to the desk) and the footer
 // ---------------------------------------------------------------------------------------------
 function labBar(fromDesk) {
-  var h = document.documentElement, premium = h.getAttribute('data-look') === 'premium';
+  var h = document.documentElement, labTheme = h.getAttribute('data-look') === 'lab';
   var back = '<a class="back-desk" href="/canvas">' + ICON.arrowL + 'Back to the desk</a>';
   return '<header class="bar"><div class="bar-left">' +
       (fromDesk ? back + '<span class="back-sep" aria-hidden="true"></span>' : '') +
       '<a class="mark-ak" href="/" aria-label="Aahil Khan, home"><span>AK</span></a><a class="bar-lab" href="/lab">Lab</a></div>' +
     '<div class="bar-right">' +
-      '<div class="look" role="group" aria-label="Look"><button type="button" aria-pressed="' + !premium + '">Paper</button><button type="button" aria-pressed="' + premium + '">Premium</button></div>' +
-      '<button type="button" class="ctl look-phone" aria-label="Look: switch to ' + (premium ? 'Paper' : 'Premium') + '">' + (premium ? 'Paper' : 'Premium') + '</button>' +
+      '<div class="look" role="group" aria-label="Look"><button type="button" aria-pressed="' + !labTheme + '">Paper</button><button type="button" aria-pressed="' + labTheme + '">Lab theme</button></div>' +
+      '<button type="button" class="ctl look-phone" aria-label="Look: switch to ' + (labTheme ? 'Paper' : 'the Lab theme') + '">' + (labTheme ? 'Paper' : 'Lab theme') + '</button>' +
       '<button type="button" class="ctl ctl-icon" aria-label="Text: line length and size"><span class="i-aa" aria-hidden="true">Aa</span></button>' +
       '<button type="button" class="ctl ctl-icon" aria-label="Switch to ' + (themeIsDark() ? 'light' : 'dark') + '"><svg class="i-theme" viewBox="0 0 20 20" aria-hidden="true">' +
         (themeIsDark() ? '<path d="M15.6 12.6A6.6 6.6 0 0 1 7.4 4.4a6.6 6.6 0 1 0 8.2 8.2z"/>' : '<circle cx="10" cy="10" r="3.6"/><path d="M10 1.8v2.4M10 15.8v2.4M1.8 10h2.4M15.8 10h2.4M4.2 4.2l1.7 1.7M14.1 14.1l1.7 1.7M4.2 15.8l1.7-1.7M14.1 5.9l1.7-1.7"/>') + '</svg></button>' +
@@ -197,7 +204,7 @@ function labFoot(current) {
 // Views
 // ---------------------------------------------------------------------------------------------
 var LOOKS_SITE = [['cream', 'theme=cream'], ['tokyo-night', 'theme=tokyo-night']];
-var LOOKS_LAB = [['Paper · cream', 'look=paper&theme=cream'], ['Paper · tokyo-night', 'look=paper&theme=tokyo-night'], ['Premium · Day', 'look=premium&mode=day'], ['Premium · Night', 'look=premium&mode=night']];
+var LOOKS_LAB = [['Paper · cream', 'look=paper&theme=cream'], ['Paper · tokyo-night', 'look=paper&theme=tokyo-night'], ['Lab theme · Light', 'look=lab&mode=light'], ['Lab theme · Dark', 'look=lab&mode=dark']];
 
 var VIEWS = {
   'site-nav': { title: '/ · the nav, with Lab', looks: LOOKS_SITE, what: 'Lab joins the nav between Work and Contact, as a route (the small outward arrow says it leaves the page). On a phone it sits in the drawer, in the same place.',
@@ -224,14 +231,16 @@ var VIEWS = {
         '<div class="box lead-frame"><div class="window-bar"><span>The haggle, live</span><span class="meta">try it</span></div><div class="body"><p>The chapter’s lead instrument sits here, as on the approved mockup.</p></div></div>' +
         '</article></div>' + labFoot('') + '</div>';
     } },
-  'cards': { title: 'Share cards · 1200 × 630', looks: [['all looks on one page', '']], what: 'Five kinds of page, each in Paper, Premium Day and Premium Night, at the real size and scaled to fit. The build draws one per page with next/og; Aahil picks which look the cards use.',
+  'cards': { title: 'Share cards · 1200 × 630', looks: [['all looks on one page', '']], what: 'Six kinds of page in Paper and the Lab theme (Light, Dark), at the real size and scaled to fit. An entry’s image is fitted whole, never cropped: a wide one and a tall one prove it.',
     render: renderCards },
   'colophon': { title: 'Colophon', looks: LOOKS_LAB, what: 'Fonts, code, sound and the voice, each with its licence; the one analytics sentence; how to cite.',
     render: renderColophon },
   'agents': { title: 'For AI agents', looks: LOOKS_LAB, what: 'Where the plain-text versions are, how to cite, and a usage note that is his to write.',
     render: renderAgents },
-  'voices': { title: 'The name · six Kokoro takes', looks: LOOKS_LAB, what: 'The six af_heart renders, encoded small and playable. Pick one by ear, then hear it on the name with its tooltip.',
+  'voices': { title: 'The name · twelve takes', looks: LOOKS_LAB, what: 'Kokoro’s male voices saying “Aahil” alone, Hindi voices first: twelve takes whose two syllables are even, with the lengths measured beside each. Pick one by ear.',
     render: renderVoices },
+  'name-hover': { title: 'The name · the hover', looks: LOOKS_LAB, what: 'Hovering the name shows Aahil, आहिल and عاہل as one lockup with AA-hil, in two layouts: one line, or a title card. It plays the picked take.',
+    render: renderNameHover },
 };
 
 // ---------- the desk ----------
@@ -300,7 +309,7 @@ function renderDesk() {
 }
 
 // ---------- share cards ----------
-var CARD_LOOKS = [['Paper', 'data-look="paper" data-theme="cream"'], ['Premium · Day', 'data-look="premium" data-mode="day"'], ['Premium · Night', 'data-look="premium" data-mode="night"']];
+var CARD_LOOKS = [['Paper', 'data-look="paper" data-theme="cream"'], ['Lab theme · Light', 'data-look="lab" data-mode="light"'], ['Lab theme · Dark', 'data-look="lab" data-mode="dark"']];
 var CARD_KINDS = [
   { id: 'home', name: 'The Lab’s front page', note: 'No entry to name, so the line and the sections carry it.',
     html: function () { return { path: 'aahil-khan.xyz/<b>lab</b>', main: '<p class="og-kind">The Lab · Aahil Khan</p><h3 class="og-title xl">What I’m studying, building and breaking.</h3>' +
@@ -312,11 +321,15 @@ var CARD_KINDS = [
     html: function () { return { path: 'aahil-khan.xyz/lab/studies/shopkeeper/<b>05</b>', side: '<div class="og-num" aria-hidden="true">05</div>',
       main: '<p class="og-kind">The Shopkeeper · Chapter 05 of 08</p><h3 class="og-title">An agent can’t leak a price it never sees</h3><p class="og-lede">It asks the backend about each offer, and gets back accept or a counter.</p>',
       foot: '<time>26 Nov 2026</time><span>6 min read</span>' }; } },
-  { id: 'build', name: 'A build', note: 'A still of the build’s lead beside the title.',
+  { id: 'build', name: 'A build, with a wide image', note: 'The lead’s still, fitted whole: a 16:10 screenshot is never cropped to the box.',
     html: function () { return { path: 'aahil-khan.xyz/lab/builds/<b>drag-to-workspace</b>', side: '<div class="og-still"><img src="' + asset('dtw') + '" alt=""></div>',
       main: '<p class="og-kind">A build</p><h3 class="og-title">Drag to Workspace</h3><p class="og-lede">Drag a window to the screen’s edge and it goes to the next workspace.</p>',
       foot: '<time>12 Nov 2026</time><span>GNOME Shell</span>' }; } },
-  { id: 'essay', name: 'An essay', note: 'The essay’s first picture as the still, as its own unfurl uses.',
+  { id: 'experiment', name: 'An experiment, with a tall image', note: 'A 3:4 photo, fitted whole the other way: the box keeps its width and the picture its shape.',
+    html: function () { return { path: 'aahil-khan.xyz/lab/experiments/<b>cheap-smartwatch</b>', side: '<div class="og-still"><img src="' + asset('watch') + '" alt=""></div>',
+      main: '<p class="og-kind">An experiment</p><h3 class="og-title">A cheap smartwatch, opened up</h3><p class="og-lede">Finding the test pads first.</p>',
+      foot: '<time>12\u00a0Jul\u00a02026</time><span>in progress</span>' }; } },
+  { id: 'essay', name: 'An essay', note: 'The essay’s first picture as the still, as its own unfurl uses, fitted whole.',
     html: function () { return { path: 'aahil-khan.xyz/lab/writing/<b>old-laptop</b>', side: '<div class="og-still"><img src="' + asset('laptop') + '" alt=""></div>',
       main: '<p class="og-kind">An essay</p><h3 class="og-title">An Old Laptop as a Cloud Server</h3><p class="og-lede">Self-hosting, end to end.</p>',
       foot: '<time>14 Nov 2025</time><span>8 min read</span>' }; } },
@@ -384,36 +397,82 @@ function renderAgents() {
     '</article></div>' + labFoot('/agents') + '</div>';
 }
 
-// ---------- the name, six takes ----------
+// ---------- the name: takes, and the hover ----------
+// Kokoro-82M male voices, "Aahil" alone. Target AA-hil: two even syllables, an open aa, a short hil, the h heard.
+// aa / hil are measured from each waveform (tools/measure-takes.py): the split is the h's aspiration peak.
 var TAKES = [
-  { k: 'plain', n: 1, name: 'Plain', fed: 'the text <code>Aahil Khan</code>', ph: 'ˈɑːhɪl kˈɑːn', s: 0.98, kb: 5.8 },
-  { k: 'respell', n: 2, name: 'Respelled', fed: 'the text <code>Aa-hil Khaan</code>', ph: 'ˈɑːhˈɪl kˈɑːən', s: 0.96, kb: 5.7 },
-  { k: 'respell2', n: 3, name: 'Respelled again', fed: 'the text <code>Ah-hill Khahn</code>', ph: 'ˈɑːhˈɪl kˈɑːhn', s: 0.98, kb: 5.9 },
-  { k: 'sentence', n: 4, name: 'In a sentence', fed: 'the text <code>Hi, I’m Aahil Khan.</code>', ph: 'hˈaɪ, aɪm ˈɑːhɪl kˈɑːn', s: 1.39, kb: 8.3 },
-  { k: 'ipa', n: 5, name: 'Phonemes', fed: 'the phonemes directly', ph: 'ˈɑːhɪl kˈɑːn', s: 0.98, same: 1, kb: 5.8 },
-  { k: 'ipa-long', n: 6, name: 'Phonemes, long i', fed: 'the phonemes directly, with a long i and the Urdu kh', ph: 'ɑːhˈiːl xˈɑːn', s: 1.0, kb: 5.9 },
+  { k: 'hm-omega-devx-90', g: 'in', voice: 'hm_omega', input: 'आऽहिल', how: 'Devanagari, with the avagraha that holds the a', sp: 0.9, aa: 0.33, hil: 0.33, kb: 5.5 },
+  { k: 'hm-omega-a3-90', g: 'in', voice: 'hm_omega', input: 'ˈaːːːhɪl', how: 'IPA, open a held', sp: 0.9, aa: 0.34, hil: 0.30, kb: 4.9 },
+  { k: 'hm-psi-dev-90', g: 'in', voice: 'hm_psi', input: 'आहिल', how: 'Devanagari, as written', sp: 0.9, aa: 0.27, hil: 0.27, kb: 4.6 },
+  { k: 'hm-psi-devx-100', g: 'in', voice: 'hm_psi', input: 'आऽहिल', how: 'Devanagari, with the avagraha', sp: 1.0, aa: 0.23, hil: 0.25, kb: 4.1 },
+  { k: 'hm-psi-a3-100', g: 'in', voice: 'hm_psi', input: 'ˈaːːːhɪl', how: 'IPA, open a held', sp: 1.0, aa: 0.24, hil: 0.22, kb: 4.0 },
+  { k: 'am-michael-txt-90', g: 'us', voice: 'am_michael', input: 'Aahil', how: 'the spelling', sp: 0.9, aa: 0.26, hil: 0.26, kb: 4.5 },
+  { k: 'am-adam-txt-90', g: 'us', voice: 'am_adam', input: 'Aahil', how: 'the spelling', sp: 0.9, aa: 0.23, hil: 0.23, kb: 3.8 },
+  { k: 'am-liam-txt-100', g: 'us', voice: 'am_liam', input: 'Aahil', how: 'the spelling', sp: 1.0, aa: 0.23, hil: 0.20, kb: 3.8 },
+  { k: 'am-fenrir-a2-90', g: 'us', voice: 'am_fenrir', input: 'ˈaːːhɪl', how: 'IPA, open a', sp: 0.9, aa: 0.24, hil: 0.24, kb: 4.1 },
+  { k: 'bm-daniel-b2-90', g: 'uk', voice: 'bm_daniel', input: 'ˈɑːːhɪl', how: 'IPA, back a', sp: 0.9, aa: 0.29, hil: 0.29, kb: 6.0 },
+  { k: 'bm-lewis-txt-90', g: 'uk', voice: 'bm_lewis', input: 'Aahil', how: 'the spelling', sp: 0.9, aa: 0.26, hil: 0.24, kb: 4.2 },
+  { k: 'bm-fable-txt-90', g: 'uk', voice: 'bm_fable', input: 'Aahil', how: 'the spelling', sp: 0.9, aa: 0.24, hil: 0.23, kb: 4.8 },
 ];
+var GROUPS = [['in', 'Indian accent · Kokoro’s Hindi voices'], ['us', 'American, for comparison'], ['uk', 'British, for comparison']];
+var DEFAULT_TAKE = 'hm-omega-devx-90';
+var pickedTake = function () { try { var k = localStorage.getItem('extras.take'); return TAKES.some(function (t) { return t.k === k; }) ? k : DEFAULT_TAKE; } catch (e) { return DEFAULT_TAKE; } };
+
+// The hover: Aahil, आहिल and عاہل as one lockup, with AA-hil. The scripts and the Latin are decorative copies of the
+// name, so a screen reader hears the button's "Aahil" once, then its description, "pronounced AA-hil".
+function nameTip(layout, id) {
+  var lat = '<span class="nt-lat nt-x" aria-hidden="true">Aahil</span>';
+  var dev = '<span class="nt-dev nt-x" lang="hi" aria-hidden="true">आहिल</span>';
+  var ur = '<span class="nt-ur nt-x" lang="ur" dir="rtl" aria-hidden="true">عاہل</span>';
+  var say = '<span class="nt-say" id="' + id + '"><span class="sr">pronounced </span><span class="tip-wave" aria-hidden="true"><i></i><i></i><i></i></span>AA-hil</span>';
+  return layout === 'card'
+    ? '<span class="nt nt-card" role="tooltip">' + lat + '<span class="nt-pair">' + dev + '<i class="nt-dot" aria-hidden="true"></i>' + ur + '</span>' + say + '</span>'
+    : '<span class="nt nt-line" role="tooltip">' + lat + '<i class="nt-rule" aria-hidden="true"></i>' + dev + '<i class="nt-rule" aria-hidden="true"></i>' + ur + say + '</span>';
+}
+function nameLine(layout, id, open) {
+  return '<p class="name-line">I’m <span class="name-wrap' + (open ? ' is-open' : '') + '"><button type="button" class="name" aria-describedby="' + id + '">Aahil</button>' + nameTip(layout, id) + '</span>. I don’t take myself seriously, but I take my projects very seriously.</p>';
+}
+function wireName(root) {
+  var audio = {};
+  var say = function () {
+    var k = pickedTake(); audio[k] = audio[k] || new Audio(asset(k));
+    Object.keys(audio).forEach(function (x) { audio[x].pause(); });
+    audio[k].currentTime = 0; audio[k].play();
+  };
+  root.querySelectorAll('.name-wrap').forEach(function (w) {
+    var b = w.querySelector('button.name'), sticky = w.classList.contains('is-open');
+    var show = function () { w.classList.add('is-open'); }, hide = function () { if (!sticky) w.classList.remove('is-open'); };
+    b.addEventListener('mouseenter', function () { show(); say(); });
+    b.addEventListener('mouseleave', hide);
+    b.addEventListener('focus', show); b.addEventListener('blur', hide);
+    b.addEventListener('click', say);
+  });
+}
+
 function renderVoices() {
+  var bar = function (t) { var max = 0.4; return '<span class="syl" aria-hidden="true"><i style="width:' + Math.round(t.aa / max * 100) + '%"></i><i style="width:' + Math.round(t.hil / max * 100) + '%"></i></span>'; };
   return '<div class="lab">' + labBar(false) + '<div class="page"><article>' +
-    '<p class="eyebrow">Mockup · the name</p><h1 class="title">Six takes of “Aahil”</h1>' +
-    '<p class="lede">Kokoro-82M, voice af_heart, rendered from six inputs. Play each and pick one by ear. The build plays the one you pick, trimmed to the first name, for the AH-hil tooltip.</p>' +
-    '<ol class="takes">' + TAKES.map(function (t) {
-      return '<li class="box take" data-take="' + t.k + '"><button type="button" class="play" aria-label="Play take ' + t.n + ', ' + t.name + '">' + ICON.play + '</button>' +
-        '<h3><span class="n">TAKE ' + t.n + '</span>' + t.name + '</h3>' +
-        '<p class="fed">Fed ' + t.fed + '; spoken as <code>' + t.ph + '</code></p>' +
-        '<p class="facts-mini">' + t.s.toFixed(2) + ' s<br>' + t.kb.toFixed(1) + ' KB Opus</p>' +
-        '<div class="use"><button type="button" data-pick="' + t.k + '" aria-pressed="' + (t.k === 'plain') + '">Use on the name</button>' +
-        (t.same ? '<span class="same">The same audio as take ' + t.same + ', to the byte: Kokoro reads the plain spelling as exactly these phonemes.</span>' : '') + '</div>' +
-        '<audio preload="auto" src="' + asset(t.k) + '"></audio></li>';
-    }).join('') + '</ol>' +
-    '<div class="box namedemo"><div class="window-bar"><span>On the name</span><span class="meta" data-picked>take 1</span></div><div class="in">' +
-      '<p>I’m <button type="button" class="name" aria-describedby="name-tip">Aahil</button>. I don’t take myself seriously, but I take my projects very seriously.</p>' +
+    '<p class="eyebrow">Mockup · the name</p><h1 class="title">“Aahil”, twelve takes</h1>' +
+    '<p class="lede">Kokoro-82M’s male voices, saying the first name alone. The target is AA-hil: two even syllables, an open aa and a short hil, with the h heard. A take stays only if its two syllables are within a quarter of each other’s length, measured from the waveform.</p>' +
+    GROUPS.map(function (g) {
+      return '<h2 class="takes-h">' + g[1] + '</h2><ol class="takes">' + TAKES.filter(function (t) { return t.g === g[0]; }).map(function (t) {
+        var n = TAKES.indexOf(t) + 1;
+        return '<li class="box take" data-take="' + t.k + '"><button type="button" class="play" aria-label="Play take ' + n + ', ' + t.voice + '">' + ICON.play + '</button>' +
+          '<h3><span class="n">TAKE ' + n + '</span>' + t.voice + ' <span class="in-txt"' + (/[ऀ-ॿ]/.test(t.input) ? ' lang="hi"' : '') + '>' + t.input + '</span></h3>' +
+          '<p class="fed">From ' + t.how + (t.sp !== 1 ? ', at ' + t.sp + '× speed' : '') + '</p>' +
+          '<p class="facts-mini">aa ' + t.aa.toFixed(2) + ' s · hil ' + t.hil.toFixed(2) + ' s' + bar(t) + t.kb.toFixed(1) + ' KB Opus</p>' +
+          '<div class="use"><button type="button" data-pick="' + t.k + '" aria-pressed="' + (t.k === pickedTake()) + '">Use on the name</button></div>' +
+          '<audio preload="auto" src="' + asset(t.k) + '"></audio></li>';
+      }).join('') + '</ol>';
+    }).join('') +
+    '<div class="box namedemo"><div class="window-bar"><span>On the name</span><span class="meta" data-picked></span></div><div class="in">' + nameLine('line', 'say-demo', false) +
       '<p class="meta" style="margin-top:10px">Hover the name, or focus it and press Enter.</p></div></div>' +
     '</article></div>' + labFoot('') + '</div>';
 }
 function wireVoices() {
-  var playing = null, picked = 'plain';
+  var playing = null;
   var stop = function () { if (playing) { playing.audio.pause(); playing.audio.currentTime = 0; playing.li.classList.remove('is-playing'); playing = null; } };
+  var label = function () { var k = pickedTake(); document.querySelector('[data-picked]').textContent = 'take ' + (TAKES.findIndex(function (t) { return t.k === k; }) + 1); };
   document.querySelectorAll('.take').forEach(function (li) {
     var a = li.querySelector('audio'), b = li.querySelector('.play');
     b.addEventListener('click', function () {
@@ -424,24 +483,27 @@ function wireVoices() {
   });
   document.querySelectorAll('[data-pick]').forEach(function (btn) {
     btn.addEventListener('click', function () {
-      picked = btn.dataset.pick;
+      try { localStorage.setItem('extras.take', btn.dataset.pick); } catch (e) { /* private mode */ }
       document.querySelectorAll('[data-pick]').forEach(function (x) { x.setAttribute('aria-pressed', String(x === btn)); });
-      document.querySelector('[data-picked]').textContent = 'take ' + TAKES.filter(function (t) { return t.k === picked; })[0].n;
+      label();
     });
   });
-  var name = document.querySelector('button.name'), tip;
-  var say = function () { stop(); var a = document.querySelector('[data-take="' + picked + '"] audio'); a.currentTime = 0; a.play(); };
-  var show = function () {
-    if (!tip) { tip = document.createElement('span'); tip.className = 'name-tip'; tip.id = 'name-tip'; tip.setAttribute('role', 'tooltip'); tip.textContent = 'AH-hil'; document.body.appendChild(tip); }
-    var r = name.getBoundingClientRect(); tip.hidden = false;
-    tip.style.left = (r.left + scrollX) + 'px'; tip.style.top = (r.top + scrollY - 44) + 'px';
+  label();
+  wireName(document);
+}
+
+// The hover, drawn open in both layouts so they can be compared.
+function renderNameHover() {
+  var spec = function (layout, title, note) {
+    return '<section class="box hover-spec"><div class="window-bar"><span>' + title + '</span><span class="meta">' + note + '</span></div><div class="in">' +
+      nameLine(layout, 'say-' + layout, true) + '</div></section>';
   };
-  var hide = function () { if (tip) tip.hidden = true; };
-  name.addEventListener('mouseenter', function () { show(); say(); });
-  name.addEventListener('mouseleave', hide);
-  name.addEventListener('focus', show);
-  name.addEventListener('blur', hide);
-  name.addEventListener('click', say);
+  return '<div class="lab">' + labBar(false) + '<div class="page"><article>' +
+    '<p class="eyebrow">Mockup · the name, on hover</p><h1 class="title">Aahil, three ways</h1>' +
+    '<p class="lede">Hovering his name shows it in Latin, Devanagari and Urdu, like a film’s title card, with how to say it. It plays the take picked on the voices page.</p>' +
+    '<div class="hover-specs">' + spec('line', 'A · One line', 'side by side') + spec('card', 'B · Title card', 'Latin above, Hindi and Urdu below') + '</div>' +
+    '<p class="confirm"><span class="sample-flag">spelling to confirm</span> <span lang="hi" class="cf-dev">आहिल</span> in Devanagari, <span lang="ur" dir="rtl" class="cf-ur">عاہل</span> in Urdu.</p>' +
+    '</article></div>' + labFoot('') + '</div>';
 }
 
 // ---------- the index ----------
@@ -455,14 +517,12 @@ function renderIndex() {
         return '<li><a href="?view=' + id + (l[1] ? '&' + l[1] : '') + '">' + esc(l[0]) + '</a></li>';
       }).join('') + '</ul></div>';
     }).join('') + '</div>' +
-    '<div class="ix-decide"><h2>What to decide</h2><ol>' +
-      '<li>The share cards: Paper, Premium Day or Premium Night, as the one look every card uses.</li>' +
-      '<li>The name: one of the six takes (five distinct; takes 1 and 5 are the same audio).</li>' +
-      '<li>From the Lab: three newest entries plus the sections, or the newest alone.</li>' +
-      '<li>Back to the desk on a phone: its own row under the bar, as drawn.</li>' +
-      '<li>The Lab tile’s colour on the desk (a glass blue, #C9DDF7, is proposed).</li>' +
-      '<li>The usage note on For AI agents, which is yours to write.</li>' +
-    '</ol></div></div>';
+    '<div class="ix-decide"><h2>What to decide in round 2</h2><ol>' +
+      '<li>The name: one of the twelve takes, by ear. The five Hindi-voice takes come first.</li>' +
+      '<li>The hover: one line (A) or the title card (B).</li>' +
+      '<li>The spellings आहिल and عاہل, marked “spelling to confirm”.</li>' +
+      '<li>The share cards’ look: Paper, or the Lab theme in Light or Dark. Images are now fitted whole.</li>' +
+    '</ol><p>Approved in round 1: the band, the Lab tile’s colour and the agents note.</p></div></div>';
 }
 
 // ---------------------------------------------------------------------------------------------
@@ -474,6 +534,7 @@ var tag = document.getElementById('mock-tag');
 tag.innerHTML = v ? '<span>Mockup · ' + esc(v.title) + '</span><a href="?">All views</a>' : '<span>Mockup · Lab extras</span>';
 if (VIEW === 'cards') { fitCards(); addEventListener('resize', fitCards); }
 if (VIEW === 'voices') wireVoices();
+if (VIEW === 'name-hover') wireName(document);
 if (VIEW === 'canvas-lab') addEventListener('resize', function () { if ((innerWidth < 760) !== !document.querySelector('.desk')) app.innerHTML = '<div class="view">' + renderDesk() + '</div>'; });
 if (v && v.scrollTo) {
   var target = document.getElementById(v.scrollTo);
