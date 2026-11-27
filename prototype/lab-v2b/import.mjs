@@ -7,7 +7,6 @@
 //   sources/drag-to-workspace.README.md                                   snapshot of the repo README
 //   ../../content/data/*.json, ../../content/themes.ts                    the site's own data and themes
 import { readFileSync, writeFileSync, readdirSync } from 'node:fs';
-import { execSync } from 'node:child_process';
 import { homedir } from 'node:os';
 import { join, dirname } from 'node:path';
 import { fileURLToPath } from 'node:url';
@@ -119,21 +118,22 @@ const entries = [
   ch(3, 'thirteen-rules', 'Thirteen rules'),
   ch(4, 'how-it-haggles', 'How it haggles'),
   { ...ch(5, 'price-it-never-sees', 'An agent can’t leak a price it never sees', '2026-11-26'), updated: '2026-11-26',
-    lead: { instrument: 'haggle' }, ledeKey: 'ch05.lede', read: '6 min' },
+    lead: { instrument: 'haggle' }, ledeKey: 'ch05.lede' },
   ch(6, 'ten-tools', 'Ten tools, and none returns a floor'),
   ch(7, 'thirty-five-ways', 'Thirty-five ways to try to break it'),
   ch(8, 'how-a-run-is-graded', 'How a run is graded'),
   { id: 't01', slug: 'eval-anatomy', section: 'studies', kind: 'note', parent: 'agent-reliability', title: 'Eval anatomy',
-    published: topics.find((t) => t.id === 'T01').finished, keyLineKey: 't01.key', ledeKey: 't01.lede', read: '3 min' },
+    published: topics.find((t) => t.id === 'T01').finished, topic: 'T01', keyLineKey: 't01.key', ledeKey: 't01.lede' },
   { id: 't02', slug: 'pass-k', section: 'studies', kind: 'note', parent: 'agent-reliability', title: 'pass@k, pass^k, and why one run isn’t a result',
-    published: topics.find((t) => t.id === 'T02').finished, keyLineKey: 't02.key', ledeKey: 't02.lede', read: '4 min' },
+    published: topics.find((t) => t.id === 'T02').finished, topic: 'T02', keyLineKey: 't02.key', ledeKey: 't02.lede' },
   { id: 'drag-to-workspace', slug: 'drag-to-workspace', section: 'builds', kind: 'build', title: 'Drag to Workspace',
     lede: `${dtwTagline} ${dtwSub}`, published: '2026-11-12',
     lead: { demo: { src: 'assets/dtw-demo.webp', poster: 'assets/dtw-poster.webp', alt: 'Dragging windows to the screen edge to move them between workspaces', w: 720, h: 450 } },
     install: dtwInstall, repo: 'https://github.com/aahil-khan/drag-to-workspace' },
   { id: 'holt', slug: 'holt', section: 'builds', kind: 'build', title: 'Holt', lede: holt.lede + '.', published: '2026-10-12',
     lead: { images: [1, 2, 3].map((i) => ({ src: `assets/holt-${i}.webp`, w: 1200, h: 675 })) }, imagesAltKey: 'holt.alt',
-    result: { value: 'MCC 0.61–0.63', baseline: '0.32 for a single-prompt LLM' } },
+    result: { value: 'MCC 0.61–0.63', baseline: '0.32 for a single-prompt LLM' },
+    live: holt.links.find((l) => /site/i.test(l.label)).href, repo: holt.links.find((l) => /github/i.test(l.label)).href },
   { id: 'datesheet', slug: 'datesheet', section: 'builds', kind: 'build', title: 'Datesheet generator', lede: datesheet.lede, published: '2025-07-31',
     lead: { figure: 'datesheet' } },
   { id: 'old-laptop', slug: 'old-laptop-cloud', section: 'writing', kind: 'essay', title: writing.find((w) => w.slug === 'old-laptop-cloud').title,
@@ -145,15 +145,15 @@ const entries = [
 // Tags: at most eight across the Lab (plan, Routes). Proposed; listed in README for veto.
 const TAGS = { 'agent-reliability': ['evals', 'agents'], shopkeeper: ['agents', 'evals'], 'shopkeeper-05': ['agents', 'evals', 'security'],
   t01: ['evals'], t02: ['evals'], 'drag-to-workspace': ['desktop', 'open-source'], holt: ['open-source', 'evals'], datesheet: ['web'],
-  'old-laptop': ['self-hosting'], 'chrome-hackathon': ['web', 'hackathons'] };
+  'old-laptop': ['self-hosting', 'web'], 'chrome-hackathon': ['web', 'hackathons', 'open-source'] };
 for (const e of entries) if (TAGS[e.id]) e.tags = TAGS[e.id];
 if (new Set(Object.values(TAGS).flat()).size > 8) throw new Error('more than eight tags');
 
 const data = {
-  build: execSync('git rev-parse --short HEAD', { cwd: repo }).toString().trim(),
+  build: 'dev',   // bundle.mjs writes the bundling commit here (git rev-parse --short HEAD)
   owner: { name: 'Aahil Khan', short: 'Aahil', initials: 'AK', city: 'Bareilly', tz: 'Asia/Kolkata', tzLabel: 'IST' },
   sections: [
-    { id: 'studies', title: 'Studies', thesisKey: 'sec.studies' },
+    { id: 'studies', title: 'Studies', thesisKey: 'sec.studies', hero: 'agent-reliability' },
     { id: 'builds', title: 'Builds', thesisKey: 'sec.builds' },
     { id: 'experiments', title: 'Experiments', thesisKey: 'sec.experiments' },
     { id: 'writing', title: 'Writing', thesisKey: 'sec.writing' },

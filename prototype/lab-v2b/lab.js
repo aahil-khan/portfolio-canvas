@@ -11,22 +11,52 @@ var Lab = window.Lab = window.Lab || {};
   if (q.get('fixture') === 'kinds' && Lab.fixture) {
     D.sections = D.sections.concat(Lab.fixture.sections);
     D.entries = D.entries.concat(Lab.fixture.entries);
+    Object.assign(Lab.bodies = Lab.bodies || {}, Lab.fixture.bodies || {});
   }
   var byId = {};
   D.entries.forEach(function (e) { byId[e.id] = e; });
-  var BUILT = { 'shopkeeper-05': true };   // pages this round builds; every other link goes to #/next
-  Lab.entry = function (id) { return byId[id]; };
-  /** The routes this round renders, for the check: the home plus every built entry. */
-  Lab.routes = function () { return [{ name: 'home', hash: '#/' }].concat(Object.keys(BUILT).map(function (id) { return { name: id, hash: '#' + Lab.pathOf(byId[id]), entry: true }; })); };
-  Lab.childrenOf = function (id) { return D.entries.filter(function (e) { return e.parent === id; }).sort(function (a, b) { return (a.order || 0) - (b.order || 0); }); };
+  // Fields written beside a body (content/bodies-*.js `meta`: lede, key line, lead, dates) merge
+  // into the entry, so a written page needs no edit to the generated data.
+  Lab.bodies = Lab.bodies || {};
+  Object.keys(Lab.bodies).forEach(function (id) {
+    var m = Lab.bodies[id].meta, e = byId[id];
+    if (!m || !e) return;
+    Object.keys(m).forEach(function (k) { e[k] = m[k] && typeof m[k] === 'object' && 'text' in m[k] ? m[k].text : m[k]; });
+    if (m.lede) delete e.ledeKey;
+    if (m.keyLine) delete e.keyLineKey;
+    if (m.published) e.draft = false;
+  });
+  /** Read time from the words a reader actually reads: lede, opening and body. */
+  var WPM = 220;
+  D.entries.forEach(function (e) {
+    if (e.read) return;
+    var b = Lab.bodies[e.id], words = 0;
+    var count = function (s) { words += String(s || '').split(/\s+/).filter(Boolean).length; };
+    count(e.lede); count(e.opening); count(e.keyLine);
+    if (b) b.blocks.forEach(function (x) { count((x.p || x.h2 || x.quote || {}).text); (x.list || []).forEach(function (i) { count(i.text); }); });
+    if (words > 120) e.read = Math.max(1, Math.round(words / WPM)) + ' min';
+  });
   var isPublic = function (e) { return !e.draft; };
   var publicEntries = function () { return D.entries.filter(isPublic); };
+  Lab.entry = function (id) { return byId[id]; };
+  Lab.childrenOf = function (id) { return D.entries.filter(function (e) { return e.parent === id; }).sort(function (a, b) { return (a.order || 0) - (b.order || 0) || (a.published || '').localeCompare(b.published || ''); }); };
+  var liveSections = function () { var pub = publicEntries(); return D.sections.filter(function (s) { return pub.some(function (e) { return e.section === s.id; }); }); };
+  var allTags = function () { var out = []; publicEntries().forEach(function (e) { (e.tags || []).forEach(function (g) { if (out.indexOf(g) < 0) out.push(g); }); }); return out.sort(); };
+  /** Every route the mockup renders, for the check: generated from the data, never listed by hand. */
+  Lab.routes = function () {
+    return [{ name: 'home', hash: '#/', kind: 'home' }]
+      .concat(liveSections().map(function (s) { return { name: 'section:' + s.id, hash: '#/' + s.id, kind: 'section' }; }))
+      .concat([{ name: 'index', hash: '#/index', kind: 'index' }, { name: 'glossary', hash: '#/glossary', kind: 'list' }])
+      .concat(allTags().map(function (g) { return { name: 'tag:' + g, hash: '#/tags/' + g, kind: 'list' }; }))
+      .concat(publicEntries().map(function (e) { return { name: e.id, hash: '#' + Lab.pathOf(e), entry: true, kind: e.kind }; }));
+  };
   Lab.asset = function (src) { return (Lab.assets && Lab.assets[src]) || src; };
   Lab.pathOf = function (e) {
     var parent = e.parent && byId[e.parent];
     return '/' + e.section + '/' + (parent ? parent.slug + '/' : '') + e.slug;
   };
-  Lab.href = function (e) { return BUILT[e.id] ? '#' + Lab.pathOf(e) : '#/next?to=' + encodeURIComponent('/lab' + Lab.pathOf(e)); };
+  Lab.href = function (e) { return isPublic(e) ? '#' + Lab.pathOf(e) : '#/next?to=' + encodeURIComponent('/lab' + Lab.pathOf(e)); };
+  Lab.sectionHref = function (id) { return '#/' + id; };
   Lab.linkTo = function (id, label, cls) {
     var e = byId[id];
     return '<a href="' + Lab.href(e) + '" data-preview="' + id + '"' + (cls ? ' class="' + cls + '"' : '') + '>' + (label != null ? label : esc(e.title)) + '</a>';
@@ -42,8 +72,9 @@ var Lab = window.Lab = window.Lab || {};
   var termById = {};
   (Lab.terms || []).forEach(function (x) { termById[x.id] = x; });
   Lab.term = function (id) { return termById[id]; };
-  var glossaryHref = function (id) { return '#/next?to=' + encodeURIComponent('/lab/glossary#' + id); };
-  var tagHref = function (tag) { return '#/next?to=' + encodeURIComponent('/lab/tags/' + tag); };
+  var glossaryHref = function (id) { return '#/glossary?term=' + id; };
+  var tagHref = function (tag) { return '#/tags/' + tag; };
+  Lab.tagHref = tagHref;
   /** Where a term's card goes further: its entry, its external source, or the glossary. */
   Lab.termTarget = function (x) {
     if (x.link && byId[x.link]) return { href: Lab.href(byId[x.link]), label: t('card.read', { title: byId[x.link].title }) };
@@ -65,11 +96,12 @@ var Lab = window.Lab = window.Lab || {};
     var n = refs.order.indexOf(key) + 1;
     return '<sup class="ref"><a href="#ref-' + key + '" data-jump="ref-' + key + '" data-preview="ref:' + refs.entry + ':' + key + '" aria-label="Reference ' + n + '">' + n + '</a></sup>';
   };
+  function blockText(b) { return [(b.p || b.h2 || b.h3 || b.quote || b.side || {}).text || ''].concat((b.list || []).map(function (i) { return i.text; })).join(' '); }
   /** Entries this one links to in its body, in order of first link. */
   function linkedFrom(e) {
     var body = Lab.bodies[e.id], out = [];
     if (!body) return out;
-    var text = body.blocks.map(function (b) { return (b.p || b.h2 || {}).text || ''; }).join(' ') + ' ' + (e.ledeKey ? Lab.raw(e.ledeKey) : '');
+    var text = body.blocks.map(blockText).join(' ') + ' ' + Lab.ledeOf(e);
     text.replace(/\[\[(t:)?([\w-]+)\|/g, function (_, isTerm, id) {
       var target = isTerm ? termById[id] && termById[id].link : id;
       if (target && byId[target] && target !== e.id && out.indexOf(target) < 0 && isPublic(byId[target])) out.push(target);
@@ -170,7 +202,7 @@ var Lab = window.Lab = window.Lab || {};
     page.appendChild(Lab.html('<section class="block wide" aria-labelledby="sec-title"><div class="block-head"><h2 id="sec-title">' + t('home.sections') + '</h2></div><div class="sections">' +
       secs.map(function (s) {
         var n = pub.filter(function (e) { return e.section === s.id; }).length;
-        return '<div><h3><a class="quiet" href="#/next?to=' + encodeURIComponent('/lab/' + s.id) + '">' + esc(s.title) + '</a></h3><p>' + (s.thesisKey ? t(s.thesisKey) : esc(s.thesis)) + '</p>' +
+        return '<div><h3><a class="quiet" href="' + Lab.sectionHref(s.id) + '" data-preview="section:' + s.id + '">' + esc(s.title) + '</a></h3><p>' + (s.thesisKey ? t(s.thesisKey) : esc(s.thesis)) + '</p>' +
           '<p class="meta">' + (n === 1 ? t('count.one') : t('count.many', { n: n })) + '</p></div>';
       }).join('') + '</div></section>'));
 
@@ -180,7 +212,7 @@ var Lab = window.Lab = window.Lab || {};
       '<ul class="rows" data-latest>' + shown.map(function (e) {
         return '<li class="row">' + Lab.date(e.published, true) + '<span class="row-title">' + Lab.linkTo(e.id) + '</span><span class="row-kind">' + Lab.kindWords(e) + '</span></li>';
       }).join('') + '</ul>' +
-      '<p class="all"><a href="#/next?to=%2Flab%2Findex">' + t('home.all', { n: all.length }) + ' →</a></p></section>'));
+      '<p class="all"><a href="#/index">' + t('home.all', { n: all.length }) + ' →</a></p></section>'));
     return page;
   }
   var LATEST = 6;
@@ -198,33 +230,49 @@ var Lab = window.Lab = window.Lab || {};
         '<span class="ticks" aria-hidden="true">' + siblings.map(function (s) { return '<i' + (s === e ? ' class="on"' : '') + '></i>'; }).join('') + '</span><span class="chev" aria-hidden="true"></span></summary>' +
         '<ol class="chapters">' + siblings.map(function (s) { return '<li><span data-num>' + pad(s.order) + '</span>' + (s === e ? '<span>' + esc(s.title) + '</span>' : Lab.linkTo(s.id)) + '</li>'; }).join('') + '</ol>' +
         '<p class="meta">' + Lab.linkTo(parent.id, t('chapters.all')) + '</p></details>' : '';
+    if (parent && e.kind !== 'chapter') series = '<p class="series series-line"><span class="meta">' + t('kind.note', { parent: '' }).trim() + '</span> ' + Lab.linkTo(parent.id, null, 'meta-link') + '</p>';
     var updated = e.updated && e.updated !== e.published ? ' · ' + t('updated') + ' ' + Lab.date(e.updated) : '';
     page.appendChild(Lab.html('<div class="entry-head">' + series +
       (e.kind === 'chapter' ? '<span class="num" aria-hidden="true">' + pad(e.order) + '</span>' : '') +
       '<h1 class="entry-title">' + esc(e.title) + '</h1>' +
-      '<p class="entry-meta meta">' + t('written') + ' ' + Lab.date(e.published) + updated + (e.read ? ' · ' + t('read', { n: e.read }) : '') + '</p></div>'));
+      '<p class="entry-meta meta">' + t('written') + ' ' + Lab.date(e.published) + updated + (e.read ? ' · ' + t('read', { n: e.read }) : '') + '</p>' +
+      // a build says in one line what it is before it shows itself (plan: title, one line, then the demo)
+      (e.kind === 'build' && Lab.ledeOf(e) ? '<p class="entry-sub">' + Lab.inline(Lab.ledeOf(e), refs) + '</p>' : '') + '</div>'));
     var det = page.querySelector('.series');
     if (det) det.addEventListener('toggle', function () { det.querySelector('summary').setAttribute('aria-expanded', String(det.open)); });
 
     var lead = Lab.leadOf(e);
     var leadBox = Lab.html('<div class="lead-block wide" data-lead data-lead-kind="' + lead.name + '"></div>');
-    if (lead.name === 'haggle') leadBox.appendChild(Lab.html('<p class="lead-intro">' + t('haggle.intro') + '</p>'));
+    var intro = body.leadIntro ? body.leadIntro.text : lead.name === 'haggle' ? Lab.raw('haggle.intro') : '';
+    if (intro) leadBox.appendChild(Lab.html('<p class="lead-intro">' + Lab.inline(intro) + '</p>'));
     leadBox.appendChild(lead.render('full'));
     if (lead.name === 'haggle') leadBox.appendChild(Lab.html('<p class="caption">' + t('haggle.caption') + '</p>'));
+    if (body.leadCaption) leadBox.appendChild(Lab.html('<p class="caption">' + Lab.inline(body.leadCaption.text) + '</p>'));
+    if (e.kind === 'build' && lead.name !== 'install') leadBox.appendChild(tryIt(e));
     page.appendChild(leadBox);
 
-    var prose = Lab.html('<div class="entry-body prose"><p class="lede">' + Lab.inline(Lab.ledeOf(e), refs) + '</p></div>');
+    // an essay's lead is its opening, so its prose starts at the second paragraph
+    var prose = Lab.html('<div class="entry-body prose"></div>');
+    if (lead.name !== 'opening' && e.kind !== 'build' && Lab.ledeOf(e)) prose.appendChild(Lab.html('<p class="lede">' + Lab.inline(Lab.ledeOf(e), refs) + '</p>'));
     if (lead.name === 'haggle') prose.appendChild(Lab.html('<div class="side sidenote"><p><strong>' + t('haggle.note') + '</strong> ' + t('haggle.schedule') + '</p></div>'));
-    var pulled = false;
+    // the pull-quote sits beside the first section's opening paragraph, or the third paragraph when there are no headings
+    var pulled = false, heads = 0, paras = 0;
     body.blocks.forEach(function (b) {
-      if (b.h2) prose.appendChild(Lab.html('<h2>' + esc(b.h2.text) + '</h2>'));
-      if (b.p) {
-        prose.appendChild(Lab.html('<p>' + Lab.inline(b.p.text, refs) + '</p>'));
-        if (!pulled && body.pull && prose.querySelectorAll('h2').length === 1) { prose.appendChild(Lab.html('<div class="side"><p class="pull" aria-hidden="true">' + esc(body.pull) + '</p></div>')); pulled = true; }
+      var el = renderBlock(b, e, refs);
+      if (el) prose.appendChild(el);
+      if (b.h2) heads += 1;
+      if (b.p) paras += 1;
+      if (!pulled && body.pull && b.p && (heads === 1 || (heads === 0 && paras === 2))) {
+        prose.appendChild(Lab.html('<div class="side"><p class="pull" aria-hidden="true" data-pull>' + esc(body.pull) + '</p></div>'));
+        pulled = true;
       }
-      if (b.figure) prose.appendChild(Lab.instruments[b.figure](e));
     });
     page.appendChild(prose);
+    if (e.kind === 'study' || e.kind === 'series') page.appendChild(childrenBlock(e));
+    if (e.kind === 'study') page.appendChild(studyBlocks(e));
+    if (body.ending) page.appendChild(Lab.html('<aside class="ending prose" data-ending aria-labelledby="end-' + e.id + '">' +
+      '<p class="end-label" id="end-' + e.id + '"><strong>' + t('ending.' + (body.endingKind || 'do')) + '</strong> <span class="meta">' + t('ending.asof') + '</span> ' + Lab.date(e.updated || e.published, true) + '</p>' +
+      [].concat(body.ending).map(function (x) { return '<p>' + Lab.inline(x.text, refs) + '</p>'; }).join('') + '</aside>'));
 
     // References, numbered by first use
     if (refs.order.length) page.appendChild(Lab.html('<section class="refs-block" aria-labelledby="refs-title"><h2 id="refs-title" class="end-h">' + t('refs.title') + '</h2><ol class="refs">' +
@@ -235,24 +283,200 @@ var Lab = window.Lab = window.Lab || {};
     var back = linksTo(e), linked = linkedFrom(e).filter(function (id) { return back.indexOf(id) < 0; });
     var also = [];
     (e.tags || []).forEach(function (tag) { Lab.tagged(tag).forEach(function (x) { if (x.id !== e.id && linked.indexOf(x.id) < 0 && back.indexOf(x.id) < 0 && also.indexOf(x.id) < 0) also.push(x.id); }); });
+    // nothing linked and no shared tag: fall back to the entry's own section, so Related is never empty
+    var sameSec = [];
+    var elsewhere = false;
+    if (!linked.length && !also.length) sameSec = publicEntries().filter(function (x) { return x.section === e.section && x.id !== e.id && back.indexOf(x.id) < 0; }).sort(byPublished).map(function (x) { return x.id; });
+    if (!linked.length && !also.length && !sameSec.length) { elsewhere = true; sameSec = publicEntries().filter(function (x) { return x.id !== e.id && back.indexOf(x.id) < 0 && !x.parent; }).sort(byPublished).map(function (x) { return x.id; }); }
+    var secOf = D.sections.find(function (x) { return x.id === e.section; });
     var item = function (id) { return '<li>' + Lab.linkTo(id) + ' <span class="meta">' + Lab.kindWords(byId[id]) + '</span></li>'; };
     page.appendChild(Lab.html('<section class="ends" aria-label="Links">' +
-      '<div class="backlinks"><h2 class="end-h">' + t('backlinks') + '</h2>' + (back.length ? '<ul class="end-list">' + back.map(item).join('') + '</ul>' : '') + '</div>' +
+      '<div class="backlinks" data-backlinks><h2 class="end-h">' + t('backlinks') + '</h2>' + (back.length ? '<ul class="end-list">' + back.map(item).join('') + '</ul>' : '<p class="meta">' + t('backlinks.none') + '</p>') + '</div>' +
       '<div class="related" data-related><h2 class="end-h">' + t('related.title') + '</h2>' +
         (linked.length ? '<ul class="end-list" data-linked>' + linked.map(item).join('') + '</ul>' : '') +
         (also.length ? '<p class="meta also">' + t('related.also') + '</p><ul class="end-list" data-also>' + also.slice(0, 4).map(item).join('') + '</ul>' : '') +
+        (sameSec.length ? '<p class="meta also">' + (elsewhere ? t('related.elsewhere') : t('related.section', { section: secOf ? secOf.title : '' })) + '</p><ul class="end-list" data-also>' + sameSec.slice(0, 4).map(item).join('') + '</ul>' : '') +
         ((e.tags || []).length ? '<p class="meta tags">' + t('related.tags') + ' ' + e.tags.map(function (g) { return Lab.tagLink(g); }).join(', ') + '</p>' : '') +
       '</div></section>'));
 
     if (parent && idx >= 0) {
       var prev = siblings[idx - 1], next = siblings[idx + 1];
-      page.appendChild(Lab.html('<nav class="nextprev" aria-label="Chapters">' +
-        (prev ? '<a class="box" href="' + Lab.href(prev) + '" data-preview="' + prev.id + '"><span class="meta">' + t('prev') + ' · ' + pad(prev.order) + '</span><span class="np-title">' + esc(prev.title) + '</span></a>' : '<span></span>') +
-        (next ? '<a class="box np-next" href="' + Lab.href(next) + '" data-preview="' + next.id + '"><span class="meta">' + t('nextch') + ' · ' + pad(next.order) + '</span><span class="np-title">' + esc(next.title) + '</span></a>' : '') +
+      var npLabel = function (x) { return x.kind === 'chapter' ? pad(x.order) : Lab.date(x.published, true); };
+      page.appendChild(Lab.html('<nav class="nextprev" aria-label="' + (e.kind === 'chapter' ? 'Chapters' : 'Notes') + '">' +
+        (prev ? '<a class="box" href="' + Lab.href(prev) + '" data-preview="' + prev.id + '"><span class="meta">' + t('prev') + ' · ' + npLabel(prev) + '</span><span class="np-title">' + esc(prev.title) + '</span></a>' : '<span></span>') +
+        (next ? '<a class="box np-next" href="' + Lab.href(next) + '" data-preview="' + next.id + '"><span class="meta">' + t('nextch') + ' · ' + npLabel(next) + '</span><span class="np-title">' + esc(next.title) + '</span></a>' : '') +
         '</nav>'));
     }
     return page;
   }
+  // ---------- body blocks ----------
+  //   { h2 }  { p }  { list: [..], ordered }  { quote, cite }  { code }  { side } a sidenote
+  //   { img: { src, w, h, alt, caption } }  { figure: '<instrument>', of: '<data key>' }
+  function renderBlock(b, e, refs) {
+    if (b.h2) return Lab.html('<h2>' + Lab.inline(b.h2.text, refs) + '</h2>');
+    if (b.h3) return Lab.html('<h3>' + Lab.inline(b.h3.text, refs) + '</h3>');
+    if (b.p) return Lab.html('<p>' + Lab.inline(b.p.text, refs) + '</p>');
+    if (b.list) { var tag = b.ordered ? 'ol' : 'ul'; return Lab.html('<' + tag + ' class="list">' + b.list.map(function (i) { return '<li>' + Lab.inline(i.text, refs) + '</li>'; }).join('') + '</' + tag + '>'); }
+    if (b.quote) return Lab.html('<blockquote class="quote"><p>' + Lab.inline(b.quote.text, refs) + '</p>' + (b.cite ? '<p class="meta">' + esc(b.cite) + '</p>' : '') + '</blockquote>');
+    if (b.code) return Lab.html('<pre class="code"><code>' + esc(b.code) + '</code></pre>');
+    if (b.side) return Lab.html('<div class="side sidenote"><p>' + (b.sideHead ? '<strong>' + esc(b.sideHead.text) + '</strong> ' : '') + Lab.inline(b.side.text, refs) + '</p></div>');
+    if (b.img) {
+      var m = b.img;
+      return Lab.html('<figure class="figure img-figure' + (m.wide === false ? '' : ' wide') + '"><div class="frame frame-img" style="--ar:' + m.w + '/' + m.h + '"><img src="' + Lab.asset(m.src) + '" width="' + m.w + '" height="' + m.h + '" alt="' + esc(m.alt || '') + '" decoding="async"></div>' +
+        (m.caption ? '<figcaption class="caption">' + Lab.inline(m.caption.text || m.caption, refs) + '</figcaption>' : '') + '</figure>');
+    }
+    if (b.figure) {
+      if (!Lab.instruments[b.figure]) throw new Error('unknown figure ' + b.figure + ' in ' + e.id);
+      return Lab.instruments[b.figure](e, 'full', b.of);
+    }
+    return null;
+  }
+
+  /** A build's way in, under its lead: the install line, then the source and the live site. */
+  function tryIt(e) {
+    var links = [];
+    if (e.live) links.push('<a class="ext" href="' + esc(e.live) + '" rel="noopener">' + t('try.live') + '</a>');
+    if (e.repo) links.push('<a class="ext" href="' + esc(e.repo) + '" rel="noopener">' + t('try.repo') + '</a>');
+    return Lab.html('<div class="try">' + (e.install ? '<p class="try-label"><strong>' + t('try.install') + '</strong></p><pre class="install"><code>' + esc(e.install) + '</code></pre>' : '') +
+      (links.length ? '<p class="try-links">' + links.join('') + '</p>' : '') + '</div>');
+  }
+
+  /** A study's or a series' own entries, in order: chapters by number, notes by date. */
+  function childrenBlock(e) {
+    var kids = Lab.childrenOf(e.id).filter(isPublic);
+    var more = e.kind === 'study' ? publicEntries().filter(function (x) { return x.study === e.id; }) : [];
+    var pad = function (n) { return String(n).padStart(2, '0'); };
+    var row = function (x) {
+      var line = Lab.plain(x.keyLine || (x.keyLineKey ? Lab.raw(x.keyLineKey) : '') || Lab.ledeOf(x));
+      return '<li class="row row-child">' + (x.kind === 'chapter' ? '<span class="row-num" data-num>' + pad(x.order) + '</span>' : Lab.date(x.published)) +
+        '<span class="row-main"><span class="row-title">' + Lab.linkTo(x.id) + '</span>' + (line ? '<span class="row-lede">' + esc(line) + '</span>' : '') + '</span></li>';
+    };
+    return Lab.html('<section class="block kids" aria-labelledby="kids-' + e.id + '"><div class="block-head"><h2 id="kids-' + e.id + '">' + t(e.kind === 'study' ? 'kids.study' : 'kids.series', { title: e.title }) + '</h2></div>' +
+      '<ul class="rows">' + kids.concat(more).map(row).join('') + '</ul></section>');
+  }
+
+  /** The study page: the log as a dated stream of what changed, then every topic by track. */
+  function studyBlocks(e) {
+    var s = D.study, wrap = Lab.html('<div class="study-blocks"></div>');
+    var noteFor = function (topicId) { return publicEntries().find(function (x) { return x.parent === e.id && x.topic === topicId; }); };
+    var topicName = function (id) { var tp = s.topics.find(function (x) { return x.id === id; }); return tp ? tp.topic : id; };
+    var log = s.log.slice().sort(function (a, b) { return b.date.localeCompare(a.date); });
+    wrap.appendChild(Lab.html('<section class="block log-stream" aria-labelledby="changed"><div class="block-head"><h2 id="changed">' + t('study.changed') + '</h2></div>' +
+      '<ol class="stream">' + log.map(function (l) {
+        var n = noteFor(l.topic);
+        return '<li>' + Lab.date(l.date, true) + '<div><p class="stream-topic">' + (n ? Lab.linkTo(n.id, esc(topicName(l.topic))) : esc(topicName(l.topic))) + '</p><p>' + esc(l.did) + '</p></div></li>';
+      }).join('') + '</ol></section>'));
+    var words = { done: t('status.done'), doing: t('status.doing'), todo: t('status.todo'), parked: t('status.parked'), later: t('status.later') };
+    wrap.appendChild(Lab.html('<section class="block tracks" aria-labelledby="by-track"><div class="block-head"><h2 id="by-track">' + t('study.tracks') + '</h2></div>' +
+      '<div class="track-grid">' + s.tracks.map(function (track) {
+        return '<div class="track"><h3>' + esc(track) + '</h3><ul class="topic-list">' + s.topics.filter(function (x) { return x.track === track; }).map(function (x) {
+          var n = noteFor(x.id);
+          return '<li><span>' + (n ? Lab.linkTo(n.id, esc(x.topic)) : esc(x.topic)) + '</span> <span class="meta">' + words[x.status] + '</span></li>';
+        }).join('') + '</ul></div>';
+      }).join('') + '</div></section>'));
+    return wrap;
+  }
+
+  // ---------- section, index, tag and glossary pages ----------
+  var KIND_ORDER = ['study', 'series', 'build', 'experiment', 'essay', 'note', 'chapter'];
+  var NUM = ['no', 'one', 'two', 'three', 'four', 'five', 'six', 'seven', 'eight', 'nine', 'ten', 'eleven', 'twelve'];
+  var counted = function (n, kind) { var w = Lab.raw('noun.' + kind).split('|'); return (NUM[n] || n) + ' ' + w[n === 1 ? 0 : 1]; };
+  var listJoin = function (xs) { return xs.length < 2 ? xs.join('') : xs.slice(0, -1).join(', ') + ' and ' + xs[xs.length - 1]; };
+  var byOldest = function (a, b) { return (a.published || '').localeCompare(b.published || ''); };
+  /** One row of a list: handwritten date, title, kind in words, and the lede under the title. */
+  function entryRow(x, opts) {
+    var lede = opts && opts.lede ? Lab.plain(Lab.ledeOf(x)) : '';
+    return '<li class="row" data-kind="' + x.kind + '">' + Lab.date(x.published, !(opts && opts.noYear)) +
+      '<span class="row-main"><span class="row-title">' + Lab.linkTo(x.id) + '</span>' + (lede ? '<span class="row-lede">' + esc(lede) + '</span>' : '') + '</span>' +
+      '<span class="row-kind">' + Lab.kindWords(x) + '</span></li>';
+  }
+  /** A lead at card size, framed as a mini window: the section pages' hero. */
+  function heroCard(x) {
+    var lead = Lab.leadOf(x);
+    var c = Lab.html('<article class="hero-card box" data-hero-card><div class="window-bar"><span>' + Lab.kindWords(x) + '</span>' + Lab.date(x.updated || x.published, true) + '</div>' +
+      '<div class="hero-lead" data-lead-kind="' + lead.name + '"></div><div class="hero-text"><h2 class="hero-title">' + Lab.linkTo(x.id) + '</h2></div></article>');
+    c.querySelector('.hero-lead').appendChild(lead.render('card'));
+    return c;
+  }
+  function sectionPage(s) {
+    var pub = publicEntries().filter(function (e) { return e.section === s.id; });
+    var tops = pub.filter(function (e) { var p = e.parent && byId[e.parent]; return !(p && p.section === s.id) && !(e.study && byId[e.study] && byId[e.study].section === s.id); });
+    var page = Lab.html('<div class="page section-page" data-section="' + s.id + '"></div>');
+    // New here? what the section holds, by kind, and where to begin: the oldest entry of the
+    // highest-ranked kind it holds, so the line never changes when something new is added
+    var kinds = KIND_ORDER.filter(function (k) { return pub.some(function (e) { return e.kind === k; }); });
+    var first = pub.filter(function (e) { return e.kind === kinds[0]; }).sort(byOldest)[0];
+    var holds = t('sec.holds', { list: listJoin(kinds.map(function (k) { return counted(pub.filter(function (e) { return e.kind === k; }).length, k); })) });
+    page.appendChild(Lab.html('<div class="sec-head">' +
+      '<p class="eyebrow">' + t('sec.eyebrow') + '</p>' +
+      '<h1 class="sec-title">' + esc(s.title) + '</h1>' +
+      '<p class="sec-thesis">' + (s.thesisKey ? t(s.thesisKey) : esc(s.thesis)) + '</p>' +
+      '<p class="sec-new"><strong>' + t('new.title') + '</strong> ' + holds + ' ' + Lab.inline(Lab.raw('begin.' + kinds[0]).replace('[[{link}]]', '[[' + first.id + '|' + first.title.replace(/[\]|]/g, '') + ']]')) + '</p>' +
+      '</div>'));
+    // the hero: the section's own pick from data, else the three newest top-level entries
+    var heroIds = s.hero ? [s.hero] : tops.slice().sort(byPublished).slice(0, 3).map(function (e) { return e.id; });
+    var hero = Lab.html('<div class="sec-hero wide' + (heroIds.length > 1 ? ' is-strip' : '') + '" data-hero></div>');
+    heroIds.forEach(function (id) { hero.appendChild(heroCard(byId[id])); });
+    page.appendChild(hero);
+    // every entry: top-level ones newest first, each study or series with its own entries under it
+    var list = tops.slice().sort(byPublished).map(function (x) {
+      var kids = Lab.childrenOf(x.id).filter(isPublic).concat(pub.filter(function (e) { return e.study === x.id; }));
+      return '<li class="group"><ul class="rows">' + entryRow(x, { lede: true }) + '</ul>' + (kids.length ? '<ul class="rows rows-kids">' + kids.map(function (k) { return entryRow(k); }).join('') + '</ul>' : '') + '</li>';
+    }).join('');
+    page.appendChild(Lab.html('<section class="block wide" aria-labelledby="sec-all"><div class="block-head"><h2 id="sec-all">' + t('sec.all', { title: s.title }) + '</h2></div><ul class="groups">' + list + '</ul></section>'));
+    return page;
+  }
+  function indexPage() {
+    var all = publicEntries().sort(byPublished);
+    var kinds = KIND_ORDER.filter(function (k) { return all.some(function (e) { return e.kind === k; }); });
+    var years = [];
+    all.forEach(function (e) { var y = (e.published || '').slice(0, 4); if (years.indexOf(y) < 0) years.push(y); });
+    var page = Lab.html('<div class="page index-page"></div>');
+    page.appendChild(Lab.html('<div class="list-head"><p class="eyebrow">' + t('sec.eyebrow') + '</p><h1 class="entry-title">' + t('index.title') + '</h1>' +
+      '<p class="sec-thesis">' + t('index.lede', { n: all.length }) + '</p>' +
+      '<div class="filter" role="group" aria-label="' + t('index.filter') + '">' + ['all'].concat(kinds).map(function (k) {
+        return '<button type="button" data-filter="' + k + '" aria-pressed="' + (k === 'all') + '">' + (k === 'all' ? t('index.all') : esc(Lab.raw('noun.' + k).split('|')[1].replace(/^./, function (c) { return c.toUpperCase(); }))) + '</button>';
+      }).join('') + '</div>' +
+      '<label class="filter-phone"><span class="meta">' + t('index.filter') + '</span><select data-filter-select>' + ['all'].concat(kinds).map(function (k) {
+        return '<option value="' + k + '">' + (k === 'all' ? t('index.all') : esc(Lab.raw('noun.' + k).split('|')[1].replace(/^./, function (c) { return c.toUpperCase(); }))) + '</option>';
+      }).join('') + '</select></label></div>'));
+    page.appendChild(Lab.html('<div class="years">' + years.map(function (y) {
+      return '<section class="block year" data-year="' + y + '" aria-labelledby="y' + y + '"><div class="block-head"><h2 id="y' + y + '">' + y + '</h2></div><ul class="rows">' +
+        all.filter(function (e) { return e.published.slice(0, 4) === y; }).map(function (e) { return entryRow(e, { noYear: true }); }).join('') + '</ul></section>';
+    }).join('') + '</div>'));
+    var apply = function (k) {
+      page.querySelectorAll('[data-filter]').forEach(function (b) { b.setAttribute('aria-pressed', String(b.dataset.filter === k)); });
+      page.querySelector('[data-filter-select]').value = k;
+      page.querySelectorAll('.row').forEach(function (r) { r.hidden = k !== 'all' && r.dataset.kind !== k; });
+      page.querySelectorAll('.year').forEach(function (y) { y.hidden = !y.querySelector('.row:not([hidden])'); });
+    };
+    page.querySelectorAll('[data-filter]').forEach(function (b) { b.addEventListener('click', function () { apply(b.dataset.filter); }); });
+    page.querySelector('[data-filter-select]').addEventListener('change', function (ev) { apply(ev.target.value); });
+    return page;
+  }
+  function tagPage(tag) {
+    var es = Lab.tagged(tag);
+    var page = Lab.html('<div class="page tag-page"></div>');
+    page.appendChild(Lab.html('<div class="list-head"><p class="eyebrow">' + t('tag.eyebrow') + '</p><h1 class="entry-title">' + esc(tag) + '</h1>' +
+      '<p class="sec-thesis">' + t('tag.lede', { n: counted(es.length, 'entry'), tag: tag }) + '</p></div>'));
+    page.appendChild(Lab.html('<section class="block" aria-label="' + esc(tag) + '"><ul class="rows">' + es.map(function (e) { return entryRow(e, { lede: true }); }).join('') + '</ul></section>'));
+    var others = allTags().filter(function (g) { return g !== tag; });
+    page.appendChild(Lab.html('<p class="meta other-tags">' + t('tag.others') + ' ' + others.map(function (g) { return Lab.tagLink(g); }).join(', ') + '</p>'));
+    return page;
+  }
+  function glossaryPage(focus) {
+    var terms = (Lab.terms || []).slice().sort(function (a, b) { return a.name.localeCompare(b.name); });
+    var page = Lab.html('<div class="page glossary-page"></div>');
+    page.appendChild(Lab.html('<div class="list-head"><p class="eyebrow">' + t('sec.eyebrow') + '</p><h1 class="entry-title">' + t('gloss.title') + '</h1><p class="sec-thesis">' + t('gloss.lede') + '</p></div>'));
+    page.appendChild(Lab.html('<dl class="glossary">' + terms.map(function (x) {
+      var to = x.link ? Lab.termTarget(x) : null;
+      return '<div class="gl-item" id="term-' + x.id + '"><dt>' + Lab.inline(x.name.replace(/^(\w+_\w+)$/, '`$1`')) + '</dt><dd><p>' + esc(x.def) + '</p>' +
+        (to ? '<p class="meta"><a href="' + esc(to.href) + '"' + (to.ext ? ' class="ext" rel="noopener"' : ' data-preview="' + x.link + '"') + '>' + to.label + '</a></p>' : '') + '</dd></div>';
+    }).join('') + '</dl>'));
+    if (focus) setTimeout(function () { var el = document.getElementById('term-' + focus); if (el) { el.scrollIntoView({ block: 'center' }); el.classList.add('is-target'); setTimeout(function () { el.classList.remove('is-target'); }, 1600); } }, 0);
+    return page;
+  }
+
   function refLine(r) {
     var title = r.url ? '<a class="ext" href="' + esc(r.url) + '" rel="noopener">' + esc(r.title) + '</a>' : '<span class="ref-title">' + esc(r.title) + '</span>';
     return title + ' <span class="meta">' + esc(r.site) + '</span><span class="ref-line">' + esc(r.line.text) + '</span>';
@@ -285,8 +509,14 @@ var Lab = window.Lab = window.Lab || {};
     var path = h.split('?')[0], hq = new URLSearchParams(h.split('?')[1] || '');
     if (path === '/' || path === '') return { page: home(), name: 'home' };
     if (path === '/next') return { page: holding(hq.get('to')), name: 'next' };
+    if (path === '/index') return { page: indexPage(), name: 'index' };
+    if (path === '/glossary') return { page: glossaryPage(hq.get('term')), name: 'list' };
+    var tm = path.match(/^\/tags\/([\w-]+)$/);
+    if (tm && allTags().indexOf(tm[1]) >= 0) return { page: tagPage(tm[1]), name: 'list' };
+    var sec = liveSections().find(function (x) { return '/' + x.id === path; });
+    if (sec) return { page: sectionPage(sec), name: 'section' };
     var e = D.entries.find(function (x) { return Lab.pathOf(x) === path; });
-    if (e && BUILT[e.id]) return { page: entryPage(e), name: 'entry' };
+    if (e && isPublic(e)) return { page: entryPage(e), name: 'entry', entry: e };
     return { page: holding('/lab' + path), name: 'next' };
   }
   var first = true;
@@ -296,6 +526,7 @@ var Lab = window.Lab = window.Lab || {};
       var r = route();
       main.innerHTML = '';
       main.setAttribute('data-route', r.name);
+      if (r.entry) main.setAttribute('data-kind', r.entry.kind); else main.removeAttribute('data-kind');
       main.appendChild(r.page);
       main.appendChild(footer());
       dotHome(false);
@@ -349,6 +580,20 @@ var Lab = window.Lab = window.Lab || {};
       label = x.name;
       bodyHtml = '<h3>' + Lab.inline(x.name.replace(/^(\w+_\w+)$/, '`$1`')) + '</h3><p>' + esc(x.def) + '</p>';
       more = Lab.termTarget(x);
+    } else if (key.indexOf('section:') === 0) {
+      var sc = D.sections.find(function (x) { return x.id === key.slice(8); });
+      var ses = publicEntries().filter(function (x) { return x.section === sc.id; }).sort(byPublished);
+      bar = '<span>' + t('card.section') + '</span><span class="meta">' + (ses.length === 1 ? t('count.one') : t('count.many', { n: ses.length })) + '</span>';
+      label = sc.title;
+      bodyHtml = '<h3>' + esc(sc.title) + '</h3><p>' + (sc.thesisKey ? t(sc.thesisKey) : esc(sc.thesis)) + '</p><ul class="card-list">' + ses.slice(0, 4).map(function (x) { return '<li>' + esc(x.title) + ' <span class="meta">' + Lab.kindWords(x) + '</span></li>'; }).join('') + '</ul>';
+      more = { href: Lab.sectionHref(sc.id), label: t('card.section.open', { section: sc.title }) };
+    } else if (key.indexOf('topic:') === 0) {
+      var tp = D.study.topics.find(function (x) { return x.id === key.slice(6); });
+      var note = publicEntries().find(function (x) { return x.topic === tp.id; });
+      bar = '<span>' + t('topic.bar') + '</span><span class="meta">' + t('status.' + tp.status) + '</span>';
+      label = tp.topic;
+      bodyHtml = '<h3>' + esc(tp.topic) + '</h3><p>' + t('topic.track', { track: tp.track, phase: tp.phase }) + '</p>' + (tp.finished ? '<p>' + t('status.done') + ' ' + Lab.date(tp.finished, true) + '</p>' : '');
+      if (note) more = { href: Lab.href(note), label: t('topic.note') };
     } else if (key.indexOf('tag:') === 0) {
       var tag = key.slice(4), es = Lab.tagged(tag);
       bar = '<span>' + t('card.tag') + '</span><span class="meta">' + (es.length === 1 ? t('count.one') : t('count.many', { n: es.length })) + '</span>';
@@ -360,7 +605,7 @@ var Lab = window.Lab = window.Lab || {};
       var mark = document.querySelector('[data-preview="' + key + '"]');
       bar = '<span>' + t('card.ref', { n: mark ? mark.textContent : '' }) + '</span>';
       label = r.title;
-      bodyHtml = '<h3>' + esc(r.title) + '</h3><p class="meta">' + esc(r.site) + '</p><p>' + esc(r.line.text) + '</p>' + (r.url ? '' : '<p class="meta">' + t('card.internal') + '</p>');
+      bodyHtml = '<h3>' + esc(r.title) + '</h3><p class="meta">' + esc(r.site) + '</p><p>' + esc(r.line.text) + '</p>' + (r.url ? '' : '<p class="meta">' + (r.note ? esc(r.note.text || r.note) : t('card.internal')) + '</p>');
       more = r.url ? { href: r.url, label: t('card.source'), ext: true } : { href: '#ref-' + parts[2], jump: 'ref-' + parts[2], label: t('card.refs') };
     } else {
       var e = byId[key];
@@ -434,6 +679,7 @@ var Lab = window.Lab = window.Lab || {};
     if (main) main.style.paddingBottom = '';
     if (now) pv.innerHTML = '';
   }
+  Lab.cardOf = cardOf;
   Lab.preview = { open: openPreview, close: closePreview, el: function () { return pv; }, INTENT: INTENT, DISMISS: DISMISS };
   var triggerOf = function (el) { return el && el.closest && el.closest('[data-preview]'); };
   document.addEventListener('pointerdown', function (ev) {
@@ -482,7 +728,7 @@ var Lab = window.Lab = window.Lab || {};
   }
   document.addEventListener('focusin', function (ev) {
     var a = triggerOf(ev.target);
-    if (a && a.tagName === 'A' && a.matches(':focus-visible') && !(pv && pv.contains(a))) openPreview(a, 'focus');
+    if (a && (a.tagName === 'A' || a.hasAttribute('data-sq')) && a.matches(':focus-visible') && !(pv && pv.contains(a))) openPreview(a, 'focus');
   });
   document.addEventListener('focusout', function (ev) {
     if (!pv || pv.hidden || pvMode === 'sheet') return;

@@ -8,6 +8,7 @@ import { join, dirname, extname } from 'node:path';
 import { homedir } from 'node:os';
 import { fileURLToPath } from 'node:url';
 import vm from 'node:vm';
+import { execSync } from 'node:child_process';
 
 const here = dirname(fileURLToPath(import.meta.url));
 const args = new Set(process.argv.slice(2));
@@ -15,10 +16,14 @@ const MIME = { '.woff2': 'font/woff2', '.webp': 'image/webp', '.png': 'image/png
 const dataUri = (path) => `data:${MIME[extname(path)]};base64,${readFileSync(path).toString('base64')}`;
 const read = (p) => readFileSync(join(here, p), 'utf8');
 
+const BUILD = execSync('git rev-parse --short HEAD', { cwd: here }).toString().trim();
+/** Content files in load order, as index.html lists them (the fixture overlay excluded). */
+const contentScripts = () => [...read('index.html').matchAll(/<script src="(content\/[^"]+)"(?! data-fixture)><\/script>/g)].map((m) => m[1]);
+
 function build({ fixture }) {
   let html = read('index.html');
   // CSS, with every url() inlined
-  html = html.replace(/<link rel="stylesheet" href="([^"]+)">/, (_, href) => {
+  html = html.replace(/<link rel="stylesheet" href="([^"]+)">/g, (_, href) => {
     const css = read(href).replace(/url\(([^)'"]+)\)/g, (m, u) => (u.startsWith('data:') ? m : `url(${dataUri(join(here, u))})`));
     return `<style>\n${css}\n</style>`;
   });
@@ -27,6 +32,8 @@ function build({ fixture }) {
     if (isFixture && !fixture) return '';
     let js = read(src).replace(/<\/script/gi, '<\\/script');
     if (src === 'lab.js') js = assetsScript() + '\n' + js;
+    // the footer's build hash is the commit this bundle was made from
+    if (src === 'content/lab-data.js') js = js.replace(/"build": "[^"]*"/, `"build": "${BUILD}"`);
     return `<script>\n${js}\n</script>`;
   });
   return html;
@@ -34,7 +41,7 @@ function build({ fixture }) {
 
 // Every assets/... path the data or copy names becomes a data: URI in Lab.assets.
 function assetsScript() {
-  const text = read('content/lab-data.js') + read('content/copy.js');
+  const text = contentScripts().map(read).join('\n');
   const paths = [...new Set(text.match(/assets\/[\w.-]+\.(?:webp|png|jpg|gif)/g) || [])];
   const map = Object.fromEntries(paths.map((p) => [p, dataUri(join(here, p))]));
   return `Lab.assets = ${JSON.stringify(map)};`;
@@ -42,15 +49,18 @@ function assetsScript() {
 
 function copyMd() {
   const sandbox = { window: {} };
-  vm.runInNewContext(read('content/copy.js'), sandbox);
-  vm.runInNewContext(read('content/terms.js'), sandbox);
+  for (const f of contentScripts()) vm.runInNewContext(read(f), sandbox);
   const L = sandbox.window.Lab;
   const rows = [];
   for (const [key, c] of Object.entries(L.copy)) if (c.proposal) rows.push([key, c.where, c.text, c.reason]);
-  for (const [id, b] of Object.entries(L.bodies)) b.blocks.forEach((blk, i) => {
-    const c = blk.h2 || blk.p;
-    if (c && c.proposal) rows.push([`${id} #${i + 1}`, c.where, c.text, c.reason]);
-  });
+  for (const [id, b] of Object.entries(L.bodies)) {
+    for (const [k, v] of Object.entries(b.meta || {})) if (v && v.proposal) rows.push([`${id} ${k}`, v.where, v.text, v.reason]);
+    for (const k of ['leadIntro', 'leadCaption']) if (b[k] && b[k].proposal) rows.push([`${id} ${k}`, b[k].where, b[k].text, b[k].reason]);
+    [].concat(b.ending || []).forEach((v, i) => { if (v.proposal) rows.push([`${id} ending ${i + 1}`, v.where, v.text, v.reason]); });
+    b.blocks.forEach((blk, i) => {
+      for (const c of [blk.h2, blk.h3, blk.p, blk.quote, blk.side, blk.sideHead, ...(blk.list || [])]) if (c && c.proposal) rows.push([`${id} #${i + 1}`, c.where, c.text, c.reason]);
+    });
+  }
   for (const x of L.terms) rows.push([`term:${x.id}`, `Term definition (${x.name})`, x.def, `adapted from ${x.source}`]);
   const cell = (s) => String(s || '').replace(/\|/g, '\\|').replace(/\n/g, ' ');
   return `# Proposed copy, for veto\n\nEvery line below was written for the mockup rather than taken from a source. Veto or rewrite any of them;\n` +
@@ -72,4 +82,4 @@ if (args.has('--check')) {
   writeFileSync(join(here, '.build/lab-v2b-check.html'), chk);
   console.log(`lab-v2b-check.html: ${(chk.length / 1048576).toFixed(2)} MB (with the fixture overlay)`);
 }
-export { copyMd };
+export { copyMd, contentScripts };

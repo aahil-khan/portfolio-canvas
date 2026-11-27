@@ -14,4 +14,8 @@ Lab.fixture = {
       result: { question: 'Does retrying hide tool-call failures?', setup: 'Fixture: 50 runs of one task, a tool that fails 1 time in 5, with and without one retry.', value: '0.94 pass rate', baseline: '0.81 without the retry' }, published: '2026-11-23' },
     { id: 'fx-essay', slug: 'fx-essay', section: 'fx-voice', kind: 'essay', title: 'Fixture essay', opening: 'A fixture essay leads with its opening paragraph, set at lede size, so the first screen is its first words.', published: '2026-11-22', read: '2 min' },
   ],
+  bodies: {
+    'fx-build': { blocks: [], ending: { text: 'A fixture ending: what the build would do differently, dated by the template.' }, endingKind: 'do' },
+    'fx-experiment': { blocks: [{ p: { text: 'A fixture setup paragraph: one task, fifty runs, a tool that fails one time in five.' } }], ending: { text: 'A fixture ending: rerun it with three retries and a cost column.' }, endingKind: 'do' },
+  },
 };
