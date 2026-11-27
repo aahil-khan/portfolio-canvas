@@ -45,8 +45,12 @@ export function validateContent(): void {
   for (const { path: at, message } of validateSet(SET, (p) => existsSync(path.join(PUBLIC, p.slice(1)))))
     errors.push(`content/data/${at}: ${message}`)
 
-  // the Lab: both sets, real and demo, whichever is active
-  for (const i of validateLabSets()) errors.push(formatLabIssue(i))
+  // the Lab: both sets, real and demo, whichever is active. A warning (a real link with no unfurl
+  // yet) is printed and never fails the build
+  for (const i of validateLabSets()) {
+    if (!i.warning) errors.push(formatLabIssue(i))
+    else console.warn(`Lab content warning: ${formatLabIssue(i)}`)
+  }
   // and every body through the pipeline that renders it, which `content:check` (plain Node) cannot
   // load: a body it cannot parse (an unknown directive, an image with no size, a link left open)
   // fails the build rather than the page
