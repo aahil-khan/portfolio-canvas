@@ -2,6 +2,7 @@ import { existsSync } from 'node:fs'
 import path from 'node:path'
 
 import { validateSet } from '../lib/edit/rules.ts'
+import { formatLabIssue, validateLabSets } from '../lib/lab/validate-sets.ts'
 import { apps, dockLayout, externalApps } from './apps'
 import { props } from './props'
 import type { ContentSet } from './schema/index.ts'
@@ -24,7 +25,8 @@ import writing from './data/writing.json' with { type: 'json' }
  *
  * The editable content (`content/data/`) is checked by `validateSet` — the same function `/edit`
  * runs before it commits, so a save that passes there passes here. What stays below is the
- * content only code edits: the dock and the desk notes.
+ * content only code edits: the dock and the desk notes. The Lab's content (`content/data/lab*.json`
+ * and the demo set) is checked by `validateLab`, over both sets.
  */
 
 const PUBLIC = path.join(process.cwd(), 'public')
@@ -40,6 +42,9 @@ export function validateContent(): void {
 
   for (const { path: at, message } of validateSet(SET, (p) => existsSync(path.join(PUBLIC, p.slice(1)))))
     errors.push(`content/data/${at}: ${message}`)
+
+  // the Lab: both sets, real and demo, whichever is active
+  for (const i of validateLabSets()) errors.push(formatLabIssue(i))
 
   const dupes = (label: string, slugs: readonly string[]) => {
     const seen = new Set<string>()

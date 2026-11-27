@@ -163,8 +163,11 @@ interface EntryBase {
 
 export interface Study extends EntryBase {
   kind: 'study'
-  /** Dated lines of what was done; the newest is the lead when there is no board. */
-  log?: { date: IsoDate; did: string }[]
+  /**
+   * Dated lines of what was done; the newest is the lead when there is no board. `topic` is the
+   * board topic a line worked on (e.g. "T02"), so the study page can name it.
+   */
+  log?: { date: IsoDate; did: string; topic?: string }[]
 }
 
 export interface Series extends EntryBase {
