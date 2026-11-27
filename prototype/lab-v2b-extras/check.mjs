@@ -9,7 +9,9 @@
 //   A  accent ≤ 5% of the screen's pixels
 //   G  every share card is exactly 1200 × 630, there are 18 (6 kinds × 3 looks), and no entry image is cropped
 //   P  every name take decodes, is 0.5–2 s long, and plays
-//   F  the name's Devanagari and Urdu faces load from the page, cover every glyph, and both lockups are open and on screen
+//   F  the name's Devanagari and Arabic faces load from the page and cover every glyph; both hover states are open and on
+//      screen without a second Latin "Aahil"; hovering plays nothing; the voice bubble plays the clip and its dots move
+//      only while it plays
 //   N  no network request on load, and no script error
 //   S  the bundle is under 8 MB
 import { readFileSync, writeFileSync, mkdirSync, existsSync, readdirSync } from 'node:fs';
@@ -203,13 +205,36 @@ for (const [view, looks] of RUNS) {
           await document.fonts.ready;
           const has = (fam, txt) => document.fonts.check(`20px "${fam}"`, txt) && [...document.fonts].some((x) => x.family.replace(/"/g, '') === fam && x.status === 'loaded');
           const tips = [...document.querySelectorAll('.nt')].map((t) => t.getBoundingClientRect());
-          return { dev: has('Tiro Devanagari Hindi', 'आहिल'), ur: has('Noto Nastaliq Urdu', 'عاہل'), tips: tips.length, off: tips.filter((r) => r.width === 0 || r.left < 0 || r.right > innerWidth).length,
+          return { dev: has('Tiro Devanagari Hindi', 'आहिल'), ar: has('Noto Naskh Arabic', 'عاهل'), latin: [...document.querySelectorAll('.nt')].some((t) => /Aahil/.test(t.textContent.replace(/how Aahil is said/, ''))), tips: tips.length, off: tips.filter((r) => r.width === 0 || r.left < 0 || r.right > innerWidth).length,
             sr: [...document.querySelectorAll('button.name')].every((b) => b.textContent === 'Aahil' && document.getElementById(b.getAttribute('aria-describedby'))) };
         });
         if (!f.dev) fail('F', `${tag}: the Devanagari face did not load`);
-        if (!f.ur) fail('F', `${tag}: the Nastaliq face did not load`);
+        if (!f.ar) fail('F', `${tag}: the Naskh Arabic face did not load`);
+        if (f.latin) fail('F', `${tag}: the hover repeats the Latin name`);
         if (f.tips !== 2 || f.off) fail('F', `${tag}: ${f.tips} lockups, ${f.off} off screen`);
         if (!f.sr) fail('F', `${tag}: a name button doesn't read as "Aahil" with its description`);
+        // sound: nothing on hover; the bubble plays, and is "playing" (dots moving) only for the clip's length
+        if (size === 'desktop' && look === LAB[0]) {
+          const s = await page.evaluate(async () => {
+            const plays = []; const orig = HTMLMediaElement.prototype.play;
+            HTMLMediaElement.prototype.play = function () { plays.push(this.src.slice(0, 30)); return orig.apply(this, arguments); };
+            const w = document.querySelectorAll('.name-wrap')[0];
+            w.dispatchEvent(new MouseEvent('mouseenter')); w.querySelector('button.name').dispatchEvent(new MouseEvent('mouseenter', { bubbles: true }));
+            await new Promise((r) => setTimeout(r, 400));
+            const onHover = plays.length;
+            const say = w.querySelector('.nt-say'); say.click();
+            let during = false; const t0 = performance.now();
+            while (performance.now() - t0 < 300) { if (say.classList.contains('is-playing')) during = true; await new Promise((r) => setTimeout(r, 20)); }
+            const moving = getComputedStyle(say.querySelector('.nt-dots i')).animationName;
+            while (say.classList.contains('is-playing') && performance.now() - t0 < 3000) await new Promise((r) => setTimeout(r, 30));
+            return { onHover, plays: plays.length, during, moving, after: say.classList.contains('is-playing'), ms: Math.round(performance.now() - t0) };
+          });
+          if (s.onHover) fail('F', `${tag}: hovering the name played sound`);
+          if (s.plays !== 1) fail('F', `${tag}: the bubble played ${s.plays} times, not once`);
+          if (!s.during || s.moving === 'none') fail('F', `${tag}: the bubble's dots didn't move while the clip played`);
+          if (s.after || s.ms > 2500) fail('F', `${tag}: the dots kept moving after the clip (${s.ms} ms)`);
+          note(`bubble: silent on hover, played once, dots moved for ${s.ms} ms`);
+        }
       }
       // P: every take decodes and plays
       if (view === 'voices' && size === 'desktop' && look === LAB[0]) {
@@ -230,7 +255,7 @@ for (const [view, looks] of RUNS) {
           }
           return out;
         });
-        if (res.length !== 12) fail('P', `${res.length} takes, not 12`);
+        if (res.length !== 9) fail('P', `${res.length} takes, not 9`);
         for (const r of res) {
           if (r.error) fail('P', `take ${r.k}: ${r.error}`);
           else {

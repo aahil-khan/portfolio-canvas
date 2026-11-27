@@ -81,9 +81,10 @@ Not listed here:
 
 | Where | Line | Why |
 |---|---|---|
-| The pronunciation chip | AA-hil | Aahil's own description of the name ("aaa hil"): two even syllables, an open aa |
-| Its screen-reader description | pronounced AA-hil | Read once after the name |
-| The two scripts | आहिल · عاہل | **Spellings to confirm.** आहिल is the plain Devanagari, and عاہل the usual Urdu spelling of Aahil |
+| The voice bubble | AA-hil | Aahil's own description of the name ("aaa hil") |
+| The bubble's label, for a screen reader | Play how Aahil is said: AA-hil | Says what pressing it does |
+| The name's description | pronounced AA-hil | Read once after the name |
+| The two scripts | आहिल · عاهل | **Spellings to confirm.** आहिल is the plain Devanagari, and عاهل the Arabic-script spelling |
 
 ## The Lab theme
 
