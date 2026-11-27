@@ -223,6 +223,8 @@ export async function renderBody(md: string, ctx: BodyContext): Promise<ReactNod
       return el('mark', {}, state.all(node))
     },
     link(state: State, node: Link) {
+      // bodies commit straight to main: a link goes to the web, a page here, or a heading
+      if (!/^(?:https?:\/\/|mailto:|\/(?!\/)|#)/i.test(node.url)) throw new Error(`the link "${node.url}" is not http(s), mailto, a /path or a #heading`)
       const out = /^https?:\/\//.test(node.url)
       return el('a', { href: node.url, ...(node.title ? { title: node.title } : {}), ...(out ? { dataPreview: `out:${node.url}` } : {}) }, state.all(node))
     },

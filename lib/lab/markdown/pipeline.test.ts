@@ -74,6 +74,13 @@ test('text directives are not a thing: `word:word` and `[[t:…]]` stay text', (
   assert.match(h, /At 10:30 the ratio was a:b, and <a [^>]*data-preview="term:gauge">Gauge<\/a>/)
 })
 
+test('a link may go to the web, a page here or a heading; any other scheme is refused', () => {
+  const [js, data, ok] = render(['[x](javascript:alert(1))', '[x](data:text/html,hi)', '[a](https://example.com/) [b](/lab) [c](#s-x) [d](mailto:a@b.c)'])
+  assert.match(js.error ?? '', /not http\(s\)/)
+  assert.match(data.error ?? '', /not http\(s\)/)
+  assert.equal(ok.error, undefined)
+})
+
 test('raw HTML renders as text, inline and as a block', () => {
   const h = html('Bold <b>this</b>.\n\n<script>alert(1)</script>\n')
   assert.match(h, /Bold &lt;b&gt;this&lt;\/b&gt;\./)
