@@ -1,14 +1,14 @@
 import { NextResponse } from 'next/server'
 
-import { parsePing, pingBuckets } from '@/lib/ping'
+import { isBotUA, parsePing, pingBuckets } from '@/lib/ping'
 import { allow, getVisitors, noteRejected, recordVisit, visitorId } from '@/lib/store'
 
 /**
  * Visitor stats for the Visitors card.
  *
- * GET reads; POST records one visit. `<VisitPing/>` sends it once per page load, and only after
- * the first physical input and a short dwell, so a browser that loads the page, grabs it and
- * leaves is not counted. The body is a `Ping`: a handful of coarse facts about the session that
+ * GET reads; POST records one visit. `<VisitPing/>` sends it once per page load, when the site's
+ * admission gate (`lib/admission.ts`) decides: after the first trusted input and a short dwell,
+ * so a browser that loads the page, grabs it and leaves is not counted. The body is a `Ping`: a handful of coarse facts about the session that
  * become aggregate counters, so the stats page can show what the traffic looks like.
  *
  * This is analytics with nothing to opt out of: no cookie is set, no address is stored, and the
@@ -19,16 +19,6 @@ import { allow, getVisitors, noteRejected, recordVisit, visitorId } from '@/lib/
 
 export const dynamic = 'force-dynamic'
 
-/**
- * Crawlers, uptime pingers and link unfurlers are not visitors.
- *
- * A UA test is easy to spoof, which does not matter: nobody gains anything by inflating a
- * portfolio's counter, and the cost of missing one is a number that is slightly too high. The
- * point is to keep Googlebot and Vercel's own checks out of a number a human will read.
- */
-const BOT =
-  /bot|crawl|spider|slurp|headless|lighthouse|preview|monitor|probe|scan|fetch|curl|wget|python-requests|node-fetch|axios|facebookexternalhit|embedly|quora link preview|whatsapp|telegram|discord|slack/i
-
 /** 30 page loads an hour is already a lot of reloading; past that it is a script. */
 const MAX_LOADS_PER_HOUR = 30
 
@@ -38,8 +28,8 @@ export async function GET() {
 
 export async function POST(request: Request) {
   const ua = request.headers.get('user-agent') ?? ''
-  // an absent UA is a client that isn't a browser, so it isn't a visitor either
-  if (!ua || BOT.test(ua)) return rejected('ua')
+  // the bot filter every counter shares (lib/ping.ts); an absent UA is refused too
+  if (isBotUA(ua)) return rejected('ua')
 
   let body: unknown = null
   try {

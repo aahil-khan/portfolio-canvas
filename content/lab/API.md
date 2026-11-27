@@ -241,6 +241,7 @@ change when it starts sending.
 | `lab.mode` | local | `lib/lab/look.ts` | `light \| dark` |
 | `lab.aa` | local | `lib/lab/look.ts` | `{"measure":"wide\|comfortable","size":16\|17\|19}` |
 | `lab.from` | session | `lib/canvas/session.ts` (PR 16) | `desk` while the reader came from the canvas |
+| `canvas.admitted` | session | `lib/admission.ts` | `1` once this tab passed the admission gate; never sent |
 
 The mockup's `lab.theme` key is gone: Paper is the site's own theme. Every read and write is in a
 `try`, because storage can be absent.

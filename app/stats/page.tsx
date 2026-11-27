@@ -4,7 +4,16 @@ import { notFound } from 'next/navigation'
 
 import { apps, externalApps } from '@/content/apps'
 import { projects } from '@/content'
-import { getOpens, getPingDiag, getVisitors, storeIsLive, type PingDiag } from '@/lib/store'
+import { EVENT_NAMES } from '@/lib/events'
+import {
+  getEvents,
+  getOpens,
+  getOpensVsVisits,
+  getPingDiag,
+  getVisitors,
+  storeIsLive,
+  type PingDiag,
+} from '@/lib/store'
 
 import '../resume/resume.css'
 import '../work/work.css'
@@ -51,6 +60,17 @@ function Bar({ n, peak }: { n: number; peak: number }) {
   )
 }
 
+/** `lab_view.source` → `Lab views · source`, so a breakdown's heading reads without the key. */
+function propTitle(key: string): string {
+  const [name, prop] = key.split('.')
+  return `${name.replace(/_/g, ' ')} · ${prop}`
+}
+
+/** `2026-11-28` → `28 Nov`, in UTC like the keys themselves. */
+function shortDay(day: string): string {
+  return new Date(`${day}T00:00:00Z`).toLocaleDateString('en-GB', { day: 'numeric', month: 'short', timeZone: 'UTC' })
+}
+
 /** One of the gate's bucket tables: label, bar, count. */
 function Counts({ title, rows }: { title: string; rows: PingDiag[keyof PingDiag] }) {
   const peak = Math.max(1, ...rows.map((r) => r.n))
@@ -88,8 +108,24 @@ export default async function StatsPage({
   // no token configured means no way in, rather than a page that is open by default
   if (!expected || t !== expected) notFound()
 
-  const [visitors, opens, gate] = await Promise.all([getVisitors(), getOpens(), getPingDiag()])
+  const [visitors, opens, gate, tally, events] = await Promise.all([
+    getVisitors(),
+    getOpens(),
+    getPingDiag(),
+    getOpensVsVisits(),
+    getEvents(EVENT_NAMES),
+  ])
   const peak = Math.max(1, ...opens.cards.map((c) => c.n))
+  const since = tally.gateSince
+    ? new Date(tally.gateSince).toLocaleDateString('en-GB', { day: 'numeric', month: 'short', year: 'numeric', timeZone: 'UTC' })
+    : null
+  // newest first: the question is "how is it going", and today answers it
+  const days = [...tally.days].reverse()
+  const gated = tally.days.filter((d) => d.visits !== null)
+  const gatedVisits = gated.reduce((t, d) => t + (d.visits ?? 0), 0)
+  const gatedOpens = gated.reduce((t, d) => t + d.opens, 0)
+  const eventPeak = Math.max(1, ...events.names.map((e) => e.days))
+  const openPeak = Math.max(1, ...events.open.map((r) => r.n))
 
   return (
     <main data-scroll-page className="resume work stats">
@@ -160,6 +196,48 @@ export default async function StatsPage({
       </section>
 
       <section className="entry">
+        <h2>Opens against admitted visits</h2>
+        <p className="stats__note">
+          Card opens and visits wait for the same gate now, so per day they count the same
+          people. {since ? `The gate has counted since ${since}. ` : ''}The all-time opens above
+          include the ones from before it, when every open counted, bots included. A visit is a
+          page load that passed the gate, on <code>/</code> or <code>/canvas</code>; before the
+          gate, only <code>/</code> counted visits. Days with no visit count predate the per-day
+          counter.
+        </p>
+        {gated.length ? (
+          <p className="stats__note">
+            <b>{gatedVisits ? (gatedOpens / gatedVisits).toFixed(2) : '0'}</b> opens per admitted
+            visit over the last {gated.length} {gated.length === 1 ? 'day' : 'days'} (
+            {gatedOpens.toLocaleString()} {gatedOpens === 1 ? 'open' : 'opens'},{' '}
+            {gatedVisits.toLocaleString()} {gatedVisits === 1 ? 'visit' : 'visits'}).
+          </p>
+        ) : null}
+        <table className="stats__table stats__table--cols">
+          <thead>
+            <tr>
+              <th>Day</th>
+              <th>Visits</th>
+              <th>Visitors</th>
+              <th>Opens</th>
+              <th>Per visit</th>
+            </tr>
+          </thead>
+          <tbody>
+            {days.map((d) => (
+              <tr key={d.day}>
+                <td className="stats__name">{shortDay(d.day)}</td>
+                <td className="stats__n">{d.visits === null ? '—' : d.visits.toLocaleString()}</td>
+                <td className="stats__n">{d.visitors.toLocaleString()}</td>
+                <td className="stats__n">{d.opens.toLocaleString()}</td>
+                <td className="stats__n">{d.visits ? (d.opens / d.visits).toFixed(2) : '—'}</td>
+              </tr>
+            ))}
+          </tbody>
+        </table>
+      </section>
+
+      <section className="entry">
         <h2>Where they came from</h2>
         {opens.referrers.length ? (
           <table className="stats__table">
@@ -193,6 +271,76 @@ export default async function StatsPage({
           <Counts title="Time to first input" rows={gate.input} />
           <Counts title="Had focus" rows={gate.focus} />
           <Counts title="Viewport width" rows={gate.width} />
+        </div>
+      </section>
+
+      <section className="entry" data-stats-events>
+        <h2>Events</h2>
+        <p className="stats__note">
+          What readers do on the Lab, sent through the same gate as everything above: nothing
+          leaves a tab before it is admitted. Counters only, from a fixed list of names and
+          buckets. No cookies, no identifiers.
+        </p>
+        <table className="stats__table stats__table--cols">
+          <thead>
+            <tr>
+              <th>Event</th>
+              <th className="stats__viz" aria-hidden />
+              <th>Today</th>
+              <th>14 days</th>
+              <th>All time</th>
+            </tr>
+          </thead>
+          <tbody>
+            {events.names.map((e) => (
+              <tr key={e.name}>
+                <td className="stats__name">
+                  <code>{e.name}</code>
+                </td>
+                <td className="stats__viz">{e.days ? <Bar n={e.days} peak={eventPeak} /> : null}</td>
+                <td className="stats__n">{e.today.toLocaleString()}</td>
+                <td className="stats__n">{e.days.toLocaleString()}</td>
+                <td className="stats__n">{e.all.toLocaleString()}</td>
+              </tr>
+            ))}
+          </tbody>
+        </table>
+
+        {events.props.length ? (
+          <div className="stats__grid stats__grid--after">
+            {events.props.map((p) => (
+              <Counts key={p.key} title={propTitle(p.key)} rows={p.rows} />
+            ))}
+          </div>
+        ) : null}
+
+        <h3 className="stats__sub">Pages, last 14 days</h3>
+        {events.open.length ? (
+          <table className="stats__table">
+            <tbody>
+              {events.open.slice(0, 30).map((r) => {
+                const [name, value] = r.k.split('|')
+                return (
+                  <tr key={r.k}>
+                    <td className="stats__name">
+                      {value}
+                      <em> {name.replace(/_/g, ' ')}</em>
+                    </td>
+                    <td className="stats__viz">
+                      <Bar n={r.n} peak={openPeak} />
+                    </td>
+                    <td className="stats__n">{r.n.toLocaleString()}</td>
+                  </tr>
+                )
+              })}
+            </tbody>
+          </table>
+        ) : (
+          <p className="stats__none">No events yet.</p>
+        )}
+
+        <div className="stats__grid stats__grid--after">
+          <Counts title="Turned away, by reason" rows={events.rejected} />
         </div>
       </section>
 

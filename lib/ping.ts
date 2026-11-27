@@ -79,3 +79,19 @@ export function pingBuckets(p: Ping): string[] {
     `focus:${p.focus ? 'yes' : 'no'}`,
   ]
 }
+
+/**
+ * Crawlers, uptime pingers and link unfurlers are not visitors.
+ *
+ * Shared by every counter on the site (`/api/visitors`, `/api/opens`, `/api/events`), so a
+ * client that one of them turns away is turned away by all of them.
+ *
+ * A UA test is easy to spoof, which does not matter: nobody gains anything by inflating a
+ * portfolio's counter, and the cost of missing one is a number that is slightly too high. The
+ * point is to keep Googlebot and Vercel's own checks out of a number a human will read. An absent
+ * UA is a client that isn't a browser, so `isBotUA('')` is true.
+ */
+export const BOT =
+  /bot|crawl|spider|slurp|headless|lighthouse|preview|monitor|probe|scan|fetch|curl|wget|python-requests|node-fetch|axios|facebookexternalhit|embedly|quora link preview|whatsapp|telegram|discord|slack/i
+
+export const isBotUA = (ua: string | null | undefined): boolean => !ua || BOT.test(ua)
