@@ -6,7 +6,7 @@
 import assert from 'node:assert/strict'
 import { test } from 'node:test'
 
-import { validateLab, type LabIssue } from './rules.ts'
+import { linksOut, validateLab, type LabIssue } from './rules.ts'
 import type { Entry, Lab } from './types.ts'
 
 const empty = (): Lab => ({ copy: {}, sections: [], tags: [], entries: [], terms: [], figures: {}, unfurls: {}, studies: {} })
@@ -165,6 +165,36 @@ test('a link out with neither an unfurl nor a fallback is refused', () => {
   has(run(g.lab, g.bodies), 'O', 'entries.tool.refs.src', /no unfurl/)
   g.lab.entries[0].refs!.src.line = 'Why it is cited.'
   assert.deepEqual(run(g.lab, g.bodies).filter((i) => i.rule === 'O'), [])
+})
+
+test('in warn mode (the real set) a link with no unfurl is a warning, not a refusal', () => {
+  const { lab, bodies } = good()
+  ;(lab.entries[0] as Extract<Entry, { kind: 'build' }>).live = 'https://nowhere.example/'
+  const issues = validateLab(lab, bodies, exists, { missingUnfurl: 'warn' }).filter((i) => i.rule === 'O')
+  assert.equal(issues.length, 1)
+  assert.equal(issues[0].path, 'entries.tool.live')
+  assert.equal(issues[0].warning, true)
+  // a remote unfurl image is still refused outright
+  lab.unfurls['https://example.com/'].img!.src = 'https://cdn.example.com/og.png'
+  const remote = validateLab(lab, bodies, exists, { missingUnfurl: 'warn' }).find((i) => i.path.endsWith('.img'))
+  assert.ok(remote && !remote.warning)
+})
+
+test('linksOut lists every link out once per place, with the content’s words for it', () => {
+  const { lab, bodies } = good()
+  lab.entries[0].refs!.src = { title: 'Elsewhere', site: 'Other · 2026', line: 'Why.', url: 'https://other.example/' }
+  bodies.tool += '\nSee <https://body.example/x>.\n'
+  lab.terms[0].link = 'https://term.example/'
+  const outs = linksOut(lab, bodies)
+  assert.deepEqual(
+    outs.map((o) => [o.url, o.at, o.fallback, o.title ?? null]),
+    [
+      ['https://body.example/x', 'bodies.tool', false, null],
+      ['https://other.example/', 'entries.tool.refs.src', true, 'Elsewhere'],
+      ['https://example.com/', 'entries.tool.repo', false, 'A tool'],
+      ['https://term.example/', 'terms.wat.link', true, 'Wat'],
+    ],
+  )
 })
 
 test('an unfurl image must be a same-origin file', () => {

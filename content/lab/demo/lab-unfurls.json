@@ -10,7 +10,7 @@
       "h": 336,
       "alt": ""
     },
-    "icon": "/lab/demo/unfurl/fav-535351d435.png"
+    "icon": "/lab/demo/unfurl/fav-7509efe045.png"
   },
   "https://theworkingprototype.substack.com/p/how-to-do-agentic-evals": {
     "title": "how to do agentic evals",
@@ -40,10 +40,22 @@
   },
   "https://extensions.gnome.org/": {
     "title": "GNOME Shell Extensions",
-    "description": "",
     "site": "extensions.gnome.org",
     "domain": "extensions.gnome.org",
     "icon": "/lab/demo/unfurl/fav-6e76422d68.png"
+  },
+  "https://github.com/aahil-khan/drag-to-workspace": {
+    "title": "GitHub - aahil-khan/drag-to-workspace: A GNOME Shell extension to move windows to other workspaces by dragging them to the screen edge, without opening the overview.",
+    "description": "A GNOME Shell extension to move windows to other workspaces by dragging them to the screen edge, without opening the overview. - aahil-khan/drag-to-workspace",
+    "site": "GitHub",
+    "domain": "github.com",
+    "img": {
+      "src": "/lab/demo/unfurl/og-e0e7773c19.webp",
+      "w": 640,
+      "h": 336,
+      "alt": ""
+    },
+    "icon": "/lab/demo/unfurl/fav-c2208abde9.png"
   },
   "https://githolt.com": {
     "title": "Holt · check whether a repo actually merges outsiders' PRs",
@@ -77,9 +89,9 @@
     "site": "Medium",
     "domain": "medium.com",
     "img": {
-      "src": "/lab/demo/unfurl/essay-old-laptop-1.webp",
-      "w": 800,
-      "h": 455,
+      "src": "/lab/demo/unfurl/og-05b1f011ec.webp",
+      "w": 640,
+      "h": 336,
       "alt": ""
     },
     "standIn": true
@@ -103,9 +115,9 @@
     "site": "Medium",
     "domain": "medium.com",
     "img": {
-      "src": "/lab/demo/unfurl/essay-chrome-hackathon-1.webp",
-      "w": 800,
-      "h": 500,
+      "src": "/lab/demo/unfurl/og-ea341d603d.webp",
+      "w": 640,
+      "h": 336,
       "alt": ""
     },
     "standIn": true
@@ -123,19 +135,6 @@
     },
     "icon": "/lab/demo/unfurl/fav-c2208abde9.png"
   },
-  "https://github.com/aahil-khan/drag-to-workspace": {
-    "title": "GitHub - aahil-khan/drag-to-workspace: A GNOME Shell extension to move windows to other workspaces by dragging them to the screen edge, without opening the overview.",
-    "description": "A GNOME Shell extension to move windows to other workspaces by dragging them to the screen edge, without opening the overview. - aahil-khan/drag-to-workspace",
-    "site": "GitHub",
-    "domain": "github.com",
-    "img": {
-      "src": "/lab/demo/unfurl/og-e0e7773c19.webp",
-      "w": 640,
-      "h": 336,
-      "alt": ""
-    },
-    "icon": "/lab/demo/unfurl/fav-c2208abde9.png"
-  },
   "https://www.lennysnewsletter.com/p/building-eval-systems-that-improve": {
     "title": "Building eval systems that improve your AI product",
     "description": "A practical guide to moving beyond generic scores and measuring what matters",
@@ -147,7 +146,7 @@
       "h": 336,
       "alt": ""
     },
-    "icon": "/lab/demo/unfurl/fav-deb4684ef2.png"
+    "icon": "/lab/demo/unfurl/fav-c8098579f3.png"
   },
   "https://hamel.dev/blog/posts/evals-faq/why-is-error-analysis-so-important-in-llm-evals-and-how-is-it-performed.html": {
     "title": "Q: Why is “error analysis” so important in AI evals, and how is it performed? – Hamel’s Blog",
@@ -164,14 +163,12 @@
   },
   "https://en.wikipedia.org/wiki/Binomial_proportion_confidence_interval#Wilson_score_interval": {
     "title": "Binomial proportion confidence interval - Wikipedia",
-    "description": "",
     "site": "en.wikipedia.org",
     "domain": "en.wikipedia.org",
     "icon": "/lab/demo/unfurl/fav-0acd465bbb.png"
   },
   "https://en.wikipedia.org/wiki/McNemar%27s_test": {
     "title": "McNemar's test - Wikipedia",
-    "description": "",
     "site": "en.wikipedia.org",
     "domain": "en.wikipedia.org",
     "icon": "/lab/demo/unfurl/fav-0acd465bbb.png"
@@ -181,32 +178,29 @@
     "description": "Welcome to GNOME GitLab",
     "site": "GitLab",
     "domain": "gitlab.gnome.org",
-    "img": {
-      "src": "/lab/demo/unfurl/og-36336d34bf.webp",
-      "w": 640,
-      "h": 336,
-      "alt": ""
-    },
     "icon": "/lab/demo/unfurl/fav-1542ee0326.png"
   },
   "https://wayland.freedesktop.org/": {
     "title": "Wayland",
-    "description": "",
     "site": "wayland.freedesktop.org",
     "domain": "wayland.freedesktop.org",
     "icon": "/lab/demo/unfurl/fav-819c763030.png"
   },
   "https://en.wikipedia.org/wiki/Phi_coefficient": {
     "title": "Phi coefficient - Wikipedia",
-    "description": "",
     "site": "en.wikipedia.org",
     "domain": "en.wikipedia.org",
     "icon": "/lab/demo/unfurl/fav-0acd465bbb.png"
   },
   "https://dev.mysql.com/doc/refman/8.0/en/savepoint.html": {
     "title": "MySQL :: MySQL 8.0 Reference Manual :: 15.3.4 SAVEPOINT, ROLLBACK TO SAVEPOINT, and RELEASE SAVEPOINT Statements",
-    "description": "",
     "site": "dev.mysql.com",
     "domain": "dev.mysql.com"
+  },
+  "https://www.oracle.com/applications/peoplesoft/": {
+    "title": "Oracle PeopleSoft",
+    "site": "oracle.com",
+    "domain": "oracle.com",
+    "standIn": true
   }
 }

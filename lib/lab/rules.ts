@@ -26,6 +26,52 @@ export interface LabIssue {
   /** Where, as `entries.holt.pull`, `bodies.holt`, `terms.mcc`, `sections[2].id`. */
   path: string
   message: string
+  /** Reported, never refused: it fails no build and no save (see `LabRuleOptions`). */
+  warning?: true
+}
+
+export interface LabRuleOptions {
+  /**
+   * What a link out with no unfurl and no stated fallback is. `'error'` (the default) refuses it:
+   * the demo set, where every card comes from the script. `'warn'` reports it and lets it through:
+   * the real set, where Aahil adds links at `/edit`, which cannot run the unfurl script, and the
+   * page shows a quiet text card from the link's own words and domain until a card exists.
+   */
+  missingUnfurl?: 'error' | 'warn'
+}
+
+/** One link out: where it is, and the content's own words for it, which a text card is built from. */
+export interface LinkOut {
+  url: string
+  /** Where, as an issue path: `entries.holt.refs.evals`, `bodies.holt`, `terms.mcc.link`. */
+  at: string
+  /** A reference's `line`, or a term's own card: the reader is told what the link is either way. */
+  fallback: boolean
+  /** The content's name for it: a reference's title, a build's title, a term's name. */
+  title?: string
+  /** A reference's `site`. */
+  site?: string
+}
+
+/**
+ * Every link out a set names, in content order: body links, references, a build's repo and live
+ * links, then terms' https links. `validateLab` holds each to rule O; `scripts/lab-unfurl.mjs`
+ * fetches the same list, so the two can never disagree about what a link out is.
+ */
+export function linksOut(lab: Lab, bodies: Readonly<Record<string, string>>): LinkOut[] {
+  const out: LinkOut[] = []
+  for (const e of lab.entries) {
+    const at = `entries.${e.id}`
+    for (const url of scanBody(bodies[e.id] ?? '').outs) out.push({ url, at: `bodies.${e.id}`, fallback: false })
+    for (const [k, r] of Object.entries(e.refs ?? {}))
+      if (r.url) out.push({ url: r.url, at: `${at}.refs.${k}`, fallback: !!r.line?.trim(), title: r.title, site: r.site })
+    if (e.kind === 'build') {
+      if (e.repo) out.push({ url: e.repo, at: `${at}.repo`, fallback: false, title: e.title })
+      if (e.live) out.push({ url: e.live, at: `${at}.live`, fallback: false, title: e.title })
+    }
+  }
+  for (const t of lab.terms) if (t.link && /^https:\/\//.test(t.link)) out.push({ url: t.link, at: `terms.${t.id}.link`, fallback: true, title: t.name })
+  return out
 }
 
 /**
@@ -68,9 +114,11 @@ export function validateLab(
   lab: Lab,
   bodies: Readonly<Record<string, string>>,
   fileExists: (publicPath: string) => boolean,
+  { missingUnfurl = 'error' }: LabRuleOptions = {},
 ): LabIssue[] {
   const out: LabIssue[] = []
-  const add = (rule: LabRule, path: string, message: string) => out.push({ rule, path, message })
+  const add = (rule: LabRule, path: string, message: string, warning = false) =>
+    out.push(warning ? { rule, path, message, warning } : { rule, path, message })
   const schema = (field: Field, value: unknown, at: string) => {
     for (const i of check(field, value, '')) add('S', i.path ? `${at}.${i.path}` : at, i.message)
   }
@@ -188,7 +236,6 @@ export function validateLab(
 
   // ---------- links, refs, figures, images, pull-quotes, leads, endings ----------
   const slotSet = new Set(SLOT_HEADINGS)
-  const linkOuts: { url: string; at: string; fallback: boolean }[] = []
   const images: { src: string; at: string }[] = []
 
   for (const e of lab.entries) {
@@ -233,12 +280,6 @@ export function validateLab(
       if (im.w === null || im.h === null) add('I', where(true), `the image ${im.src} does not declare its size ("w=… h=…")`)
       if (!im.alt.trim()) add('I', where(true), `the image ${im.src} has no description`)
       images.push({ src: im.src, at: where(true) })
-    }
-    for (const u of scan.outs) linkOuts.push({ url: u, at: where(true), fallback: false })
-    for (const [k, r] of Object.entries(e.refs ?? {})) if (r.url) linkOuts.push({ url: r.url, at: `${at}.refs.${k}`, fallback: !!r.line?.trim() })
-    if (e.kind === 'build') {
-      if (e.repo) linkOuts.push({ url: e.repo, at: `${at}.repo`, fallback: false })
-      if (e.live) linkOuts.push({ url: e.live, at: `${at}.live`, fallback: false })
     }
     const lead = e.lead ?? {}
     if (lead.demo) images.push({ src: lead.demo.src, at: `${at}.lead.demo` }, { src: lead.demo.poster, at: `${at}.lead.demo.poster` })
@@ -300,12 +341,12 @@ export function validateLab(
     if (!isPublicPath(src)) add('I', at, `${src} must be a path under public/, like /lab/<entry>/one.webp`)
     else if (!fileExists(src)) add('I', at, `${src}: no such file in public/`)
   }
-  for (const t of lab.terms) if (t.link && /^https:\/\//.test(t.link)) linkOuts.push({ url: t.link, at: `terms.${t.id}.link`, fallback: true })
   const seenOut = new Set<string>()
-  for (const o of linkOuts) {
+  for (const o of linksOut(lab, bodies)) {
     if (lab.unfurls[o.url] || o.fallback || seenOut.has(o.at + o.url)) continue
     seenOut.add(o.at + o.url)
-    add('O', o.at, `${o.url} has no unfurl and no stated fallback (an unfurl in the unfurls file, or a reference's "line")`)
+    const warn = missingUnfurl === 'warn'
+    add('O', o.at, `${o.url} has no unfurl and no stated fallback (an unfurl in the unfurls file, or a reference's "line")${warn ? '; it shows a text card until `scripts/lab-unfurl.mjs` makes one' : ''}`, warn)
   }
 
   // ---------- privacy (1), banned phrases (2) ----------
