@@ -2,6 +2,7 @@ import type { Metadata } from 'next'
 
 import { buildCards } from '@/components/apps/build-cards'
 import { Desktop } from '@/components/desktop/desktop'
+import { VisitPing } from '@/components/desktop/visit-ping'
 import { apps, dockLayout, externalApps, mobile, profile, site } from '@/content'
 import { validateContent } from '@/content/validate'
 import { consoleHelloScript } from '@/lib/console-hello'
@@ -77,6 +78,8 @@ export default async function Page() {
     <main>
       {/* a hello for whoever opens devtools; the copy is content/console.ts */}
       <script dangerouslySetInnerHTML={{ __html: consoleHelloScript }} />
+      {/* counts the visit through the site's one admission gate, as `/` does */}
+      <VisitPing />
       <Desktop
         cards={await buildCards()}
         dock={dock}
