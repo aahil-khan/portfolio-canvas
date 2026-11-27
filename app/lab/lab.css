@@ -2,32 +2,50 @@
  * The Lab's stylesheet. Every value is from design/DIRECTION.md, "The Lab" (itself taken from the
  * approved mockup, prototype/lab-v2b/lab.css, and NEXT.md). Change DIRECTION first.
  *
- * Two looks over one geometry, so switching moves nothing:
- *   Paper   html[data-look="paper"]  the site's own theme (its tokens come from [data-theme])
- *   Lab     html[data-look="lab"]    the Lab theme, `lab-light` / `lab-dark` (content/themes.ts)
- * Theme tokens (--canvas-base … --trail) come from themeCss(); this file adds the Lab's scale and
- * the look-level constants. Everything is scoped under `.lab`, the layout's wrapper, because the
- * root layout's globals.css and desktop.css load on every page.
+ * One geometry under every theme, so a theme change moves nothing. The Lab's picker offers all 20
+ * palettes (lib/lab/look.ts); their tokens (--canvas-base … --trail) come from themeCss(), and
+ * the Lab lifts every dark palette's ink tiers for reading (lib/lab/ink.ts). Two families of frame
+ * constants sit on top:
+ *   a site theme   html[data-look="paper"]   2px rules in the frame's colour
+ *   a Lab palette  html[data-look="lab"]     a 1px hairline inside the same 2px frame
+ * With JavaScript off <html> has no data-look, and that reads as Lab Dark, the default.
+ * The reader settings (Aa) are data-aa-* on <html>; their absence reads as the defaults too.
+ * Everything is scoped under `.lab`, the layout's wrapper, because the root layout's globals.css
+ * and desktop.css load on every page.
  *
  * The check and the client islands find things by data attributes (API.md §5), never by these
  * class names.
  */
 
-/* ---------- the scale (identical in both looks) ---------- */
+/* Caveat's stand-in while it loads (it is preloaded and swaps in): a local sans scaled to read at
+   the meta size rather than as 22px of sans next to 13px meta. Local only, so it fetches nothing. */
+@font-face {
+  font-family: 'Lab Hand Fallback';
+  src: local('Arial'), local('Helvetica Neue'), local('Helvetica'), local('Roboto'), local('Noto Sans'), local('DejaVu Sans');
+  font-weight: 100 900;
+  size-adjust: 62%;
+}
+
+/* ---------- the scale ---------- */
 .lab {
+  /* the reader's body size (Aa: 14–22px, 17 by default); the steps below follow it */
+  --lab-fs-body: 1.0625rem;
   --lab-fs-hero: clamp(3rem, 9vw, 7rem);
   --lab-fs-num: clamp(4.5rem, 12vw, 9rem);
   --lab-fs-title: clamp(2.5rem, 5.2vw, 4rem);
-  --lab-fs-h2: clamp(1.375rem, 2.2vw, 1.75rem);
-  --lab-fs-lede: clamp(1.1875rem, 1.6vw, 1.375rem);
+  --lab-fs-h2: max(clamp(1.375rem, 2.2vw, 1.75rem), calc(var(--lab-fs-body) * 1.3));
+  --lab-fs-lede: max(clamp(1.1875rem, 1.6vw, 1.375rem), calc(var(--lab-fs-body) * 1.15));
   --lab-fs-pull: var(--lab-fs-lede);
-  --lab-fs-body: 1.0625rem;
   --lab-lh-body: 1.75;
-  --lab-fs-meta: 0.8125rem;
-  --lab-fs-hand: 1.375rem;
-  --lab-fs-code: 0.8125rem;
+  --lab-fs-meta: max(0.8125rem, calc(var(--lab-fs-body) * 0.765));
+  --lab-fs-hand: max(1.375rem, calc(var(--lab-fs-body) * 1.294));
+  --lab-fs-code: var(--lab-fs-meta);
 
-  --lab-measure: 47.5em;
+  /* the line length (Aa), in ems of Space Grotesk at the body size: wide ≈ 96ch, comfortable ≈ 72,
+     narrow ≈ 62; --lab-cw rescales it for the reading font's own character width */
+  --lab-measure-em: 47.5em;
+  --lab-cw: 1;
+  --lab-measure: calc(var(--lab-measure-em) * var(--lab-cw));
   --lab-bar-h: 56px;
   --lab-pad: 24px;
   --lab-gutter: 48px;
@@ -36,8 +54,12 @@
   --lab-edge: 2px;
 
   --lab-sans: var(--font-space-grotesk), system-ui, sans-serif;
+  --lab-serif: var(--font-lab-serif), ui-serif, Georgia, serif;
+  --lab-system: system-ui, -apple-system, 'Segoe UI', Roboto, 'Helvetica Neue', sans-serif;
+  /* the reading font (Aa): the text of an entry, never the chrome around it */
+  --lab-read: var(--lab-sans);
   --lab-mono: var(--font-lab-mono), ui-monospace, monospace;
-  --lab-hand: var(--font-lab-hand), var(--font-space-grotesk), system-ui, sans-serif;
+  --lab-hand: var(--font-lab-hand), 'Lab Hand Fallback', var(--font-space-grotesk), system-ui, sans-serif;
 
   --lab-ease: cubic-bezier(0.16, 1, 0.3, 1);
   --lab-t-hover: 180ms;
@@ -48,12 +70,55 @@
   --radius-window: 12px;
   --radius-chip: 8px;
 }
-html[data-aa-measure='comfortable'] .lab { --lab-measure: 37em; }
-html[data-aa-size='16'] .lab { --lab-fs-body: 1rem; }
-html[data-aa-size='19'] .lab { --lab-fs-body: 1.1875rem; }
 
-/* ---------- look 1: Paper ---------- */
+/* ---------- the reader settings (Aa, lib/lab/look.ts) ---------- */
+html[data-aa-size='14'] .lab { --lab-fs-body: 0.875rem; }
+html[data-aa-size='15'] .lab { --lab-fs-body: 0.9375rem; }
+html[data-aa-size='16'] .lab { --lab-fs-body: 1rem; }
+html[data-aa-size='18'] .lab { --lab-fs-body: 1.125rem; }
+html[data-aa-size='19'] .lab { --lab-fs-body: 1.1875rem; }
+html[data-aa-size='20'] .lab { --lab-fs-body: 1.25rem; }
+html[data-aa-size='21'] .lab { --lab-fs-body: 1.3125rem; }
+html[data-aa-size='22'] .lab { --lab-fs-body: 1.375rem; }
+html[data-aa-font='serif'] .lab { --lab-read: var(--lab-serif); --lab-cw: 0.979; }
+html[data-aa-font='system'] .lab { --lab-read: var(--lab-system); --lab-cw: 1.046; }
+html[data-aa-leading='tight'] .lab { --lab-lh-body: 1.55; }
+html[data-aa-leading='relaxed'] .lab { --lab-lh-body: 1.95; }
+html[data-aa-measure='comfortable'] .lab { --lab-measure-em: 37em; }
+html[data-aa-measure='narrow'] .lab { --lab-measure-em: 32em; }
+
+/* ---------- the frame constants: a Lab palette, and the default (Lab Dark) ----------
+   Keeps the window language: a 2px --border frame and a zero-blur offset on every box; what
+   changes is colour, and the rules between rows become a 1px hairline. */
+html:not([data-look='paper']) .lab {
+  color-scheme: dark;
+  --line: var(--hair);
+  --rule-w: 1px;
+  --box-edge: var(--border);
+  --box-shadow: 4px 4px 0 0 var(--shadow-ink), inset 0 1px 0 0 var(--highlight);
+  --box-shadow-hover: 5px 5px 0 0 var(--shadow-ink), inset 0 1px 0 0 var(--highlight);
+  --box-shadow-press: 1px 1px 0 0 var(--shadow-ink);
+  --float-shadow: 6px 6px 0 0 var(--shadow-ink), inset 0 1px 0 0 var(--highlight);
+  --titlebar: color-mix(in srgb, var(--accent) var(--tb-tint), var(--raised));
+  --bg-image: none;
+  --border-strong: rgba(238, 236, 229, 0.18);
+  --highlight: rgba(255, 255, 255, 0.05);
+  --tb-tint: 9%;
+  --focus: #f5c518;
+  --tick: color-mix(in srgb, var(--ink) 34%, transparent);
+}
+html[data-look='lab'][data-dark='0'] .lab {
+  color-scheme: light;
+  --border-strong: rgba(20, 20, 19, 0.18);
+  --highlight: rgba(255, 255, 255, 0.9);
+  --tb-tint: 16%;
+  --focus: #141413;
+  --tick: color-mix(in srgb, var(--ink) 18%, transparent);
+}
+
+/* ---------- the frame constants: a site theme ---------- */
 html[data-look='paper'] .lab {
+  color-scheme: light;
   --line: var(--border);
   --rule-w: 2px;
   --box-edge: var(--border);
@@ -63,47 +128,22 @@ html[data-look='paper'] .lab {
   --float-shadow: 6px 6px 0 0 var(--shadow-ink);
   --titlebar: color-mix(in srgb, var(--accent) 25%, var(--surface));
   --focus: var(--accent);
-  --bar-edge: var(--border);
+  --border-strong: color-mix(in srgb, var(--ink) 18%, transparent);
   --bg-image: linear-gradient(var(--canvas-grid) 1px, transparent 1px), linear-gradient(90deg, var(--canvas-grid) 1px, transparent 1px);
   --tick: color-mix(in srgb, var(--ink) 18%, transparent);
 }
 html[data-look='paper'][data-dark='1'] .lab {
+  color-scheme: dark;
   --titlebar: color-mix(in srgb, var(--accent) 12%, var(--surface));
   --tick: color-mix(in srgb, var(--ink) 34%, transparent);
 }
-
-/* ---------- look 2: the Lab theme ----------
-   Keeps the window language: a 2px --border frame and a zero-blur offset on every box; what
-   changes is colour, and the rules between rows become a 1px hairline. */
-html[data-look='lab'] .lab {
-  --line: var(--hair);
-  --rule-w: 1px;
-  --box-edge: var(--border);
-  --box-shadow: 4px 4px 0 0 var(--shadow-ink), inset 0 1px 0 0 var(--highlight);
-  --box-shadow-hover: 5px 5px 0 0 var(--shadow-ink), inset 0 1px 0 0 var(--highlight);
-  --box-shadow-press: 1px 1px 0 0 var(--shadow-ink);
-  --float-shadow: 6px 6px 0 0 var(--shadow-ink), inset 0 1px 0 0 var(--highlight);
-  --titlebar: color-mix(in srgb, var(--accent) var(--tb-tint), var(--raised));
-  --bar-edge: var(--hair);
-  --bg-image: none;
-}
-html[data-look='lab'][data-mode='light'] .lab {
-  color-scheme: light;
-  --border-strong: rgba(20, 20, 19, 0.18);
-  --highlight: rgba(255, 255, 255, 0.9);
-  --tb-tint: 16%;
-  --focus: #141413;
-  --tick: color-mix(in srgb, var(--ink) 18%, transparent);
-}
-html[data-look='lab'][data-mode='dark'] .lab {
-  color-scheme: dark;
-  --border-strong: rgba(238, 236, 229, 0.18);
-  --highlight: rgba(255, 255, 255, 0.05);
-  --tb-tint: 9%;
-  --focus: #f5c518;
-  --bar-edge: var(--border-strong);
-  --tick: color-mix(in srgb, var(--ink) 34%, transparent);
-}
+/* A rule that carries meaning (a quote's edge, the pull-quote, an aside, "What I'd do now") is
+   drawn in the frame's colour, never the hairline: ≥ 3:1 against its ground in every theme. */
+.lab { --rule: var(--border); }
+/* The bar's bottom edge is the frame's colour at the rule's width, in every theme and from the first
+   frame: the reading dot sits on it at p = 0 and the trail fills along it, so it is never hidden
+   until a scroll (27 Nov: the dot floated under the bar's words at the top of the page). */
+.lab { --bar-edge: var(--border); }
 
 /* ---------- the page ---------- */
 html:has(.lab),
@@ -268,10 +308,9 @@ html.look-fade .lab * {
   background: var(--canvas-base);
   transition: transform 280ms var(--lab-ease), box-shadow var(--lab-t-hover) var(--lab-ease);
 }
-.lab-bar[data-scrolled] { box-shadow: 0 var(--rule-w) 0 0 var(--bar-edge); }
+.lab-bar { box-shadow: 0 var(--rule-w) 0 0 var(--bar-edge); }
 .lab-bar[data-away] { transform: translateY(calc(-1 * var(--lab-bar-h) - 12px)); }
 @media (scripting: none) {
-  .lab-bar { box-shadow: 0 var(--rule-w) 0 0 var(--bar-edge); }
   [data-needs-js] { display: none !important; }
 }
 .lab-bar-left, .lab-bar-right { display: flex; align-items: center; gap: 6px; min-width: 0; }
@@ -312,60 +351,102 @@ html.look-fade .lab * {
   transition: background-color var(--lab-t-out) var(--lab-ease), box-shadow var(--lab-t-out) var(--lab-ease);
 }
 .lab-ctl:hover { background: color-mix(in srgb, var(--ink) 7%, transparent); transition-duration: var(--lab-t-in); }
-html[data-look='lab'] .lab-ctl:hover,
-html[data-look='lab'] .lab-ctl:focus-visible { box-shadow: inset 0 0 0 1px var(--border-strong); }
+html:not([data-look='paper']) .lab-ctl:hover,
+html:not([data-look='paper']) .lab-ctl:focus-visible { box-shadow: inset 0 0 0 1px var(--border-strong); }
 .lab-ctl[aria-expanded='true'] { background: color-mix(in srgb, var(--ink) 9%, transparent); }
 .lab-ctl:active { background: color-mix(in srgb, var(--ink) 12%, transparent); transition-duration: var(--lab-t-press); }
 .lab-ctl-icon { padding: 0; width: 40px; }
 .lab-i-aa { font-weight: 700; font-size: var(--lab-fs-body); letter-spacing: -0.02em; }
-.lab-i-theme { width: 20px; height: 20px; fill: none; stroke: currentColor; stroke-width: 1.6; stroke-linecap: round; stroke-linejoin: round; }
-.lab-i-theme .moon { display: none; }
-html[data-dark='1'] .lab-i-theme .sun { display: none; }
-html[data-dark='1'] .lab-i-theme .moon { display: inline; }
 
-/* Look: a segmented switch on desktop, one button on a phone */
-.lab-look {
-  display: inline-flex; padding: 3px; gap: 2px;
-  border-radius: 999px; height: 40px;
-  border: var(--lab-edge) solid var(--box-edge);
-  box-shadow: var(--box-shadow-press);
-  background: var(--surface);
+/* a palette's swatch: its ground, its frame, its accent, its ink and its quietest ink, so the
+   swatch shows what the page becomes. The bar's one reads the live tokens, so it is always right. */
+.lab-swatch {
+  flex: none;
+  width: 40px; height: 28px;
+  display: flex; flex-direction: column; justify-content: center; gap: 3px;
+  padding: 0 5px;
+  border-radius: 6px;
+  border: 2px solid;
+  overflow: hidden;
 }
-.lab-look button {
-  border: 0; background: transparent; border-radius: 999px;
-  padding: 0 12px;
-  font-size: var(--lab-fs-meta); font-weight: 500;
-  color: var(--ink-muted);
-  transition: background-color var(--lab-t-out) var(--lab-ease), color var(--lab-t-out) var(--lab-ease);
-}
-.lab-look button:hover { color: var(--ink); transition-duration: var(--lab-t-in); }
-.lab-look button[aria-pressed='true'] { background: var(--ink); color: var(--surface); }
-.lab-look-phone { display: none; white-space: nowrap; }
+.lab-swatch i { display: block; height: 6px; border-radius: 2px; }
+.lab-swatch i + i { height: 3px; }
+.lab-swatch-live { width: 26px; height: 20px; padding: 0 4px; gap: 2px; border-radius: 5px; background: var(--canvas-base); border-color: var(--border); }
+.lab-swatch-live i { height: 4px; background: var(--accent); }
+.lab-swatch-live i + i { height: 2px; background: var(--ink); }
+.lab-theme-btn { padding: 0 14px 0 9px; }
 
-/* Aa */
-.lab-pop {
+/* ---------- the bar's panels: the theme picker and the reader settings ----------
+   A popover under the bar, framed like a window; on a phone, a sheet at the bottom (below). */
+.lab-panel {
   position: fixed; z-index: 40;
   top: calc(var(--lab-bar-h) - 4px); right: var(--lab-pad);
-  width: 268px; padding: 16px;
+  width: 320px;
+  max-height: calc(100vh - var(--lab-bar-h) - 24px);
+  max-height: calc(100dvh - var(--lab-bar-h) - 24px);
+  display: flex; flex-direction: column;
   border: var(--lab-edge) solid var(--box-edge);
   border-radius: var(--radius-window);
   background: var(--raised);
   box-shadow: var(--float-shadow);
+  overflow: hidden;
 }
-.lab-pop-row + .lab-pop-row { margin-top: 14px; }
-.lab-pop-label { margin-bottom: 6px; }
+.lab-panel[data-theme-panel] { width: 456px; }
+.lab-panel-bar { flex: none; }
+.lab-panel-bar h2 { font-size: var(--lab-fs-meta); font-weight: 500; line-height: 1.3; }
+.lab-panel-close { display: none; }
+.lab-panel-body { flex: 1 1 auto; min-height: 0; overflow-y: auto; overscroll-behavior: contain; padding: 14px 14px 16px; }
+
+/* the theme picker: Light and Dark, the Lab's own palette first in each */
+.lab-themes-group + .lab-themes-group { margin-top: 16px; }
+.lab-themes-group .end-h { display: flex; align-items: baseline; gap: 8px; margin-bottom: 8px; padding-left: 2px; }
+.lab-themes-group .end-h span { font-variant-numeric: tabular-nums; letter-spacing: 0; }
+.lab-themes { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 4px; }
+.lab-theme {
+  display: flex; align-items: center; gap: 10px;
+  min-height: 44px; padding: 6px 10px 6px 6px;
+  border-radius: var(--radius-chip);
+  border: var(--lab-edge) solid transparent;
+  background: transparent;
+  text-align: left;
+  font-size: var(--lab-fs-meta); font-weight: 500; line-height: 1.25;
+  transition: background-color var(--lab-t-out) var(--lab-ease), border-color var(--lab-t-out) var(--lab-ease);
+}
+.lab-theme:hover { background: color-mix(in srgb, var(--ink) 7%, transparent); transition-duration: var(--lab-t-in); }
+.lab-theme[aria-pressed='true'] {
+  border-color: var(--box-edge);
+  background: color-mix(in srgb, var(--accent) 14%, var(--raised));
+  box-shadow: 2px 2px 0 0 var(--shadow-ink);
+  font-weight: 700;
+}
+
+/* the reader settings */
+.lab-aa-row + .lab-aa-row { margin-top: 14px; }
+.lab-aa-label { display: block; margin-bottom: 6px; }
 .lab-seg { display: flex; gap: 4px; }
-.lab-seg button {
-  flex: 1; min-height: 40px;
+.lab-seg button, .lab-step button, .lab-aa-reset {
+  flex: 1; min-height: 40px; padding: 0 8px;
   border-radius: var(--radius-chip);
   border: var(--lab-edge) solid var(--line);
   background: transparent;
   font-size: var(--lab-fs-meta); font-weight: 500;
-  transition: background-color var(--lab-t-out) var(--lab-ease);
+  transition: background-color var(--lab-t-out) var(--lab-ease), box-shadow var(--lab-t-out) var(--lab-ease);
 }
-html[data-look='lab'] .lab-seg button { border-color: transparent; box-shadow: inset 0 0 0 1px var(--border-strong); }
-.lab-seg button:hover { background: color-mix(in srgb, var(--ink) 7%, transparent); transition-duration: var(--lab-t-in); }
-.lab-seg button[aria-pressed='true'] { background: var(--ink); color: var(--surface); border-color: var(--ink); }
+html:not([data-look='paper']) :is(.lab-seg button, .lab-step button, .lab-aa-reset) { border-color: transparent; box-shadow: inset 0 0 0 1px var(--border-strong); }
+html:not([data-look='paper']) :is(.lab-seg button, .lab-step button, .lab-aa-reset):hover { box-shadow: inset 0 0 0 1px var(--rule); }
+:is(.lab-seg button, .lab-step button, .lab-aa-reset):hover { background: color-mix(in srgb, var(--ink) 7%, transparent); transition-duration: var(--lab-t-in); }
+.lab-seg button[aria-pressed='true'] { background: var(--ink); color: var(--surface); border-color: var(--ink); box-shadow: none; }
+.lab-step { display: flex; align-items: center; gap: 6px; }
+.lab-step button { flex: 0 0 48px; display: inline-grid; place-items: center; }
+.lab-step button:disabled, .lab-aa-reset:disabled { opacity: 0.45; cursor: default; background: transparent; }
+.lab-step svg { width: 14px; height: 14px; stroke: currentColor; stroke-width: 2; stroke-linecap: round; fill: none; }
+.lab-step output { flex: 1; text-align: center; font-size: var(--lab-fs-meta); font-weight: 700; font-variant-numeric: tabular-nums; }
+.lab-aa-foot { margin-top: 18px; display: flex; justify-content: flex-end; }
+.lab-aa-reset { flex: 0 0 auto; padding: 0 16px; }
+/* a setting that changes nothing at this width is not offered: line length below 700px (the
+   column is narrower than every length), the layout below 1200px (there is no side panel) */
+@media (max-width: 699px) { [data-aa-row='measure'] { display: none; } }
+@media (max-width: 1199px) { [data-aa-row='layout'] { display: none; } }
 
 /* ---------- reading progress: the trail and the dot ---------- */
 .lab-trail {
@@ -394,8 +475,8 @@ html[data-dark='0'] .lab-trail { top: calc(var(--lab-bar-h) - 1px); height: 4px;
 .lab-dot[data-away] { opacity: 0; }
 .lab-dot svg { width: 22px; height: 22px; overflow: visible; display: block; }
 .lab-dot .body { fill: var(--surface); stroke: var(--ink); stroke-width: 2; }
-html[data-look='lab'] .lab-dot .body { stroke: color-mix(in srgb, var(--ink) 85%, transparent); stroke-width: 1.75; fill: var(--raised); }
-html[data-look='lab'][data-mode='light'] .lab-dot .body { stroke-width: 2; }
+html:not([data-look='paper']) .lab-dot .body { stroke: color-mix(in srgb, var(--ink) 85%, transparent); stroke-width: 1.75; fill: var(--raised); }
+html[data-look='lab'][data-dark='0'] .lab-dot .body { stroke-width: 2; }
 .lab-dot .look-at { transition: transform 320ms var(--lab-ease); }
 .lab-dot .eyes { transform-origin: 11px 10px; animation: lab-blink 4200ms linear infinite; }
 .lab-dot .eye { fill: var(--ink); }
@@ -410,6 +491,29 @@ html[data-look='lab'][data-mode='light'] .lab-dot .body { stroke-width: 2; }
 .lab-dot[data-asleep] [data-dot] { animation: lab-snooze 2400ms linear infinite; }
 @keyframes lab-blink { 0%, 95% { transform: scaleY(1) } 97% { transform: scaleY(0.1) } 100% { transform: scaleY(1) } }
 @keyframes lab-snooze { 0% { opacity: 0 } 30%, 70% { opacity: 1 } 100% { opacity: 0 } }
+
+/* ---------- scrollbars, on /lab only ----------
+   Thin and drawn from the theme in force: the thumb is ink, 70% into the ground, so it
+   holds ≥ 3:1 against the track in every theme (the check measures it). `scrollbar-color` for
+   Chrome and Firefox; the -webkit- pseudo-elements for Safari, which ignores it. */
+html:has(.lab) {
+  --lab-thumb: color-mix(in srgb, var(--ink) 70%, var(--canvas-base));
+  --lab-thumb-hover: var(--ink);
+  scrollbar-width: thin;
+  scrollbar-color: var(--lab-thumb) var(--canvas-base);
+}
+.lab { scrollbar-color: var(--lab-thumb) transparent; }
+.lab, .lab * { scrollbar-width: thin; }
+html:has(.lab)::-webkit-scrollbar, .lab ::-webkit-scrollbar { width: 10px; height: 10px; }
+html:has(.lab)::-webkit-scrollbar-track { background: var(--canvas-base); }
+.lab ::-webkit-scrollbar-track { background: transparent; }
+html:has(.lab)::-webkit-scrollbar-thumb, .lab ::-webkit-scrollbar-thumb {
+  background: var(--lab-thumb) padding-box;
+  border: 2px solid transparent;
+  border-radius: 999px;
+}
+html:has(.lab)::-webkit-scrollbar-thumb:hover, .lab ::-webkit-scrollbar-thumb:hover { background-color: var(--lab-thumb-hover); }
+.lab ::-webkit-scrollbar-corner { background: transparent; }
 
 /* Lenis (desktop only): its own required rules */
 html.lenis, html.lenis body { height: auto; }
@@ -437,6 +541,11 @@ html.lenis, html.lenis body { height: auto; }
   position: relative;
   font-size: var(--lab-fs-title); line-height: 1.02; letter-spacing: -0.025em;
   max-width: 15em;
+}
+/* a chapter's faint number sits beside the title, never behind its words: the title leaves it room
+   (two digits of Space Grotesk 700 at -0.04em are about 1.2em of the number's size) */
+@media (min-width: 761px) {
+  .lab-entry-head:has(> .lab-num) .lab-entry-title { max-width: min(15em, calc(100% - 1.3 * var(--lab-fs-num))); }
 }
 .lab-num {
   position: absolute; right: 0; top: 0.2em;
@@ -488,7 +597,7 @@ html.lenis, html.lenis body { height: auto; }
   box-shadow: 0 var(--rule-w) 0 0 var(--box-edge);
   font-size: var(--lab-fs-meta); font-weight: 500;
 }
-html[data-look='lab'] .lab-window-bar { box-shadow: 0 1px 0 0 var(--hair); }
+html:not([data-look='paper']) .lab-window-bar { box-shadow: 0 1px 0 0 var(--hair); }
 .lab-chapters { list-style: none; padding: 8px 8px 4px; margin: 0; display: grid; gap: 0; }
 .lab-chapters li { display: grid; grid-template-columns: 30px 1fr; gap: 8px; align-items: baseline; font-size: var(--lab-fs-meta); line-height: 1.4; }
 .lab-chapters li > * { padding: 6px 0; }
@@ -503,8 +612,10 @@ html[data-look='lab'] .lab-window-bar { box-shadow: 0 1px 0 0 var(--hair); }
 .lab-lead-intro { margin: 0 0 12px; font-weight: 700; max-width: var(--lab-measure); }
 .lab-caption { margin-top: 12px; font-size: var(--lab-fs-meta); line-height: 1.5; color: var(--ink-muted); max-width: var(--lab-measure); }
 
-/* the reading column */
+/* the reading column, in the reader's font (Aa); the chrome inside it stays Space Grotesk */
 .lab-column { min-width: 0; }
+.lab :is(.lab-entry-title, .lab-entry-sub, .lab-lead-intro, .lab-column, .lab-opening, .lab-keyline, .lab-instr-q) { font-family: var(--lab-read); }
+.lab .end-h { font-family: var(--lab-sans); }
 .lab-body { margin-top: 40px; }
 .lab-prose > * + * { margin-top: 1em; }
 .lab-prose :where(p, li, blockquote) { max-width: var(--lab-measure); }
@@ -516,7 +627,7 @@ html[data-look='lab'] .lab-window-bar { box-shadow: 0 1px 0 0 var(--hair); }
 .lab-prose :where(ul, ol) { padding-left: 1.3em; }
 .lab-prose li + li { margin-top: 0.35em; }
 .lab-prose li::marker { color: var(--ink-muted); }
-.lab-prose blockquote { padding-left: 18px; box-shadow: inset var(--rule-w) 0 0 0 var(--line); color: var(--ink); }
+.lab-prose blockquote { padding-left: 18px; box-shadow: inset var(--rule-w) 0 0 0 var(--rule); color: var(--ink); }
 .lab-prose figure { margin-top: 2em; margin-bottom: 2em; }
 .lab-prose figure img { border-radius: var(--radius-window); border: var(--lab-edge) solid var(--box-edge); box-shadow: var(--box-shadow); }
 .lab-prose figcaption { margin-top: 12px; font-size: var(--lab-fs-meta); line-height: 1.5; color: var(--ink-muted); }
@@ -552,7 +663,7 @@ html[data-look='lab'] .lab-window-bar { box-shadow: 0 1px 0 0 var(--hair); }
 .lab-prose aside.side, .lab-sidenote {
   margin: 28px 0;
   padding-left: 16px;
-  box-shadow: inset var(--rule-w) 0 0 0 var(--line);
+  box-shadow: inset var(--rule-w) 0 0 0 var(--rule);
   max-width: 40em;
   font-size: var(--lab-fs-meta); line-height: 1.55; color: var(--ink-muted);
 }
@@ -565,7 +676,9 @@ html[data-look='lab'] .lab-window-bar { box-shadow: 0 1px 0 0 var(--hair); }
   max-width: 30em;
   font-size: var(--lab-fs-pull); font-weight: 500; line-height: 1.3; letter-spacing: -0.01em;
   text-wrap: balance;
-  box-shadow: 0 calc(-1 * var(--rule-w)) 0 0 var(--line);
+  /* its rule is the frame's colour, never the hairline: ≥ 3:1 in every theme (in Lab Dark the
+     hairline was 1.2:1, so only the accent's 48px showed) */
+  box-shadow: 0 calc(-1 * var(--rule-w)) 0 0 var(--rule);
 }
 .lab-pull::before {
   content: ''; position: absolute; left: 0; top: calc(-1 * var(--rule-w) - 1px);
@@ -596,7 +709,7 @@ html[data-look='lab'] .lab-window-bar { box-shadow: 0 1px 0 0 var(--hair); }
   margin-top: 48px; padding: 18px 20px 20px;
   max-width: var(--lab-measure);
   border-radius: var(--radius-window);
-  box-shadow: inset 0 0 0 var(--rule-w) var(--line);
+  box-shadow: inset 0 0 0 var(--rule-w) var(--rule);
 }
 .lab-ending > * + * { margin-top: 0.7em; }
 .lab-ending .lab-end-label { display: flex; align-items: baseline; flex-wrap: wrap; gap: 4px 8px; }
@@ -610,33 +723,32 @@ html[data-look='lab'] .lab-window-bar { box-shadow: 0 1px 0 0 var(--hair); }
 .lab-refs .ref-title { font-weight: 500; }
 .lab-refs .ref-line { display: block; color: var(--ink-muted); }
 
-/* Share */
+/* Share: the actions themselves, in a row, at the end and in the rail (no menu) */
 .lab-share { position: relative; }
 .lab-share-end { margin-top: 40px; padding-top: 18px; box-shadow: 0 calc(-1 * var(--rule-w)) 0 0 var(--line); }
 .lab-share-row { display: flex; flex-wrap: wrap; align-items: center; gap: 8px; }
-.lab-share-menu { display: flex; flex-wrap: wrap; gap: 8px; }
-.lab-share-menu[hidden] { display: none; }
 .lab-copy-word { display: inline-grid; }
 .lab-copy-word > span { grid-area: 1 / 1; transition: opacity 140ms var(--lab-ease); }
 .lab-copy-word > span[aria-hidden='true'] { opacity: 0; }
-/* JavaScript off: no share sheet and no clipboard, but X and LinkedIn are plain links and still work */
-@media (scripting: none) {
-  .lab-share [data-share-open], .lab-share [data-share-copy] { display: none; }
-  .lab-share .lab-share-menu[hidden] { display: flex; }
-}
+/* JavaScript off: no clipboard, but X and LinkedIn are plain links and still work */
 
-/* the rail: a block after the text below 1200px, a sticky column beside it from 1200px */
+/* ---------- the rail ----------
+   Below 1200px, and in the Centred layout, a block after the text without On this page or its
+   copy of Share. From 1200px in the Side panel layout (the default), a column beside the text,
+   there from the first screen. It never scrolls as one block: each section keeps its heading
+   and scrolls its own list, and the sections share the height under the bar. */
 .lab-rail {
   margin-top: 40px; padding-top: 18px;
   box-shadow: 0 calc(-1 * var(--rule-w)) 0 0 var(--line);
-  display: grid; gap: 28px;
   font-size: var(--lab-fs-meta);
 }
+.lab-rail-in { display: grid; gap: 28px; }
 .lab-rail-wide { display: none; }
-.lab-rail[data-short] [data-share='rail'] { display: none !important; }
+.lab-rail-sec { min-width: 0; }
+.lab-rail-list { min-height: 0; }
 .lab-end-list { list-style: none; padding: 0; margin: 0; display: grid; gap: 8px; line-height: 1.45; }
 .lab-end-list .meta { display: block; margin-top: 1px; }
-.lab-rail .lab-tags { margin-top: 14px; }
+.lab-tag-list { list-style: none; padding: 0; margin: 0; display: flex; flex-wrap: wrap; gap: 4px 14px; line-height: 1.45; }
 .lab-toc { position: relative; }
 .lab-toc ol { list-style: none; margin: 0; padding: 0; display: grid; gap: 2px; line-height: 1.4; }
 .lab-toc a {
@@ -647,6 +759,7 @@ html[data-look='lab'] .lab-window-bar { box-shadow: 0 1px 0 0 var(--hair); }
 }
 .lab-toc a:hover { color: var(--ink); transition-duration: var(--lab-t-in); }
 .lab-toc a[aria-current] { color: var(--ink); font-weight: 500; }
+.lab-toc-track { position: relative; }
 .lab-toc-bar {
   position: absolute; left: 0; top: 0; width: 2px; height: 0;
   background: var(--accent);
@@ -654,10 +767,9 @@ html[data-look='lab'] .lab-window-bar { box-shadow: 0 1px 0 0 var(--hair); }
   transition: transform 180ms var(--lab-ease), height 180ms var(--lab-ease), opacity 180ms var(--lab-ease);
   pointer-events: none;
 }
-.lab-rail-sentinel { position: absolute; left: 0; top: 0; width: 1px; height: 25vh; pointer-events: none; visibility: hidden; }
 
 @media (min-width: 1200px) {
-  .lab-entry {
+  html:not([data-aa-layout='centred']) .lab-entry {
     max-width: calc(var(--lab-measure) + var(--lab-gutter) + var(--lab-rail) + 2 * var(--lab-pad));
     display: grid;
     grid-template-columns: minmax(0, var(--lab-measure)) var(--lab-rail);
@@ -666,33 +778,50 @@ html[data-look='lab'] .lab-window-bar { box-shadow: 0 1px 0 0 var(--hair); }
     justify-content: center;
     align-items: start;
   }
-  .lab-entry-flow {
+  html:not([data-aa-layout='centred']) .lab-entry-flow {
     grid-column: 1 / -1; grid-row: 1 / 4;
     display: grid;
     grid-template-columns: subgrid;
     grid-template-rows: subgrid;
     align-items: start;
   }
-  .lab-entry-flow > .lab-entry-head, .lab-entry-flow > .lab-lead { grid-column: 1 / -1; }
-  .lab-entry-flow > .lab-column { grid-column: 1; grid-row: 3; }
-  .lab-entry > .lab-nextprev { grid-column: 1; grid-row: 4; }
-  .lab-entry > .lab-rail {
+  html:not([data-aa-layout='centred']) .lab-entry-flow > .lab-entry-head,
+  html:not([data-aa-layout='centred']) .lab-entry-flow > .lab-lead { grid-column: 1 / -1; }
+  html:not([data-aa-layout='centred']) .lab-entry-flow > .lab-column { grid-column: 1; grid-row: 3; }
+  html:not([data-aa-layout='centred']) .lab-entry > .lab-nextprev { grid-column: 1; grid-row: 4; }
+  /* the rail spans the text's row and adds nothing to its height (contain: size); inside it, one
+     sticky box as tall as the room under the bar, or the text if that is shorter */
+  html:not([data-aa-layout='centred']) .lab-entry > .lab-rail {
     grid-column: 2; grid-row: 3;
-    position: sticky; top: calc(var(--lab-bar-h) + 24px);
-    max-height: calc(100vh - var(--lab-bar-h) - 48px);
-    overflow-y: auto; overscroll-behavior: contain;
-    scrollbar-width: thin;
-    margin-top: 40px; padding: 2px 4px 2px 2px;
+    align-self: stretch;
+    contain: size;
+    margin-top: 40px; padding: 0;
     box-shadow: none;
-    transition: opacity 240ms var(--lab-ease), visibility 0s linear 0s;
   }
-  .lab-entry > .lab-rail .lab-rail-wide { display: block; }
-}
-@media (min-width: 1200px) and (scripting: enabled) {
-  .lab-entry > .lab-rail[data-waiting] {
-    opacity: 0; visibility: hidden;
-    transition: opacity 160ms var(--lab-ease), visibility 0s linear 160ms;
+  html:not([data-aa-layout='centred']) .lab-rail-in {
+    position: sticky; top: calc(var(--lab-bar-h) + 24px);
+    height: min(calc(100vh - var(--lab-bar-h) - 48px), 100%);
+    /* each section gets its content's height while all fit; past that the room is shared out
+       evenly, and a long list scrolls inside its own section */
+    grid-auto-rows: minmax(0, max-content);
+    align-content: start;
+    gap: 24px;
+    overflow: hidden;
+    padding: 2px 6px 6px 2px;
   }
+  html:not([data-aa-layout='centred']) .lab-rail .lab-rail-wide { display: flex; }
+  html:not([data-aa-layout='centred']) .lab-rail-sec { display: flex; flex-direction: column; min-height: 0; overflow: hidden; }
+  html:not([data-aa-layout='centred']) .lab-rail-sec > .end-h { flex: none; }
+  html:not([data-aa-layout='centred']) .lab-rail-list {
+    flex: 0 1 auto;
+    overflow-y: auto; overscroll-behavior: contain;
+    /* room for the focus ring and the chips' offset shadow inside the scroller */
+    padding: 3px 6px 4px 3px; margin: -3px -6px -4px -3px;
+  }
+  /* a list that continues fades at that edge (rail.tsx sets data-more / data-less) */
+  html:not([data-aa-layout='centred']) .lab-rail-list[data-more] { mask-image: linear-gradient(to bottom, #000 calc(100% - 36px), transparent); }
+  html:not([data-aa-layout='centred']) .lab-rail-list[data-less] { mask-image: linear-gradient(to top, #000 calc(100% - 28px), transparent); }
+  html:not([data-aa-layout='centred']) .lab-rail-list[data-more][data-less] { mask-image: linear-gradient(to bottom, transparent, #000 28px, #000 calc(100% - 36px), transparent); }
 }
 
 /* previous and next, under a series or a study */
@@ -788,15 +917,34 @@ html[data-look='lab'] .lab-window-bar { box-shadow: 0 1px 0 0 var(--hair); }
   .lab-bar { gap: 2px; padding: 0 8px; }
   .lab-bar-left, .lab-bar-right { gap: 0; }
   .lab-demo { margin-left: 0; }
-  .lab-look-phone { padding: 0 8px; }
   .lab-mark > span[aria-hidden] { width: 36px; height: 36px; }
   .lab-bar-lab { padding: 0 4px; min-height: 44px; display: inline-flex; align-items: center; }
-  .lab-look { display: none; }
-  .lab-look-phone { display: inline-flex; }
   .lab-ctl { height: 44px; min-width: 44px; }
   .lab-ctl-icon { width: 44px; }
-  .lab-pop { right: 10px; width: min(268px, calc(100vw - 20px)); }
-  .lab-num { top: 1.1em; }
+  .lab-theme-btn { padding: 0; width: 44px; }
+  .lab-theme-btn .lab-theme-word { display: none; }
+  /* the bar's panels become a sheet: pinned to the bottom, one surface, drawing only its top edge
+     plus the one blurred shadow, because the sheet is the screen's own edge (DIRECTION) */
+  .lab-panel, .lab-panel[data-theme-panel] {
+    top: auto; right: 0; bottom: 0; left: 0;
+    width: auto;
+    max-height: 82vh; max-height: 82dvh;
+    border-width: var(--lab-edge) 0 0;
+    border-radius: 16px 16px 0 0;
+    box-shadow: 0 -12px 32px -20px color-mix(in srgb, var(--ink) 35%, transparent);
+  }
+  .lab-panel-bar { padding-right: 4px; }
+  .lab-panel-close {
+    display: inline-flex; align-items: center; justify-content: center;
+    min-height: 44px; min-width: 44px; padding: 0 12px;
+    border: 0; border-radius: var(--radius-chip); background: transparent;
+    font-size: var(--lab-fs-meta); font-weight: 500;
+    text-decoration: underline; text-underline-offset: 4px; text-decoration-color: var(--ink-muted);
+  }
+  .lab-panel-body { padding-bottom: calc(16px + env(safe-area-inset-bottom)); }
+  .lab-seg button, .lab-step button, .lab-aa-reset { min-height: 44px; }
+  /* no room beside a phone's title, and the picker above it already says "05 of 08" */
+  .lab-num { display: none; }
   .lab-entry-meta { margin-top: 10px; }
   .lab-lead { margin-top: 22px; }
   .lab-body { margin-top: 32px; }

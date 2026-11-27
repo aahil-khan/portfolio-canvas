@@ -1,12 +1,10 @@
 'use client'
 
-import * as m from 'motion/react-m'
-import { useEffect, useRef, useState } from 'react'
+import { useEffect, useRef, useState, useSyncExternalStore } from 'react'
 
 import { track } from '@/lib/events'
 import { shareUrls } from '@/lib/lab/view'
-import { useReducedMotion } from '@/lib/motion/reduced'
-import { EASE_BEZIER, LAB, sec } from '@/lib/motion/tokens'
+import { LAB } from '@/lib/motion/tokens'
 
 export interface ShareLabels {
   title: string
@@ -17,104 +15,96 @@ export interface ShareLabels {
   linkedin: string
 }
 
+/** Nothing changes it, but React reads the snapshot again once subscribed, after hydration. */
+const onceAfterHydration = (changed: () => void) => {
+  queueMicrotask(changed)
+  return () => {}
+}
+/** Whether this browser has a share sheet. Never on the server, so hydration matches the HTML. */
+const useNativeShare = () =>
+  useSyncExternalStore(
+    onceAfterHydration,
+    () => typeof navigator !== 'undefined' && typeof navigator.share === 'function',
+    () => false,
+  )
+
+/** The clipboard, and the old selection trick where the async API is missing or refused. */
+async function copyText(text: string): Promise<boolean> {
+  try {
+    await navigator.clipboard.writeText(text)
+    return true
+  } catch {
+    const ta = document.createElement('textarea')
+    ta.value = text
+    ta.setAttribute('readonly', '')
+    ta.style.cssText = 'position:fixed;top:0;left:0;opacity:0;pointer-events:none'
+    document.body.appendChild(ta)
+    ta.select()
+    let ok = false
+    try {
+      ok = document.execCommand('copy')
+    } catch {
+      ok = false
+    }
+    ta.remove()
+    return ok
+  }
+}
+
 /**
- * Share (decision 7; NEXT.md shortcut 7): one "Share…" button, at the end of every entry and in
- * the rail. It opens the device's own share sheet with the page's canonical URL where the browser
- * has one, and otherwise a small menu of Copy link, X and LinkedIn: plain links that load nothing
- * until pressed. Esc or a press outside closes the menu, and Esc returns focus to the button.
- * "Link copied" crossfades in 140ms and goes back after 1.8s. With JavaScript off only the X and
- * LinkedIn links show, since they work without it.
+ * Share (decision 7, revised 27 Nov): the actions themselves, in one row, at the end of every entry
+ * and in the rail. Copy link, X and LinkedIn always; the device's own "Share…" only where the
+ * browser has `navigator.share`. No menu to open first. X and LinkedIn are plain links that load
+ * nothing until pressed. "Link copied" crossfades in 140ms and goes back after 1.8s. With
+ * JavaScript off only X and LinkedIn show, since they work without it.
  */
 export function Share({ where, url, title, path, labels }: { where: 'end' | 'rail'; url: string; title: string; path: string; labels: ShareLabels }) {
-  const [open, setOpen] = useState(false)
-  const [shown, setShown] = useState(false)
   const [copied, setCopied] = useState(false)
-  const reduced = useReducedMotion()
-  const root = useRef<HTMLDivElement>(null)
-  const btn = useRef<HTMLButtonElement>(null)
+  const native = useNativeShare()
   const timer = useRef<ReturnType<typeof setTimeout>>(undefined)
   const links = shareUrls(url, title)
 
   useEffect(() => () => clearTimeout(timer.current), [])
-  useEffect(() => {
-    if (!open) return
-    const onKey = (e: KeyboardEvent) => {
-      if (e.key !== 'Escape') return
-      setOpen(false)
-      btn.current?.focus()
-    }
-    const onDown = (e: PointerEvent) => {
-      if (!root.current?.contains(e.target as Node)) setOpen(false)
-    }
-    document.addEventListener('keydown', onKey)
-    document.addEventListener('pointerdown', onDown, true)
-    return () => {
-      document.removeEventListener('keydown', onKey)
-      document.removeEventListener('pointerdown', onDown, true)
-    }
-  }, [open])
 
-  const onShare = async () => {
-    if (typeof navigator.share === 'function') {
-      try {
-        await navigator.share({ title, url })
-        track('share', { path, via: 'native' })
-      } catch {
-        /* dismissed */
-      }
-      return
-    }
-    if (!open) setShown(true)
-    setOpen(!open)
-  }
   const onCopy = async () => {
-    try {
-      await navigator.clipboard.writeText(url)
-    } catch {
-      return
-    }
+    if (!(await copyText(url))) return
     track('share', { path, via: 'copy' })
     setCopied(true)
     clearTimeout(timer.current)
     timer.current = setTimeout(() => setCopied(false), LAB.copied.hold)
   }
-  const id = `lab-share-${where}`
-  const lift = reduced ? 0 : -4
+  const onNative = async () => {
+    try {
+      await navigator.share({ title, url })
+      track('share', { path, via: 'native' })
+    } catch {
+      /* dismissed */
+    }
+  }
   return (
-    <div ref={root} className={`lab-share${where === 'end' ? ' lab-share-end' : ' lab-rail-wide'}`} data-share={where}>
+    <div className={`lab-share${where === 'end' ? ' lab-share-end' : ' lab-rail-wide lab-rail-sec'}`} data-share={where} data-rail-section={where === 'rail' ? 'share' : undefined}>
       <h2 className="end-h">{labels.title}</h2>
-      <div className="lab-share-row">
-        <button ref={btn} type="button" className="lab-chip" data-share-open aria-expanded={open} aria-controls={id} onClick={onShare}>
-          {labels.native}
+      <div className="lab-share-row" data-share-row>
+        <button type="button" className="lab-chip" data-share-copy data-needs-js onClick={onCopy}>
+          <span className="lab-copy-word">
+            <span aria-hidden={copied}>{labels.copy}</span>
+            <span aria-hidden={!copied}>{labels.copied}</span>
+          </span>
         </button>
-        <m.div
-          id={id}
-          className="lab-share-menu"
-          data-share-menu
-          hidden={!shown}
-          initial={false}
-          variants={{
-            in: { opacity: 1, x: 0, transition: { duration: sec(LAB.control.in), ease: EASE_BEZIER } },
-            out: { opacity: 0, x: lift, transition: { duration: sec(reduced ? LAB.control.in : LAB.control.out), ease: EASE_BEZIER } },
-          }}
-          animate={open ? 'in' : 'out'}
-          onAnimationComplete={(v) => {
-            if (v === 'out') setShown(false)
-          }}
-        >
-          <button type="button" className="lab-chip" data-share-copy onClick={onCopy} aria-live="polite">
-            <span className="lab-copy-word">
-              <span aria-hidden={copied}>{labels.copy}</span>
-              <span aria-hidden={!copied}>{labels.copied}</span>
-            </span>
+        <a className="lab-chip" data-share-x href={links.x} target="_blank" rel="noopener noreferrer" onClick={() => track('share', { path, via: 'x' })}>
+          {labels.x}
+        </a>
+        <a className="lab-chip" data-share-linkedin href={links.linkedin} target="_blank" rel="noopener noreferrer" onClick={() => track('share', { path, via: 'linkedin' })}>
+          {labels.linkedin}
+        </a>
+        {native ? (
+          <button type="button" className="lab-chip" data-share-native onClick={onNative}>
+            {labels.native}
           </button>
-          <a className="lab-chip" data-share-x href={links.x} target="_blank" rel="noopener noreferrer" onClick={() => track('share', { path, via: 'x' })}>
-            {labels.x}
-          </a>
-          <a className="lab-chip" data-share-linkedin href={links.linkedin} target="_blank" rel="noopener noreferrer" onClick={() => track('share', { path, via: 'linkedin' })}>
-            {labels.linkedin}
-          </a>
-        </m.div>
+        ) : null}
+        <span className="sr" aria-live="polite">
+          {copied ? labels.copied : ''}
+        </span>
       </div>
     </div>
   )

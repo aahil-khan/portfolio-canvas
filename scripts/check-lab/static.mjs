@@ -117,7 +117,8 @@ const hygiene = {
         if (hit) fail.push(`${file} names the demo id "${hit}"; only ${DEMO_CONTENT}/ may`)
       }
 
-    // at most three font families on a Lab page
+    // at most three font families on a Lab page, besides the reader's serif (Aa), which may be declared
+    // but never preloaded: a browser fetches it only once a reader picks it (rule 13 watches that)
     const pages = await labPages(ctx)
     if (!pages.length) notes.push('no Lab page answers 200 yet, so there are no font families to count')
     const cssCache = new Map()
@@ -126,9 +127,17 @@ const hygiene = {
       const families = new Set()
       for (const h of hrefs) {
         if (!cssCache.has(h)) cssCache.set(h, (await ctx.get(h)).text)
-        for (const m of cssCache.get(h).matchAll(/@font-face\s*{[^}]*font-family:\s*['"]?([^;'"}]+)/g)) families.add(m[1].replace(/ Fallback$/, '').trim())
+        // a face whose src is only local() downloads nothing: a size-adjusted stand-in, not a family
+        for (const m of cssCache.get(h).matchAll(/@font-face\s*{([^}]*)}/g)) {
+          const fam = m[1].match(/font-family:\s*['"]?([^;'"}]+)/)?.[1]
+          if (fam && /url\(/.test(m[1])) families.add(fam.replace(/ Fallback$/, '').trim())
+        }
       }
+      const serif = [...families].filter((f) => /literata/i.test(f))
+      for (const f of serif) families.delete(f)
       if (families.size > 3) fail.push(`${p.path} loads ${families.size} font families (${[...families].join(', ')}); at most 3`)
+      const preloads = [...p.html.matchAll(/<link[^>]+rel="preload"[^>]*>/g)].map((m) => m[0]).filter((l) => /literata/i.test(l))
+      if (preloads.length) fail.push(`${p.path} preloads the reading serif (${preloads[0].slice(0, 120)}); it loads only once chosen`)
     }
     return { fail, notes }
   },

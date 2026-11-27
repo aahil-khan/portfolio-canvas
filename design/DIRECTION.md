@@ -90,7 +90,7 @@ Every theme **must** define all of the tokens above. `--border` is a *token*, ne
 is per-theme too, because whether text on the accent should be light or dark flips between them.
 
 `scripts/check-contrast.mjs` enforces ≥ 4.5:1 for every `--ink*` on every `--surface*` (and
-`--raised`), in every theme, the Lab theme's two palettes included: 20 in all. It reads computed
+`--raised`), in every theme, the Lab's two palettes included: 20 in all. It reads computed
 colours off the live page in the server's cached Chromium, and it **fails when it finds no
 browser** rather than skipping (`CONTRAST_SKIP=1` is the one deliberate way past). Do not eyeball
 this — 20 themes is far past what eyes catch, and the last build shipped a token at 4.23:1.
@@ -186,28 +186,34 @@ value below is from that mockup's `lab.css` or from `prototype/lab-v2b/NEXT.md`,
 Aahil's decisions of 27 Nov. The code copies are `content/themes.ts` (colour) and
 `lib/motion/tokens.ts` (motion). The contract between PRs is `content/lab/API.md`.
 
-### Two looks
+### Themes (revised 27 Nov)
 
-| Look | What it is | Palette | Who owns it |
-|---|---|---|---|
-| **Paper** (default) | The site's own theme, whichever of the 18 `canvas.theme` holds. The Lab keeps no theme of its own: the mockup's `lab.theme` key is gone. | the theme's tokens | `lib/theme.ts` |
-| **Lab theme** | The same layout in a richer palette, Light or Dark. It keeps the window language: the 2px `--border` frame and a zero-blur offset on every box, window, card, figure and menu, title bars, 12px radii. | `lab-light`, `lab-dark` | `lib/lab/look.ts` |
+Aahil, 27 Nov, on the first build's "Paper | Lab theme" switch and its separate light/dark button:
+"bring out all themes that the main site has and a picker like that too … keep lab dark as
+default". So the Lab has **one theme picker**, like the canvas's Themes window: Light and Dark
+groups with a swatch each, holding the site's 18 and the Lab's two palettes, Lab Light and Lab
+Dark, 20 in all, the Lab's own first in each group. A desktop popover under the bar; on a phone a
+sheet.
 
-The Lab theme's palettes are **Lab-only**. They are `labThemes` in `content/themes.ts`, apart from the
-site's `themes`, so the canvas's Themes window, its dock menu, the command palette, the terminal
-and `/`'s toggle still list exactly 18 and cannot list them by mistake. `allThemes` (20) is read
-only by `themeCss()` and the contrast check. While the Lab theme is on, `data-theme` names its palette
-and `canvas.theme` is left alone.
+- **The Lab keeps its own choice** (`lab.theme`, `lib/lab/look.ts`), **Lab Dark by default** whatever
+  the system prefers. It never reads or writes `canvas.theme`: picking a theme in the Lab changes
+  nothing on `/` or the canvas, and picking one there changes nothing here.
+- **The Lab's palettes stay Lab-only.** They are `labThemes` in `content/themes.ts`, apart from the
+  site's `themes`, so the canvas's Themes window, its dock menu, the command palette, the terminal
+  and `/`'s toggle still list exactly 18 and cannot list them by mistake. `allThemes` (20) is read
+  by `themeCss()`, the contrast check and the Lab's picker.
+- **Every theme keeps the frame language.** One geometry under all 20, so a theme change moves
+  nothing: the 2px `--border` frame and a zero-blur offset on every box, window, card, figure and
+  panel, title bars, 12px radii (rule K). A site theme draws its rules as the border at 2px
+  (`--rule-w: 2px`); a Lab palette draws a 1px `--hair` inside the same edge.
+- A theme change crossfades colours in 320ms. With JavaScript off the Lab is Lab Dark.
 
-The Lab theme's first mode is **Dark**, unless the system prefers light. Switching between the looks
-moves nothing: both draw the same 2px edge, and the Lab theme draws its 1px hairline inside it.
-
-| Lab theme token | Light | Dark |
+| Lab palette token | Light | Dark |
 |---|---|---|
 | `--canvas-base` | `#FAFAF7` | `#0B0B0A` |
 | `--surface` | `#FFFFFF` | `#131311` |
 | `--raised` | `#F3F2EE` | `#1B1A17` |
-| `--ink` / `--ink-muted` / `--ink-subtle` | `#141413` / .70 / .60 | `#EEECE5` / .66 / .54 |
+| `--ink` / `--ink-muted` / `--ink-subtle` | `#141413` / .70 / .60 | `#EEECE5` / .66 / .54 (lifted in the Lab, below) |
 | `--border` | `#262520`, a warm near-black | **`#7F6C45`, brass** (decision 3: "pick brass") |
 | `--shadow-ink` | `#B9B4A6`, a softer warm stone | **`#7F6C45`**: frame and offset are one colour, as on the canvas |
 | `--hair` | `rgba(20,20,19,.10)` | `rgba(238,236,229,.08)` |
@@ -216,23 +222,48 @@ moves nothing: both draw the same 2px edge, and the Lab theme draws its 1px hair
 | `--trail` | `#FACC00` | `rgba(238,236,229,.66)` |
 | `--canvas-grid` | `transparent` | `transparent` |
 
-The look-level constants the Lab theme adds in the Lab's CSS, not in `themes.ts` because no other surface
+The constants a Lab palette adds in the Lab's CSS, not in `themes.ts` because no other surface
 needs them:
 
 | Constant | Light | Dark | Used for |
 |---|---|---|---|
-| `--border-strong` | `rgba(20,20,19,.18)` | `rgba(238,236,229,.18)` | control hover rings, the bar's edge in Dark |
+| `--border-strong` | `rgba(20,20,19,.18)` | `rgba(238,236,229,.18)` | control hover rings and quiet control edges |
 | `--highlight` | `rgba(255,255,255,.9)` | `rgba(255,255,255,.05)` | the 1px inset top light on boxes |
 | `--tb-tint` | 16% | 9% | accent mixed into title bars |
 | `--focus` | `#141413` (yellow in Light is a fill, never a line) | `#F5C518` | the focus ring |
 
-Paper's title bar is `color-mix(--accent 25%, --surface)`, 12% on dark themes. Paper rules are the
-border at 2px (`--rule-w: 2px`); the Lab theme's are `--hair` at 1px.
+A site theme's title bar is `color-mix(--accent 25%, --surface)`, 12% on dark themes.
+
+### Contrast on dark grounds (27 Nov)
+
+"Dark mode lacks contrast in places making stuff difficult to read." A dark theme's ink tiers are
+tuned for the canvas's windows, where 4.5:1 is the bar; a page of reading needs more. Inside the
+Lab, and only there, every dark palette (the 13 site themes and Lab Dark) is lifted to:
+
+| Text | Token | At least |
+|---|---|---|
+| Body | `--ink` | **10:1** on the page |
+| Secondary: meta, captions, the rail, references | `--ink-muted` | **7:1** on the page, a box and a panel |
+| The smallest labels | `--ink-subtle` | **5.5:1** likewise |
+| A rule that carries meaning, a border | `--rule` (the frame's colour) | **3:1** against its ground |
+
+A tier that already passes keeps its theme's colour; otherwise ink mixes toward white and the
+lower tiers toward the lifted ink, by the smallest step that passes (`lib/lab/ink.ts`, which the
+Lab layout renders as CSS). Lab Dark's muted ink lands at `#BAB9B3`, its subtle at `#A6A59F`.
+Light themes keep their own tiers. The check holds every number (rules 16 and 17).
+
+**Rules that carry meaning** (a quote's edge, the pull-quote, an aside, "What I'd do now") are drawn
+in `--rule`, the frame's colour, never the hairline: in Lab Dark the hairline was 1.2:1, and the
+pull-quote's rule vanished but for its 48px of accent. Rules that only separate rows stay `--hair`.
+
+**Scrollbars**, on `/lab` only: thin, the thumb `color-mix(--ink 50%, --canvas-base)` on the page's
+ground or a transparent track, ≥ 3:1 thumb against track in every theme. `scrollbar-color` plus the
+`::-webkit-scrollbar` pseudo-elements for Safari.
 
 ### Tokens
 
-Five tokens join every theme (`content/themes.ts`). The Lab theme states them outright (above). The site's
-18 derive them by one rule, written once in `withLabTokens`:
+Five tokens join every theme (`content/themes.ts`). The Lab's palettes state them outright (above). The
+site's 18 derive them by one rule, written once in `withLabTokens`:
 
 | Token | CSS | Light site theme | Dark site theme | For |
 |---|---|---|---|---|
@@ -242,61 +273,102 @@ Five tokens join every theme (`content/themes.ts`). The Lab theme states them ou
 | `hair` | `--hair` | `--border` | `--border` | the rule between rows |
 | `mark` | `--mark` | `color-mix(accent 70%, surface)` | the accent | `<mark>` and selections, under `--accent-ink` |
 
-**The trail** (NEXT shortcut 12, decision 13) is visible in every look. On a dark ground it is a
+**The trail** (NEXT shortcut 12, decision 13) is visible in every theme. On a dark ground it is a
 2px line of its own under the bar, filling from the left to the dot, so it is held to **3:1 against
-the bar's ground** (`--canvas-base`). On a light ground (Paper light themes, Lab theme Light) the bar's edge is
-ink, so the trail is the accent, **4px, laid over that edge** (`bottom: -3px`), and read as the edge
+the bar's ground** (`--canvas-base`). On a light ground (the light site themes, Lab Light) the bar's edge
+is ink, so the trail is the accent, **4px, laid over that edge** (`bottom: -3px`), and read as the edge
 changing colour; there it is held to **3:1 against the edge** (`--border`). The contrast check
 measures both. `--accent-ink` must reach 4.5:1 on `--mark` too.
 
 ### Type
 
-Three families on a Lab page, at most. Space Grotesk is preloaded; the other two are
-`display: optional`, so they never delay the first paint.
+Three families on a Lab page, at most, unless the reader picks a fourth for the text (Aa, below).
+Space Grotesk and Caveat are preloaded; Space Mono is `display: optional`. **Caveat swaps in**
+(`display: swap`, its small Latin subset preloaded): as `optional` it often missed a first visit's
+window, and every date then rendered as 22px of sans beside 13px meta (27 Nov). While it loads,
+`'Lab Hand Fallback'` stands in: a local sans at `size-adjust: 62%`, so a date reads at about the
+meta size, never as big sans.
 
 | Family | Weight | Only in |
 |---|---|---|
-| Space Grotesk | 400 / 500 / 700 | everything else |
+| Space Grotesk | 400 / 500 / 700 | everything else, and the reading text by default |
 | Space Mono | 400 | `pre, code, kbd, [data-tool-log], [data-num]` |
 | Caveat | 500 | `time, [data-annot], [data-dot]`, never more than 8 words |
+| Literata (Aa: Serif) | 200–900, roman and italic | the reading text, once a reader picks it. Declared, never preloaded, so it is fetched only then |
+| the system's sans (Aa: System) | — | the reading text, once a reader picks it |
+
+**The reading text** is an entry's title, sub-line, lead intro and column. The chrome around it (the
+bar, the rail, chips, end headings) stays Space Grotesk in every setting.
 
 | Token | Value | Role |
 |---|---|---|
 | `--lab-fs-hero` | `clamp(3rem, 9vw, 7rem)` | a section page's title, the only hero |
-| `--lab-fs-num` | `clamp(4.5rem, 12vw, 9rem)` | a chapter's faint big number |
+| `--lab-fs-num` | `clamp(4.5rem, 12vw, 9rem)` | a chapter's faint big number, beside the title: the title leaves it `1.3 × --lab-fs-num` of room, and below 768px (no room) it is dropped, since the picker above says "05 of 08" |
 | `--lab-fs-title` | `clamp(2.5rem, 5.2vw, 4rem)` | the home's and an entry's title. A 2.5rem floor keeps title ÷ meta ≥ 3 on a phone |
-| `--lab-fs-h2` | `clamp(1.375rem, 2.2vw, 1.75rem)` | in-body h2, band titles |
-| `--lab-fs-lede` | `clamp(1.1875rem, 1.6vw, 1.375rem)` | ledes, quotes, an essay's opening |
+| `--lab-fs-h2` | `max(clamp(1.375rem, 2.2vw, 1.75rem), body × 1.3)` | in-body h2, band titles |
+| `--lab-fs-lede` | `max(clamp(1.1875rem, 1.6vw, 1.375rem), body × 1.15)` | ledes, quotes, an essay's opening |
 | `--lab-fs-pull` | `var(--lab-fs-lede)` | the pull-quote, **at the lede's size**, never display size (decision 5: "the quotes are too big") |
-| `--lab-fs-body` | `1.0625rem` (17px); Aa offers 16px and 19px | body |
-| `--lab-lh-body` | `1.75` | body line height (rule 13: ≥ 1.7 on desktop) |
-| `--lab-fs-meta` | `.8125rem` (13px) | meta, chips, the rail, references |
-| `--lab-fs-hand` | `1.375rem` | Caveat at 500: 22px reads like 17px of Space Grotesk |
-| `--lab-fs-code` | `.8125rem` | code |
+| `--lab-fs-body` | `1.0625rem` (17px); Aa sets 14–22px | body |
+| `--lab-lh-body` | `1.75`; Aa: tight `1.55`, relaxed `1.95` (`1.65` normal on a phone) | body line height (rule 13: ≥ 1.7 on desktop by default) |
+| `--lab-fs-meta` | `max(.8125rem, body × .765)`: 13px up to a 17px body | meta, chips, the rail, references |
+| `--lab-fs-hand` | `max(1.375rem, body × 1.294)` | Caveat at 500: 22px reads like 17px of Space Grotesk |
+| `--lab-fs-code` | `var(--lab-fs-meta)` | code |
 
-Rule 8 holds the page to ≤ 6 sizes, largest ÷ smallest ≥ 3, smallest ≥ 13px, ≤ 2 sizes in 13–17px.
+The steps above the body follow it, so the hierarchy holds at every size Aa offers: the meta never
+drops under 13px, h2 and the lede stay above the body. Rule 8 holds the default page to ≤ 6 sizes,
+largest ÷ smallest ≥ 3, smallest ≥ 13px, ≤ 2 sizes in 13–17px, and at 14px and 22px checks that
+the hierarchy holds and nothing is under 13px.
+
+### Reader settings (Aa, 27 Nov)
+
+"Font should be configurable not only 3 options … line length should be configurable with options
+like keep stuff centre aligned (it will move right panel down) vs this layout option." Aa is a
+panel under the bar (a sheet on a phone). Every setting is remembered (`lab.aa`) and applied before
+first paint; Reset returns all of them to the defaults.
+
+| Setting | Options | Default |
+|---|---|---|
+| Text size | 14–22px, in 1px steps, − and + around the value | 17px |
+| Font | Sans (Space Grotesk), Serif (Literata), System (the device's sans) | Sans |
+| Line spacing | Tight, Normal, Relaxed | Normal |
+| Line length | Narrow ≈ 62ch (`32em`), Comfortable ≈ 72ch (`37em`), Wide ≈ 96ch (`47.5em`) | Wide |
+| Layout | Side panel (the column and the rail), Centred (the column alone, the rail after the text) | Side panel |
+
+Line length is offered from 700px and Layout from 1200px, the widths where each changes anything.
+The measure is in ems of Space Grotesk, rescaled by each font's character width (`--lab-cw`: 1,
+.979 for Literata, 1.046 for the system sans, measured on body text), so each length holds its
+character count in every font.
 
 ### Layout
 
 | Token | Value | Note |
 |---|---|---|
-| `--lab-measure` | `47.5em`, about **96ch** of Space Grotesk at 17px | the wide measure (approved with the mockup) |
+| `--lab-measure` | `47.5em`, about **96ch** of Space Grotesk at 17px | Wide, the default (approved with the mockup) |
 | Comfortable (Aa) | `37em`, about **72ch** | `data-aa-measure="comfortable"` |
+| Narrow (Aa) | `32em`, about **62ch** | `data-aa-measure="narrow"` |
 | `--lab-bar-h` | `56px` | the fixed bar |
 | `--lab-pad` | `24px` | page side padding |
 | `--lab-gutter` | `48px` | between the column and the rail or margin |
-| `--lab-rail` | **`272px`, from 1200px** (decision 6) | On this page, Share, Links to this page, Related |
+| `--lab-rail` | **`272px`, from 1200px** (decision 6) | On this page, Share, Links to this page, Related, Tags |
 | `--lab-margin-col` | `280px`, from 1440px | sidenotes' margin on list pages |
-| `--lab-edge` | `2px` | every box's edge, in both looks |
+| `--lab-edge` | `2px` | every box's edge, in every theme |
 
-- **The rail** (decision 6, shortcut 5). From 1200px an entry is two columns, column plus rail,
-  **centred together** (decision 8; rule C: |left gap − right gap| ≤ 24px at 1440 and 1920). The
-  rail is sticky at `top: calc(--lab-bar-h + 24px)`, at most `100vh − bar − 48px` tall, and scrolls
-  on its own when taller. **It appears after the first scroll**: hidden until the reader has
-  scrolled a quarter of a screen (an IntersectionObserver sentinel at `0.25 × innerHeight`), so a
-  short entry's first screen stays within rules 5 and 7. Aahil confirmed this on 27 Nov, answering
-  the plan's open question 2. Below 1200px the rail is a block after the text, without On this
-  page or its copy of Share. On entries, sidenotes and the pull-quote sit in the text column.
+- **The rail** (decision 6, revised 27 Nov). From 1200px, in the Side panel layout, an entry is two
+  columns, column plus rail, **centred together** (decision 8; rule C: |left gap − right gap| ≤
+  24px at 1440 and 1920). **It is there from the first screen.** The first build hid it until a
+  quarter screen of scroll; Aahil, seeing it: "the hidden right panel until scroll down doesn't
+  make sense". Rules 5 and 7 count the reading column and the bar, not the rail beside them.
+- **The rail never scrolls as one block** ("right panel having scroll bar as a whole is
+  irritating, rather break down into sections"). Its box is sticky at
+  `top: calc(--lab-bar-h + 24px)`, `min(100vh − bar − 48px, the text's height)` tall. Each section
+  (On this page, Share, Links to this page, Related, Tags) keeps its heading and scrolls its own
+  list. The sections share the height: each gets its content's height while all fit, and past that
+  the room is shared out evenly (grid rows of `minmax(0, max-content)`), so a short section never
+  scrolls because a long one is long. A list that continues fades at that edge. Related holds up to
+  eight entries.
+- **Centred** (Aa → Layout): the column alone, centred on the page, and the rail a block after the
+  text, as below 1200px. Below 1200px the rail is a block after the text, without On this page or
+  its copy of Share. On entries, sidenotes and the pull-quote sit in the text column.
 - **On this page** marks the heading being read: an IntersectionObserver, with the accent bar
   (`inset 2px 0 0 --accent`) sliding between headings.
 - **Home and section pages** centre at 1440 and 1920 already.
@@ -332,10 +404,10 @@ One easing, `cubic-bezier(0.16, 1, 0.3, 1)`. Durations are milliseconds. From NE
 | A page change | scroll to the top first, never animated; then the column fades and rises 8px over 240ms. The bar and the rail don't move |
 | Home band rows | a 30ms stagger, the first time each band enters the viewport, once a visit |
 | On this page's accent bar | 180ms transform between headings |
-| The rail appearing / hiding | 240ms / 160ms opacity |
+| The theme picker and Aa opening / closing | as a window: 180ms, rising 6px, opacity over the first 120ms / 120ms, 4px down |
 | "Link copied" | 140ms crossfade; returns after 1.8s |
 | Leads drawing on first view | 450ms, 30ms stagger |
-| Look and light/dark switches | 320ms colour crossfade |
+| A theme change | 320ms colour crossfade |
 | The bar sliding away | 280ms |
 | The reading dot | follows in 320ms; blinks every 4.2s; falls asleep after 20s still |
 | The name's tooltip | 140ms opacity, 180ms transform |
@@ -351,7 +423,9 @@ owner, never `reducedMotion="user"`, so the query is not read twice. No hover so
 Progress is the body's own: `p = clamp((scrollY − bodyTop) / (bodyHeight − innerHeight), 0, 1)`,
 where the body ends at `[data-body-end]`, before References (shortcut 1). Finishing the text fills
 the trail exactly. The trail is `transform: scaleX(p)` on a full-width element, never a width, and
-the dot rides its end. The dot (22px) is ink-outlined; in the Lab theme's Dark its outline is ink at 85%, 1.75px,
+the dot rides its end. **The bar's bottom edge is drawn from the first frame** in every theme, the
+frame's colour (`--border`) at the rule's width, so at `p = 0` the dot sits on a line rather than
+floating under the bar's words (27 Nov). The dot (22px) is ink-outlined; in Lab Dark its outline is ink at 85%, 1.75px,
 filled `--raised`. The footer hop happens only once `p = 1`. Chapter ticks are 14×6px,
 `--ink` at 18% on light grounds and **34% on dark ones** (decision 13), the current one filled
 `--accent`.
@@ -368,7 +442,8 @@ in API.md, "Demo mode".
 ### Open questions, answered (27 Nov)
 
 - The essays keep names as published. No value.
-- **The rail appears after the first scroll** (above, Layout).
+- ~~The rail appears after the first scroll~~: overturned the same day, once Aahil saw it. The rail
+  is there from the first screen (above, Layout).
 - The Lab goes live without Tracks. No value until Aahil approves a list.
 
 ## Non-negotiables

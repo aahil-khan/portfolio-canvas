@@ -69,11 +69,12 @@ const WIDTHS = [
   { width: 1440, height: 900 },
   { width: 1920, height: 1080 },
 ]
+/** Lab Dark first: it is the default, and rules that take one look take the first. */
 const LOOKS = [
-  { name: 'paper/cream', query: 'look=paper&theme=cream' },
-  { name: 'paper/tokyo-night', query: 'look=paper&theme=tokyo-night' },
-  { name: 'lab/light', query: 'look=lab&mode=light' },
-  { name: 'lab/dark', query: 'look=lab&mode=dark' },
+  { name: 'lab-dark', query: 'theme=lab-dark' },
+  { name: 'lab-light', query: 'theme=lab-light' },
+  { name: 'cream', query: 'theme=cream' },
+  { name: 'tokyo-night', query: 'theme=tokyo-night' },
 ]
 
 function parseArgs(argv) {

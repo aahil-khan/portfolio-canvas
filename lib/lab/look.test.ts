@@ -44,58 +44,70 @@ function boot({ stored = {}, search = '', prefersLight = false, siteTheme = 'cre
   return { ...dataset, writes } as Record<string, string> & { writes: string[] }
 }
 
-test('a first visit is Paper, in the site theme it already has', () => {
-  assert.deepEqual(boot({ siteTheme: 'gruvbox-dark' }), {
-    theme: 'gruvbox-dark', look: 'paper', mode: 'dark', paperTheme: 'gruvbox-dark', dark: '1',
-    aaMeasure: 'wide', aaSize: '17', writes: [],
+test('a first visit is Lab Dark, whatever the site theme or the system prefers', () => {
+  assert.deepEqual(boot({ siteTheme: 'gruvbox-light', prefersLight: true }), {
+    theme: 'lab-dark', look: 'lab', dark: '1',
+    aaSize: '17', aaFont: 'grotesk', aaLeading: 'normal', aaMeasure: 'wide', aaLayout: 'side', writes: [],
   })
 })
 
-test("the Lab theme shows its own palette and keeps the reader's site theme beside it", () => {
-  const d = boot({ stored: { 'lab.look': 'lab' }, siteTheme: 'latte' })
+test('the stored theme can be any of the 20, and only those', () => {
+  assert.equal(boot({ stored: { 'lab.theme': 'nord' } }).theme, 'nord')
+  assert.equal(boot({ stored: { 'lab.theme': 'nord' } }).look, 'paper')
+  assert.equal(boot({ stored: { 'lab.theme': 'lab-light' } }).dark, '0')
+  assert.equal(boot({ stored: { 'lab.theme': 'solarized-light' } }).look, 'paper')
+  assert.equal(boot({ stored: { 'lab.theme': 'not-a-theme' } }).theme, 'lab-dark')
+})
+
+test("the Lab's theme never follows or writes canvas.theme", () => {
+  const d = boot({ stored: { 'canvas.theme': 'dracula' }, siteTheme: 'dracula' })
   assert.equal(d.theme, 'lab-dark')
-  assert.equal(d.paperTheme, 'latte')
-  assert.equal(d.dark, '1')
+  assert.deepEqual(d.writes, [])
 })
 
-test("the Lab theme's first mode is Dark, unless the system prefers light", () => {
-  assert.equal(boot({ stored: { 'lab.look': 'lab' }, prefersLight: true }).theme, 'lab-light')
-  assert.equal(boot({ stored: { 'lab.look': 'lab', 'lab.mode': 'dark' }, prefersLight: true }).theme, 'lab-dark')
+test('?theme= overrides for one visit and is never saved', () => {
+  const d = boot({ search: '?theme=lab-light', stored: { 'lab.theme': 'nord' } })
+  assert.equal(d.theme, 'lab-light')
+  assert.equal(d.dark, '0')
+  assert.deepEqual(d.writes, [])
+  assert.equal(boot({ search: '?theme=tokyo-night' }).theme, 'tokyo-night')
+  assert.equal(boot({ search: '?theme=nope', stored: { 'lab.theme': 'cream' } }).theme, 'cream')
 })
 
-test('query parameters override for one visit and are never saved', () => {
-  const lab = boot({ search: '?look=lab&mode=light' })
-  assert.equal(lab.theme, 'lab-light')
-  assert.equal(lab.dark, '0')
-  assert.deepEqual(lab.writes, [])
-  assert.equal(boot({ search: '?mode=dark' }).theme, 'tokyo-night')
-  assert.equal(boot({ search: '?theme=nord' }).theme, 'nord')
-  assert.equal(boot({ search: '?theme=lab-dark' }).theme, 'cream', 'a Lab palette is not a Paper theme')
-})
-
-test('Aa is read from storage, and a bad value falls back to the default', () => {
-  const d = boot({ stored: { 'lab.aa': '{"measure":"comfortable","size":19}' } })
-  assert.equal(d.aaMeasure, 'comfortable')
-  assert.equal(d.aaSize, '19')
-  assert.equal(boot({ stored: { 'lab.aa': '{"size":42}' } }).aaSize, '17')
+test('reader settings are read from storage, and a bad value falls back to its default', () => {
+  const d = boot({ stored: { 'lab.aa': '{"size":21,"font":"serif","leading":"relaxed","measure":"narrow","layout":"centred"}' } })
+  assert.deepEqual([d.aaSize, d.aaFont, d.aaLeading, d.aaMeasure, d.aaLayout], ['21', 'serif', 'relaxed', 'narrow', 'centred'])
+  const bad = boot({ stored: { 'lab.aa': '{"size":23,"font":"comic","leading":2,"measure":"huge","layout":"left"}' } })
+  assert.deepEqual([bad.aaSize, bad.aaFont, bad.aaLeading, bad.aaMeasure, bad.aaLayout], ['17', 'grotesk', 'normal', 'wide', 'side'])
+  assert.equal(boot({ stored: { 'lab.aa': '{"size":16.5}' } }).aaSize, '17')
+  assert.equal(boot({ stored: { 'lab.aa': '{"size":14}' } }).aaSize, '14')
   assert.equal(boot({ stored: { 'lab.aa': 'not json' } }).aaMeasure, 'wide')
+})
+
+test('cleanAa agrees with the boot script', () => {
+  assert.deepEqual(look.cleanAa({ size: '22', font: 'system' }), { ...look.DEFAULT_AA, size: 22, font: 'system' })
+  assert.deepEqual(look.cleanAa(null), look.DEFAULT_AA)
+  assert.ok(look.isDefaultAa(look.cleanAa({})))
+  assert.ok(!look.isDefaultAa(look.cleanAa({ layout: 'centred' })))
 })
 
 test('the server snapshot is fixed, so hydration always matches the HTML', () => {
   const s = look.getLookServerSnapshot()
   assert.equal(s, look.getLookServerSnapshot())
-  assert.deepEqual(s, { look: 'paper', mode: 'dark', theme: 'cream', paperTheme: 'cream', dark: false, aa: { measure: 'wide', size: 17 } })
+  assert.deepEqual(s, { theme: 'lab-dark', look: 'lab', dark: true, aa: { size: 17, font: 'grotesk', leading: 'normal', measure: 'wide', layout: 'side' } })
   assert.ok(Object.isFrozen(s))
 })
 
 test('the client snapshot is stable until <html> changes', () => {
-  const dataset: Record<string, string> = { look: 'lab', mode: 'light', theme: 'lab-light', paperTheme: 'nord', dark: '0', aaMeasure: 'wide', aaSize: '16' }
+  const dataset: Record<string, string> = { theme: 'nord', look: 'paper', dark: '1', aaSize: '16', aaFont: 'serif', aaLeading: 'tight', aaMeasure: 'comfortable', aaLayout: 'side' }
   const g = globalThis as { document?: unknown }
   g.document = { documentElement: { dataset } }
   try {
     const a = look.getLookSnapshot()
     assert.equal(a, look.getLookSnapshot())
     assert.equal(a.aa.size, 16)
+    assert.equal(a.look, 'paper')
+    assert.equal(a.dark, true)
     dataset.aaSize = '19'
     const b = look.getLookSnapshot()
     assert.notEqual(a, b)

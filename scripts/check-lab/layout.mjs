@@ -8,9 +8,11 @@
  * Speed: ONE pass per (route, width, look) loads each built route once and measures everything in
  * a single `page.evaluate` (MEASURE below). Rules 5–14, C, U, D, R, 15, 16/17 (in part), 21 and A
  * are derived from that pass, cached at module level, so whichever of them runs first pays for it.
- * Separate loads: 13's measure (chapter 05), 16's sweep of the other Paper themes (sampled
- * routes, 390 and 1440), 18 (every route, 390 and 1440), K (sampled routes, the Lab theme, 1440)
- * and 19 (every route, 1440, reduced motion).
+ * A "look" is a theme, opened with `?theme=<id>` (lib/lab/look.ts); the matrix's four are Lab Dark
+ * (the default), Lab Light, cream and tokyo-night. Separate loads: 8's extremes and 13's reader
+ * settings (chapter 05), 16's sweep of the other site themes (sampled routes, 390 and 1440), 18
+ * (every route, 390 and 1440), K (sampled routes in every look, and every other theme on chapter
+ * 05, 1440) and 19 (every route, 1440, reduced motion).
  *
  * Routes: every route of `ctx.lab.routes` that answers 200 (probed once, cached). Every `entry`
  * route must answer 200; until any does, these rules report "not built".
@@ -21,23 +23,24 @@
  *   [data-body-end]              empty marker after the body, before References
  *   [data-lead]                  exactly one per entry
  *   [data-column]                an entry's reading column
- *   [data-rail]                  ≥1200px a sticky second column (`data-waiting`, opacity 0, until a
- *                                quarter screen is scrolled); below, a block after the text
+ *   [data-rail]                  ≥1200px in the Side panel layout, a second column there from the
+ *                                first screen ([data-rail-in] sticky; each [data-rail-section] scrolls
+ *                                its own [data-rail-list]); below 1200px or Centred, a block after the text
  *   [data-toc]                   On this page: `a[href^="#s-"]`, `aria-current="location"`;
  *                                [data-toc-bar] the sliding accent bar
  *   [data-backlinks], [data-related]   inside the rail; Related has ≥1 `a`
  *   [data-tool-log], [data-num]  Space Mono;   [data-annot], time[datetime], [data-dot]  Caveat
  *   [data-demo-marker]           the demo marker, in the bar
  *   a[data-preview]              links that preview
- *   header[data-bar]             the fixed bar, 56px: [data-look-switch] with
- *                                button[data-look-option="paper"|"lab"][aria-pressed]; on phones
- *                                (≤760px) button[data-look-toggle] instead; button[data-aa]
- *                                (aria-expanded) → [data-aa-panel]; button[data-dark-toggle]
+ *   header[data-bar]             the fixed bar, 56px: button[data-theme-open] (aria-expanded) →
+ *                                [data-theme-panel] with 20 button[data-theme-option="<id>"][aria-pressed];
+ *                                button[data-aa] → [data-aa-panel] (the reader settings); each panel
+ *                                a popover, or a sheet at ≤760px with button[data-panel-close]
  *   [data-trail]                 full-width, computed transform scaleX(p)
  *   [data-reading-dot]           the dot; `data-in-footer` once it hopped into the footer
  *   main[data-lab-main]          the page's main
- *   [data-share="end"|"rail"]    button[data-share-open][aria-expanded] → [data-share-menu][hidden]
- *                                with button[data-share-copy], a[data-share-x], a[data-share-linkedin]
+ *   [data-share="end"|"rail"]    a row: button[data-share-copy], a[data-share-x], a[data-share-linkedin],
+ *                                and button[data-share-native] only where navigator.share exists
  *   details[data-picker]         chapters: summary + [data-picker-panel]
  *   footer[data-footer]          [data-clock], [data-build]
  *   [data-ending], [data-refs] (li[id^="ref-"]), [data-pull], aside[data-side]
@@ -127,7 +130,8 @@ export function sampleRoutes(routes, quick = false) {
   return quick ? uniq.slice(0, 2) : uniq
 }
 
-export const isLabLook = (look) => /(^|&)look=lab(&|$)/.test(look.query)
+/** A look that is one of the Lab's two palettes (rule 17); the others are site themes (rule 16). */
+export const isLabLook = (look) => /(^|&)theme=lab-/.test(look.query)
 export const heightOf = (ctx, width) => ctx.widths.find((w) => w.width === width)?.height ?? { 390: 844, 768: 1024, 1024: 768, 1440: 900, 1920: 1080 }[width] ?? 900
 export const tagOf = (route, width, look) => `${route.path} @${width}${look ? ` ${look.name}` : ''}`
 
@@ -189,12 +193,12 @@ function installHelpers() {
     return (Math.max(x, y) + 0.05) / (Math.min(x, y) + 0.05)
   }
   const near = (a, b, tol = 14) => Math.abs(a[0] - b[0]) + Math.abs(a[1] - b[1]) + Math.abs(a[2] - b[2]) < tol
-  /** A CSS colour expression (e.g. `var(--ink)`), resolved on <body>. */
+  /** A CSS colour expression (e.g. `var(--ink)`), resolved inside the Lab (whose dark inks are lifted). */
   const resolve = (expr) => {
     const d = document.createElement('i')
     d.style.color = expr
     d.style.position = 'absolute'
-    document.body.appendChild(d)
+    ;(document.querySelector('[data-lab]') || document.body).appendChild(d)
     const c = parse(getComputedStyle(d).color)
     d.remove()
     return c
@@ -330,7 +334,12 @@ function MEASURE(opts) {
   const vis = (el) => L.visible(el, memo)
   const vh = innerHeight
   const vw = document.documentElement.clientWidth
-  const out = { controls: 0, small: [], glyphs: 0, arrows: 0, chrome: 0, body: 0, sizes: {}, contrast: [], mono: [], hand: [], colour: [], underline: [], splitDates: [] }
+  const out = { controls: 0, small: [], glyphs: 0, arrows: 0, chrome: 0, body: 0, sizes: {}, contrast: [], rules: [], mono: [], hand: [], colour: [], underline: [], splitDates: [] }
+  // From 1200px in the Side panel layout the rail is a column of its own beside the text, there from
+  // the first screen (decision 6, revised 27 Nov). It is navigation a reader looks across to, not
+  // chrome inside the reading column, so rules 5 and 7 count the column and the bar without it.
+  const railBeside = matchMedia('(min-width: 1200px)').matches && document.documentElement.dataset.aaLayout !== 'centred'
+  const inRail = (el) => railBeside && !!el.closest('[data-rail]')
 
   const texts = []
   const tw = document.createTreeWalker(document.body, NodeFilter.SHOW_TEXT)
@@ -357,6 +366,7 @@ function MEASURE(opts) {
     for (const c of document.querySelectorAll('a[href],button,input,select,textarea,summary,[tabindex]:not([tabindex="-1"])')) {
       if (!vis(c)) continue
       if (runningLink(c)) continue // a link in running text is reading, not chrome
+      if (inRail(c)) continue
       const r = c.getBoundingClientRect()
       if (r.width === 0 || r.bottom <= 0 || r.top >= vh) continue
       out.controls += 1
@@ -370,6 +380,23 @@ function MEASURE(opts) {
   const ARROWS = /[→←↗]/g
   const tokenNames = ['--ink', '--ink-muted', '--ink-subtle', '--accent', '--accent-ink', '--border', '--surface', '--raised', '--canvas-base', '--shadow-ink', '--hair', '--mark', '--trail', '--border-strong', '--focus', '--highlight']
   const tokens = tokenNames.map((k) => L.resolve(`var(${k})`))
+  const darkGround = document.documentElement.dataset.dark !== '0'
+  const labRoot = document.querySelector('[data-lab]') || document.body
+  const bodyFs = parseFloat(getComputedStyle(labRoot).fontSize)
+  const subtle = L.resolve('var(--ink-subtle)')
+  /** The colour a rule is drawn in: a border, else the first box-shadow with a colour and some reach. */
+  function edgeColour(el) {
+    const st = getComputedStyle(el)
+    for (const side of ['Top', 'Left'])
+      if (parseFloat(st[`border${side}Width`]) > 0 && st[`border${side}Style`] !== 'none') return L.parse(st[`border${side}Color`])
+    if (!st.boxShadow || st.boxShadow === 'none') return null
+    for (const sh of st.boxShadow.split(/,(?![^(]*\))/)) {
+      const col = sh.match(/(rgba?|color|oklab|lab)\([^)]*\)/)?.[0]
+      const nums = sh.replace(/(rgba?|color|oklab|lab)\([^)]*\)/g, '').replace('inset', '').trim().split(/\s+/).map(parseFloat)
+      if (col && nums.some((n) => n !== 0) && L.parse(col)[3] > 0) return L.parse(col)
+    }
+    return null
+  }
   const sat = (c) => {
     const r = c[0] / 255
     const g = c[1] / 255
@@ -399,7 +426,9 @@ function MEASURE(opts) {
         out.arrows += (t.text.match(ARROWS) || []).length
         const len = t.text.trim().length
         const chrome = t.el.closest('a,button,summary,nav,header,footer,[data-rail],[data-share],[data-picker],[data-toc],aside:not([data-side])') && !runningLink(t.el)
-        if (chrome) out.chrome += len
+        if (inRail(t.el)) {
+          /* beside the column: neither chrome nor body */
+        } else if (chrome) out.chrome += len
         else out.body += len
         const k = Math.round(fs * 2) / 2
         out.sizes[k] = (out.sizes[k] || 0) + 1
@@ -412,22 +441,57 @@ function MEASURE(opts) {
         else if (host.textContent.trim().split(/\s+/).length > 8) out.hand.push(`over 8 words: "${host.textContent.trim().slice(0, 40)}"`)
       }
       // 12: colour coding outside leads, figures and code
-      if (!t.el.closest('[data-lead],figure,pre,code')) {
+      if (!t.el.closest('[data-lead],figure,pre,code,[data-swatch]')) {
         const c = L.parse(s.color)
         if (sat(c) >= 0.15 && !tokens.some((k) => L.near(c, k))) out.colour.push(`text ${s.color} "${t.text.trim().slice(0, 24)}" in ${where(t.el)}`)
       }
     }
-    // 16/17: every visible text node ≥ 4.5:1, ≥ 3:1 at 24px and up (the faint big chapter number, a
-    // [data-num] at 48px+ or aria-hidden, is decoration and excepted)
+    // 16/17: every visible text node ≥ 4.5:1, ≥ 3:1 at 24px and up. On a dark ground the Lab reads
+    // higher (lib/lab/ink.ts): body text ≥ 10:1 (a highlight in it too), the smallest labels (13px
+    // or less, in --ink-subtle) ≥ 5.5:1, and everything else, meta, captions, the rail, references,
+    // ≥ 7:1. The faint big
+    // chapter number, a [data-num] at 48px+ or aria-hidden, is decoration and excepted.
     const decorative = !!t.el.closest('[data-num]') && (fs >= 48 || !!t.el.closest('[aria-hidden="true"]'))
     if (!decorative) {
       const bg = L.bgOf(t.el)
       const fgRaw = L.parse(s.color)
       const fg = L.over([fgRaw[0], fgRaw[1], fgRaw[2], fgRaw[3] * L.opacity(t.el)], bg)
-      const need = fs >= 24 ? 3 : 4.5
+      let need = fs >= 24 ? 3 : 4.5
+      let role = ''
+      if (darkGround) {
+        const body = !!t.el.closest('[data-column]') && !!t.el.closest('p,li,blockquote') && !t.el.closest('aside,figure,table,[data-refs],[data-share],[data-ending],sup') && fs >= bodyFs - 0.5
+        const label = fs <= 13.5 && L.near(fgRaw, subtle, 10)
+        // the AK mark is the site's logotype, which WCAG exempts; it keeps the 4.5:1 floor
+        const logo = !!t.el.closest('header[data-bar] a[href="/"]')
+        ;[need, role] = logo ? [4.5, 'logotype'] : body ? [10, 'body'] : label ? [5.5, 'label'] : [7, 'secondary']
+      }
       const cr = L.ratio(fg, bg)
-      if (cr < need) out.contrast.push(`${cr.toFixed(2)}:1 (need ${need}) "${t.text.trim().slice(0, 32)}" in ${L.describe(t.el)} within ${where(t.el)}`)
+      if (cr < need) out.contrast.push(`${cr.toFixed(2)}:1 (need ${need}${role ? `, ${role}` : ''}) "${t.text.trim().slice(0, 32)}" in ${L.describe(t.el)} within ${where(t.el)}`)
     }
+  }
+
+  // 16/17: a rule that carries meaning (a quote's edge, the pull-quote, an aside, "What I'd do now")
+  // ≥ 3:1 against its ground in every theme; and the scrollbars, thumb against track, ≥ 3:1
+  for (const el of document.querySelectorAll('[data-pull], article[data-entry] blockquote, aside[data-side], [data-ending]')) {
+    if (!vis(el)) continue
+    const c = edgeColour(el)
+    const bg = L.bgOf(el.parentElement)
+    if (!c) out.rules.push(`${L.describe(el)} draws no rule`)
+    else if (L.ratio(L.over(c, bg), bg) < 3) out.rules.push(`${L.describe(el)}'s rule is ${L.ratio(L.over(c, bg), bg).toFixed(2)}:1 against its ground, need 3`)
+  }
+  const bar = (el, ground) => {
+    const parts = (getComputedStyle(el).scrollbarColor || '').split(/\s(?![^(]*\))/).filter(Boolean)
+    if (parts.length !== 2) return `${L.describe(el)} has no scrollbar-color (${getComputedStyle(el).scrollbarColor})`
+    const track = L.parse(parts[1])[3] > 0 ? L.over(L.parse(parts[1]), ground) : ground
+    const cr = L.ratio(L.over(L.parse(parts[0]), track), track)
+    return cr < 3 ? `the scrollbar on ${L.describe(el)} is ${cr.toFixed(2)}:1, thumb against track, need 3` : null
+  }
+  const page = bar(document.documentElement, L.resolve('var(--canvas-base)'))
+  if (page) out.rules.push(page)
+  const list = document.querySelector('[data-rail-list]')
+  if (list) {
+    const x = bar(list, L.bgOf(list))
+    if (x) out.rules.push(x)
   }
 
   // the trail: 3:1 against the bar's ground (dark) or against the bar's edge (light)
@@ -444,7 +508,7 @@ function MEASURE(opts) {
 
   // 12: borders outside the tokens
   for (const el of document.querySelectorAll('body *')) {
-    if (el.closest('[data-lead],figure,pre,code,svg') || !vis(el)) continue
+    if (el.closest('[data-lead],figure,pre,code,svg,[data-swatch]') || !vis(el)) continue
     const s = getComputedStyle(el)
     for (const side of ['Top', 'Right', 'Bottom', 'Left']) {
       if (parseFloat(s[`border${side}Width`]) === 0 || s[`border${side}Style`] === 'none') continue
@@ -476,8 +540,31 @@ function MEASURE(opts) {
     if (cr < 3) out.underline.push(`underline ${cr.toFixed(2)}:1 on ${label}`)
   }
 
-  // D: a handwritten date never splits across lines
-  out.splitDates = [...document.querySelectorAll('time')].filter((x) => vis(x) && x.getClientRects().length > 1).map((x) => x.textContent.trim())
+  // D: a handwritten date never splits across lines, and it is set in Caveat: the face is loaded and
+  // swaps in (never `optional`, which leaves a first visit's dates in a fallback for good)
+  const times = [...document.querySelectorAll('time')].filter((x) => vis(x))
+  out.splitDates = times.filter((x) => x.getClientRects().length > 1).map((x) => x.textContent.trim())
+  if (times.length) {
+    const faces = [...document.fonts].filter((f) => fam(f.family) === handVar)
+    const loaded = faces.filter((f) => f.status === 'loaded')
+    if (!handVar || !faces.length) out.hand2 = `no Caveat face behind --font-lab-hand (${handVar || 'unset'})`
+    else if (!loaded.length) out.hand2 = `Caveat is declared but not loaded (${faces.map((f) => f.status).join(', ')}): dates render in a fallback`
+    else if (faces.some((f) => f.display === 'optional')) out.hand2 = 'Caveat is font-display: optional, so a first visit can keep its dates in a fallback'
+    else if (!isHand(fam(getComputedStyle(times[0]).fontFamily))) out.hand2 = `a date is set in ${getComputedStyle(times[0]).fontFamily}`
+  }
+
+  // 14: a chapter's faint number never sits behind the title's words
+  const num = document.querySelector('[data-entry] [data-num][aria-hidden="true"]')
+  const h1 = document.querySelector('main h1')
+  if (num && h1 && vis(num) && num.getClientRects().length) {
+    const box = (el) => {
+      const rg = document.createRange()
+      rg.selectNodeContents(el)
+      return [...rg.getClientRects()].filter((r) => r.width > 0 && r.height > 0)
+    }
+    const hit = box(num).some((a) => box(h1).some((b) => a.left < b.right - 1 && b.left < a.right - 1 && a.top < b.bottom - 1 && b.top < a.bottom - 1))
+    if (hit) out.numOverTitle = true
+  }
 
   // 10: the lead
   out.leads = [...document.querySelectorAll('[data-lead]')].map((e) => e.getBoundingClientRect().top)
@@ -709,9 +796,12 @@ async function runPass(ctx) {
       // 16 / 17
       for (const x of m.contrast.slice(0, 4)) c.fail(isLabLook(look) ? '17' : '16', `${tag}: ${x}`)
       if (m.contrast.length > 4) c.fail(isLabLook(look) ? '17' : '16', `${tag}: and ${m.contrast.length - 4} more text nodes under contrast`)
+      for (const x of m.rules) c.fail(isLabLook(look) ? '17' : '16', `${tag}: ${x}`)
       // U, D
       for (const x of m.underline.slice(0, 3)) c.fail('U', `${tag}: ${x}`)
       for (const x of m.splitDates) c.fail('D', `${tag}: the date "${x}" splits across lines`)
+      if (m.hand2) c.fail('D', `${tag}: ${m.hand2}`)
+      if (m.numOverTitle) c.fail('14', `${tag}: the chapter's big number overlaps the title's text`)
       // R (once per route and width)
       if (entry && li === 0) {
         const r = m.related
@@ -809,35 +899,62 @@ function LINES() {
     counts.push(...v)
   }
   const s = getComputedStyle(ps[0])
+  const d = document.documentElement.dataset
   return {
     avg: counts.length ? counts.reduce((a, b) => a + b, 0) / counts.length : 0,
     lines: counts.length,
     lh: parseFloat(s.lineHeight) / parseFloat(s.fontSize),
-    measure: document.documentElement.dataset.aaMeasure,
+    fs: parseFloat(s.fontSize),
+    family: s.fontFamily,
+    aa: { measure: d.aaMeasure, font: d.aaFont, leading: d.aaLeading, layout: d.aaLayout },
   }
 }
 
+/** Stores reader settings (`lab.aa`) before the page's own scripts, so the boot script applies them. */
+function setAa(aa) {
+  try {
+    localStorage.setItem('lab.aa', JSON.stringify(aa))
+  } catch {
+    /* storage can be absent */
+  }
+}
+const woff = () =>
+  performance
+    .getEntriesByType('resource')
+    .map((r) => r.name)
+    .filter((n) => /\.woff2(\?|$)/.test(n))
+
+/**
+ * 13, re-based on the reader settings (lib/lab/look.ts): the measure each line length promises, in
+ * each font; the line height each spacing step sets (≥ 1.7 at the default, on desktop); the body
+ * at the chosen size; the Centred layout's column as wide as the Side panel's. The reading serif is
+ * fetched once chosen and never on a default load.
+ */
 async function measureLines(ctx, info, c) {
   const entry = fifthChapter(info.entries) ?? info.entries[0]
   if (!entry) return
-  const paper = ctx.looks.find((l) => !isLabLook(l)) ?? ctx.looks[0]
+  const look = ctx.looks[0]
   const cases = [
-    [1440, 900, false, 85, 100],
-    [1280, 800, false, 78, 100],
-    [1440, 900, true, 66, 76],
-    [390, 844, false, 32, 999],
-    [1920, 1080, false, 85, 100],
+    { width: 1440, aa: {}, lo: 85, hi: 100 },
+    { width: 1280, height: 800, aa: {}, lo: 78, hi: 100 },
+    { width: 1920, height: 1080, aa: {}, lo: 85, hi: 100 },
+    { width: 1440, aa: { measure: 'comfortable' }, lo: 62, hi: 76 },
+    { width: 1440, aa: { measure: 'narrow' }, lo: 52, hi: 66 },
+    { width: 1440, aa: { font: 'serif' }, lo: 85, hi: 100 },
+    { width: 1440, aa: { font: 'serif', measure: 'narrow' }, lo: 52, hi: 66 },
+    { width: 1440, aa: { font: 'system' }, lo: 82, hi: 104 },
+    { width: 1440, aa: { leading: 'tight' }, lo: 85, hi: 100, lh: 1.55 },
+    { width: 1440, aa: { leading: 'relaxed' }, lo: 85, hi: 100, lh: 1.95 },
+    { width: 1440, aa: { size: 22 }, lo: 85, hi: 100, size: 22 },
+    { width: 1440, aa: { size: 14, measure: 'comfortable' }, lo: 62, hi: 76, size: 14 },
+    { width: 1440, aa: { layout: 'centred' }, lo: 85, hi: 100 },
+    { width: 1024, height: 768, aa: { measure: 'narrow' }, lo: 52, hi: 66 },
+    { width: 390, height: 844, aa: {}, lo: 32, hi: 999 },
+    { width: 390, height: 844, aa: { size: 22, font: 'serif' }, lo: 24, hi: 999, size: 22 },
   ]
-  const comfy = () => {
-    try {
-      localStorage.setItem('lab.aa', JSON.stringify({ measure: 'comfortable', size: 17 }))
-    } catch {
-      /* storage can be absent */
-    }
-  }
-  for (const [width, height, comfortable, lo, hi] of cases) {
-    const label = `${entry.path} @${width}${comfortable ? ' Comfortable' : ''}`
-    const o = await openPage(ctx, entry.path, { width, height, query: paper.query, init: comfortable ? [comfy] : [] })
+  for (const k of cases) {
+    const label = `${entry.path} @${k.width}${Object.keys(k.aa).length ? ' ' + JSON.stringify(k.aa) : ''}`
+    const o = await openPage(ctx, entry.path, { width: k.width, height: k.height ?? 900, query: look.query, init: Object.keys(k.aa).length ? [[setAa, k.aa]] : [] })
     try {
       recordHealth(ctx, label, o)
       const r = await o.page.evaluate(LINES)
@@ -845,20 +962,74 @@ async function measureLines(ctx, info, c) {
         c.fail('13', `${label}: ${r.error}`)
         continue
       }
-      if (comfortable && r.measure !== 'comfortable') c.fail('13', `${label}: lab.aa set Comfortable, but html[data-aa-measure] is "${r.measure}"`)
-      if (!(r.avg >= lo && r.avg <= hi)) c.fail('13', `${label}: ${r.avg.toFixed(1)} characters a line (want ${lo}–${hi === 999 ? '∞' : hi})`)
-      if (width >= 1024 && r.lh < 1.7) c.fail('13', `${label}: line height ${r.lh.toFixed(2)} (at least 1.7 on desktop)`)
-      c.note('13', `${label}: ${r.avg.toFixed(1)} chars a line over ${r.lines} lines, line height ${r.lh.toFixed(2)}`)
+      const want = { measure: 'wide', font: 'grotesk', leading: 'normal', layout: 'side', ...k.aa }
+      for (const key of ['measure', 'font', 'leading', 'layout'])
+        if (r.aa[key] !== want[key]) c.fail('13', `${label}: lab.aa set ${key} "${want[key]}", but html[data-aa-${key}] is "${r.aa[key]}"`)
+      if (!(r.avg >= k.lo && r.avg <= k.hi)) c.fail('13', `${label}: ${r.avg.toFixed(1)} characters a line (want ${k.lo}–${k.hi === 999 ? '∞' : k.hi})`)
+      if (k.lh != null) {
+        if (Math.abs(r.lh - k.lh) > 0.02) c.fail('13', `${label}: line height ${r.lh.toFixed(2)}, not the ${k.aa.leading} step's ${k.lh}`)
+      } else if (k.width >= 1024 && r.lh < 1.7) c.fail('13', `${label}: line height ${r.lh.toFixed(2)} (at least 1.7 on desktop)`)
+      if (k.size && Math.abs(r.fs - k.size) > 0.1) c.fail('13', `${label}: body text is ${r.fs}px, not the chosen ${k.size}px`)
+      const fonts = await o.page.evaluate(woff)
+      const serif = fonts.filter((f) => /literata/i.test(f))
+      if (want.font === 'serif') {
+        if (!serif.length) c.fail('13', `${label}: the serif was chosen and no Literata file was fetched`)
+        if (!/literata/i.test(r.family)) c.fail('13', `${label}: the serif was chosen and the body is set in ${r.family}`)
+      } else if (serif.length) c.fail('13', `${label}: Literata was fetched (${serif[0].split('/').pop()}) without the serif chosen`)
+      c.note('13', `${label}: ${r.avg.toFixed(1)} chars a line over ${r.lines} lines, ${r.fs}px / ${r.lh.toFixed(2)}`)
     } finally {
       await o.close()
     }
   }
 }
 
+/** 8 at the reader's extremes: the body is the chosen size, the hierarchy holds above it, nothing under 13px. */
+function SIZES() {
+  const L = window.__lc
+  const fs = (el) => (el ? parseFloat(getComputedStyle(el).fontSize) : null)
+  // the body: the size most of the column's running text is set at (a lede is larger, and short)
+  const ps = [...document.querySelectorAll('[data-column] p')].filter((x) => L.visible(x) && !x.closest('aside,[data-pull],figure,table,[data-refs],[data-share],[data-ending]'))
+  const by = {}
+  for (const x of ps) by[getComputedStyle(x).fontSize] = (by[getComputedStyle(x).fontSize] || 0) + x.textContent.length
+  const bodySize = parseFloat(Object.entries(by).sort((a, b) => b[1] - a[1])[0]?.[0])
+  const p = ps.find((x) => parseFloat(getComputedStyle(x).fontSize) === bodySize)
+  let min = Infinity
+  let minAt = ''
+  const tw = document.createTreeWalker(document.body, NodeFilter.SHOW_TEXT)
+  for (let n; (n = tw.nextNode()); ) {
+    const el = n.parentElement
+    if (!n.data.trim() || !el || el.closest('script,style,noscript,template') || !L.visible(el)) continue
+    const f = fs(el)
+    if (f < min) [min, minAt] = [f, `"${n.data.trim().slice(0, 24)}" in ${L.describe(el)}`]
+  }
+  return { body: fs(p), h2: fs(document.querySelector('[data-column] h2')), h1: fs(document.querySelector('main h1')), min, minAt }
+}
+
+async function sizeExtremes(ctx, info, c) {
+  const entry = fifthChapter(info.entries) ?? info.entries[0]
+  if (!entry) return
+  for (const size of [14, 22])
+    for (const width of [390, 1440]) {
+      const label = `${entry.path} @${width} at ${size}px`
+      const o = await openPage(ctx, entry.path, { width, query: ctx.looks[0].query, init: [[setAa, { size }]] })
+      try {
+        recordHealth(ctx, label, o)
+        const r = await o.page.evaluate(SIZES)
+        if (r.body !== size) c.fail('8', `${label}: the body is ${r.body}px, not ${size}`)
+        if (r.h2 != null && !(r.h2 > r.body)) c.fail('8', `${label}: an h2 at ${r.h2}px is no larger than the body (${r.body}px)`)
+        if (r.h1 != null && r.h2 != null && !(r.h1 > r.h2)) c.fail('8', `${label}: the title at ${r.h1}px is no larger than an h2 (${r.h2}px)`)
+        if (r.min < 13) c.fail('8', `${label}: ${r.min}px text (${r.minAt}); at least 13`)
+      } finally {
+        await o.close()
+      }
+    }
+}
+
 // ---------------------------------------------------------------------------------------------
 // 16: the other Paper themes (sampled routes, 390 and 1440)
 // ---------------------------------------------------------------------------------------------
 
+/** The site's 18 theme ids, from content/themes.ts (the Lab's two are `labThemes`). */
 export function paperThemes(root) {
   const src = fs.readFileSync(path.join(root, 'content/themes.ts'), 'utf8')
   const start = src.indexOf('export const themes')
@@ -867,15 +1038,15 @@ export function paperThemes(root) {
 }
 
 async function sweepThemes(ctx, info, c) {
-  const done = new Set(ctx.looks.filter((l) => !isLabLook(l)).map((l) => new URLSearchParams(l.query).get('theme')))
+  const done = new Set(ctx.looks.map((l) => new URLSearchParams(l.query).get('theme')))
   let themes = paperThemes(ctx.root).filter((t) => !done.has(t))
   if (ctx.quick) themes = themes.slice(0, 3)
   const routes = sampleRoutes(info.routes, ctx.quick)
   const widths = [390, 1440].filter((w) => ctx.widths.some((x) => x.width === w))
   const jobs = themes.flatMap((theme) => routes.flatMap((route) => widths.map((width) => ({ theme, route, width }))))
   await pool(jobs, JOBS, async ({ theme, route, width }) => {
-    const tag = `${route.path} @${width} paper/${theme}`
-    const o = await openPage(ctx, route.path, { width, query: `look=paper&theme=${theme}` })
+    const tag = `${route.path} @${width} ${theme}`
+    const o = await openPage(ctx, route.path, { width, query: `theme=${theme}` })
     try {
       recordHealth(ctx, tag, o)
       const applied = await o.page.evaluate(() => document.documentElement.dataset.theme)
@@ -883,21 +1054,33 @@ async function sweepThemes(ctx, info, c) {
       const m = await o.page.evaluate(MEASURE, { contrastOnly: true })
       for (const x of m.contrast.slice(0, 4)) c.fail('16', `${tag}: ${x}`)
       if (m.contrast.length > 4) c.fail('16', `${tag}: and ${m.contrast.length - 4} more text nodes under contrast`)
+      for (const x of m.rules) c.fail('16', `${tag}: ${x}`)
     } finally {
       await o.close()
     }
   })
-  c.note('16', `the other ${themes.length} Paper themes: ${routes.length} sampled routes × ${widths.join(' and ')}`)
+  c.note('16', `the other ${themes.length} site themes: ${routes.length} sampled routes × ${widths.join(' and ')}`)
 }
 
 // ---------------------------------------------------------------------------------------------
-// 18: the look switch (every route, 390 and 1440)
+// 18: the theme picker (every route, 390 and 1440)
 // ---------------------------------------------------------------------------------------------
 
-function recordDclLook() {
+function recordDclTheme() {
   document.addEventListener('DOMContentLoaded', () => {
-    window.__dclLook = document.documentElement.dataset.look
+    window.__dclTheme = document.documentElement.dataset.theme
   }, { once: true })
+}
+/** A reader who already has a canvas theme: the Lab must neither follow nor change it. */
+function canvasTheme() {
+  try {
+    if (!sessionStorage.getItem('__seeded')) {
+      localStorage.setItem('canvas.theme', 'gruvbox-light')
+      sessionStorage.setItem('__seeded', '1')
+    }
+  } catch {
+    /* fine */
+  }
 }
 const moved = (before, after) => {
   let mx = 0
@@ -916,53 +1099,116 @@ const moved = (before, after) => {
 }
 export { moved as movedBetween }
 
-const runLookSwitch = {
+function PANEL(sel) {
+  const el = document.querySelector(sel)
+  const L = window.__lc
+  if (!el || !L.visible(el)) return { shown: false }
+  const r = el.getBoundingClientRect()
+  const close = el.querySelector('[data-panel-close]')
+  const cr = close && L.visible(close) ? close.getBoundingClientRect() : null
+  return {
+    shown: true,
+    rect: [r.left, r.top, r.right, r.bottom],
+    vh: innerHeight,
+    vw: document.documentElement.clientWidth,
+    close: cr ? [Math.round(cr.width), Math.round(cr.height)] : null,
+    focusInside: el.contains(document.activeElement),
+  }
+}
+
+const runThemePicker = {
   id: '18',
-  title: 'The look switch: in the bar everywhere, Paper by default, remembered, no flash, moves nothing',
+  title: 'The theme picker: in the bar everywhere, all 20 in Light and Dark, Lab Dark by default, remembered as lab.theme (never canvas.theme), no flash, moves nothing',
   needs: ['server', 'browser'],
   async run(ctx) {
     const info = await builtRoutes(ctx)
     if (info.notBuilt) return { notBuilt: info.notBuilt }
     const c = collector(['18'])
+    const all = [...paperThemes(ctx.root), 'lab-light', 'lab-dark']
     const widths = [390, 1440].filter((w) => ctx.widths.some((x) => x.width === w))
     const jobs = info.routes.flatMap((route) => widths.map((width) => ({ route, width })))
     await pool(jobs, JOBS, async ({ route, width }) => {
       const tag = tagOf(route, width)
       const phone = width <= 760
-      const o = await openPage(ctx, route.path, { width, init: [recordDclLook] })
+      const pickId = phone ? 'cream' : 'tokyo-night'
+      const o = await openPage(ctx, route.path, { width, init: [canvasTheme, recordDclTheme] })
       try {
         recordHealth(ctx, `${tag} (18)`, o)
         const p = o.page
-        const st = await p.evaluate(() => ({
-          look: document.documentElement.dataset.look,
-          inBar: !!document.querySelector('header[data-bar] [data-look-switch], header[data-bar] [data-look-toggle]'),
-        }))
-        if (!st.inBar) c.fail('18', `${tag}: no [data-look-switch] or [data-look-toggle] in header[data-bar]`)
-        if (st.look !== 'paper') c.fail('18', `${tag}: the default look is "${st.look}", not paper`)
-        const sel = phone ? 'header[data-bar] button[data-look-toggle]' : 'header[data-bar] [data-look-switch] button[data-look-option="lab"]'
-        const other = phone ? 'header[data-bar] [data-look-switch]' : 'header[data-bar] button[data-look-toggle]'
-        if (!(await p.locator(sel).first().isVisible().catch(() => false))) {
-          c.fail('18', `${tag}: ${sel} is not visible`)
+        const st = await p.evaluate(() => ({ theme: document.documentElement.dataset.theme, look: document.documentElement.dataset.look }))
+        if (st.theme !== 'lab-dark') c.fail('18', `${tag}: the first visit opens in "${st.theme}", not Lab Dark (the reader's canvas.theme is gruvbox-light)`)
+        const btn = p.locator('header[data-bar] button[data-theme-open]').first()
+        if (!(await btn.isVisible().catch(() => false))) {
+          c.fail('18', `${tag}: no visible button[data-theme-open] in header[data-bar]`)
           return
         }
-        if (await p.locator(other).first().isVisible().catch(() => false)) c.fail('18', `${tag}: ${other} shows too; only one of switch and toggle at a width`)
         const before = await p.evaluate(() => window.__lc.keyRects())
-        await p.locator(sel).first().click()
+        await btn.click()
+        await p.waitForTimeout(300)
+        const panel = await p.evaluate(PANEL, '[data-theme-panel]')
+        if (!panel.shown) {
+          c.fail('18', `${tag}: pressing the theme button showed no [data-theme-panel]`)
+          return
+        }
+        const opts = await p.evaluate(() =>
+          [...document.querySelectorAll('[data-theme-panel] [data-theme-option]')].map((b) => ({
+            id: b.getAttribute('data-theme-option'),
+            pressed: b.getAttribute('aria-pressed'),
+            group: b.closest('[role="group"]')?.querySelector('h2,h3')?.id ?? '',
+            swatch: !!b.querySelector('[data-swatch]'),
+          })),
+        )
+        const ids = opts.map((x) => x.id).sort()
+        if (ids.join() !== [...all].sort().join()) c.fail('18', `${tag}: the picker lists ${ids.length} themes (${ids.join(', ')}), not the 20`)
+        const groups = [...new Set(opts.map((x) => x.group))]
+        if (groups.length !== 2) c.fail('18', `${tag}: the picker has ${groups.length} groups, not Light and Dark`)
+        if (opts.some((x) => !x.swatch)) c.fail('18', `${tag}: a theme option without a [data-swatch]`)
+        const pressed = opts.filter((x) => x.pressed === 'true').map((x) => x.id)
+        if (pressed.join() !== 'lab-dark') c.fail('18', `${tag}: aria-pressed is on ${pressed.join(', ') || 'nothing'}, not lab-dark`)
+        if (!panel.focusInside) c.fail('18', `${tag}: opening the picker left focus outside it`)
+        if (phone) {
+          if (Math.abs(panel.rect[3] - panel.vh) > 1 || panel.rect[0] > 1 || Math.abs(panel.rect[2] - panel.vw) > 1) c.fail('18', `${tag}: on a phone the picker is not a sheet along the bottom (${panel.rect.map(Math.round).join(', ')})`)
+          if (!panel.close || panel.close[0] < 44 || panel.close[1] < 44) c.fail('18', `${tag}: the sheet's Close is ${panel.close ? panel.close.join('×') : 'missing'}, need 44×44`)
+        } else if (panel.rect[1] < 40 || panel.rect[1] > 70) c.fail('18', `${tag}: the popover's top is at ${Math.round(panel.rect[1])}px, not under the bar`)
+        await p.locator(`[data-theme-panel] [data-theme-option="${pickId}"]`).first().click()
         await p.waitForTimeout(420)
         const after = await p.evaluate(() => ({
+          theme: document.documentElement.dataset.theme,
           look: document.documentElement.dataset.look,
-          pressed: document.querySelector('[data-look-switch] [data-look-option="lab"]')?.getAttribute('aria-pressed'),
+          dark: document.documentElement.dataset.dark,
           rects: window.__lc.keyRects(),
+          stored: (() => {
+            try {
+              return [localStorage.getItem('lab.theme'), localStorage.getItem('canvas.theme')]
+            } catch {
+              return ['unreadable', 'unreadable']
+            }
+          })(),
         }))
-        if (after.look !== 'lab') c.fail('18', `${tag}: switching left html[data-look] "${after.look}", not lab`)
-        if (!phone && after.pressed !== 'true') c.fail('18', `${tag}: the lab option's aria-pressed is "${after.pressed}" after choosing it`)
+        if (after.theme !== pickId) c.fail('18', `${tag}: picking ${pickId} left html[data-theme] "${after.theme}"`)
+        if (after.look !== 'paper' || after.dark !== (pickId === 'cream' ? '0' : '1')) c.fail('18', `${tag}: after ${pickId}, data-look "${after.look}" and data-dark "${after.dark}"`)
+        if (after.stored[0] !== pickId) c.fail('18', `${tag}: localStorage lab.theme is "${after.stored[0]}" after picking ${pickId}`)
+        if (after.stored[1] !== 'gruvbox-light') c.fail('18', `${tag}: picking a theme in the Lab changed canvas.theme to "${after.stored[1]}"`)
         const mv = moved(before, after.rects)
-        if (mv.d > 1) c.fail('18', `${tag}: switching the look moved ${mv.what} by ${Number.isFinite(mv.d) ? mv.d.toFixed(1) + 'px' : '(count changed)'}`)
+        if (mv.d > 1) c.fail('18', `${tag}: opening the picker and changing the theme moved ${mv.what} by ${Number.isFinite(mv.d) ? mv.d.toFixed(1) + 'px' : '(count changed)'}`)
+        // Esc closes it and returns focus to the button
+        await p.keyboard.press('Escape')
+        // the panel leaves in 120ms and is gone from the DOM after
+        await p.waitForFunction(() => !document.querySelector('[data-theme-panel]'), null, { timeout: 1500 }).catch(() => {})
+        const esc = await p.evaluate(() => ({ open: !!document.querySelector('[data-theme-panel]'), focus: document.activeElement?.hasAttribute('data-theme-open') ?? false }))
+        if (esc.open) c.fail('18', `${tag}: Esc left the picker open`)
+        if (!esc.focus) c.fail('18', `${tag}: after Esc focus is not on the theme button`)
+        // a press outside closes it
+        await btn.click()
+        await p.waitForTimeout(300)
+        await p.mouse.click(phone ? 20 : 40, phone ? 120 : 300)
+        await p.waitForFunction(() => !document.querySelector('[data-theme-panel]'), null, { timeout: 1500 }).catch(() => {})
+        if (await p.evaluate(() => !!document.querySelector('[data-theme-panel]'))) c.fail('18', `${tag}: a press outside left the picker open`)
+        // remembered, applied before first paint
         await p.reload({ waitUntil: 'networkidle' })
-        const re = await p.evaluate(() => ({ look: document.documentElement.dataset.look, dcl: window.__dclLook, stored: (() => { try { return localStorage.getItem('lab.look') } catch { return 'unreadable' } })() }))
-        if (re.stored !== 'lab') c.fail('18', `${tag}: localStorage lab.look is "${re.stored}" after choosing lab`)
-        if (re.look !== 'lab') c.fail('18', `${tag}: the look is "${re.look}" after a reload, not lab`)
-        if (re.dcl !== 'lab') c.fail('18', `${tag}: html[data-look] was "${re.dcl}" at DOMContentLoaded after the reload (a flash before the boot script)`)
+        const re = await p.evaluate(() => ({ theme: document.documentElement.dataset.theme, dcl: window.__dclTheme }))
+        if (re.theme !== pickId) c.fail('18', `${tag}: after a reload the theme is "${re.theme}", not ${pickId}`)
+        if (re.dcl !== pickId) c.fail('18', `${tag}: html[data-theme] was "${re.dcl}" at DOMContentLoaded after the reload (a flash before the boot script)`)
       } catch (e) {
         c.fail('18', `${tag}: threw ${e.message.split('\n')[0]}`)
       } finally {
@@ -1016,69 +1262,64 @@ function FRAMES({ sel, dark }) {
   return { out, seen }
 }
 
-function noNativeShare() {
-  try {
-    delete Navigator.prototype.share
-    delete Navigator.prototype.canShare
-  } catch {
-    /* fine */
-  }
-}
-
 const runFrames = {
   id: 'K',
-  title: 'The Lab theme keeps the frame: 2px --border and a zero-blur offset on every box, card, figure and menu; Dark is brass',
+  title: 'Every theme keeps the frame: 2px --border and a zero-blur offset on every box, card, figure and panel; Lab Dark is brass',
   needs: ['server', 'browser'],
   async run(ctx) {
     const info = await builtRoutes(ctx)
     if (info.notBuilt) return { notBuilt: info.notBuilt }
     const c = collector(['K'])
-    const looks = ctx.looks.filter(isLabLook)
-    if (!looks.length) looks.push({ name: 'lab/dark', query: 'look=lab&mode=dark' })
     const routes = sampleRoutes(info.routes, ctx.quick)
+    const chapter = fifthChapter(info.entries) ?? routes[0]
+    // the matrix's looks on every sampled route; every other theme on chapter 05
+    const inMatrix = new Set(ctx.looks.map((l) => new URLSearchParams(l.query).get('theme')))
+    const others = ctx.quick ? [] : [...paperThemes(ctx.root), 'lab-light', 'lab-dark'].filter((t) => !inMatrix.has(t))
+    const jobs = [
+      ...ctx.looks.flatMap((look) => routes.map((route) => ({ route, theme: new URLSearchParams(look.query).get('theme') }))),
+      ...others.map((theme) => ({ route: chapter, theme })),
+    ]
     // an essay's opening is its lead in words alone, set at the lede's size: text, not a box
     const STATIC = '[data-box], [data-lead]:not([data-lead="opening"]), article[data-entry] figure'
-    for (const look of looks)
-      for (const route of routes) {
-        const tag = tagOf(route, 1440, look)
-        const dark = /mode=dark/.test(look.query)
-        const o = await openPage(ctx, route.path, { width: 1440, query: look.query, init: [noNativeShare] })
-        try {
-          recordHealth(ctx, `${tag} (K)`, o)
-          const p = o.page
-          const add = (r, what) => {
-            for (const x of r.out) c.fail('K', `${tag}${what ? ` (${what} open)` : ''}: ${x}`)
-            return r.seen.length
-          }
-          const n = add(await p.evaluate(FRAMES, { sel: STATIC, dark }))
-          if (route.kind === 'entry' && !n) c.fail('K', `${tag}: no box measured ([data-lead], figure or [data-box])`)
-          // the menus, each opened in turn
-          const menus = [
-            ['header[data-bar] button[data-aa]', '[data-aa-panel]', 'Aa'],
-            // the share menu is a row of chips, each framed, rather than one box
-            ['[data-share="end"] button[data-share-open]', '[data-share="end"] [data-share-menu] > *', 'the share menu'],
-            ['details[data-picker] > summary', 'details[data-picker] [data-picker-panel]', 'the picker'],
-          ]
-          for (const [btn, panel, what] of menus) {
-            const b = p.locator(btn).first()
-            if (!(await b.count())) {
-              if (what === 'Aa') c.fail('K', `${tag}: no ${btn}`)
-              continue
-            }
-            if (!(await b.isVisible().catch(() => false))) continue
-            await b.click()
-            await p.waitForTimeout(300)
-            const got = add(await p.evaluate(FRAMES, { sel: panel, dark: false }), what)
-            if (!got) c.fail('K', `${tag}: ${what} did not open (${panel} not visible)`)
-            await p.keyboard.press('Escape')
-            await p.waitForTimeout(250)
-          }
-        } catch (e) {
-          c.fail('K', `${tag}: threw ${e.message.split('\n')[0]}`)
-        } finally {
-          await o.close()
+    await pool(jobs, JOBS, async ({ route, theme }) => {
+      const tag = `${route.path} @1440 ${theme}`
+      const o = await openPage(ctx, route.path, { width: 1440, query: `theme=${theme}` })
+      try {
+        recordHealth(ctx, `${tag} (K)`, o)
+        const p = o.page
+        const add = (r, what) => {
+          for (const x of r.out) c.fail('K', `${tag}${what ? ` (${what} open)` : ''}: ${x}`)
+          return r.seen.length
         }
+        const n = add(await p.evaluate(FRAMES, { sel: STATIC, dark: theme === 'lab-dark' }))
+        if (route.kind === 'entry' && !n) c.fail('K', `${tag}: no box measured ([data-lead], figure or [data-box])`)
+        // the panels, each opened in turn
+        const menus = [
+          ['header[data-bar] button[data-theme-open]', '[data-theme-panel]', 'the theme picker'],
+          ['header[data-bar] button[data-aa]', '[data-aa-panel]', 'the reader settings'],
+          ['details[data-picker] > summary', 'details[data-picker] [data-picker-panel]', 'the chapter picker'],
+        ]
+        for (const [btn, panel, what] of menus) {
+          const b = p.locator(btn).first()
+          if (!(await b.count())) {
+            if (!btn.startsWith('details')) c.fail('K', `${tag}: no ${btn}`)
+            continue
+          }
+          if (!(await b.isVisible().catch(() => false))) continue
+          await b.click()
+          await p.waitForTimeout(300)
+          const got = add(await p.evaluate(FRAMES, { sel: panel, dark: false }), what)
+          if (!got) c.fail('K', `${tag}: ${what} did not open (${panel} not visible)`)
+          await p.keyboard.press('Escape')
+          await p.waitForTimeout(250)
+        }
+      } catch (e) {
+        c.fail('K', `${tag}: threw ${e.message.split('\n')[0]}`)
+      } finally {
+        await o.close()
       }
+    })
+    c.note('K', `${jobs.length} loads: ${ctx.looks.length} looks × ${routes.length} routes, and ${others.length} other themes on ${chapter?.path}`)
     return c.result('K')
   },
 }
@@ -1121,12 +1362,18 @@ const runReduced = {
           await window.__lc.frames()
         })
         bad(await p.evaluate(ANIMS), 'after a scroll')
-        const sw = p.locator('header[data-bar] [data-look-switch] button[data-look-option="lab"]').first()
+        const sw = p.locator('header[data-bar] button[data-theme-open]').first()
         if (await sw.isVisible().catch(() => false)) {
           await sw.click()
           await p.evaluate(() => window.__lc.frames())
-          bad(await p.evaluate(ANIMS), 'after a look switch')
-        } else c.fail('19', `${tag}: no visible look switch to try`)
+          bad(await p.evaluate(ANIMS), 'opening the theme picker')
+          await p.locator('[data-theme-panel] [data-theme-option="cream"]').first().click()
+          await p.evaluate(() => window.__lc.frames())
+          bad(await p.evaluate(ANIMS), 'after a theme change')
+          await p.keyboard.press('Escape')
+          await p.evaluate(() => window.__lc.frames())
+          bad(await p.evaluate(ANIMS), 'closing the theme picker')
+        } else c.fail('19', `${tag}: no visible theme button to try`)
         const still = await p.evaluate(async () => {
           const dot = document.querySelector('[data-reading-dot]')
           if (!dot) return null
@@ -1157,25 +1404,25 @@ export default [
   fromPass('5', 'First-screen controls: entries ≤ 15 desktop / 11 phone; lists ≤ 21 / 13'),
   fromPass('6', 'Symbol glyphs = 0; text arrows ≤ 4'),
   fromPass('7', 'Chrome-to-body characters ≤ 0.5 on entries, ≤ 1.0 on lists'),
-  fromPass('8', '≤ 6 font sizes; largest ÷ smallest ≥ 3; smallest ≥ 13px; ≤ 2 in 13–17px'),
+  fromPass('8', '≤ 6 font sizes; largest ÷ smallest ≥ 3; smallest ≥ 13px; ≤ 2 in 13–17px; at 14px and 22px the hierarchy holds', { extra: sizeExtremes }),
   fromPass('9', 'Space Mono only in code; handwriting only in dates, annotations and the dot, ≤ 8 words'),
   fromPass('10', 'Exactly one [data-lead] per entry, its top on the first screen', { entryOnly: true }),
   fromPass('11', 'Accent ≤ 5% of screenshot pixels'),
   fromPass('12', 'No colour coding outside leads, figures and code'),
-  fromPass('13', 'Measure 85–100ch at 1440, 78–100 at 1280, Comfortable 66–76, phone ≥ 32; line height ≥ 1.7; no strip > 240px', { extra: measureLines }),
+  fromPass('13', 'Measure re-based on Aa: Wide 85–100ch at 1440 (78–100 at 1280), Comfortable 62–76, Narrow 52–66, in each font; phone ≥ 32; line height per step (≥ 1.7 by default); no strip > 240px', { extra: measureLines }),
   fromPass('C', 'The column and the rail centre together (|Δ| ≤ 24px at 1440 and 1920)', { entryOnly: true }),
-  fromPass('14', 'No horizontal overflow; nothing fixed covers the last paragraph or the footer; phone targets ≥ 44×44'),
+  fromPass('14', 'No horizontal overflow; nothing fixed covers the last paragraph or the footer; phone targets ≥ 44×44; the chapter number never overlaps the title'),
   fromPass('15', 'No h2/h3 on 3 or more pages; no slot-name headings'),
-  fromPass('16', 'Paper contrast: every text ≥ 4.5:1 (3:1 at 24px+) in all 18 themes; the trail ≥ 3:1', { extra: sweepThemes }),
-  fromPass('17', 'Lab theme contrast, Light and Dark, at every width; the trail ≥ 3:1', {
+  fromPass('16', 'Site themes, all 18: text ≥ 4.5:1 (3:1 at 24px+), on dark grounds body ≥ 10, secondary ≥ 7, labels ≥ 5.5; meaningful rules and scrollbars ≥ 3; the trail ≥ 3:1', { extra: sweepThemes }),
+  fromPass('17', 'Lab Light and Lab Dark at every width: the same contrast (Lab Dark body ≥ 10, secondary ≥ 7, labels ≥ 5.5); rules and scrollbars ≥ 3; the trail ≥ 3:1', {
     extra: async (ctx, info, c) => {
-      if (!ctx.looks.some(isLabLook)) c.note('17', 'this run has no Lab theme look (--quick), so nothing was measured')
+      if (!ctx.looks.some(isLabLook)) c.note('17', 'this run has no Lab palette in its looks, so nothing was measured')
     },
   }),
-  runLookSwitch,
+  runThemePicker,
   runFrames,
   fromPass('U', 'Every inline link is underlined, the underline ≥ 3:1 against its ground'),
-  fromPass('D', 'A handwritten date never splits across lines'),
+  fromPass('D', 'A handwritten date never splits across lines, and renders in Caveat (loaded, swapped in, never optional)'),
   fromPass('R', 'Related and Links to this page end every entry; Related is never empty', { entryOnly: true }),
   runReduced,
   fromPass('21', 'Health: zero console and page errors; no third-party request on load', {

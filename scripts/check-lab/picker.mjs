@@ -1,8 +1,8 @@
 /**
  * Rule Y: the chapter picker. Lane module for scripts/check-lab.mjs (API.md §5 and §11; decision 12).
  *
- * On every chapter (`entryKind: 'chapter'`), at 390 and 1440 in the first look, and at 1440 in the
- * Lab theme's Dark too:
+ * On every chapter (`entryKind: 'chapter'`), at 390 and 1440 in the first look (Lab Dark), and at 1440 in
+ * cream too:
  *   - the page has a `details[data-picker]` > `summary` + `[data-picker-panel]`;
  *   - opening it (a click on the summary) shows the panel and moves nothing: the rects of
  *     `[data-lead]`, `h1` and the first three `article[data-entry] p` change by ≤ 1px;
@@ -45,8 +45,9 @@ export default {
     for (const route of chapters)
       for (const width of widths) {
         jobs.push({ route, width, look: ctx.looks[0] })
-        const dark = ctx.looks.find((l) => /look=lab/.test(l.query) && /mode=dark/.test(l.query))
-        if (width === 1440 && dark && dark !== ctx.looks[0]) jobs.push({ route, width, look: dark })
+        // the first look is Lab Dark; a site theme on a light ground as well
+        const light = ctx.looks.find((l) => /(^|&)theme=cream(&|$)/.test(l.query))
+        if (width === 1440 && light && light !== ctx.looks[0]) jobs.push({ route, width, look: light })
       }
     let pickers = 0
     await pool(jobs, 2, async ({ route, width, look }) => {

@@ -143,18 +143,18 @@ export const themes: readonly Theme[] = ([
 /**
  * The Lab theme, from the approved mockup (`prototype/lab-v2b/lab.css`). Dark's frame and
  * offset are both brass `#7F6C45` (Aahil, 27 Nov: "pick brass"); Light's offset is a softer warm stone.
- * Selected only by `lib/lab/look.ts`, which sets `data-theme` to one of these while the Lab theme is on
- * and leaves the reader's `canvas.theme` untouched.
+ * Selected only by `lib/lab/look.ts`, whose picker lists these two beside the site's 18 and keeps its
+ * own choice (`lab.theme`, Lab Dark by default), so the reader's `canvas.theme` is never touched.
  */
 export const labThemes: readonly Theme[] = [
-  { id: 'lab-light', label: 'Lab theme · Light', dark: false, labOnly: true, tokens: {
+  { id: 'lab-light', label: 'Lab Light', dark: false, labOnly: true, tokens: {
     canvas: '#FAFAF7', surface: '#FFFFFF',
     ink: '#141413', inkMuted: 'rgba(20,20,19,.70)', inkSubtle: 'rgba(20,20,19,.60)',
     accent: '#FACC00', accentInk: '#141413', border: '#262520', grid: 'transparent',
     trail: '#FACC00', raised: '#F3F2EE', shadowInk: '#B9B4A6', hair: 'rgba(20,20,19,.10)',
     mark: 'color-mix(in srgb, #FACC00 55%, #FFFFFF)',
   } },
-  { id: 'lab-dark', label: 'Lab theme · Dark', dark: true, labOnly: true, tokens: {
+  { id: 'lab-dark', label: 'Lab Dark', dark: true, labOnly: true, tokens: {
     canvas: '#0B0B0A', surface: '#131311',
     ink: '#EEECE5', inkMuted: 'rgba(238,236,229,.66)', inkSubtle: 'rgba(238,236,229,.54)',
     accent: '#F5C518', accentInk: '#0B0B0A', border: '#7F6C45', grid: 'transparent',
