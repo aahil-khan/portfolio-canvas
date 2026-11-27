@@ -4,22 +4,22 @@ import { LAB } from '@/lib/motion/tokens'
 import { setTheme } from '@/lib/theme'
 
 /**
- * The one owner of the Lab's look, Premium's mode and Aa. Contract: `content/lab/API.md` §8 and
+ * The one owner of the Lab's look, the Lab theme's mode and Aa. Contract: `content/lab/API.md` §8 and
  * §10.
  *
  *   Paper    the site's own theme: whatever `canvas.theme` holds, set by the root layout's theme
  *            boot script. The Lab never keeps a theme of its own.
- *   Premium  one of the two `labOnly` palettes in `content/themes.ts`, Day or Night. While it is
- *            on, `data-theme` names that palette and `canvas.theme` is left alone, so going back
- *            to Paper (or to the canvas) restores the reader's own theme.
+ *   Lab      the Lab theme: one of the two `labOnly` palettes in `content/themes.ts`, Light or
+ *            Dark. While it is on, `data-theme` names that palette and `canvas.theme` is left
+ *            alone, so going back to Paper (or to the canvas) restores the reader's own theme.
  *   Aa       the measure (wide 96ch, or comfortable 72ch) and the body size (16, 17 or 19px).
  *
  * The live state is attributes on <html>, written by `lookBootScript` before first paint and by
  * the setters below afterwards:
  *
- *   data-look         paper | premium
- *   data-mode         day | night       Premium's mode; kept while in Paper, for the next switch
- *   data-theme        the palette in force (a site theme in Paper, a Premium palette in Premium)
+ *   data-look         paper | lab
+ *   data-mode         light | dark      the Lab theme's mode; kept while in Paper, for the next switch
+ *   data-theme        the palette in force (a site theme in Paper, a Lab palette in the Lab theme)
  *   data-paper-theme  the site theme Paper shows
  *   data-dark         1 | 0             whether the palette in force is dark
  *   data-aa-measure   wide | comfortable
@@ -33,8 +33,8 @@ import { setTheme } from '@/lib/theme'
  * else touches `document` only when called.
  */
 
-export type Look = 'paper' | 'premium'
-export type PremiumMode = 'day' | 'night'
+export type Look = 'paper' | 'lab'
+export type LabMode = 'light' | 'dark'
 export type AaMeasure = 'wide' | 'comfortable'
 export const AA_SIZES = [16, 17, 19] as const
 export type AaSize = (typeof AA_SIZES)[number]
@@ -45,7 +45,7 @@ export interface Aa {
 
 export interface LookState {
   look: Look
-  mode: PremiumMode
+  mode: LabMode
   /** The palette in force: `data-theme`. */
   theme: string
   /** The site theme Paper shows. */
@@ -57,13 +57,13 @@ export interface LookState {
 /** localStorage keys (API.md §10). Paper has none: it is `canvas.theme`, owned by `lib/theme.ts`. */
 export const LOOK_KEYS = {
   look: 'lab.look',
-  premiumMode: 'lab.premiumMode',
+  mode: 'lab.mode',
   aa: 'lab.aa',
 } as const
 
-export const PREMIUM_THEME: Record<PremiumMode, string> = {
-  day: 'lab-premium-day',
-  night: 'lab-premium-night',
+export const LAB_THEME: Record<LabMode, string> = {
+  light: 'lab-light',
+  dark: 'lab-dark',
 }
 
 const DEFAULT_AA: Aa = { measure: 'wide', size: 17 }
@@ -72,7 +72,7 @@ const SITE_IDS = themes.map((t) => t.id)
 const LIGHT_PAPER = DEFAULT_THEME
 const DARK_PAPER = 'tokyo-night'
 
-if (labThemes.some((t) => !Object.values(PREMIUM_THEME).includes(t.id)))
+if (labThemes.some((t) => !Object.values(LAB_THEME).includes(t.id)))
   throw new Error('lib/lab/look.ts: content/themes.ts has a Lab palette this file does not map')
 
 /**
@@ -80,25 +80,25 @@ if (labThemes.some((t) => !Object.values(PREMIUM_THEME).includes(t.id)))
  * holds the reader's site theme). Kept as a string because it must run before React exists.
  *
  * Query parameters override the stored look for one visit and are never saved, which is how the
- * check opens a page in a given look: `?look=paper|premium`, `?mode=light|dark` (Premium's mode,
+ * check opens a page in a given look: `?look=paper|lab`, `?mode=light|dark` (the Lab theme's mode,
  * or cream / tokyo-night in Paper), `?theme=<site theme id>` (Paper).
  *
- * Premium's first mode is Night unless the system prefers light (NEXT.md decision; research §6).
+ * The Lab theme's first mode is Dark unless the system prefers light (NEXT.md decision; research §6).
  */
 export const lookBootScript = `
 (function(){try{
 var d=document.documentElement,q=new URLSearchParams(location.search);
 var g=function(k){try{return localStorage.getItem(k)}catch(e){return null}};
-var SITE=${JSON.stringify(SITE_IDS)},DARK=${JSON.stringify(DARK)},PREM=${JSON.stringify(PREMIUM_THEME)};
-var look=g(${JSON.stringify(LOOK_KEYS.look)})==='premium'?'premium':'paper';
-var ql=q.get('look');if(ql==='paper'||ql==='premium')look=ql;
-var mode=g(${JSON.stringify(LOOK_KEYS.premiumMode)});
-if(mode!=='day'&&mode!=='night')mode=window.matchMedia&&matchMedia('(prefers-color-scheme: light)').matches?'day':'night';
+var SITE=${JSON.stringify(SITE_IDS)},DARK=${JSON.stringify(DARK)},LAB=${JSON.stringify(LAB_THEME)};
+var look=g(${JSON.stringify(LOOK_KEYS.look)})==='lab'?'lab':'paper';
+var ql=q.get('look');if(ql==='paper'||ql==='lab')look=ql;
+var mode=g(${JSON.stringify(LOOK_KEYS.mode)});
+if(mode!=='light'&&mode!=='dark')mode=window.matchMedia&&matchMedia('(prefers-color-scheme: light)').matches?'light':'dark';
 var paper=SITE.indexOf(d.dataset.theme)>-1?d.dataset.theme:${JSON.stringify(DEFAULT_THEME)};
 var qm=q.get('mode'),qt=q.get('theme');
-if(qm==='light'||qm==='dark'){if(look==='premium')mode=qm==='dark'?'night':'day';else if(!qt)paper=qm==='dark'?${JSON.stringify(DARK_PAPER)}:${JSON.stringify(LIGHT_PAPER)};}
+if(qm==='light'||qm==='dark'){if(look==='lab')mode=qm;else if(!qt)paper=qm==='dark'?${JSON.stringify(DARK_PAPER)}:${JSON.stringify(LIGHT_PAPER)};}
 if(qt&&SITE.indexOf(qt)>-1)paper=qt;
-var theme=look==='premium'?PREM[mode]:paper;
+var theme=look==='lab'?LAB[mode]:paper;
 var aa={};try{aa=JSON.parse(g(${JSON.stringify(LOOK_KEYS.aa)}))||{}}catch(e){}
 d.dataset.look=look;d.dataset.mode=mode;d.dataset.paperTheme=paper;d.dataset.theme=theme;
 d.dataset.dark=DARK[theme]?'1':'0';
@@ -121,7 +121,7 @@ export function subscribeLook(listener: () => void): () => void {
 
 const SERVER_SNAPSHOT: LookState = Object.freeze({
   look: 'paper',
-  mode: 'night',
+  mode: 'dark',
   theme: DEFAULT_THEME,
   paperTheme: DEFAULT_THEME,
   dark: false,
@@ -144,8 +144,8 @@ export function getLookSnapshot(): LookState {
   const size = Number(d.aaSize)
   cachedKey = key
   cached = {
-    look: d.look === 'premium' ? 'premium' : 'paper',
-    mode: d.mode === 'day' ? 'day' : 'night',
+    look: d.look === 'lab' ? 'lab' : 'paper',
+    mode: d.mode === 'light' ? 'light' : 'dark',
     theme: d.theme ?? DEFAULT_THEME,
     paperTheme: d.paperTheme && SITE_IDS.includes(d.paperTheme) ? d.paperTheme : DEFAULT_THEME,
     dark: d.dark === '1',
@@ -178,9 +178,9 @@ function fade() {
 }
 
 /** Writes the palette for the current look and mode. */
-function apply(look: Look, mode: PremiumMode, paperTheme: string) {
+function apply(look: Look, mode: LabMode, paperTheme: string) {
   const d = document.documentElement.dataset
-  const theme = look === 'premium' ? PREMIUM_THEME[mode] : paperTheme
+  const theme = look === 'lab' ? LAB_THEME[mode] : paperTheme
   d.look = look
   d.mode = mode
   d.paperTheme = paperTheme
@@ -193,16 +193,16 @@ export function setLook(look: Look): void {
   if (look === s.look) return
   fade()
   store(LOOK_KEYS.look, look)
-  store(LOOK_KEYS.premiumMode, s.mode)
+  store(LOOK_KEYS.mode, s.mode)
   apply(look, s.mode, s.paperTheme)
   emit()
 }
 
-export function setPremiumMode(mode: PremiumMode): void {
+export function setLabMode(mode: LabMode): void {
   const s = getLookSnapshot()
   if (mode === s.mode) return
-  if (s.look === 'premium') fade()
-  store(LOOK_KEYS.premiumMode, mode)
+  if (s.look === 'lab') fade()
+  store(LOOK_KEYS.mode, mode)
   apply(s.look, mode, s.paperTheme)
   emit()
 }
@@ -215,15 +215,15 @@ export function setPaperTheme(id: string): void {
   if (!SITE_IDS.includes(id)) return
   const s = getLookSnapshot()
   if (s.look === 'paper') fade()
-  setTheme(id) // writes canvas.theme and data-theme; apply() puts Premium's palette back if it is on
+  setTheme(id) // writes canvas.theme and data-theme; apply() puts the Lab palette back if it is on
   apply(s.look, s.mode, id)
   emit()
 }
 
-/** The bar's one light/dark button: Day ⇄ Night in Premium, cream ⇄ tokyo-night in Paper. */
+/** The bar's one light/dark button: Light ⇄ Dark in the Lab theme, cream ⇄ tokyo-night in Paper. */
 export function toggleDark(): void {
   const s = getLookSnapshot()
-  if (s.look === 'premium') setPremiumMode(s.mode === 'night' ? 'day' : 'night')
+  if (s.look === 'lab') setLabMode(s.mode === 'dark' ? 'light' : 'dark')
   else setPaperTheme(s.dark ? LIGHT_PAPER : DARK_PAPER)
 }
 

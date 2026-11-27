@@ -145,9 +145,9 @@ Aahil writes the real Lab (`"demo": true`), with a "Demo content" marker in its 
   DOM, slot modules, events, tokens, storage keys, the check's interface, the demo rules. It is
   frozen: a worker who finds it wrong tells the orchestrator, who lands a one-file contract PR.
 - **`lib/lab/visibility.ts` is the only reader of `public` and `demo`.** Everything else asks it.
-- **`lib/lab/look.ts` owns the look** (Paper or Premium), Premium's mode and Aa. Paper is the site's
-  own theme; Premium is two Lab-only palettes (`labThemes` in `content/themes.ts`), which no picker
-  outside the Lab can list.
+- **`lib/lab/look.ts` owns the look** (Paper or the Lab theme), the Lab theme's Light/Dark mode and
+  Aa. Paper is the site's own theme; the Lab theme is two Lab-only palettes (`labThemes` in
+  `content/themes.ts`), which no picker outside the Lab can list.
 - **`lib/motion/reduced.ts` owns reduced motion** for the whole site; `lib/motion/tokens.ts` holds
   every duration. Nothing else reads the media query in TypeScript, apart from the canvas's seven
   older effect-time calls, which `check:lab` rule 4 allowlists by path and count.

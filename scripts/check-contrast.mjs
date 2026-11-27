@@ -1,6 +1,6 @@
 #!/usr/bin/env node
 /**
- * WCAG contrast audit across every theme, the Lab's two Premium palettes included.
+ * WCAG contrast audit across every theme, the Lab theme's two palettes included.
  *
  * This drives a real browser and reads *computed* colours off the live page for each theme,
  * rather than checking a table of hex values. That matters because the thing that actually
@@ -234,7 +234,7 @@ try {
           if (r < AA_TEXT) fails.push({ ink: '--on-app', surf: getComputedStyle(tile).backgroundColor, r: +r.toFixed(2), min: AA_TEXT })
         }
         // the border must be visible against the canvas. The offset shadow is not held to it:
-        // the frame is the boundary, and Premium Day's softer stone offset is deliberate
+        // the frame is the boundary, and Lab theme Light's softer stone offset is deliberate
         need('--border', '--canvas-base', AA_LARGE)
         /*
          * The Lab's reading trail (DIRECTION, "The Lab → Tokens"). On a dark ground it is a line
