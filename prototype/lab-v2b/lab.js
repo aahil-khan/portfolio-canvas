@@ -36,13 +36,49 @@ var Lab = window.Lab = window.Lab || {};
     var parent = e.parent && byId[e.parent];
     return t('kind.' + e.kind, { parent: parent ? parent.title : '' });
   };
-  var newestFirst = function (a, b) { return (b.updated || b.published || '').localeCompare(a.updated || a.published || ''); };
   var byPublished = function (a, b) { return (b.published || '').localeCompare(a.published || ''); };
-  function featuredEntry() {
-    var forced = q.get('feature') && byId[q.get('feature')];
-    if (forced) return forced;
-    var pub = publicEntries();
-    return pub.find(function (e) { return e.pinned; }) || pub.sort(byPublished)[0];
+
+  // ---------- terms, tags, references: the inline links ----------
+  var termById = {};
+  (Lab.terms || []).forEach(function (x) { termById[x.id] = x; });
+  Lab.term = function (id) { return termById[id]; };
+  var glossaryHref = function (id) { return '#/next?to=' + encodeURIComponent('/lab/glossary#' + id); };
+  var tagHref = function (tag) { return '#/next?to=' + encodeURIComponent('/lab/tags/' + tag); };
+  /** Where a term's card goes further: its entry, its external source, or the glossary. */
+  Lab.termTarget = function (x) {
+    if (x.link && byId[x.link]) return { href: Lab.href(byId[x.link]), label: t('card.read', { title: byId[x.link].title }) };
+    if (x.link && /^https:\/\//.test(x.link)) return { href: x.link, label: t('card.source'), ext: true };
+    return { href: glossaryHref(x.id), label: t('card.glossary') };
+  };
+  Lab.termLink = function (id, label) {
+    var x = termById[id];
+    if (!x) throw new Error('unknown term ' + id);
+    var to = Lab.termTarget(x);
+    return '<a class="term" href="' + esc(to.href) + '"' + (to.ext ? ' rel="noopener"' : '') + ' data-preview="term:' + id + '">' + label + '</a>';
+  };
+  Lab.tagged = function (tag) { return publicEntries().filter(function (e) { return (e.tags || []).indexOf(tag) >= 0; }).sort(byPublished); };
+  Lab.tagLink = function (tag, label) { return '<a class="term" href="' + tagHref(tag) + '" data-preview="tag:' + tag + '">' + (label || esc(tag)) + '</a>'; };
+  /** A numbered citation. Numbers follow first use within one entry. */
+  Lab.refMark = function (key, refs) {
+    if (!refs || !refs.map[key]) throw new Error('unknown reference ' + key);
+    if (refs.order.indexOf(key) < 0) refs.order.push(key);
+    var n = refs.order.indexOf(key) + 1;
+    return '<sup class="ref"><a href="#ref-' + key + '" data-jump="ref-' + key + '" data-preview="ref:' + refs.entry + ':' + key + '" aria-label="Reference ' + n + '">' + n + '</a></sup>';
+  };
+  /** Entries this one links to in its body, in order of first link. */
+  function linkedFrom(e) {
+    var body = Lab.bodies[e.id], out = [];
+    if (!body) return out;
+    var text = body.blocks.map(function (b) { return (b.p || b.h2 || {}).text || ''; }).join(' ') + ' ' + (e.ledeKey ? Lab.raw(e.ledeKey) : '');
+    text.replace(/\[\[(t:)?([\w-]+)\|/g, function (_, isTerm, id) {
+      var target = isTerm ? termById[id] && termById[id].link : id;
+      if (target && byId[target] && target !== e.id && out.indexOf(target) < 0 && isPublic(byId[target])) out.push(target);
+    });
+    return out;
+  }
+  /** Links to this page: entries that mention it in data, or link to it in their body. */
+  function linksTo(e) {
+    return publicEntries().filter(function (x) { return x.id !== e.id && ((x.mentions || []).indexOf(e.id) >= 0 || linkedFrom(x).indexOf(e.id) >= 0); }).map(function (x) { return x.id; });
   }
 
   // ---------- the bar ----------
@@ -111,83 +147,43 @@ var Lab = window.Lab = window.Lab || {};
   }
 
   // ---------- pages ----------
-  function featuredCard(e) {
-    var lead = Lab.leadOf(e);
-    var lede = Lab.ledeOf(e);
-    var showLede = lead.name !== 'opening' && lead.name !== 'keyline';
-    var card = Lab.html(
-      '<section class="featured wide" aria-labelledby="featured-title">' +
-        '<article class="box window">' +
-          '<div class="window-bar"><span>' + Lab.kindWords(e) + '</span>' + Lab.date(e.updated || e.published) + '</div>' +
-          '<div class="featured-body">' +
-            '<div class="featured-lead" data-featured-lead data-lead-kind="' + lead.name + '"></div>' +
-            '<div class="featured-text"><h2 id="featured-title">' + Lab.linkTo(e.id) + '</h2>' +
-              (showLede ? '<p>' + esc(lede) + '</p>' : '') +
-              (e.read ? '<p class="meta">' + t('read', { n: e.read }) + '</p>' : '') +
-            '</div>' +
-          '</div>' +
-        '</article>' +
-      '</section>');
-    card.querySelector('[data-featured-lead]').appendChild(lead.render('card'));
-    return card;
-  }
-
+  // The home names no entry in its own furniture. Entries appear only in Latest, so it reads the
+  // same after a month with no new ones: no Now line, nothing pinned, no progress, no relative time.
   function home() {
-    var feat = featuredEntry();
     var pub = publicEntries();
-    var nowEntry = pub.slice().sort(function (a, b) { return newestFirst(a, b) || (b.nowKey ? 1 : 0) - (a.nowKey ? 1 : 0); })[0];
-    var nowText = nowEntry.nowKey ? t(nowEntry.nowKey) : esc(Lab.kindWords(nowEntry) + ': ' + nowEntry.title);
     var page = Lab.html('<div class="page home"></div>');
+    var intro = Lab.raw('home.intro').split('{name}');
     page.appendChild(Lab.html(
       '<section class="intro">' +
         '<p class="eyebrow">' + t('home.eyebrow') + '</p>' +
         '<h1 class="home-title">' + t('home.title') + '</h1>' +
-        '<p class="intro-text">' + t('home.intro.a') + ' ' + esc(D.owner.short) + ' <button type="button" class="say" aria-label="' + t('say.label') + '">(' + t('say') + ')</button>' + t('home.intro.b') + ' ' + t('home.brand') + '</p>' +
-        '<p class="nowline">' + Lab.date(nowEntry.updated || nowEntry.published) + '<a class="quiet" href="' + Lab.href(nowEntry) + '" data-preview="' + nowEntry.id + '">' + nowText + '</a></p>' +
+        '<p class="intro-text">' + esc(intro[0]) + nameTrigger() + esc(intro[1]) + ' ' + t('home.brand') + '</p>' +
       '</section>'));
-    page.appendChild(featuredCard(feat));
 
-    // In progress: every study and series not marked done
-    var going = pub.filter(function (e) { return (e.kind === 'study' || e.kind === 'series') && !e.done; });
-    if (going.length) {
-      page.appendChild(Lab.html('<section class="block wide"><div class="block-head"><h2>' + t('home.inprogress') + '</h2></div><ul class="rows">' +
-        going.map(function (e) {
-          var words;
-          if (e.kind === 'series') { var ch = Lab.childrenOf(e.id); words = t('progress.series', { done: ch.filter(isPublic).length, total: ch.length }); }
-          else words = t('progress.study', e.progress);
-          return '<li class="row progress-row"><span class="row-title">' + Lab.linkTo(e.id) + '</span><span class="meta">' + words + ' · ' + t('updated', { date: '' }).trim() + ' ' + Lab.date(e.updated || e.published) + '</span></li>';
-        }).join('') + '</ul></section>'));
-    }
-
-    // Sections: one column per section that has public entries
-    var secs = D.sections.filter(function (s) { return pub.some(function (e) { return e.section === s.id; }); });
-    page.appendChild(Lab.html('<section class="block wide"><div class="block-head"><h2>' + t('home.sections') + '</h2></div><div class="sections">' +
-      secs.map(function (s) {
-        var es = pub.filter(function (e) { return e.section === s.id; }).sort(byPublished);
-        var count = es.length === 1 ? t('count.one') : t('count.many', { n: es.length });
-        return '<div><h3>' + esc(s.title) + '</h3><p>' + (s.thesisKey ? t(s.thesisKey) : esc(s.thesis)) + '</p><p class="meta">' + count + ' · ' + t('newest') + Lab.linkTo(es[0].id) + '</p></div>';
+    page.appendChild(Lab.html('<section class="block newhere wide" aria-labelledby="new-title"><div class="block-head"><h2 id="new-title">' + t('new.title') + '</h2></div>' +
+      '<div class="newhere-grid">' + ['what', 'read', 'start'].map(function (k) {
+        return '<p><strong>' + t('new.' + k + '.h') + '.</strong> ' + Lab.inline(Lab.raw('new.' + k)) + '</p>';
       }).join('') + '</div></section>'));
 
-    // Everything, newest first, grouped by year
-    var all = pub.slice().sort(byPublished);
-    var shown = all.slice(0, 12), years = [], html = '';
-    shown.forEach(function (e) { var y = e.published.slice(0, 4); if (years.indexOf(y) < 0) years.push(y); });
-    years.forEach(function (y) {
-      html += '<li class="year" aria-hidden="true">' + y + '</li>';
-      shown.filter(function (e) { return e.published.slice(0, 4) === y; }).forEach(function (e) {
-        html += '<li class="row">' + Lab.date(e.published) + '<span class="row-title">' + Lab.linkTo(e.id) + '</span><span class="row-kind">' + Lab.kindWords(e) + '</span></li>';
-      });
-    });
-    page.appendChild(Lab.html('<section class="block wide"><div class="block-head"><h2>' + t('home.everything') + '</h2>' +
-      (all.length > shown.length ? '<a class="meta" href="#/next?to=%2Flab%2Findex">' + t('home.all', { n: all.length }) + '</a>' : '') +
-      '</div><ul class="rows">' + html + '</ul></section>'));
+    // Sections: one column per section that has public entries; thesis and count, nothing dated
+    var secs = D.sections.filter(function (s) { return pub.some(function (e) { return e.section === s.id; }); });
+    page.appendChild(Lab.html('<section class="block wide" aria-labelledby="sec-title"><div class="block-head"><h2 id="sec-title">' + t('home.sections') + '</h2></div><div class="sections">' +
+      secs.map(function (s) {
+        var n = pub.filter(function (e) { return e.section === s.id; }).length;
+        return '<div><h3><a class="quiet" href="#/next?to=' + encodeURIComponent('/lab/' + s.id) + '">' + esc(s.title) + '</a></h3><p>' + (s.thesisKey ? t(s.thesisKey) : esc(s.thesis)) + '</p>' +
+          '<p class="meta">' + (n === 1 ? t('count.one') : t('count.many', { n: n })) + '</p></div>';
+      }).join('') + '</div></section>'));
 
-    var body = Lab.bodies[feat.id];
-    if (body && body.pull) page.appendChild(Lab.html('<section class="block block-pull"><p class="pull" aria-hidden="true">' + esc(body.pull) + '</p></section>'));
-
-    page.querySelector('.say').addEventListener('click', sayName);
+    // Latest: the newest N, mixed kinds, absolute handwritten dates
+    var all = pub.slice().sort(byPublished), shown = all.slice(0, LATEST);
+    page.appendChild(Lab.html('<section class="block wide latest" aria-labelledby="latest-title"><div class="block-head"><h2 id="latest-title">' + t('home.latest') + '</h2></div>' +
+      '<ul class="rows" data-latest>' + shown.map(function (e) {
+        return '<li class="row">' + Lab.date(e.published, true) + '<span class="row-title">' + Lab.linkTo(e.id) + '</span><span class="row-kind">' + Lab.kindWords(e) + '</span></li>';
+      }).join('') + '</ul>' +
+      '<p class="all"><a href="#/next?to=%2Flab%2Findex">' + t('home.all', { n: all.length }) + ' →</a></p></section>'));
     return page;
   }
+  var LATEST = 6;
 
   function entryPage(e) {
     var parent = e.parent && byId[e.parent];
@@ -195,16 +191,18 @@ var Lab = window.Lab = window.Lab || {};
     var idx = siblings.indexOf(e);
     var pad = function (n) { return String(n).padStart(2, '0'); };
     var body = Lab.bodies[e.id] || { blocks: [] };
+    var refs = { entry: e.id, map: body.refs || {}, order: [] };
     var page = Lab.html('<article class="page entry"></article>');
     var series = parent && e.kind === 'chapter' ?
       '<details class="series"><summary aria-expanded="false">' + esc(parent.title) + ' · <span data-num>' + pad(e.order) + '</span> of <span data-num>' + pad(siblings.length) + '</span>' +
         '<span class="ticks" aria-hidden="true">' + siblings.map(function (s) { return '<i' + (s === e ? ' class="on"' : '') + '></i>'; }).join('') + '</span><span class="chev" aria-hidden="true"></span></summary>' +
         '<ol class="chapters">' + siblings.map(function (s) { return '<li><span data-num>' + pad(s.order) + '</span>' + (s === e ? '<span>' + esc(s.title) + '</span>' : Lab.linkTo(s.id)) + '</li>'; }).join('') + '</ol>' +
         '<p class="meta">' + Lab.linkTo(parent.id, t('chapters.all')) + '</p></details>' : '';
+    var updated = e.updated && e.updated !== e.published ? ' · ' + t('updated') + ' ' + Lab.date(e.updated) : '';
     page.appendChild(Lab.html('<div class="entry-head">' + series +
       (e.kind === 'chapter' ? '<span class="num" aria-hidden="true">' + pad(e.order) + '</span>' : '') +
       '<h1 class="entry-title">' + esc(e.title) + '</h1>' +
-      '<p class="entry-meta meta">' + t('written') + ' ' + Lab.date(e.published) + (e.read ? ' · ' + t('read', { n: e.read }) : '') + '</p></div>'));
+      '<p class="entry-meta meta">' + t('written') + ' ' + Lab.date(e.published) + updated + (e.read ? ' · ' + t('read', { n: e.read }) : '') + '</p></div>'));
     var det = page.querySelector('.series');
     if (det) det.addEventListener('toggle', function () { det.querySelector('summary').setAttribute('aria-expanded', String(det.open)); });
 
@@ -215,19 +213,37 @@ var Lab = window.Lab = window.Lab || {};
     if (lead.name === 'haggle') leadBox.appendChild(Lab.html('<p class="caption">' + t('haggle.caption') + '</p>'));
     page.appendChild(leadBox);
 
-    var prose = Lab.html('<div class="entry-body prose"><p class="lede">' + esc(Lab.ledeOf(e)) + '</p></div>');
+    var prose = Lab.html('<div class="entry-body prose"><p class="lede">' + Lab.inline(Lab.ledeOf(e), refs) + '</p></div>');
     if (lead.name === 'haggle') prose.appendChild(Lab.html('<div class="side sidenote"><p><strong>' + t('haggle.note') + '</strong> ' + t('haggle.schedule') + '</p></div>'));
     var pulled = false;
     body.blocks.forEach(function (b) {
       if (b.h2) prose.appendChild(Lab.html('<h2>' + esc(b.h2.text) + '</h2>'));
       if (b.p) {
-        prose.appendChild(Lab.html('<p>' + Lab.inline(b.p.text) + '</p>'));
+        prose.appendChild(Lab.html('<p>' + Lab.inline(b.p.text, refs) + '</p>'));
         if (!pulled && body.pull && prose.querySelectorAll('h2').length === 1) { prose.appendChild(Lab.html('<div class="side"><p class="pull" aria-hidden="true">' + esc(body.pull) + '</p></div>')); pulled = true; }
       }
       if (b.figure) prose.appendChild(Lab.instruments[b.figure](e));
     });
     page.appendChild(prose);
-    if (body.backlinks) page.appendChild(Lab.html('<p class="backlinks meta">' + t('backlinks') + ' ' + body.backlinks.map(function (id) { return Lab.linkTo(id); }).join(', ') + '</p>'));
+
+    // References, numbered by first use
+    if (refs.order.length) page.appendChild(Lab.html('<section class="refs-block" aria-labelledby="refs-title"><h2 id="refs-title" class="end-h">' + t('refs.title') + '</h2><ol class="refs">' +
+      refs.order.map(function (k) { var r = refs.map[k]; return '<li id="ref-' + k + '">' + refLine(r) + '</li>'; }).join('') + '</ol></section>'));
+
+    // Links to this page, beside Related (linked entries, then also related by shared tags)
+    // Related never repeats what "Links to this page" already lists beside it
+    var back = linksTo(e), linked = linkedFrom(e).filter(function (id) { return back.indexOf(id) < 0; });
+    var also = [];
+    (e.tags || []).forEach(function (tag) { Lab.tagged(tag).forEach(function (x) { if (x.id !== e.id && linked.indexOf(x.id) < 0 && back.indexOf(x.id) < 0 && also.indexOf(x.id) < 0) also.push(x.id); }); });
+    var item = function (id) { return '<li>' + Lab.linkTo(id) + ' <span class="meta">' + Lab.kindWords(byId[id]) + '</span></li>'; };
+    page.appendChild(Lab.html('<section class="ends" aria-label="Links">' +
+      '<div class="backlinks"><h2 class="end-h">' + t('backlinks') + '</h2>' + (back.length ? '<ul class="end-list">' + back.map(item).join('') + '</ul>' : '') + '</div>' +
+      '<div class="related" data-related><h2 class="end-h">' + t('related.title') + '</h2>' +
+        (linked.length ? '<ul class="end-list" data-linked>' + linked.map(item).join('') + '</ul>' : '') +
+        (also.length ? '<p class="meta also">' + t('related.also') + '</p><ul class="end-list" data-also>' + also.slice(0, 4).map(item).join('') + '</ul>' : '') +
+        ((e.tags || []).length ? '<p class="meta tags">' + t('related.tags') + ' ' + e.tags.map(function (g) { return Lab.tagLink(g); }).join(', ') + '</p>' : '') +
+      '</div></section>'));
+
     if (parent && idx >= 0) {
       var prev = siblings[idx - 1], next = siblings[idx + 1];
       page.appendChild(Lab.html('<nav class="nextprev" aria-label="Chapters">' +
@@ -236,6 +252,10 @@ var Lab = window.Lab = window.Lab || {};
         '</nav>'));
     }
     return page;
+  }
+  function refLine(r) {
+    var title = r.url ? '<a class="ext" href="' + esc(r.url) + '" rel="noopener">' + esc(r.title) + '</a>' : '<span class="ref-title">' + esc(r.title) + '</span>';
+    return title + ' <span class="meta">' + esc(r.site) + '</span><span class="ref-line">' + esc(r.line.text) + '</span>';
   }
 
   function holding(to) {
@@ -289,68 +309,194 @@ var Lab = window.Lab = window.Lab || {};
     else swap();
   }
 
-  // ---------- the name, said ----------
-  function sayName(ev) {
-    var b = ev.currentTarget;
-    if (!('speechSynthesis' in window)) { b.title = Lab.raw('say.none'); return; }
+  // ---------- the name: underlined where it carries the voice; its card says it ----------
+  function nameTrigger() {
+    return '<button type="button" class="term name" data-preview="name" aria-haspopup="dialog" aria-expanded="false">' + esc(D.owner.short) + '</button>';
+  }
+  /** Speaks the name. Called only from the card's play button: a click, a tap or Enter. */
+  function sayName(btn) {
+    if (!('speechSynthesis' in window)) { var n = btn.parentNode.querySelector('.say-none'); if (n) n.hidden = false; return; }
     var u = new SpeechSynthesisUtterance(D.owner.name);
     u.lang = 'en-IN'; u.rate = 0.85;
-    var voices = speechSynthesis.getVoices();
+    var voices = speechSynthesis.getVoices ? speechSynthesis.getVoices() : [];
     var v = voices.find(function (x) { return /en-IN/i.test(x.lang); });
     if (v) u.voice = v;
     speechSynthesis.cancel();
     speechSynthesis.speak(u);
   }
 
-  // ---------- previews: mini canvas windows, desktop only ----------
-  var pv = null, pvTimer = null, pvFor = null;
-  var canPreview = function () { return window.matchMedia('(min-width: 800px) and (hover: hover)').matches; };
-  function previewFor(e) {
-    var body = Lab.bodies[e.id];
-    var firstP = body && body.blocks.find(function (b) { return b.p; });
-    var lede = Lab.ledeOf(e);
-    return '<div class="window-bar"><span>' + Lab.kindWords(e) + '</span>' + Lab.date(e.updated || e.published) + '</div>' +
-      '<div class="preview-body"><h3>' + esc(e.title) + '</h3>' + (lede ? '<p>' + esc(lede) + '</p>' : '') +
-      (firstP ? '<p>' + esc(firstP.p.text.replace(/==|`|\[\[[\w-]+\|([^\]]+)\]\]/g, '$1')) + '</p>' : '') + '</div>';
+  // ---------- previews: one card for entries, terms, tags, references and the name ----------
+  // Desktop (a fine pointer that hovers): a mini canvas window by the link, after a hover-intent
+  // delay, kept open while the pointer is on it, closed after a dismiss delay. Touch: the first tap
+  // opens it as a sheet at the bottom with a Close button, scrolled so the tapped words stay in
+  // view; the card's own link goes further, and a second tap on the same words follows the link.
+  // Outside taps and Esc close it. No sound on hover; the peek cue plays only on a tap, click or focus.
+  var INTENT = 300, DISMISS = 220;
+  var pv = null, pvFor = null, pvMode = null, pvHow = null, openT = null, closeT = null, lastPointer = 'mouse';
+  var hoverable = function () { return window.matchMedia('(hover: hover) and (pointer: fine)').matches; };
+  function cardOf(key) {
+    var more = null, bar, bodyHtml, label;
+    if (key === 'name') {
+      bar = '<span>' + t('name.bar') + '</span>';
+      label = D.owner.name;
+      bodyHtml = '<h3>' + esc(D.owner.name) + '</h3><p class="pron" lang="en">' + t('name.say') + '</p>' +
+        '<p class="say-row"><button type="button" class="btn btn-say" data-say aria-label="' + t('name.playLabel') + '"><span class="i-speaker" aria-hidden="true"></span>' + t('name.play') + '</button></p>' +
+        '<p class="meta say-none" hidden>' + t('name.none') + '</p>';
+      more = { href: '#/next?to=%2F', label: t('name.more') };
+    } else if (key.indexOf('term:') === 0) {
+      var x = termById[key.slice(5)];
+      bar = '<span>' + t('card.term') + '</span>';
+      label = x.name;
+      bodyHtml = '<h3>' + Lab.inline(x.name.replace(/^(\w+_\w+)$/, '`$1`')) + '</h3><p>' + esc(x.def) + '</p>';
+      more = Lab.termTarget(x);
+    } else if (key.indexOf('tag:') === 0) {
+      var tag = key.slice(4), es = Lab.tagged(tag);
+      bar = '<span>' + t('card.tag') + '</span><span class="meta">' + (es.length === 1 ? t('count.one') : t('count.many', { n: es.length })) + '</span>';
+      label = tag;
+      bodyHtml = '<h3>' + esc(tag) + '</h3><ul class="card-list">' + es.slice(0, 5).map(function (e) { return '<li>' + esc(e.title) + ' <span class="meta">' + Lab.kindWords(e) + '</span></li>'; }).join('') + '</ul>';
+      more = { href: tagHref(tag), label: t('card.tagged', { tag: tag }) };
+    } else if (key.indexOf('ref:') === 0) {
+      var parts = key.split(':'), r = (Lab.bodies[parts[1]] || {}).refs[parts[2]];
+      var mark = document.querySelector('[data-preview="' + key + '"]');
+      bar = '<span>' + t('card.ref', { n: mark ? mark.textContent : '' }) + '</span>';
+      label = r.title;
+      bodyHtml = '<h3>' + esc(r.title) + '</h3><p class="meta">' + esc(r.site) + '</p><p>' + esc(r.line.text) + '</p>' + (r.url ? '' : '<p class="meta">' + t('card.internal') + '</p>');
+      more = r.url ? { href: r.url, label: t('card.source'), ext: true } : { href: '#ref-' + parts[2], jump: 'ref-' + parts[2], label: t('card.refs') };
+    } else {
+      var e = byId[key];
+      if (!e) return null;
+      var b = Lab.bodies[e.id];
+      var firstP = b && b.blocks.find(function (x) { return x.p; });
+      var lede = Lab.plain(Lab.ledeOf(e));
+      bar = '<span>' + Lab.kindWords(e) + '</span>' + Lab.date(e.updated || e.published);
+      label = e.title;
+      bodyHtml = '<h3>' + esc(e.title) + '</h3>' + (lede ? '<p>' + esc(lede) + '</p>' : '') + (firstP ? '<p>' + esc(Lab.plain(firstP.p.text)) + '</p>' : '');
+      more = { href: Lab.href(e), label: t('card.open') };
+    }
+    return {
+      label: label,
+      html: '<div class="window-bar">' + bar + '<button type="button" class="card-close" data-card-close aria-label="' + t('card.close') + '">' + t('card.close') + '</button></div>' +
+        '<div class="preview-body">' + bodyHtml +
+        (more ? '<p class="card-more"><a href="' + esc(more.href) + '"' + (more.ext ? ' class="ext" rel="noopener"' : '') + (more.jump ? ' data-jump="' + more.jump + '"' : '') + '>' + more.label + '</a></p>' : '') + '</div>',
+    };
   }
-  function openPreview(a) {
-    var e = byId[a.getAttribute('data-preview')];
-    if (!e || !canPreview()) return;
-    if (!pv) { pv = Lab.html('<div class="preview" role="tooltip" aria-hidden="true"></div>'); document.body.appendChild(pv); }
-    pv.innerHTML = previewFor(e);
-    pv.classList.remove('is-closing');
-    var r = a.getBoundingClientRect(), w = Math.min(420, window.innerWidth - 32);
-    var left = Math.min(Math.max(16, r.left), window.innerWidth - w - 16);
-    pv.style.left = left + 'px';
-    pv.style.top = '0px';
-    var h = pv.offsetHeight;
-    var below = r.bottom + 10;
-    pv.style.top = (below + h < window.innerHeight - 8 ? below : Math.max(Lab.barH + 8, r.top - h - 10)) + 'px';
+  function openPreview(trigger, how) {
+    var key = trigger.getAttribute('data-preview'), card = cardOf(key);
+    if (!card) return;
+    clearTimeout(openT); clearTimeout(closeT);
+    if (!pv) {
+      pv = Lab.html('<div class="preview" role="dialog" hidden></div>');
+      document.body.appendChild(pv);
+      pv.addEventListener('pointerenter', function () { clearTimeout(closeT); });
+      pv.addEventListener('pointerleave', function (ev) { if (pvMode === 'float' && pvHow === 'hover' && ev.pointerType !== 'touch' && !(pvFor && pvFor.contains(ev.relatedTarget))) closeSoon(); });
+      pv.addEventListener('click', function (ev) {
+        if (ev.target.closest('[data-card-close]')) { var back = pvFor; closePreview(); if (back) back.focus({ preventScroll: true }); return; }
+        var say = ev.target.closest('[data-say]');
+        if (say) { sayName(say); return; }
+      });
+    }
+    if (pvFor && pvFor !== trigger) setExpanded(pvFor, false);
+    var sheet = how === 'tap' || !hoverable();
+    pvMode = sheet ? 'sheet' : 'float';
+    pv.innerHTML = card.html;
+    pv.setAttribute('aria-label', card.label);
+    pv.setAttribute('data-for', key);
+    pv.className = 'preview' + (sheet ? ' is-sheet' : '');
+    pv.hidden = false;
+    if (sheet) {
+      main.style.paddingBottom = pv.offsetHeight + 'px';   // room to scroll the tapped words clear
+      var sheetTop = window.innerHeight - pv.offsetHeight, r = trigger.getBoundingClientRect();
+      if (r.bottom > sheetTop - 12) window.scrollBy(0, r.bottom - sheetTop + 28);
+      else if (r.top < Lab.barH) window.scrollBy(0, r.top - Lab.barH - 16);
+    } else {
+      var r2 = trigger.getBoundingClientRect(), w = Math.min(420, window.innerWidth - 32);
+      pv.style.left = Math.min(Math.max(16, r2.left), window.innerWidth - w - 16) + 'px';
+      pv.style.top = '0px';
+      var h = pv.offsetHeight, below = r2.bottom + 10;
+      pv.style.top = (below + h < window.innerHeight - 8 ? below : Math.max(Lab.barH + 8, r2.top - h - 10)) + 'px';
+    }
     requestAnimationFrame(function () { pv.classList.add('is-open'); });
-    if (pvFor !== a) Lab.audio.cue('peek');
-    pvFor = a;
+    if (pvFor !== trigger && how !== 'hover') Lab.audio.cue('peek');
+    pvFor = trigger;
+    pvHow = how;
+    setExpanded(trigger, true);
   }
+  function setExpanded(el, on) { if (el.hasAttribute('aria-expanded')) el.setAttribute('aria-expanded', String(on)); }
+  function closeSoon() { clearTimeout(closeT); closeT = setTimeout(closePreview, DISMISS); }
   function closePreview(now) {
-    clearTimeout(pvTimer);
+    clearTimeout(openT); clearTimeout(closeT);
+    if (pvFor) setExpanded(pvFor, false);
     pvFor = null;
     if (!pv) return;
-    pv.classList.add('is-closing');
     pv.classList.remove('is-open');
+    pv.hidden = true;
+    pv.removeAttribute('data-for');
+    if (main) main.style.paddingBottom = '';
     if (now) pv.innerHTML = '';
   }
+  Lab.preview = { open: openPreview, close: closePreview, el: function () { return pv; }, INTENT: INTENT, DISMISS: DISMISS };
+  var triggerOf = function (el) { return el && el.closest && el.closest('[data-preview]'); };
+  document.addEventListener('pointerdown', function (ev) {
+    lastPointer = ev.pointerType || 'mouse';
+    if (pv && !pv.hidden && !pv.contains(ev.target) && !(pvFor && pvFor.contains(ev.target))) closePreview();
+  }, true);
   document.addEventListener('pointerover', function (ev) {
-    var a = ev.target.closest && ev.target.closest('a[data-preview]');
-    if (!a || ev.pointerType === 'touch') return;
-    clearTimeout(pvTimer);
-    pvTimer = setTimeout(function () { openPreview(a); }, 300);
+    var a = triggerOf(ev.target);
+    if (!a || ev.pointerType === 'touch' || !hoverable() || (pv && pv.contains(a))) return;
+    clearTimeout(closeT);
+    if (pvFor === a) return;
+    clearTimeout(openT);
+    openT = setTimeout(function () { openPreview(a, 'hover'); }, INTENT);
   });
   document.addEventListener('pointerout', function (ev) {
-    var a = ev.target.closest && ev.target.closest('a[data-preview]');
-    if (a && !a.contains(ev.relatedTarget)) closePreview(false);
+    var a = triggerOf(ev.target);
+    if (!a || ev.pointerType === 'touch' || a.contains(ev.relatedTarget)) return;
+    clearTimeout(openT);
+    if (pvFor === a && pvMode === 'float' && pvHow === 'hover' && !(pv && pv.contains(ev.relatedTarget))) closeSoon();
   });
-  document.addEventListener('focusin', function (ev) { var a = ev.target.closest && ev.target.closest('a[data-preview]'); if (a && a.matches(':focus-visible')) openPreview(a); });
-  document.addEventListener('focusout', function (ev) { if (ev.target.closest && ev.target.closest('a[data-preview]')) closePreview(false); });
-  document.addEventListener('keydown', function (e) { if (e.key === 'Escape') closePreview(false); });
+  document.addEventListener('click', function (ev) {
+    var j = ev.target.closest && ev.target.closest('a[data-jump]');
+    var a = triggerOf(ev.target);
+    if (a && !(pv && pv.contains(a))) {
+      var touch = lastPointer === 'touch' || !hoverable();
+      if (a.matches('button')) {                 // the name: a click or Enter opens (or keeps) its card; a second one closes it
+        ev.preventDefault();
+        if (pvFor === a && pvHow !== 'hover') closePreview();
+        else { if (pvFor === a) pvHow = 'click'; else openPreview(a, touch ? 'tap' : 'click'); if (ev.detail === 0) focusCard(); }
+        return;
+      }
+      if (touch && pvFor !== a) { ev.preventDefault(); openPreview(a, 'tap'); return; }   // first tap: the card
+    }
+    if (j) {                                     // in-page jumps never touch the hash router
+      ev.preventDefault();
+      var to = document.getElementById(j.getAttribute('data-jump'));
+      closePreview();
+      if (to) { to.scrollIntoView({ block: 'center', behavior: Lab.look.reduced() ? 'auto' : 'smooth' }); to.classList.add('is-target'); setTimeout(function () { to.classList.remove('is-target'); }, 1600); }
+    }
+  });
+  /** Keyboard opens move focus into the card: play first, then the link further, then Close. */
+  function focusCard() {
+    if (!pv) return;
+    var f = ['[data-say]', '.card-more a', '[data-card-close]'].map(function (s) { return pv.querySelector(s); }).find(Boolean);
+    if (f) f.focus();
+  }
+  document.addEventListener('focusin', function (ev) {
+    var a = triggerOf(ev.target);
+    if (a && a.tagName === 'A' && a.matches(':focus-visible') && !(pv && pv.contains(a))) openPreview(a, 'focus');
+  });
+  document.addEventListener('focusout', function (ev) {
+    if (!pv || pv.hidden || pvMode === 'sheet') return;
+    var to = ev.relatedTarget;
+    if (to && (pv.contains(to) || (pvFor && pvFor.contains(to)))) return;
+    if (triggerOf(ev.target) === pvFor || pv.contains(ev.target)) closeSoon();
+  });
+  document.addEventListener('keydown', function (e) {
+    if (e.key !== 'Escape' || !pv || pv.hidden) return;
+    var back = pvFor, inside = pv.contains(document.activeElement);
+    closePreview();
+    if (back && inside) back.focus({ preventScroll: true });
+  });
+  window.addEventListener('scroll', function () { if (pv && !pv.hidden && pvMode === 'float') closePreview(); }, { passive: true });
 
   // ---------- the dot: reading progress with a face ----------
   var lastX = -1, lastStep = 0, idle = null, inFooter = false, footObs = null;

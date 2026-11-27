@@ -118,8 +118,8 @@ const entries = [
   ch(2, 'shop-and-stock', 'The shop and its stock'),
   ch(3, 'thirteen-rules', 'Thirteen rules'),
   ch(4, 'how-it-haggles', 'How it haggles'),
-  { ...ch(5, 'price-it-never-sees', 'An agent can’t leak a price it never sees', '2026-11-26'), pinned: true, updated: '2026-11-26',
-    lead: { instrument: 'haggle' }, ledeKey: 'ch05.lede', nowKey: 'now.ch05', read: '6 min' },
+  { ...ch(5, 'price-it-never-sees', 'An agent can’t leak a price it never sees', '2026-11-26'), updated: '2026-11-26',
+    lead: { instrument: 'haggle' }, ledeKey: 'ch05.lede', read: '6 min' },
   ch(6, 'ten-tools', 'Ten tools, and none returns a floor'),
   ch(7, 'thirty-five-ways', 'Thirty-five ways to try to break it'),
   ch(8, 'how-a-run-is-graded', 'How a run is graded'),
@@ -141,6 +141,13 @@ const entries = [
   { id: 'chrome-hackathon', slug: 'chrome-hackathon', section: 'writing', kind: 'essay', title: chrome.title.replace(/\s+/g, ' '),
     published: chrome.date, opening: chrome.opening, read: writing.find((w) => w.slug === 'chrome-hackathon').readingTime },
 ];
+
+// Tags: at most eight across the Lab (plan, Routes). Proposed; listed in README for veto.
+const TAGS = { 'agent-reliability': ['evals', 'agents'], shopkeeper: ['agents', 'evals'], 'shopkeeper-05': ['agents', 'evals', 'security'],
+  t01: ['evals'], t02: ['evals'], 'drag-to-workspace': ['desktop', 'open-source'], holt: ['open-source', 'evals'], datesheet: ['web'],
+  'old-laptop': ['self-hosting'], 'chrome-hackathon': ['web', 'hackathons'] };
+for (const e of entries) if (TAGS[e.id]) e.tags = TAGS[e.id];
+if (new Set(Object.values(TAGS).flat()).size > 8) throw new Error('more than eight tags');
 
 const data = {
   build: execSync('git rev-parse --short HEAD', { cwd: repo }).toString().trim(),

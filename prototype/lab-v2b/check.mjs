@@ -3,7 +3,9 @@
 // LAB-V2B FAIL n (exit 1). Routes and entries come from the mockup's own data (Lab.routes()).
 //   cx heavy -- node prototype/lab-v2b/check.mjs
 // Task 1 scope: checks 1-26 where they apply to the home and chapter 05. Check 22's per-template
-// part waits for task 2's pages; its featured-slot part and the haggle fidelity run here.
+// part waits for task 2's pages; its sections part and the haggle fidelity run here.
+// Revision (27 Nov): the home is evergreen (rules H1-H3), and every link previews, Wikipedia-style
+// (rules N, T, P, R, U, D). The Featured slot and its ?feature= check are gone with the slot.
 import { execFileSync } from 'node:child_process';
 import { createRequire } from 'node:module';
 import { readFileSync, readdirSync, existsSync, statSync } from 'node:fs';
@@ -41,15 +43,20 @@ for (const [name, text] of [['bundle', bundleText], ...contentFiles.map((f) => [
 }
 // 2. banned phrases in everything a reader can see: the copy, the generated data, the fixture
 const sandbox = { window: {} };
-for (const f of ['content/lab-data.js', 'content/copy.js']) vm.runInNewContext(readFileSync(join(here, f), 'utf8'), sandbox);
+for (const f of ['content/lab-data.js', 'content/copy.js', 'content/terms.js']) vm.runInNewContext(readFileSync(join(here, f), 'utf8'), sandbox);
 const L = sandbox.window.Lab;
-const visibleCopy = JSON.stringify([L.copy, L.bodies, L.compare, L.data.entries, L.data.sections]);
+const visibleCopy = JSON.stringify([L.copy, L.bodies, L.compare, L.data.entries, L.data.sections, L.terms]);
 for (const p of BANNED) { const re = new RegExp(`(^|[^a-z])${p.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')}`, 'i'); if (re.test(visibleCopy)) fail(2, `banned phrase "${p}" in copy or data`); }
 for (const re of TRACKER) if (re.test(visibleCopy)) fail(2, `tracker-output pattern ${re}`);
 // 3. every proposal is in COPY.md
 const copyMd = readFileSync(join(here, 'COPY.md'), 'utf8');
 const props = [...Object.values(L.copy), ...Object.values(L.bodies).flatMap((b) => b.blocks.map((x) => x.h2 || x.p).filter(Boolean))].filter((c) => c.proposal);
 for (const c of props) if (!copyMd.includes(c.text.replace(/\|/g, '\\|'))) fail(3, `proposed line not in COPY.md: "${c.text.slice(0, 60)}"`);
+for (const x of L.terms) if (!copyMd.includes(x.def.replace(/\|/g, '\\|'))) fail(3, `term definition not in COPY.md: ${x.id}`);
+// T (static): every term is data, complete, and every [[t:id|...]] in the copy names one
+const termIds = new Set(L.terms.map((x) => x.id));
+for (const x of L.terms) if (x.kind !== 'term' || !x.name || !x.def || !x.source) fail('T', `term ${x.id} is missing kind, name, def or source`);
+for (const m of JSON.stringify([L.copy, L.bodies]).matchAll(/\[\[t:([\w-]+)\|/g)) if (!termIds.has(m[1])) fail('T', `unknown term "${m[1]}" in the copy`);
 // 4. no reference to the old Lab; ≤ 3 font families; budget; the fixture stays out of the default bundle
 for (const f of walk(here).filter((f) => /\.(js|mjs|css|html)$/.test(f) && !f.includes('/.build/') && !f.endsWith('check.mjs'))) {
   if (/prototype\/lab\/|\.\.\/lab\//.test(readFileSync(f, 'utf8'))) fail(4, `${f.slice(here.length + 1)} references prototype/lab/`);
@@ -98,6 +105,14 @@ const INSTRUMENT = () => {
   }
   const conn = AudioNode.prototype.connect;
   AudioNode.prototype.connect = function (target) { A.connects.push(target); return conn.apply(this, arguments); };
+  // the name card: count every utterance (a stand-in synthesiser where the browser has none)
+  A.speak = 0;
+  if (!('speechSynthesis' in window)) {
+    window.speechSynthesis = { speak() {}, cancel() {}, getVoices() { return []; } };
+    window.SpeechSynthesisUtterance = function (text) { this.text = text; };
+  }
+  const speak = window.speechSynthesis.speak.bind(window.speechSynthesis);
+  window.speechSynthesis.speak = (u) => { A.speak += 1; try { speak(u); } catch { /* no voice */ } };
   const play = HTMLMediaElement.prototype.play;
   HTMLMediaElement.prototype.play = function () { A.media += 1; return play.apply(this, arguments); };
 };
@@ -141,6 +156,7 @@ const MEASURE = (opts) => {
   const ctlSel = 'a[href],button,input,select,textarea,summary,[tabindex]:not([tabindex="-1"])';
   for (const c of document.querySelectorAll(ctlSel)) {
     if (c.closest('.player,.pop,.preview') || !visible(c)) continue;
+    if (c.closest('p,li') && getComputedStyle(c).display === 'inline' && c.closest('main')) continue;   // an inline link in running text is reading, not chrome
     const r = c.getBoundingClientRect();
     if (r.width === 0 || r.bottom <= 0 || r.top >= vh) continue;
     if (c.tagName === 'INPUT' && c.closest('label')) { /* the field's label is the control */ }
@@ -163,12 +179,13 @@ const MEASURE = (opts) => {
       out.glyphs += (t.text.match(GLYPHS) || []).length;
       out.arrows += (t.text.match(ARROWS) || []).length;
       const len = t.text.trim().length;
-      if (t.el.closest('a,button,nav,header,aside,footer')) out.chrome += len; else out.body += len;
+      const inlineLink = t.el.closest('main p a, main p button.term, main li a') && getComputedStyle(t.el.closest('a,button')).display === 'inline';
+      if (t.el.closest('a,button,nav,header,aside,footer') && !inlineLink) out.chrome += len; else out.body += len;
       const k = Math.round(fs * 2) / 2; out.sizes[k] = (out.sizes[k] || 0) + 1;
     }
     // 9
     if (/Space Mono/.test(s.fontFamily) && !t.el.closest('pre,code,kbd,[data-tool-log],[data-num]')) out.mono.push(t.text.trim().slice(0, 30));
-    if (/Reenie/.test(s.fontFamily)) {
+    if (/Caveat/.test(s.fontFamily)) {
       const host = t.el.closest('time,[data-annot],[data-dot]');
       if (!host) out.hand.push('outside time: ' + t.text.trim().slice(0, 30));
       else if (host.textContent.trim().split(/\s+/).length > 8) out.hand.push('over 8 words: ' + host.textContent.trim().slice(0, 30));
@@ -196,6 +213,18 @@ const MEASURE = (opts) => {
     }
   }
   out.accent = accent;
+  // U: every inline link is underlined (never a colour wash), and the underline holds 3:1 against its ground
+  out.underline = [];
+  for (const a of document.querySelectorAll('main a, main button.term')) {
+    if (!visible(a) || getComputedStyle(a).display !== 'inline' || !a.closest('p,li')) continue;
+    const s = getComputedStyle(a), bg = bgOf(a.parentElement);
+    if (!/underline/.test(s.textDecorationLine)) { if (!a.matches('.quiet')) out.underline.push(`no underline: "${a.textContent.slice(0, 24)}"`); continue; }
+    if (parse(s.backgroundColor)[3] > 0) out.underline.push(`colour wash behind "${a.textContent.slice(0, 24)}"`);
+    const dc = over(parse(s.textDecorationColor), bg);
+    if (ratio(dc, bg) < 3) out.underline.push(`underline ${ratio(dc, bg).toFixed(2)}:1 on "${a.textContent.slice(0, 24)}"`);
+  }
+  // D: a handwritten date never splits across lines
+  out.splitDates = [...document.querySelectorAll('time')].filter((x) => visible(x) && x.getClientRects().length > 1).map((x) => x.textContent);
   // 13: no empty vertical strip > 240px inside the content block, over the whole first screen
   const block = document.querySelector('.page');
   if (block) {
@@ -300,14 +329,18 @@ try {
     if (a.panel) fail(23, `${tag}: side player open on arrival`);
     if (o.errors.length) fail(21, `${tag}: ${o.errors.slice(0, 2).join(' | ')}`);
     if (o.net.length) fail(21, `${tag}: network ${o.net.slice(0, 2).join(' ')}`);
-    // (b): at 390×844 the haggle input and the featured lead are above the fold, in both looks
+    m.underline.slice(0, 3).forEach((x) => fail('U', `${tag}: ${x}`));
+    m.splitDates.forEach((x) => fail('D', `${tag}: the date "${x}" splits across lines`));
+    // (b): at 390×844 the haggle input is above the fold on chapter 05; on the home, the intro comes
+    // first and the top of "New here?" or Latest is on the first screen
     if (size === 'phone') {
       const fold = await page.evaluate(() => {
-        const i = document.querySelector('[data-lead] .haggle-form input'), f = document.querySelector('[data-featured-lead]');
-        return { input: i && i.getBoundingClientRect().bottom, lead: f && f.getBoundingClientRect().top };
+        const i = document.querySelector('[data-lead] .haggle-form input');
+        const top = (sel) => { const e = document.querySelector(sel); return e ? e.getBoundingClientRect().top : null; };
+        return { input: i && i.getBoundingClientRect().bottom, intro: top('.intro'), next: Math.min(...['.newhere', '.latest'].map(top).filter((v) => v != null)) };
       });
       if (isEntry(r) && fold.input != null && fold.input > 844) fail('b', `${tag}: haggle input ends at ${Math.round(fold.input)}px`);
-      if (!isEntry(r) && !(fold.lead < 844)) fail('b', `${tag}: featured lead starts at ${Math.round(fold.lead)}px`);
+      if (!isEntry(r) && !(fold.intro < fold.next && fold.next < 844)) fail('b', `${tag}: intro at ${Math.round(fold.intro)}px, "New here?"/Latest at ${Math.round(fold.next)}px`);
     }
     await o.close();
   }
@@ -441,22 +474,7 @@ try {
     await o.close();
   }
 
-  // ---------- 22: the featured slot renders every kind's lead, at both sizes ----------
-  const KINDS = { 'shopkeeper-05': 'haggle', 'agent-reliability': 'board', 'drag-to-workspace': 'demo', holt: 'screens', 'old-laptop': 'opening', t02: 'keyline', 'fx-experiment': 'result',
-    'fx-study': 'logline', 'fx-note': 'keyline', 'fx-series': 'progress', 'fx-chapter': 'keyline', 'fx-build': 'install', 'fx-essay': 'opening' };
-  for (const [id, kind] of Object.entries(KINDS)) for (const size of ['desktop', 'phone']) for (const look of [LOOKS[0], LOOKS[3]]) {
-    const o = await open(CHECK, `fixture=kinds&feature=${id}&${look.q}`, '#/', size);
-    const f = await o.page.evaluate(() => { const e = document.querySelector('[data-featured-lead]'); return e && { kind: e.dataset.leadKind, top: e.getBoundingClientRect().top, h: e.getBoundingClientRect().height, title: document.querySelector('#featured-title').textContent }; });
-    if (!f) fail(22, `feature=${id} ${size}: no featured card`);
-    else {
-      if (f.kind !== kind) fail(22, `feature=${id} ${size}: lead is ${f.kind}, want ${kind}`);
-      if (!(f.top < SIZES[size].height)) fail(22, `feature=${id} ${size} ${look.name}: lead starts at ${Math.round(f.top)}px`);
-      if (f.h < 40) fail(22, `feature=${id} ${size}: lead is ${Math.round(f.h)}px tall`);
-    }
-    if (o.errors.length) fail(21, `feature=${id} ${size}: ${o.errors[0]}`);
-    if (o.net.length) fail(21, `feature=${id} ${size}: network ${o.net[0]}`);
-    await o.close();
-  }
+  // ---------- 22 (part): sections come from data ----------
   {
     const o = await open(CHECK, 'fixture=kinds', '#/', 'desktop');
     const secs = await o.page.evaluate(() => [...document.querySelectorAll('.sections h3')].map((h) => h.textContent));
@@ -468,6 +486,172 @@ try {
     if (secs2.includes('Experiments')) fail(22, 'an empty section (Experiments) rendered');
     await o2.close();
   }
+
+  // ---------- H: the home is evergreen ----------
+  // H1 no entry title (or entry link) outside Latest; H2 no time words and nothing that counts
+  // progress; checked in both looks at both sizes, in the default and the fixture data.
+  const TIME_WORDS = /\b(now|currently|current|this (week|month|year)|latest work|just|ago|today|tonight|yesterday|recently|lately|so far|streak|in progress|still going|newest|up to date|soon)\b/i;
+  for (const [file, q0] of [[BUNDLE, ''], [CHECK, 'fixture=kinds&']]) for (const size of ['desktop', 'phone']) for (const look of [LOOKS[0], LOOKS[3]]) {
+    const tag = `home ${size} ${look.name}${file === CHECK ? ' fixture' : ''}`;
+    const o = await open(file, q0 + look.q, '#/', size);
+    const h = await o.page.evaluate(() => {
+      const titles = Lab.data.entries.map((e) => e.title);
+      const latest = document.querySelector('[data-latest]');
+      const outside = [], words = [];
+      const tw = document.createTreeWalker(document.body, NodeFilter.SHOW_TEXT);
+      let copy = '';
+      for (let n; (n = tw.nextNode());) {
+        const el = n.parentElement;
+        if (!el || el.closest('script,style,#player,.pop,.preview')) continue;
+        if (!(latest && latest.contains(el))) for (const t of titles) if (n.data.includes(t)) outside.push(t);
+        if (!el.closest('.row-title')) copy += ' ' + n.data;
+      }
+      for (const el of document.querySelectorAll('main [aria-label], .bar [aria-label]')) copy += ' ' + el.getAttribute('aria-label');
+      const links = [...document.querySelectorAll('[data-preview]')].filter((a) => Lab.entry(a.dataset.preview) && !(latest && latest.contains(a))).map((a) => a.dataset.preview);
+      return { outside, links, copy, latestRows: latest ? latest.children.length : 0, ticks: document.querySelectorAll('main .ticks, main progress, main [role="progressbar"]').length };
+    });
+    h.outside.forEach((x) => fail('H1', `${tag}: entry title "${x}" outside Latest`));
+    h.links.forEach((x) => fail('H1', `${tag}: a link to entry "${x}" outside Latest`));
+    if (!h.latestRows) fail('H1', `${tag}: Latest is empty`);
+    const tw = h.copy.match(TIME_WORDS);
+    if (tw) fail('H2', `${tag}: time word "${tw[0]}" in the home's copy`);
+    if (/\b\d+ of \d+\b/.test(h.copy) || h.ticks) fail('H2', `${tag}: something counts progress`);
+    if (o.errors.length) fail(21, `${tag}: ${o.errors[0]}`);
+    await o.close();
+  }
+  note('home: evergreen rules checked');
+
+  // ---------- N: the name card plays only on an explicit action ----------
+  {
+    const o = await open(BUNDLE, '', '#/', 'desktop');
+    const p = o.page;
+    const st = () => p.evaluate(() => ({ open: !!document.querySelector('.preview.is-open[data-for="name"]'), speak: window.__audio.speak, ctx: window.__audio.contexts }));
+    if (await p.$('.say')) fail('N', 'the old "(say it)" trigger is still on the home');
+    const style = await p.evaluate(() => { const b = document.querySelector('main button.name'); return b && { line: getComputedStyle(b).textDecorationLine, style: getComputedStyle(b).textDecorationStyle, text: b.textContent }; });
+    if (!style || !/underline/.test(style.line) || style.style !== 'dotted') fail('N', `his name isn't a dotted underline (${JSON.stringify(style)})`);
+    await p.hover('main button.name'); await p.waitForTimeout(900);
+    let s1 = await st();
+    if (!s1.open) fail('N', 'hovering the name opened no card');
+    const card = await p.evaluate(() => { const c = document.querySelector('.preview'); return { text: c.textContent, play: !!c.querySelector('[data-say]') }; });
+    if (!/AH-hil KHAN/.test(card.text) || !card.play) fail('N', 'the card lacks the pronunciation or the play control');
+    await p.mouse.move(700, 160); await p.waitForTimeout(150); await p.hover('main button.name'); await p.waitForTimeout(2000);
+    s1 = await st();
+    if (s1.speak) fail('N', `hover spoke the name ${s1.speak} times`);
+    await p.click('.preview [data-say]'); await p.waitForTimeout(100);
+    if ((await st()).speak !== 1) fail('N', 'clicking play didn\'t say the name once');
+    await p.keyboard.press('Escape');
+    if ((await st()).open) fail('N', 'Esc didn\'t close the name card');
+    // keyboard: Enter on the name opens the card and moves focus to play; Enter on play says it
+    await p.focus('main button.name'); await p.keyboard.press('Enter'); await p.waitForTimeout(250);
+    const focused = await p.evaluate(() => document.activeElement && document.activeElement.hasAttribute('data-say'));
+    if (!(await st()).open || !focused) fail('N', 'Enter on the name didn\'t open the card with focus on play');
+    if ((await st()).speak !== 1) fail('N', 'opening the card by keyboard spoke the name');
+    await p.keyboard.press('Enter'); await p.waitForTimeout(100);
+    if ((await st()).speak !== 2) fail('N', 'Enter on play didn\'t say the name');
+    if (o.errors.length) fail(21, `name card: ${o.errors[0]}`);
+    await o.close();
+    // phone: a tap opens the sheet, says nothing; a tap on play says it
+    const o2 = await open(BUNDLE, '', '#/', 'phone');
+    await o2.page.tap('main button.name'); await o2.page.waitForTimeout(400);
+    const ph = await o2.page.evaluate(() => ({ open: !!document.querySelector('.preview.is-sheet.is-open[data-for="name"]'), speak: window.__audio.speak }));
+    if (!ph.open || ph.speak) fail('N', `phone: tap on the name (sheet open ${ph.open}, spoke ${ph.speak})`);
+    await o2.page.tap('.preview [data-say]'); await o2.page.waitForTimeout(100);
+    if ((await o2.page.evaluate(() => window.__audio.speak)) !== 1) fail('N', 'phone: tapping play didn\'t say the name');
+    await o2.close();
+  }
+
+  // ---------- P: chapter 05's term links and references, each with a preview ----------
+  for (const look of [LOOKS[0], LOOKS[3]]) {
+    const o = await open(BUNDLE, look.q, entry.hash, 'desktop');
+    const p = o.page;
+    const keys = await p.evaluate(() => {
+      const t = [...new Set([...document.querySelectorAll('.entry-body [data-preview^="term:"]')].map((a) => a.dataset.preview))];
+      const r = [...new Set([...document.querySelectorAll('.entry-body sup.ref a')].map((a) => a.dataset.preview))];
+      return { t, r, listed: document.querySelectorAll('ol.refs li').length, entries: [...new Set([...document.querySelectorAll('.entry-body a[data-preview]')].map((a) => a.dataset.preview).filter((k) => Lab.entry(k)))] };
+    });
+    if (keys.t.length < 8) fail('P', `${look.name}: ${keys.t.length} distinct term links on chapter 05 (want 8+)`);
+    if (keys.r.length < 3) fail('P', `${look.name}: ${keys.r.length} references (want 3+)`);
+    if (keys.listed !== keys.r.length) fail('P', `${look.name}: ${keys.listed} References entries for ${keys.r.length} citations`);
+    if (!keys.entries.length) fail('P', `${look.name}: no inline entry links in the text`);
+    const badHref = await p.evaluate(() => [...document.querySelectorAll('a[data-preview]')].filter((a) => !/^(#\/|#ref-|https:\/\/)/.test(a.getAttribute('href') || '') || a.attributes.length > 5).map((a) => a.outerHTML.slice(0, 80)));
+    badHref.slice(0, 3).forEach((x) => fail('P', `${look.name}: a link with a broken href: ${x}`));
+    for (const k of [...keys.t, ...keys.r, ...keys.entries]) {
+      const sel = `.entry-body [data-preview="${k}"]`;
+      await p.mouse.move(5, 300); await p.waitForTimeout(400);   // past the last card's dismiss delay
+      await p.locator(sel).first().scrollIntoViewIfNeeded(); await p.waitForTimeout(80);
+      // aim at the first line box: a link that wraps has a gap between its lines at its centre
+      const pt = await p.evaluate((sel) => { const r = document.querySelector(sel).getClientRects()[0]; return [r.left + Math.min(8, r.width / 2), r.top + r.height / 2]; }, sel);
+      await p.mouse.move(pt[0], pt[1], { steps: 2 }); await p.waitForTimeout(650);
+      const c = await p.evaluate((k) => { const v = document.querySelector('.preview'); return v && { open: v.classList.contains('is-open') && v.dataset.for === k, h3: (v.querySelector('h3') || {}).textContent, more: !!v.querySelector('.card-more a') }; }, k);
+      if (!c || !c.open || !c.h3) fail('P', `${look.name}: hovering ${k} showed no preview`);
+      else if (!c.more) fail('P', `${look.name}: the ${k} card has no link to go further`);
+    }
+    // hover intent: sweeping across a paragraph's links opens nothing
+    const sweep = await p.evaluate(async () => {
+      const links = [...document.querySelectorAll('.entry-body [data-preview]')].slice(0, 6);
+      links[0].scrollIntoView({ block: 'center' }); await new Promise((r) => setTimeout(r, 300));
+      return links.map((a) => { const r = a.getBoundingClientRect(); return [r.left + 4, r.top + r.height / 2]; });
+    });
+    await p.mouse.move(5, 5); await p.waitForTimeout(400);
+    let flashed = 0;
+    for (const [x, y] of sweep) { await p.mouse.move(x, y, { steps: 2 }); await p.waitForTimeout(90); if (await p.evaluate(() => { const v = document.querySelector('.preview'); return !!v && !v.hidden; })) flashed += 1; }
+    await p.mouse.move(5, 5); await p.waitForTimeout(400);
+    if (flashed) fail('P', `${look.name}: a quick sweep across links opened ${flashed} previews (hover intent)`);
+    // dismiss delay: off the link for less than the delay and back keeps the card; off it for longer closes it
+    const [x0, y0] = sweep[0];
+    await p.mouse.move(x0, y0); await p.waitForTimeout(650);
+    await p.mouse.move(x0, y0 - 40); await p.waitForTimeout(100); await p.mouse.move(x0, y0); await p.waitForTimeout(300);
+    const kept = await p.evaluate(() => { const v = document.querySelector('.preview'); return !!v && !v.hidden; });
+    await p.mouse.move(5, 5); await p.waitForTimeout(500);
+    const gone = await p.evaluate(() => { const v = document.querySelector('.preview'); return !v || v.hidden; });
+    if (!kept) fail('P', `${look.name}: the card closed at once when the pointer slipped off (no dismiss delay)`);
+    if (!gone) fail('P', `${look.name}: the card stayed open after the pointer left`);
+    // R: Related renders, with linked entries and also-related by shared tags
+    const rel = await p.evaluate(() => ({ box: !!document.querySelector('[data-related]'), linked: document.querySelectorAll('[data-linked] li').length, also: document.querySelectorAll('[data-also] li').length }));
+    if (!rel.box || !rel.linked || !rel.also) fail('R', `${look.name}: Related on chapter 05 (linked ${rel.linked}, also ${rel.also})`);
+    if (o.errors.length) fail(21, `previews ${look.name}: ${o.errors[0]}`);
+    await o.close();
+  }
+  // phones: the first tap opens a sheet with a way further and a Close, never over the tapped words;
+  // an outside tap and Esc close it; a second tap on the same words follows the link
+  for (const look of [LOOKS[0], LOOKS[3]]) {
+    const o = await open(BUNDLE, look.q, entry.hash, 'phone');
+    const p = o.page;
+    const keys = await p.evaluate(() => [...new Set([...document.querySelectorAll('.entry-body [data-preview^="term:"], .entry-body sup.ref a')].map((a) => a.dataset.preview))].slice(0, 6));
+    for (const k of keys) {
+      const sel = `.entry-body [data-preview="${k}"]`;
+      await p.locator(sel).first().scrollIntoViewIfNeeded(); await p.waitForTimeout(150);
+      const hash0 = await p.evaluate(() => location.hash);
+      await p.locator(sel).first().tap(); await p.waitForTimeout(450);
+      const c = await p.evaluate(([sel, k]) => {
+        const v = document.querySelector('.preview'), a = document.querySelector(sel);
+        if (!v || v.hidden) return null;
+        const vr = v.getBoundingClientRect(), ar = a.getBoundingClientRect(), x = v.querySelector('[data-card-close]').getBoundingClientRect();
+        return { sheet: v.classList.contains('is-sheet') && v.dataset.for === k, covered: ar.bottom > vr.top + 1, more: !!v.querySelector('.card-more a'), close: x.width >= 44 && x.height >= 44, hash: location.hash };
+      }, [sel, k]);
+      if (!c) { fail('P', `${look.name} phone: tapping ${k} opened nothing`); continue; }
+      if (!c.sheet) fail('P', `${look.name} phone: ${k} didn't open as a sheet`);
+      if (c.covered) fail('P', `${look.name} phone: the ${k} card covers the tapped words`);
+      if (!c.more || !c.close) fail('P', `${look.name} phone: the ${k} card lacks a way further or a 44px Close`);
+      if (c.hash !== hash0) fail('P', `${look.name} phone: the first tap on ${k} navigated`);
+      await p.touchscreen.tap(6, 200); await p.waitForTimeout(250);
+      if (await p.evaluate(() => { const v = document.querySelector('.preview'); return !!v && !v.hidden; })) fail('P', `${look.name} phone: an outside tap didn't close the ${k} card`);
+    }
+    // Esc, then the second tap
+    const k0 = keys[0], sel0 = `.entry-body [data-preview="${k0}"]`;
+    await p.locator(sel0).first().scrollIntoViewIfNeeded(); await p.locator(sel0).first().tap(); await p.waitForTimeout(350);
+    await p.keyboard.press('Escape'); await p.waitForTimeout(150);
+    if (await p.evaluate(() => { const v = document.querySelector('.preview'); return !!v && !v.hidden; })) fail('P', `${look.name} phone: Esc didn't close the card`);
+    const term = keys.find((k) => k.startsWith('term:')), selT = `.entry-body [data-preview="${term}"]`;
+    await p.locator(selT).first().scrollIntoViewIfNeeded(); await p.locator(selT).first().tap(); await p.waitForTimeout(350);
+    const want = await p.evaluate((sel) => document.querySelector(sel).getAttribute('href'), selT);
+    await p.locator(selT).first().tap(); await p.waitForTimeout(450);
+    const after = await p.evaluate(() => location.hash);
+    if (after !== want) fail('P', `${look.name} phone: a second tap on ${term} went to "${after}", not its link "${want}"`);
+    if (o.errors.length) fail(21, `phone previews ${look.name}: ${o.errors[0]}`);
+    await o.close();
+  }
+  note('previews: hover, intent, dismiss, phone taps and Related checked');
 
   // ---------- 23-26: the side player ----------
   // 23: a stored "on" and station never auto-resume
@@ -508,7 +692,7 @@ try {
       await p.click('[data-noise="rain"]');
       await p.keyboard.press('Escape');
       await p.evaluate(() => { window.__el = document.querySelector('audio[data-lab-player]'); window.__ctx = Lab.audio.context(); });
-      for (const sel of ['.bar-lab', '#featured-title a', '.bar-lab']) { await p.click(sel); await p.waitForTimeout(450); }
+      for (const sel of ['.bar-lab', '[data-latest] a[data-preview="shopkeeper-05"]', '.bar-lab']) { await p.click(sel); await p.waitForTimeout(450); }
       const s = await p.evaluate(() => ({ same: document.querySelector('audio[data-lab-player]') === window.__el, playing: !window.__el.paused, noise: Lab.noise.playing(), ctx: Lab.audio.context() === window.__ctx, contexts: window.__audio.contexts, route: location.hash }));
       if (!s.same || !s.playing) fail(25, `music didn't survive navigation (same element ${s.same}, playing ${s.playing})`);
       if (s.noise !== 'rain' || !s.ctx || s.contexts !== 1) fail(25, `noise didn't survive navigation (noise ${s.noise}, same context ${s.ctx}, contexts ${s.contexts})`);

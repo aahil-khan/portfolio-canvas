@@ -13,24 +13,42 @@ var Lab = window.Lab = window.Lab || {};
   };
   Lab.raw = function (key) { return Lab.copy[key].text; };
 
-  /** Inline markup: [[id|text]] previewed internal link, `code`, ==mark==. Input is escaped first. */
-  Lab.inline = function (text) {
+  /**
+   * Inline markup, the Wikipedia model: every link previews.
+   *   [[id|text]]      an entry        [[t:id|text]]   a glossary term (content/terms.js)
+   *   [[tag:id|text]]  a tag           [^key]          a numbered reference, from refs.key
+   *   `code`           ==mark==
+   * Input is escaped first. refs is the entry's { key: ref } map plus an `order` array that
+   * numbers the references by first use; pass the same object for every block of one entry.
+   */
+  Lab.inline = function (text, refs) {
     return esc(text)
+      .replace(/\[\[t:([\w-]+)\|([^\]]+)\]\]/g, function (_, id, label) { return Lab.termLink(id, label); })
+      .replace(/\[\[tag:([\w-]+)\|([^\]]+)\]\]/g, function (_, id, label) { return Lab.tagLink(id, label); })
       .replace(/\[\[([\w-]+)\|([^\]]+)\]\]/g, function (_, id, label) { return Lab.linkTo(id, label); })
+      .replace(/\[\^([\w-]+)\]/g, function (_, key) { return Lab.refMark(key, refs); })
       .replace(/`([^`]+)`/g, '<code>$1</code>')
       .replace(/==([^=]+)==/g, '<mark>$1</mark>');
+  };
+  /** The same text with the markup taken out, for previews and meta descriptions. */
+  Lab.plain = function (text) {
+    return String(text || '').replace(/\[\[(?:t:|tag:)?[\w-]+\|([^\]]+)\]\]/g, '$1').replace(/\[\^[\w-]+\]/g, '').replace(/==|`/g, '');
   };
 
   Lab.html = function (s) { var t = document.createElement('template'); t.innerHTML = s.trim(); return t.content.firstElementChild; };
 
   var MONTHS = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'];
   var LONG = ['January', 'February', 'March', 'April', 'May', 'June', 'July', 'August', 'September', 'October', 'November', 'December'];
-  /** A handwritten date: a real <time> with the full date in words for screen readers. */
-  Lab.date = function (iso, prefix) {
+  /**
+   * A handwritten date: a real <time>, always absolute, with the full date in words for screen
+   * readers. Day and month are joined by a no-break space (and time is nowrap), so a date never
+   * splits across lines. year: true adds the year.
+   */
+  Lab.date = function (iso, year) {
     if (!iso) return '';
     var d = iso.split('-').map(Number);
-    var short = d[2] + ' ' + MONTHS[d[1] - 1];
-    return '<time datetime="' + iso + '" aria-label="' + (prefix ? esc(prefix) + ' ' : '') + d[2] + ' ' + LONG[d[1] - 1] + ' ' + d[0] + '">' + (prefix ? esc(prefix) + ' ' : '') + short + '</time>';
+    var shown = d[2] + '\u00a0' + MONTHS[d[1] - 1] + (year ? '\u00a0' + d[0] : '');
+    return '<time datetime="' + iso + '" aria-label="' + d[2] + ' ' + LONG[d[1] - 1] + ' ' + d[0] + '">' + shown + '</time>';
   };
 
   // ---------- instruments ----------

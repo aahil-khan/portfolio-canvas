@@ -43,6 +43,7 @@ function assetsScript() {
 function copyMd() {
   const sandbox = { window: {} };
   vm.runInNewContext(read('content/copy.js'), sandbox);
+  vm.runInNewContext(read('content/terms.js'), sandbox);
   const L = sandbox.window.Lab;
   const rows = [];
   for (const [key, c] of Object.entries(L.copy)) if (c.proposal) rows.push([key, c.where, c.text, c.reason]);
@@ -50,6 +51,7 @@ function copyMd() {
     const c = blk.h2 || blk.p;
     if (c && c.proposal) rows.push([`${id} #${i + 1}`, c.where, c.text, c.reason]);
   });
+  for (const x of L.terms) rows.push([`term:${x.id}`, `Term definition (${x.name})`, x.def, `adapted from ${x.source}`]);
   const cell = (s) => String(s || '').replace(/\|/g, '\\|').replace(/\n/g, ' ');
   return `# Proposed copy, for veto\n\nEvery line below was written for the mockup rather than taken from a source. Veto or rewrite any of them;\n` +
     `the text lives in \`content/copy.js\`. Lines taken from a source (the spec, the tracker, \`content/data\`, his brand line)\n` +

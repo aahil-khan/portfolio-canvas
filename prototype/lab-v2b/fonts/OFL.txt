@@ -1,5 +1,5 @@
 Space Mono: Copyright 2016 Google Inc. All Rights Reserved.
-Reenie Beanie: Copyright (c) 2010 by James Grieshaber.
+Caveat (pinned to weight 500, Latin subset): Copyright 2014 The Caveat Project Authors (https://github.com/googlefonts/caveat).
 Space Grotesk (inlined from app/fonts/): Copyright 2020 The Space Grotesk Project Authors.
 
 
