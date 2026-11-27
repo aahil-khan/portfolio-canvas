@@ -49,7 +49,7 @@
 .spec-table { width: 100%; border-collapse: collapse; font-size: var(--fs-meta); line-height: 1.5; }
 .spec-table th, .spec-table td { text-align: left; vertical-align: top; padding: 10px 14px;
   box-shadow: 0 calc(-1 * var(--rule-w)) 0 0 color-mix(in srgb, var(--line) 30%, transparent) inset; }
-html[data-look="premium"] .spec-table th, html[data-look="premium"] .spec-table td { box-shadow: 0 -1px 0 0 var(--border) inset; }
+html[data-look="premium"] .spec-table th, html[data-look="premium"] .spec-table td { box-shadow: 0 -1px 0 0 var(--hair) inset; }
 .spec-table tbody tr:last-child > * { box-shadow: none; }
 .spec-table thead th { font-weight: 700; color: var(--ink); padding-top: 14px; }
 .spec-table tbody th { font-weight: 500; color: var(--ink); white-space: nowrap; }
@@ -69,7 +69,7 @@ html[data-look="premium"] .spec-table th, html[data-look="premium"] .spec-table 
   .spec-table thead { position: absolute; width: 1px; height: 1px; overflow: hidden; clip: rect(0 0 0 0); }
   .spec-table, .spec-table tbody, .spec-table tr, .spec-table th, .spec-table td { display: block; }
   .spec-table tr { padding: 10px 14px; box-shadow: 0 calc(-1 * var(--rule-w)) 0 0 color-mix(in srgb, var(--line) 30%, transparent) inset; }
-  html[data-look="premium"] .spec-table tr { box-shadow: 0 -1px 0 0 var(--border) inset; }
+  html[data-look="premium"] .spec-table tr { box-shadow: 0 -1px 0 0 var(--hair) inset; }
   .spec-table tbody tr:last-child { box-shadow: none; }
   .spec-table th, .spec-table td, html[data-look="premium"] .spec-table th, html[data-look="premium"] .spec-table td { padding: 2px 0; box-shadow: none; }
   .spec-table tbody th { white-space: normal; }

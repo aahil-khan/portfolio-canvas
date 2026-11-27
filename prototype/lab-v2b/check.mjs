@@ -4,8 +4,9 @@
 //   cx heavy -- node prototype/lab-v2b/check.mjs
 // Task 2 scope: every route the data makes (home, each live section, the index, the glossary, each
 // tag, every public entry), plus the fixture overlay for check 22. Rules beyond the plan's 1-26:
-// H1-H2 the home is evergreen, H3 so are section pages; N the name card; T terms are data; P every
-// citation and internal link previews; R Related and "Links to this page" end every entry; U
+// H1-H2 the home is evergreen, H3 so are section pages; N the name says itself; T terms are data; P every
+// citation and internal link previews; W full-entry windows; S the Sound menu's footprint; K Premium
+// keeps the window language; R Related and "Links to this page" end every entry; U
 // underlines; D dates never split; Q long entries have a verbatim pull-quote; E builds and
 // experiments end dated; F the footer's build hash is the bundling commit. Check 15 counts content
 // headings only: the end matter (References, Related, Links to this page) is template furniture.
@@ -237,7 +238,7 @@ const MEASURE = (opts) => {
   out.accent = accent;
   // U: every inline link is underlined (never a colour wash), and the underline holds 3:1 against its ground
   out.underline = [];
-  for (const a of document.querySelectorAll('main a, main button.term')) {
+  for (const a of document.querySelectorAll('main a, main button.term, main button.name')) {
     if (!visible(a) || getComputedStyle(a).display !== 'inline' || !a.closest('p,li')) continue;
     const s = getComputedStyle(a), bg = bgOf(a.parentElement);
     if (!/underline/.test(s.textDecorationLine)) { if (!a.matches('.quiet')) out.underline.push(`no underline: "${a.textContent.slice(0, 24)}"`); continue; }
@@ -252,7 +253,7 @@ const MEASURE = (opts) => {
   if (block) {
     const br = block.getBoundingClientRect();
     const cs = getComputedStyle(block);
-    const left = br.left + parseFloat(cs.paddingLeft), right = br.right - parseFloat(cs.paddingRight) + (vw >= 1440 && !document.documentElement.classList.contains('player-pushed') ? 0 : 0);
+    const left = br.left + parseFloat(cs.paddingLeft), right = br.right - parseFloat(cs.paddingRight);
     const spans = [...block.querySelectorAll('*')].filter((e) => visible(e) && e.children.length === 0 || e.matches('.box,.panel,.frame,img'))
       .map((e) => e.getBoundingClientRect()).filter((r) => r.width > 0 && r.bottom > 56 && r.top < vh).map((r) => [r.left, r.right]).sort((a, b) => a[0] - b[0]);
     let x = left, gap = 0;
@@ -285,19 +286,27 @@ const LINKS = () => {
     if (/^#\/(index|next|glossary)?(\?|$)/.test(h) || h === '#/') continue;
     if (!a.dataset.preview) bad.push(['P', `internal link without a preview: ${h}`]);
   }
+  // a link to a Lab page opens the whole page; a term, reference or link out gets a card with a way further
   for (const el of document.querySelectorAll('main [data-preview]')) {
-    const c = Lab.cardOf(el.dataset.preview);
-    if (!c || !/<h3/.test(c.html)) bad.push(['P', `no card for ${el.dataset.preview}`]);
-    else if (!/card-more/.test(c.html) && !/^topic:/.test(el.dataset.preview)) bad.push(['P', `the ${el.dataset.preview} card has no way further`]);
+    const k = el.dataset.preview, kind = Lab.previewKind(k);
+    if (!kind) { bad.push(['P', `nothing previews for ${k}`]); continue; }
+    if (/^(section|tag):/.test(k) && kind !== 'full') bad.push(['W', `${k} doesn't open a full window`]);
+    if (kind === 'card') {
+      const c = Lab.cardOf(k);
+      if (!c || !/<h3/.test(c.html)) bad.push(['P', `no card for ${k}`]);
+      else if (/^(term|ref|ext):/.test(k) && !/card-more/.test(c.html)) bad.push(['P', `the ${k} card has no way further`]);
+    }
   }
+  for (const a of document.querySelectorAll('main a.ext')) if (!/^ext:/.test(a.dataset.preview || '')) bad.push(['W', `a link out without its card: ${a.getAttribute('href')}`]);
   return bad.slice(0, 6);
 };
 
 const browser = await chromium.launch({ executablePath: exe() });
 let pagesLoaded = 0;
-async function open(file, q, hash, size, { reduced = false, stubStations = false, storage = null } = {}) {
+async function open(file, q, hash, size, { reduced = false, stubStations = false, storage = null, init = null } = {}) {
   const ctx = await browser.newContext({ viewport: SIZES[size] || size, deviceScaleFactor: 1, isMobile: size === 'phone', hasTouch: size === 'phone', reducedMotion: reduced ? 'reduce' : 'no-preference' });
   await ctx.addInitScript(INSTRUMENT);
+  if (init) await ctx.addInitScript(init);
   if (storage) await ctx.addInitScript((s) => { if (!sessionStorage.getItem('__seeded')) { for (const [k, v] of Object.entries(s)) localStorage.setItem(k, v); sessionStorage.setItem('__seeded', '1'); } }, storage);
   const page = await ctx.newPage();
   const errors = [], net = [];
@@ -532,12 +541,12 @@ try {
   // ---------- 22 (part): sections come from data ----------
   {
     const o = await open(CHECK, 'fixture=kinds', '#/', 'desktop');
-    const secs = await o.page.evaluate(() => [...document.querySelectorAll('.sections h3')].map((h) => h.textContent));
+    const secs = await o.page.evaluate(() => [...document.querySelectorAll('.band h3')].map((h) => h.textContent));
     if (!secs.includes('Fixture section')) fail(22, 'the fixture\'s new section is missing from the home');
     if (!secs.includes('Experiments')) fail(22, 'Experiments didn\'t appear once it had an entry');
     await o.close();
     const o2 = await open(BUNDLE, '', '#/', 'desktop');
-    const secs2 = await o2.page.evaluate(() => [...document.querySelectorAll('.sections h3')].map((h) => h.textContent));
+    const secs2 = await o2.page.evaluate(() => [...document.querySelectorAll('.band h3')].map((h) => h.textContent));
     if (secs2.includes('Experiments')) fail(22, 'an empty section (Experiments) rendered');
     const emptyRoute = await o2.page.evaluate(() => Lab.routes().some((r) => r.hash === '#/experiments'));
     if (emptyRoute) fail(22, 'the empty Experiments section has a page');
@@ -602,29 +611,41 @@ try {
   note('sections: evergreen rules checked');
 
   // ---------- H: the home is evergreen ----------
-  // H1 no entry title (or entry link) outside Latest; H2 no time words and nothing that counts
-  // progress; checked in both looks at both sizes, in the default and the fixture data.
+  // H1 every section is its own framed band with its first min(5, n) entries by date and its "All N in"
+  // link; H2 no time words and nothing that counts progress; checked in both looks at both sizes, in the
+  // default and the fixture data.
   for (const [file, q0] of [[BUNDLE, ''], [CHECK, 'fixture=kinds&']]) for (const size of ['desktop', 'phone']) for (const look of [LOOKS[0], LOOKS[3]]) {
     const tag = `home ${size} ${look.name}${file === CHECK ? ' fixture' : ''}`;
     const o = await open(file, q0 + look.q, '#/', size);
     const h = await o.page.evaluate(() => {
-      const titles = Lab.data.entries.map((e) => e.title);
+      const pub = Lab.data.entries.filter((e) => !e.draft);
+      const bands = [...document.querySelectorAll('[data-band]')].map((b) => {
+        const want = pub.filter((e) => e.section === b.dataset.band).sort((x, y) => (y.published || '').localeCompare(x.published || ''));
+        const rows = [...b.querySelectorAll('[data-band-rows] .row-title a')].map((a) => a.dataset.preview);
+        const all = b.querySelector('[data-band-all]'), cs = getComputedStyle(b), r = b.getBoundingClientRect();
+        return { id: b.dataset.band, n: want.length, rows, first: want.slice(0, 5).map((e) => e.id), all: all ? all.textContent : '', allHref: all && all.getAttribute('href'),
+          edge: parseFloat(cs.borderTopWidth), shadow: cs.boxShadow, top: r.top, bottom: r.bottom };
+      });
+      const live = [...new Set(pub.map((e) => e.section))].filter((id) => Lab.data.sections.some((s) => s.id === id));
       const latest = document.querySelector('[data-latest]');
-      const outside = [];
       const tw = document.createTreeWalker(document.body, NodeFilter.SHOW_TEXT);
       let copy = '';
       for (let n; (n = tw.nextNode());) {
         const el = n.parentElement;
-        if (!el || el.closest('script,style,#player,.pop,.preview')) continue;
-        if (!(latest && latest.contains(el))) for (const t of titles) if (n.data.includes(t)) outside.push(t);
+        if (!el || el.closest('script,style,#player,.pop,.preview,.name-tip')) continue;
         if (!el.closest('.row-title')) copy += ' ' + n.data;
       }
       for (const el of document.querySelectorAll('main [aria-label], .bar [aria-label]')) copy += ' ' + el.getAttribute('aria-label');
-      const links = [...document.querySelectorAll('[data-preview]')].filter((a) => Lab.entry(a.dataset.preview) && !(latest && latest.contains(a))).map((a) => a.dataset.preview);
-      return { outside, links, copy, latestRows: latest ? latest.children.length : 0, ticks: document.querySelectorAll('main .ticks, main progress, main [role="progressbar"]').length };
+      return { bands, live, copy, latestRows: latest ? latest.children.length : 0, ticks: document.querySelectorAll('main .ticks, main progress, main [role="progressbar"]').length };
     });
-    h.outside.forEach((x) => fail('H1', `${tag}: entry title "${x}" outside Latest`));
-    h.links.forEach((x) => fail('H1', `${tag}: a link to entry "${x}" outside Latest`));
+    if (h.bands.length !== h.live.length) fail('H1', `${tag}: ${h.bands.length} section bands for ${h.live.length} live sections`);
+    h.bands.forEach((b, i) => {
+      if (b.rows.length !== Math.min(5, b.n)) fail('H1', `${tag}: the ${b.id} band lists ${b.rows.length} entries (want ${Math.min(5, b.n)})`);
+      else if (b.rows.join() !== b.first.join()) fail('H1', `${tag}: the ${b.id} band isn't its first five by date (${b.rows.join(', ')})`);
+      if (!new RegExp(`^All ${b.n} in `).test(b.all) || b.allHref !== `#/${b.id}`) fail('H1', `${tag}: the ${b.id} band's "All ${b.n} in" link reads "${b.all}" to ${b.allHref}`);
+      if (!(b.edge > 0) || b.shadow === 'none') fail('H1', `${tag}: the ${b.id} band isn't framed (edge ${b.edge}, shadow ${b.shadow})`);
+      if (i && b.top - h.bands[i - 1].bottom < 16) fail('H1', `${tag}: the ${b.id} band sits ${Math.round(b.top - h.bands[i - 1].bottom)}px from the one above`);
+    });
     if (!h.latestRows) fail('H1', `${tag}: Latest is empty`);
     const tw = h.copy.match(TIME_WORDS);
     if (tw) fail('H2', `${tag}: time word "${tw[0]}" in the home's copy`);
@@ -634,42 +655,58 @@ try {
   }
   note('home: evergreen rules checked');
 
-  // ---------- N: the name card plays only on an explicit action ----------
+  // ---------- N: his name says itself ----------
+  // A hover shows a tooltip with just "AH-hil" (no button, no link) and says the name once. Before any
+  // gesture the browser refuses speech, so the hover only shows the tooltip and the next click says it.
+  // Resting on the name never repeats it; leaving and coming back does. An explicit Mute silences it.
+  // Headless Chromium reports the page as already activated, so the gesture lock is simulated as a real
+  // browser has it: no activation until the first click, tap or key press.
+  const GESTURE_LOCK = () => {
+    let active = false;
+    for (const ev of ['pointerdown', 'keydown', 'click']) window.addEventListener(ev, () => { active = true; }, true);
+    Object.defineProperty(navigator, 'userActivation', { configurable: true, get: () => ({ get hasBeenActive() { return active; }, get isActive() { return active; } }) });
+  };
   {
-    const o = await open(BUNDLE, '', '#/', 'desktop');
+    const o = await open(BUNDLE, '', '#/', 'desktop', { init: GESTURE_LOCK });
     const p = o.page;
-    const st = () => p.evaluate(() => ({ open: !!document.querySelector('.preview.is-open[data-for="name"]'), speak: window.__audio.speak, ctx: window.__audio.contexts }));
-    if (await p.$('.say')) fail('N', 'the old "(say it)" trigger is still on the home');
-    const style = await p.evaluate(() => { const b = document.querySelector('main button.name'); return b && { line: getComputedStyle(b).textDecorationLine, style: getComputedStyle(b).textDecorationStyle, text: b.textContent }; });
-    if (!style || !/underline/.test(style.line) || style.style !== 'dotted') fail('N', `his name isn't a dotted underline (${JSON.stringify(style)})`);
-    await p.hover('main button.name'); await p.waitForTimeout(900);
-    let s1 = await st();
-    if (!s1.open) fail('N', 'hovering the name opened no card');
-    const card = await p.evaluate(() => { const c = document.querySelector('.preview'); return { text: c.textContent, play: !!c.querySelector('[data-say]') }; });
-    if (!/AH-hil KHAN/.test(card.text) || !card.play) fail('N', 'the card lacks the pronunciation or the play control');
-    await p.mouse.move(700, 160); await p.waitForTimeout(150); await p.hover('main button.name'); await p.waitForTimeout(2000);
-    s1 = await st();
-    if (s1.speak) fail('N', `hover spoke the name ${s1.speak} times`);
-    await p.click('.preview [data-say]'); await p.waitForTimeout(100);
-    if ((await st()).speak !== 1) fail('N', 'clicking play didn\'t say the name once');
-    await p.keyboard.press('Escape');
-    if ((await st()).open) fail('N', 'Esc didn\'t close the name card');
-    // keyboard: Enter on the name opens the card and moves focus to play; Enter on play says it
-    await p.focus('main button.name'); await p.keyboard.press('Enter'); await p.waitForTimeout(250);
-    const focused = await p.evaluate(() => document.activeElement && document.activeElement.hasAttribute('data-say'));
-    if (!(await st()).open || !focused) fail('N', 'Enter on the name didn\'t open the card with focus on play');
-    if ((await st()).speak !== 1) fail('N', 'opening the card by keyboard spoke the name');
-    await p.keyboard.press('Enter'); await p.waitForTimeout(100);
-    if ((await st()).speak !== 2) fail('N', 'Enter on play didn\'t say the name');
-    if (o.errors.length) fail(21, `name card: ${o.errors[0]}`);
+    const st = () => p.evaluate(() => { const t = document.querySelector('.name-tip'); return { tip: !!t && !t.hidden && t.classList.contains('is-open'), text: t ? t.textContent.trim() : '', buttons: t ? t.querySelectorAll('button,a').length : -1, speak: window.__audio.speak, preview: !!document.querySelector('.preview') }; });
+    const style = await p.evaluate(() => { const b = document.querySelector('main button.name'); const s = b && getComputedStyle(b); const term = document.querySelector('main .term'); return b && { line: s.textDecorationLine, style: s.textDecorationStyle, desc: b.getAttribute('aria-describedby'), preview: b.hasAttribute('data-preview'), termStyle: term ? getComputedStyle(term).textDecorationStyle : '' }; });
+    if (!style || !/underline/.test(style.line) || style.style !== 'double') fail('N', `his name doesn't have its own (double) underline: ${JSON.stringify(style)}`);
+    else if (style.style === style.termStyle) fail('N', 'his name is underlined like a term');
+    if (style && (style.preview || style.desc !== 'name-tip')) fail('N', 'his name is still a preview link, or its tooltip isn\'t linked by aria-describedby');
+    const off = async () => { await p.mouse.move(700, 880); await p.waitForTimeout(250); };
+    // before any gesture: the tooltip, no speech; the next click says it once
+    await p.hover('main button.name'); await p.waitForTimeout(500);
+    const s1 = await st();
+    if (!s1.tip || s1.text !== 'AH-hil' || s1.buttons) fail('N', `hover: tooltip ${s1.tip}, text "${s1.text}", ${s1.buttons} buttons or links inside`);
+    if (s1.preview) fail('N', 'hovering the name opened a preview window');
+    if (s1.speak) fail('N', `a hover before any gesture spoke ${s1.speak} times`);
+    await p.click('main button.name'); await p.waitForTimeout(150);
+    if ((await st()).speak !== 1) fail('N', `the first click after a hover said the name ${(await st()).speak} times (want 1)`);
+    await p.waitForTimeout(1200);
+    if ((await st()).speak !== 1) fail('N', 'resting on the name said it again');
+    // after a gesture: each hover says it once
+    await off(); await p.hover('main button.name'); await p.waitForTimeout(500);
+    if ((await st()).speak !== 2) fail('N', 'a hover after a gesture didn\'t say the name');
+    const edge = await p.evaluate(() => { const r = document.querySelector('main button.name').getBoundingClientRect(); return [r.left + r.width - 3, r.top + r.height / 2]; });
+    await p.mouse.move(edge[0], edge[1], { steps: 4 }); await p.waitForTimeout(1500);
+    if ((await st()).speak !== 2) fail('N', 'moving on the name said it again');
+    await off(); await p.hover('main button.name'); await p.waitForTimeout(500);
+    if ((await st()).speak !== 3) fail('N', 'leaving and coming back didn\'t say it again');
+    await off();
+    if ((await st()).tip) fail('N', 'the tooltip stayed after the pointer left');
+    // interface sounds off (the arrival default) doesn't stop it; an explicit Mute does
+    if (await p.evaluate(() => Lab.audio.interfaceOn)) fail('N', 'interface sounds are on by default');
+    await p.evaluate(() => Lab.audio.setMuted(true));
+    await p.hover('main button.name'); await p.waitForTimeout(500);
+    if ((await st()).speak !== 3) fail('N', 'Mute didn\'t silence the name');
+    if (o.errors.length) fail(21, `name: ${o.errors[0]}`);
     await o.close();
-    // phone: a tap opens the sheet, says nothing; a tap on play says it
-    const o2 = await open(BUNDLE, '', '#/', 'phone');
+    // phone: a tap shows the tooltip and says it once
+    const o2 = await open(BUNDLE, '', '#/', 'phone', { init: GESTURE_LOCK });
     await o2.page.tap('main button.name'); await o2.page.waitForTimeout(400);
-    const ph = await o2.page.evaluate(() => ({ open: !!document.querySelector('.preview.is-sheet.is-open[data-for="name"]'), speak: window.__audio.speak }));
-    if (!ph.open || ph.speak) fail('N', `phone: tap on the name (sheet open ${ph.open}, spoke ${ph.speak})`);
-    await o2.page.tap('.preview [data-say]'); await o2.page.waitForTimeout(100);
-    if ((await o2.page.evaluate(() => window.__audio.speak)) !== 1) fail('N', 'phone: tapping play didn\'t say the name');
+    const ph = await o2.page.evaluate(() => { const t = document.querySelector('.name-tip'); return { tip: !!t && !t.hidden, text: t && t.textContent.trim(), speak: window.__audio.speak, preview: !!document.querySelector('.preview') }; });
+    if (!ph.tip || ph.text !== 'AH-hil' || ph.speak !== 1 || ph.preview) fail('N', `phone: a tap on the name (tooltip ${ph.tip} "${ph.text}", spoke ${ph.speak}, window ${ph.preview})`);
     await o2.close();
   }
 
@@ -695,9 +732,12 @@ try {
       // aim at the first line box: a link that wraps has a gap between its lines at its centre
       const pt = await p.evaluate((sel) => { const r = document.querySelector(sel).getClientRects()[0]; return [r.left + Math.min(8, r.width / 2), r.top + r.height / 2]; }, sel);
       await p.mouse.move(pt[0], pt[1], { steps: 2 }); await p.waitForTimeout(650);
-      const c = await p.evaluate((k) => { const v = document.querySelector('.preview'); return v && { open: v.classList.contains('is-open') && v.dataset.for === k, h3: (v.querySelector('h3') || {}).textContent, more: !!v.querySelector('.card-more a') }; }, k);
-      if (!c || !c.open || !c.h3) fail('P', `${look.name}: hovering ${k} showed no preview`);
-      else if (!c.more) fail('P', `${look.name}: the ${k} card has no link to go further`);
+      const c = await p.evaluate((k) => { const v = document.querySelector('.preview'); return v && { open: v.classList.contains('is-open') && v.dataset.for === k, full: v.classList.contains('is-full'), h3: (v.querySelector('h3') || {}).textContent, h1: !!v.querySelector('.window-body h1 a'), more: !!v.querySelector('.card-more a') }; }, k);
+      const internal = !/^(term|ref):/.test(k);
+      if (!c || !c.open) fail('P', `${look.name}: hovering ${k} showed no preview`);
+      else if (internal && (!c.full || !c.h1 || c.more)) fail('W', `${look.name}: hovering ${k} didn't open the whole page in a window (full ${c.full}, title link ${c.h1}, card link ${c.more})`);
+      else if (!internal && (c.full || !c.h3)) fail('P', `${look.name}: the ${k} card isn't a card`);
+      else if (!internal && !c.more) fail('P', `${look.name}: the ${k} card has no link to go further`);
     }
     // hover intent: sweeping across a paragraph's links opens nothing
     const sweep = await p.evaluate(async () => {
@@ -725,6 +765,94 @@ try {
     if (o.errors.length) fail(21, `previews ${look.name}: ${o.errors[0]}`);
     await o.close();
   }
+  // ---------- W: a link to a Lab page opens the whole page in a window ----------
+  // The window holds the entry's whole body (as many paragraphs as its page), scrolls inside itself and
+  // never scrolls the page; a link inside it opens a second window, and so on up to three; Esc closes
+  // only the top one. A link out gets a small card (title and site), never a window.
+  for (const look of [LOOKS[0], LOOKS[3]]) {
+    const o = await open(BUNDLE, look.q, entry.hash, 'desktop');
+    const p = o.page;
+    const fullSel = (scope) => p.evaluate((scope) => {
+      const root = scope == null ? document.querySelector('main .entry-body') : document.querySelectorAll('.preview')[scope].querySelector('.window-body');
+      const a = [...root.querySelectorAll('a[data-preview]')].find((x) => Lab.previewKind(x.dataset.preview) === 'full' && x.getClientRects().length);
+      if (!a) return null;
+      if (scope != null) { root.scrollTop += a.getBoundingClientRect().top - root.getBoundingClientRect().top - 120; }
+      else a.scrollIntoView({ block: 'center' });
+      const r = a.getClientRects()[0];
+      return { key: a.dataset.preview, x: r.left + Math.min(8, r.width / 2), y: r.top + r.height / 2 };
+    }, scope);
+    const stack = () => p.evaluate(() => [...document.querySelectorAll('.preview')].map((v) => ({ key: v.dataset.for, full: v.classList.contains('is-full') })));
+    await p.mouse.move(5, 300);
+    const l1 = await fullSel(null); await p.waitForTimeout(200);
+    if (!l1) { fail('W', `${look.name}: no internal link in chapter 05's text`); await o.close(); continue; }
+    await p.mouse.move(l1.x, l1.y, { steps: 2 }); await p.waitForTimeout(700);
+    const w1 = await p.evaluate(() => {
+      const v = document.querySelector('.preview.is-full'); if (!v) return null;
+      const b = v.querySelector('.window-body');
+      return { paras: v.querySelectorAll('.window-body .entry-body p').length, body: !!v.querySelector('.entry-body'), sh: b.scrollHeight, ch: b.clientHeight, top: b.getBoundingClientRect().top, left: b.getBoundingClientRect().left, overscroll: getComputedStyle(b).overscrollBehaviorY, card: !!v.querySelector('.card-more') };
+    });
+    if (!w1 || !w1.body) { fail('W', `${look.name}: hovering ${l1.key} opened no window with the entry's body`); await o.close(); continue; }
+    if (w1.card) fail('W', `${look.name}: the ${l1.key} window still has an "Open it" link`);
+    if (!(w1.sh > w1.ch)) fail('W', `${look.name}: the ${l1.key} window doesn't scroll (${w1.sh} ≤ ${w1.ch})`);
+    if (w1.overscroll !== 'contain') fail('W', `${look.name}: the window body's overscroll is ${w1.overscroll}`);
+    // the wheel scrolls the window, never the page
+    const y0 = await p.evaluate(() => scrollY);
+    await p.mouse.move(w1.left + 60, w1.top + 60); await p.waitForTimeout(100);
+    await p.mouse.wheel(0, 360); await p.waitForTimeout(350);
+    const sc = await p.evaluate(() => ({ st: document.querySelector('.preview.is-full .window-body').scrollTop, y: scrollY, open: !!document.querySelector('.preview.is-full') }));
+    if (!sc.open) fail('W', `${look.name}: the wheel closed the window`);
+    else if (!(sc.st > 0) || sc.y !== y0) fail('W', `${look.name}: the wheel scrolled the ${sc.st > 0 ? 'page too' : 'page, not the window'} (window ${sc.st}, page ${y0} → ${sc.y})`);
+    // a stack of up to three
+    for (const lvl of [0, 1]) {
+      const l = await fullSel(lvl); await p.waitForTimeout(150);
+      if (!l) { fail('W', `${look.name}: no internal link inside window ${lvl + 1}`); break; }
+      await p.mouse.move(l.x, l.y, { steps: 3 }); await p.waitForTimeout(700);
+      const st = await stack();
+      if (st.length !== lvl + 2 || st[lvl + 1].key !== l.key || !st[lvl + 1].full) fail('W', `${look.name}: a link in window ${lvl + 1} opened ${JSON.stringify(st.map((x) => x.key))}`);
+    }
+    const l4 = (await stack()).length === 3 ? await fullSel(2) : null;
+    if (l4) { await p.mouse.move(l4.x, l4.y, { steps: 3 }); await p.waitForTimeout(700); if ((await stack()).length > 3) fail('W', `${look.name}: a fourth window opened`); }
+    await p.keyboard.press('Escape'); await p.waitForTimeout(100);
+    const afterEsc = await stack();
+    if (afterEsc.length !== 2) fail('W', `${look.name}: Esc left ${afterEsc.length} windows (want 2: only the top one closes)`);
+    await p.mouse.move(5, 5); await p.waitForTimeout(500);
+    if ((await stack()).length) fail('W', `${look.name}: hover windows stayed after the pointer left them`);
+    // the window's paragraphs match the page's
+    const pageParas = await p.evaluate(async (key) => { location.hash = Lab.href(Lab.entry(key)); await new Promise((r) => setTimeout(r, 500)); return document.querySelectorAll('main .entry-body p').length; }, l1.key);
+    if (pageParas !== w1.paras) fail('W', `${look.name}: the ${l1.key} window holds ${w1.paras} paragraphs, its page ${pageParas}`);
+    // a link out: a small card with a title and a site
+    await p.evaluate((h) => { location.hash = h; }, entry.hash); await p.waitForTimeout(500);
+    await p.locator('ol.refs a.ext').first().scrollIntoViewIfNeeded(); await p.waitForTimeout(150);
+    await p.mouse.move(5, 5); await p.waitForTimeout(300);
+    const ext = await p.evaluate(() => { const r = document.querySelector('ol.refs a.ext').getClientRects()[0]; return [r.left + 6, r.top + r.height / 2]; });
+    await p.mouse.move(ext[0], ext[1], { steps: 2 }); await p.waitForTimeout(700);
+    const xc = await p.evaluate(() => { const v = document.querySelector('.preview'); return v && { key: v.dataset.for, full: v.classList.contains('is-full'), h3: (v.querySelector('h3') || {}).textContent, site: (v.querySelector('.preview-body .meta') || {}).textContent }; });
+    if (!xc || !/^ext:https:/.test(xc.key) || xc.full || !xc.h3 || !xc.site) fail('W', `${look.name}: a link out in References didn't show its card (${JSON.stringify(xc)})`);
+    if (o.errors.length) fail(21, `windows ${look.name}: ${o.errors[0]}`);
+    await o.close();
+  }
+  // phone: a tap on an internal link opens the whole page as a near-full-height sheet with a Close
+  for (const look of [LOOKS[0], LOOKS[3]]) {
+    const o = await open(BUNDLE, look.q, entry.hash, 'phone');
+    const p = o.page;
+    const sel = await p.evaluate(() => { const a = [...document.querySelectorAll('main .entry-body a[data-preview]')].find((x) => Lab.previewKind(x.dataset.preview) === 'full'); a.setAttribute('data-w-test', ''); return '[data-w-test]'; });
+    await p.locator(sel).scrollIntoViewIfNeeded(); await p.locator(sel).tap(); await p.waitForTimeout(500);
+    const sh = await p.evaluate(() => {
+      const v = document.querySelector('.preview'); if (!v) return null;
+      const r = v.getBoundingClientRect(), b = v.querySelector('.window-body'), x = v.querySelector('[data-card-close]').getBoundingClientRect(), cs = getComputedStyle(v);
+      return { sheet: v.classList.contains('is-sheet') && v.classList.contains('is-full'), h: r.height / innerHeight, scrolls: b && b.scrollHeight > b.clientHeight, close: x.width >= 44 && x.height >= 44, sides: [cs.borderLeftWidth, cs.borderBottomWidth].join(' '), hash: location.hash };
+    });
+    if (!sh || !sh.sheet) fail('W', `${look.name} phone: a tap on an internal link didn't open a full sheet`);
+    else {
+      if (sh.h < 0.6 || sh.h > 0.93) fail('W', `${look.name} phone: the sheet is ${Math.round(sh.h * 100)}% of the screen`);
+      if (!sh.scrolls || !sh.close) fail('W', `${look.name} phone: the sheet doesn't scroll inside or lacks a 44px Close`);
+      if (sh.sides !== '0px 0px') fail('W', `${look.name} phone: the sheet is framed on its sides (${sh.sides}), not one surface`);
+    }
+    if (o.errors.length) fail(21, `phone windows ${look.name}: ${o.errors[0]}`);
+    await o.close();
+  }
+  note('windows: full entries, inner scroll, a stack of three, links out checked');
+
   // phones: the first tap opens a sheet with a way further and a Close, never over the tapped words;
   // an outside tap and Esc close it; a second tap on the same words follows the link
   for (const look of [LOOKS[0], LOOKS[3]]) {
@@ -786,9 +914,13 @@ try {
       const pr = document.querySelector('#player').getBoundingClientRect(), b = document.querySelector('.entry-body').getBoundingClientRect();
       return { open: !document.querySelector('#player').hidden, hit: pr.left < b.right && pr.right > b.left && pr.top < b.bottom && pr.bottom > b.top, music: Lab.player.music };
     });
-    if (!r.open) fail(24, `${w}: panel closed itself after a pick on desktop`);
-    if (r.hit) fail(24, `${w}: the open panel covers the prose column`);
+    if (!r.open) fail(24, `${w}: the menu closed itself after a pick on desktop`);
     if (r.music !== 'playing') fail(25, `${w}: station didn't start with the stub (${r.music})`);
+    // 24: the open menu doesn't cover the reading column, or a click outside closes it (as on the canvas)
+    await p.mouse.click(10, 860); await p.waitForTimeout(150);
+    const closed = await p.evaluate(() => document.querySelector('#player').hidden);
+    if (r.hit && !closed) fail(24, `${w}: the open menu covers the prose and a click outside doesn't close it`);
+    if (!closed) fail(24, `${w}: a click outside didn't close the menu`);
     if (w === 1440) {
       // 24: panel closed, music playing: nothing fixed but the bar crosses the prose
       await p.keyboard.press('Escape');
@@ -817,7 +949,7 @@ try {
     if (o.net.some((u) => !STATION_RE.test(u))) fail(21, `player ${w}: unexpected request`);
     await o.close();
   }
-  // 24: on a phone the open panel closes on a pick, a page scroll, Esc and a tap outside
+  // 24: on a phone the open menu closes on a pick, a page scroll, Esc and a tap outside
   {
     const o = await open(BUNDLE, '', entry.hash, 'phone', { stubStations: true });
     const p = o.page;
@@ -837,6 +969,66 @@ try {
     }
     await o.close();
   }
+  // ---------- S: the Sound menu is the canvas's menu, at the canvas's size ----------
+  // CANVAS_MENU was measured from the canvas itself: `npm run dev`, /canvas at 1440×900 in cream, the
+  // Sound pill clicked, `.sound__menu[data-open]` getBoundingClientRect() = 292 × 417 (27 Nov 2026).
+  // At 390×844 the canvas hides its pill, so the menu has no phone rendering; its CSS has no phone
+  // width either, so the desktop size is the reference there too. The Lab's menu must stay within 10%.
+  const CANVAS_MENU = { desktop: { w: 292, h: 417 }, phone: { w: 292, h: 417 } };
+  for (const size of ['desktop', 'phone']) for (const look of [LOOKS[0], LOOKS[3]]) {
+    const o = await open(BUNDLE, look.q, entry.hash, size);
+    const p = o.page;
+    const before = await p.evaluate(() => { const r = document.querySelector('main .entry-body').getBoundingClientRect(); return [r.left, r.width]; });
+    await p.click('[data-sound]'); await p.waitForTimeout(250);
+    const m = await p.evaluate(() => { const r = document.getElementById('player').getBoundingClientRect(), b = document.querySelector('main .entry-body').getBoundingClientRect(); return { w: r.width, h: r.height, open: !document.getElementById('player').hidden, main: [b.left, b.width], rows: document.querySelectorAll('#player [data-station]').length }; });
+    const ref = CANVAS_MENU[size], tag = `${size} ${look.name}`;
+    if (!m.open) fail('S', `${tag}: the Sound menu didn't open`);
+    if (Math.abs(m.w / ref.w - 1) > 0.1 || Math.abs(m.h / ref.h - 1) > 0.1) fail('S', `${tag}: the Sound menu is ${Math.round(m.w)} × ${Math.round(m.h)}, the canvas's ${ref.w} × ${ref.h} (±10%)`);
+    if (Math.abs(m.main[0] - before[0]) > 1 || Math.abs(m.main[1] - before[1]) > 1) fail('S', `${tag}: opening the Sound menu reflowed the page`);
+    if (m.rows !== 6) fail('S', `${tag}: ${m.rows} stations in the menu (the canvas has 6)`);
+    note(`sound menu ${tag}: ${Math.round(m.w)} × ${Math.round(m.h)} (canvas ${ref.w} × ${ref.h})`);
+    await o.close();
+  }
+
+  // ---------- K: Premium keeps the canvas's window language ----------
+  // Every box, panel, window, card and the Sound menu has a non-zero --border frame and a hard offset
+  // shadow with no blur, in Premium Day and Night, as in Paper.
+  for (const look of LOOKS.slice(2)) for (const hash of ['#/', entry.hash]) {
+    const o = await open(BUNDLE, look.q, hash, 'desktop');
+    const p = o.page;
+    // a window and a card open, and the Sound menu, so each is measured too
+    if (hash !== '#/') {
+      const t = await p.evaluate(() => { const a = document.querySelector('.entry-body a[data-preview^="term:"]'); a.scrollIntoView({ block: 'center' }); const r = a.getClientRects()[0]; return [r.left + 6, r.top + r.height / 2]; });
+      await p.waitForTimeout(150); await p.mouse.move(t[0], t[1], { steps: 2 }); await p.waitForTimeout(700);
+    } else {
+      const t = await p.evaluate(() => { const a = document.querySelector('[data-band-rows] a'); a.scrollIntoView({ block: 'center' }); const r = a.getClientRects()[0]; return [r.left + 6, r.top + r.height / 2]; });
+      await p.waitForTimeout(150); await p.mouse.move(t[0], t[1], { steps: 2 }); await p.waitForTimeout(700);
+    }
+    await p.evaluate(() => Lab.player.show());
+    const bad = await p.evaluate(() => {
+      const split = (v) => v.split(/,(?![^(]*\))/).map((x) => x.trim());
+      const out = [], seen = new Set();
+      for (const el of document.querySelectorAll('.box, .panel, .preview, .sm, .hero-card')) {
+        if (!el.getClientRects().length || getComputedStyle(el).display === 'none') continue;
+        const cs = getComputedStyle(el), name = el.className.split(' ').slice(0, 2).join('.');
+        const edge = parseFloat(cs.borderTopWidth), colour = cs.borderTopColor;
+        const shadows = cs.boxShadow === 'none' ? [] : split(cs.boxShadow).filter((x) => !/inset/.test(x)).map((x) => x.replace(/rgba?\([^)]*\)/, '').trim().split(/\s+/).map(parseFloat));
+        const hard = shadows.some((n) => (n[0] > 0 || n[1] > 0) && (n[2] || 0) === 0);
+        const soft = shadows.some((n) => (n[2] || 0) > 0);
+        const sheet = el.classList.contains('is-sheet');
+        if (!(edge > 0) || /rgba\([^)]*,\s*0\)$/.test(colour)) out.push(`${name}: no frame (${edge}px ${colour})`);
+        else if (!sheet && !hard) out.push(`${name}: no hard offset shadow (${cs.boxShadow})`);
+        if (soft) out.push(`${name}: a blurred shadow (${cs.boxShadow})`);
+        seen.add(name.split('.')[0]);
+      }
+      return { out, seen: [...seen] };
+    });
+    bad.out.slice(0, 5).forEach((x) => fail('K', `${look.name} ${hash}: ${x}`));
+    for (const want of hash === '#/' ? ['band', 'preview', 'sm'] : ['panel', 'preview', 'sm']) if (!bad.seen.some((s) => s.startsWith(want))) fail('K', `${look.name} ${hash}: nothing measured for .${want}`);
+    await o.close();
+  }
+  note('Premium: frames and hard shadows checked');
+
   // 26: noise peaks, limiter, fades, routing
   {
     const o = await open(BUNDLE, '', '#/', 'desktop');
