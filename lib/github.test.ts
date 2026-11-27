@@ -3,8 +3,23 @@ import { readFileSync } from 'node:fs'
 import path from 'node:path'
 import { afterEach, test } from 'node:test'
 
-import { calendarLayout, CELL, fill, LABEL_WEEKS, ROWS, STEP } from './contrib-grid.ts'
-import { type ApiResponse, type Day, fetchContributions, parseContributions } from './github.ts'
+import { themes } from '../content/themes.ts'
+import { contributions } from '../content/contributions.ts'
+import {
+  calendarLayout,
+  CELL,
+  cellAt,
+  dayName,
+  daySentence,
+  fill,
+  GREENS,
+  LABEL_WEEKS,
+  ordinal,
+  ROWS,
+  scaleCss,
+  STEP,
+} from './contrib-grid.ts'
+import { type ApiResponse, type Day, fetchContributions, parseContributions, TIMEOUT_MS } from './github.ts'
 
 /*
  * The contribution calendar, from a recorded GraphQL response (`lib/fixtures/`, recorded
@@ -185,4 +200,109 @@ test('the token goes only in the Authorization header to GitHub', async () => {
 test('fill replaces the named slots and leaves unknown ones', () => {
   assert.equal(fill('{count} on {date}', { count: 3, date: '2026-01-02' }), '3 on 2026-01-02')
   assert.equal(fill('{total} and {nope}', { total: '5,115' }), '5,115 and {nope}')
+})
+
+/** A fetch that answers with the recorded response after `ms`, or when its signal aborts, rejects. */
+function slowFetch(ms: number, { honourSignal = true } = {}) {
+  const seen: { signal?: AbortSignal | null } = {}
+  const f = ((_url: string, init: RequestInit) => {
+    seen.signal = init.signal
+    return new Promise<Response>((resolve, reject) => {
+      const t = setTimeout(() => resolve(new Response(JSON.stringify(recorded), { status: 200 })), ms)
+      if (honourSignal)
+        init.signal?.addEventListener('abort', () => {
+          clearTimeout(t)
+          reject(init.signal!.reason)
+        })
+    })
+  }) as unknown as typeof fetch
+  return { f, seen }
+}
+
+test('the fetch gives up after about three seconds, so it cannot hold a render', () => {
+  assert.equal(TIMEOUT_MS, 3000)
+})
+
+test('a GitHub slower than the timeout gives no calendar, promptly, and says so without the token', async () => {
+  delete process.env.GITHUB_CONTRIB_FIXTURE
+  process.env.GITHUB_TOKEN = 'test-token-not-real'
+  const { f, seen } = slowFetch(2_000)
+  globalThis.fetch = f
+  const warned: string[] = []
+  const warn = console.warn
+  console.warn = (...a: unknown[]) => void warned.push(a.map(String).join(' '))
+  try {
+    const t0 = Date.now()
+    assert.equal(await fetchContributions('aahil-khan', { timeoutMs: 60 }), null)
+    const took = Date.now() - t0
+    assert.ok(took < 1_000, `took ${took}ms`)
+    assert.ok(seen.signal instanceof AbortSignal, 'the request carries a signal')
+    assert.ok(seen.signal.aborted, 'the request is aborted, not left running')
+  } finally {
+    console.warn = warn
+  }
+  assert.equal(warned.length, 1)
+  assert.match(warned[0], /took over 60ms/)
+  assert.ok(!warned.join('').includes('test-token-not-real'))
+})
+
+test('the timeout holds even when the fetch ignores its signal', async () => {
+  delete process.env.GITHUB_CONTRIB_FIXTURE
+  process.env.GITHUB_TOKEN = 'test-token-not-real'
+  globalThis.fetch = slowFetch(2_000, { honourSignal: false }).f
+  const warn = console.warn
+  console.warn = () => {}
+  try {
+    const t0 = Date.now()
+    assert.equal(await fetchContributions('aahil-khan', { timeoutMs: 60 }), null)
+    assert.ok(Date.now() - t0 < 1_000)
+  } finally {
+    console.warn = warn
+  }
+})
+
+test('a GitHub inside the timeout gives the recorded calendar', async () => {
+  delete process.env.GITHUB_CONTRIB_FIXTURE
+  process.env.GITHUB_TOKEN = 'test-token-not-real'
+  globalThis.fetch = slowFetch(10).f
+  assert.deepEqual(await fetchContributions('aahil-khan', { timeoutMs: 1_000 }), parseContributions(recorded))
+})
+
+test("a day's sentence is GitHub's, with the count and an ordinal date", () => {
+  const day = contributions.home.day
+  assert.equal(daySentence(5, '2026-11-03', day), '5 contributions on November 3rd.')
+  assert.equal(daySentence(0, '2026-01-01', day), 'No contributions on January 1st.')
+  assert.equal(daySentence(1, '2026-02-22', day), '1 contribution on February 22nd.')
+  assert.equal(daySentence(1234, '2026-12-12', day), '1,234 contributions on December 12th.')
+  assert.deepEqual([1, 2, 3, 4, 11, 12, 13, 21, 22, 23, 30, 31].map(ordinal), [
+    '1st', '2nd', '3rd', '4th', '11th', '12th', '13th', '21st', '22nd', '23rd', '30th', '31st',
+  ])
+  assert.equal(dayName('2026-09-30'), 'September 30th')
+})
+
+test('cellAt finds the square under a point, and nothing in a gap or past the edge', () => {
+  assert.deepEqual(cellAt(0, 0, 53), { week: 0, day: 0 })
+  assert.deepEqual(cellAt(CELL - 0.1, CELL - 0.1, 53), { week: 0, day: 0 })
+  assert.equal(cellAt(CELL + 1, 0, 53), null, 'the gap after a square')
+  assert.deepEqual(cellAt(STEP * 52 + 2, STEP * 6 + 2, 53), { week: 52, day: 6 })
+  assert.equal(cellAt(STEP * 53 + 2, 0, 53), null, 'past the last week')
+  assert.equal(cellAt(2, STEP * 7 + 2, 53), null, 'below Saturday')
+  assert.equal(cellAt(-1, 2, 53), null)
+  // every square the layout draws is found at its own centre
+  const g = calendarLayout(parseContributions(recorded)!)
+  for (const c of g.cells) {
+    assert.deepEqual(cellAt(c.x + CELL / 2, c.y + CELL / 2, g.weeks), { week: c.x / STEP, day: c.y / STEP })
+  }
+})
+
+test("the greens follow each theme's dark flag, and every dark theme is named", () => {
+  const css = scaleCss(themes)
+  const [light, ...dark] = css.split('}').filter(Boolean)
+  assert.match(light, /^\.site \.contrib\{/)
+  for (const [i, c] of GREENS.light.entries()) assert.ok(light.includes(`--c${i}:${c}`))
+  assert.equal(dark.length, 1)
+  for (const [i, c] of GREENS.dark.entries()) assert.ok(dark[0].includes(`--c${i}:${c}`))
+  for (const t of themes) {
+    assert.equal(dark[0].includes(`[data-theme="${t.id}"] `), t.dark, `${t.id} is ${t.dark ? 'dark' : 'light'}`)
+  }
 })

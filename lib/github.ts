@@ -103,15 +103,33 @@ function levelFor(count: number, [t1, t2, t3]: [number, number, number]): number
  */
 const FIXTURE_ENV = 'GITHUB_CONTRIB_FIXTURE'
 
-export async function fetchContributions(login: string): Promise<Contributions | null> {
+/**
+ * How long the fetch may hold a render. GitHub's calendar query is usually well under a second,
+ * but a cold one has taken long enough that `/`'s first request after a deploy ran past 20s. After
+ * this the calendar is null, as with no token: `/` renders without the block, the canvas card shows
+ * its empty state, nothing is cached for the failure, and the next revalidation tries again.
+ */
+export const TIMEOUT_MS = 3000
+
+export async function fetchContributions(
+  login: string,
+  { timeoutMs = TIMEOUT_MS }: { timeoutMs?: number } = {},
+): Promise<Contributions | null> {
   const fixture = process.env[FIXTURE_ENV]
   if (fixture) return readFixture(fixture)
 
   const token = process.env.GITHUB_TOKEN
   if (!token) return null
 
-  let json: ApiResponse
-  try {
+  // the signal stops the request and its body; the race holds even where a fetch ignores it
+  // (Next drops the signal from a background revalidation)
+  const signal = AbortSignal.timeout(timeoutMs)
+  let timer: ReturnType<typeof setTimeout> | undefined
+  const late = new Promise<'late'>((resolve) => {
+    timer = setTimeout(() => resolve('late'), timeoutMs)
+  })
+
+  const request = async (): Promise<ApiResponse | null> => {
     const res = await fetch(ENDPOINT, {
       method: 'POST',
       headers: {
@@ -121,19 +139,38 @@ export async function fetchContributions(login: string): Promise<Contributions |
         'User-Agent': 'portfolio-canvas',
       },
       body: JSON.stringify({ query: QUERY, variables: { login } }),
+      signal,
       next: { revalidate: REVALIDATE },
     })
     if (!res.ok) {
       console.warn(`[github] contributions failed: ${res.status}`)
       return null
     }
-    json = (await res.json()) as ApiResponse
-  } catch (err) {
-    console.warn('[github] contributions threw:', err)
-    return null
+    return (await res.json()) as ApiResponse
   }
 
-  return parseContributions(json)
+  let json: ApiResponse | null
+  try {
+    const won = await Promise.race([request(), late])
+    if (won === 'late') {
+      console.warn(`[github] contributions took over ${timeoutMs}ms; rendering without them`)
+      return null
+    }
+    json = won
+  } catch (err) {
+    // an abort lands here too, if it beats the timer by a tick; never print the request itself
+    const name = err instanceof Error ? err.name : 'Error'
+    if (name === 'TimeoutError' || name === 'AbortError') {
+      console.warn(`[github] contributions took over ${timeoutMs}ms; rendering without them`)
+    } else {
+      console.warn('[github] contributions threw:', err instanceof Error ? err.message : String(err))
+    }
+    return null
+  } finally {
+    clearTimeout(timer)
+  }
+
+  return json && parseContributions(json)
 }
 
 async function readFixture(file: string): Promise<Contributions | null> {
