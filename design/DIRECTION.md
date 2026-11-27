@@ -198,7 +198,7 @@ needs them:
 
 | Constant | Light | Dark | Used for |
 |---|---|---|---|
-| `--border-strong` | `rgba(20,20,19,.18)` | `rgba(238,236,229,.18)` | control hover rings, the bar's edge in Dark |
+| `--border-strong` | `rgba(20,20,19,.18)` | `rgba(238,236,229,.18)` | control hover rings and quiet control edges |
 | `--highlight` | `rgba(255,255,255,.9)` | `rgba(255,255,255,.05)` | the 1px inset top light on boxes |
 | `--tb-tint` | 16% | 9% | accent mixed into title bars |
 | `--focus` | `#141413` (yellow in Light is a fill, never a line) | `#F5C518` | the focus ring |
@@ -254,8 +254,11 @@ measures both. `--accent-ink` must reach 4.5:1 on `--mark` too.
 ### Type
 
 Three families on a Lab page, at most, unless the reader picks a fourth for the text (Aa, below).
-Space Grotesk is preloaded; Mono and Caveat are `display: optional`, so they never delay the first
-paint.
+Space Grotesk and Caveat are preloaded; Space Mono is `display: optional`. **Caveat swaps in**
+(`display: swap`, its small Latin subset preloaded): as `optional` it often missed a first visit's
+window, and every date then rendered as 22px of sans beside 13px meta (27 Nov). While it loads,
+`'Lab Hand Fallback'` stands in: a local sans at `size-adjust: 62%`, so a date reads at about the
+meta size, never as big sans.
 
 | Family | Weight | Only in |
 |---|---|---|
@@ -271,7 +274,7 @@ bar, the rail, chips, end headings) stays Space Grotesk in every setting.
 | Token | Value | Role |
 |---|---|---|
 | `--lab-fs-hero` | `clamp(3rem, 9vw, 7rem)` | a section page's title, the only hero |
-| `--lab-fs-num` | `clamp(4.5rem, 12vw, 9rem)` | a chapter's faint big number |
+| `--lab-fs-num` | `clamp(4.5rem, 12vw, 9rem)` | a chapter's faint big number, beside the title: the title leaves it `1.3 × --lab-fs-num` of room, and below 768px (no room) it is dropped, since the picker above says "05 of 08" |
 | `--lab-fs-title` | `clamp(2.5rem, 5.2vw, 4rem)` | the home's and an entry's title. A 2.5rem floor keeps title ÷ meta ≥ 3 on a phone |
 | `--lab-fs-h2` | `max(clamp(1.375rem, 2.2vw, 1.75rem), body × 1.3)` | in-body h2, band titles |
 | `--lab-fs-lede` | `max(clamp(1.1875rem, 1.6vw, 1.375rem), body × 1.15)` | ledes, quotes, an essay's opening |
@@ -391,7 +394,9 @@ owner, never `reducedMotion="user"`, so the query is not read twice. No hover so
 Progress is the body's own: `p = clamp((scrollY − bodyTop) / (bodyHeight − innerHeight), 0, 1)`,
 where the body ends at `[data-body-end]`, before References (shortcut 1). Finishing the text fills
 the trail exactly. The trail is `transform: scaleX(p)` on a full-width element, never a width, and
-the dot rides its end. The dot (22px) is ink-outlined; in Lab Dark its outline is ink at 85%, 1.75px,
+the dot rides its end. **The bar's bottom edge is drawn from the first frame** in every theme, the
+frame's colour (`--border`) at the rule's width, so at `p = 0` the dot sits on a line rather than
+floating under the bar's words (27 Nov). The dot (22px) is ink-outlined; in Lab Dark its outline is ink at 85%, 1.75px,
 filled `--raised`. The footer hop happens only once `p = 1`. Chapter ticks are 14×6px,
 `--ink` at 18% on light grounds and **34% on dark ones** (decision 13), the current one filled
 `--accent`.

@@ -127,7 +127,11 @@ const hygiene = {
       const families = new Set()
       for (const h of hrefs) {
         if (!cssCache.has(h)) cssCache.set(h, (await ctx.get(h)).text)
-        for (const m of cssCache.get(h).matchAll(/@font-face\s*{[^}]*font-family:\s*['"]?([^;'"}]+)/g)) families.add(m[1].replace(/ Fallback$/, '').trim())
+        // a face whose src is only local() downloads nothing: a size-adjusted stand-in, not a family
+        for (const m of cssCache.get(h).matchAll(/@font-face\s*{([^}]*)}/g)) {
+          const fam = m[1].match(/font-family:\s*['"]?([^;'"}]+)/)?.[1]
+          if (fam && /url\(/.test(m[1])) families.add(fam.replace(/ Fallback$/, '').trim())
+        }
       }
       const serif = [...families].filter((f) => /literata/i.test(f))
       for (const f of serif) families.delete(f)

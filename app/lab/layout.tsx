@@ -18,8 +18,8 @@ import './lab.css'
 
 /*
  * The Lab's other two families (DIRECTION, "The Lab → Type"): Space Mono for code and numbers,
- * Caveat for dates and annotations. Only Space Grotesk (the root layout's) is preloaded; these
- * two are `display: optional`, so they never hold up the first paint.
+ * Caveat for dates and annotations. Space Mono is `display: optional`. Caveat is preloaded and
+ * swaps in, because a date in its fallback read as 22px of sans (27 Nov).
  */
 const mono = localFont({
   src: './fonts/space-mono-400-latin.woff2',
@@ -36,9 +36,10 @@ const hand = localFont({
   weight: '500',
   style: 'normal',
   variable: '--font-lab-hand',
-  display: 'optional',
-  preload: false,
-  // no Arial-shaped stand-in: phones have no Arial; the Lab's CSS falls back to Space Grotesk or the system mono
+  // preloaded and swapped in: a date must not stay in a fallback on a first visit (27 Nov). It is
+  // the small Latin subset. Until it arrives, lab.css's size-adjusted 'Lab Hand Fallback' stands in.
+  display: 'swap',
+  preload: true,
   adjustFontFallback: false,
 })
 

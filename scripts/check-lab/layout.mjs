@@ -540,8 +540,31 @@ function MEASURE(opts) {
     if (cr < 3) out.underline.push(`underline ${cr.toFixed(2)}:1 on ${label}`)
   }
 
-  // D: a handwritten date never splits across lines
-  out.splitDates = [...document.querySelectorAll('time')].filter((x) => vis(x) && x.getClientRects().length > 1).map((x) => x.textContent.trim())
+  // D: a handwritten date never splits across lines, and it is set in Caveat: the face is loaded and
+  // swaps in (never `optional`, which leaves a first visit's dates in a fallback for good)
+  const times = [...document.querySelectorAll('time')].filter((x) => vis(x))
+  out.splitDates = times.filter((x) => x.getClientRects().length > 1).map((x) => x.textContent.trim())
+  if (times.length) {
+    const faces = [...document.fonts].filter((f) => fam(f.family) === handVar)
+    const loaded = faces.filter((f) => f.status === 'loaded')
+    if (!handVar || !faces.length) out.hand2 = `no Caveat face behind --font-lab-hand (${handVar || 'unset'})`
+    else if (!loaded.length) out.hand2 = `Caveat is declared but not loaded (${faces.map((f) => f.status).join(', ')}): dates render in a fallback`
+    else if (faces.some((f) => f.display === 'optional')) out.hand2 = 'Caveat is font-display: optional, so a first visit can keep its dates in a fallback'
+    else if (!isHand(fam(getComputedStyle(times[0]).fontFamily))) out.hand2 = `a date is set in ${getComputedStyle(times[0]).fontFamily}`
+  }
+
+  // 14: a chapter's faint number never sits behind the title's words
+  const num = document.querySelector('[data-entry] [data-num][aria-hidden="true"]')
+  const h1 = document.querySelector('main h1')
+  if (num && h1 && vis(num) && num.getClientRects().length) {
+    const box = (el) => {
+      const rg = document.createRange()
+      rg.selectNodeContents(el)
+      return [...rg.getClientRects()].filter((r) => r.width > 0 && r.height > 0)
+    }
+    const hit = box(num).some((a) => box(h1).some((b) => a.left < b.right - 1 && b.left < a.right - 1 && a.top < b.bottom - 1 && b.top < a.bottom - 1))
+    if (hit) out.numOverTitle = true
+  }
 
   // 10: the lead
   out.leads = [...document.querySelectorAll('[data-lead]')].map((e) => e.getBoundingClientRect().top)
@@ -777,6 +800,8 @@ async function runPass(ctx) {
       // U, D
       for (const x of m.underline.slice(0, 3)) c.fail('U', `${tag}: ${x}`)
       for (const x of m.splitDates) c.fail('D', `${tag}: the date "${x}" splits across lines`)
+      if (m.hand2) c.fail('D', `${tag}: ${m.hand2}`)
+      if (m.numOverTitle) c.fail('14', `${tag}: the chapter's big number overlaps the title's text`)
       // R (once per route and width)
       if (entry && li === 0) {
         const r = m.related
@@ -1386,7 +1411,7 @@ export default [
   fromPass('12', 'No colour coding outside leads, figures and code'),
   fromPass('13', 'Measure re-based on Aa: Wide 85–100ch at 1440 (78–100 at 1280), Comfortable 62–76, Narrow 52–66, in each font; phone ≥ 32; line height per step (≥ 1.7 by default); no strip > 240px', { extra: measureLines }),
   fromPass('C', 'The column and the rail centre together (|Δ| ≤ 24px at 1440 and 1920)', { entryOnly: true }),
-  fromPass('14', 'No horizontal overflow; nothing fixed covers the last paragraph or the footer; phone targets ≥ 44×44'),
+  fromPass('14', 'No horizontal overflow; nothing fixed covers the last paragraph or the footer; phone targets ≥ 44×44; the chapter number never overlaps the title'),
   fromPass('15', 'No h2/h3 on 3 or more pages; no slot-name headings'),
   fromPass('16', 'Site themes, all 18: text ≥ 4.5:1 (3:1 at 24px+), on dark grounds body ≥ 10, secondary ≥ 7, labels ≥ 5.5; meaningful rules and scrollbars ≥ 3; the trail ≥ 3:1', { extra: sweepThemes }),
   fromPass('17', 'Lab Light and Lab Dark at every width: the same contrast (Lab Dark body ≥ 10, secondary ≥ 7, labels ≥ 5.5); rules and scrollbars ≥ 3; the trail ≥ 3:1', {
@@ -1397,7 +1422,7 @@ export default [
   runThemePicker,
   runFrames,
   fromPass('U', 'Every inline link is underlined, the underline ≥ 3:1 against its ground'),
-  fromPass('D', 'A handwritten date never splits across lines'),
+  fromPass('D', 'A handwritten date never splits across lines, and renders in Caveat (loaded, swapped in, never optional)'),
   fromPass('R', 'Related and Links to this page end every entry; Related is never empty', { entryOnly: true }),
   runReduced,
   fromPass('21', 'Health: zero console and page errors; no third-party request on load', {
