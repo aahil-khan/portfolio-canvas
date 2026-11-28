@@ -19,6 +19,9 @@
  *     a one-finger swipe left pages and a two-finger one does not.
  *   - **Close**: Escape, the close button and the scrim each close it, focus goes back to the image
  *     that opened it, and the page scrolls again from the same place.
+ *   - **Arrows** (at 390, 1024 and 1440): previous and next never overlap the window's frame. From
+ *     600px they sit inside the stage, 14px from its edges; on a phone they are 44px buttons in a row
+ *     under the picture, never on it.
  *   - **Themes**: the frame holds in every look of the matrix (Lab Dark, Lab Light, cream,
  *     tokyo-night); with reduced motion the window never travels.
  */
@@ -72,6 +75,32 @@ function VIEWER() {
     overflow: getComputedStyle(document.documentElement).overflow,
     lenisStopped: window.__lenis ? !!window.__lenis.isStopped : null,
     scrollY,
+  }
+}
+
+/** In the page: where previous and next sit against the window's frame, the stage and the picture. */
+function ARROWS() {
+  const v = document.querySelector('[data-lab-viewer]')
+  if (!v) return null
+  const r = (el) => {
+    const b = el.getBoundingClientRect()
+    return { l: b.left, t: b.top, r: b.right, b: b.bottom }
+  }
+  const win = v.querySelector('[data-viewer-win]')
+  const edge = parseFloat(getComputedStyle(win).borderTopWidth) || 0
+  const w = r(win)
+  return {
+    inner: { l: w.l + edge, t: w.t + edge, r: w.r - edge, b: w.b - edge },
+    stage: r(v.querySelector('[data-viewer-stage]')),
+    img: r(v.querySelector('[data-viewer-img]')),
+    foot: v.querySelector('[data-viewer-foot]') ? r(v.querySelector('[data-viewer-foot]')) : null,
+    arrows: [...v.querySelectorAll('[data-viewer-prev], [data-viewer-next]')].map((a) => ({
+      which: a.hasAttribute('data-viewer-prev') ? 'previous' : 'next',
+      box: r(a),
+      // the offset shadow is part of what the eye reads as the button
+      shadow: Math.max(0, ...[...getComputedStyle(a).boxShadow.matchAll(/(-?\d*\.?\d+)px (-?\d*\.?\d+)px 0px/g)].map((m) => Math.max(+m[1], +m[2]))),
+      inFoot: !!a.closest('[data-viewer-foot]'),
+    })),
   }
 }
 
@@ -151,6 +180,7 @@ const viewer = {
     let paged = 0
     let swiped = 0
     let onDemand = false
+    const multi = new Set()
     await pool(jobs, 2, async ({ route, width }) => {
       const tag = `${route.path} @${width}`
       const o = await openPage(ctx, route.path, { width, query: ctx.looks[0].query })
@@ -170,6 +200,7 @@ const viewer = {
         if (width === 1440 && s.cursor !== 'zoom-in') c.fail('LB', `${tag}: a marked image's cursor is "${s.cursor}", not zoom-in`)
         if (!s.marked) return
         const n = s.marked
+        if (n > 1) multi.add(route.path)
 
         // the viewer's chunk is not in the first load
         const before = await p.evaluate(SCRIPTS)
@@ -357,6 +388,52 @@ const viewer = {
         }
       },
     )
+
+    // 4. previous and next never touch the frame: inside the stage 14px from its edges, or on a
+    //    phone in the row under the picture, off it
+    const geoRoute = [...multi][0]
+    const geoWidths = [390, 1024, 1440]
+    if (!geoRoute) c.note('LB', 'no entry has two images: the arrow placement waits')
+    else
+      await pool(geoWidths, 2, async (width) => {
+        const tag = `${geoRoute} @${width} arrows`
+        const o = await openPage(ctx, geoRoute, { width, query: ctx.looks[0].query })
+        const p = o.page
+        try {
+          await p.waitForSelector('#lab-main article[data-entry] img[data-zoom-ready]', { timeout: 5000 })
+          const im = p.locator('#lab-main article[data-entry] img[data-zoom-ready]').first()
+          await im.scrollIntoViewIfNeeded()
+          await p.waitForTimeout(150)
+          if (width < 600) await im.tap()
+          else await im.click()
+          await p.waitForTimeout(450)
+          const g = await p.evaluate(ARROWS)
+          if (!g) return c.fail('LB', `${tag}: no viewer opened`)
+          if (g.arrows.length !== 2) return c.fail('LB', `${tag}: ${g.arrows.length} arrow buttons, not 2`)
+          const px = (b) => [b.l, b.t, b.r, b.b].map(Math.round).join(',')
+          for (const a of g.arrows) {
+            const b = a.box
+            const out = b.l < g.inner.l - 0.5 || b.t < g.inner.t - 0.5 || b.r + a.shadow > g.inner.r + 0.5 || b.b + a.shadow > g.inner.b + 0.5
+            if (out) c.fail('LB', `${tag}: ${a.which} (${px(b)}, shadow ${a.shadow}px) overlaps the frame (inside ${px(g.inner)})`)
+            const overImg = b.l < g.img.r && b.r > g.img.l && b.t < g.img.b && b.b > g.img.t
+            if (width < 600) {
+              if (!a.inFoot) c.fail('LB', `${tag}: ${a.which} is not in the row under the picture ([data-viewer-foot])`)
+              if (overImg) c.fail('LB', `${tag}: ${a.which} (${px(b)}) covers the picture (${px(g.img)})`)
+              if (b.r - b.l < 44 - 0.5 || b.b - b.t < 44 - 0.5) c.fail('LB', `${tag}: ${a.which} is ${Math.round(b.r - b.l)}×${Math.round(b.b - b.t)}, under 44×44`)
+            } else {
+              if (a.inFoot || g.foot) c.fail('LB', `${tag}: the phone's row shows at ${width}`)
+              const gap = a.which === 'previous' ? b.l - g.stage.l : g.stage.r - b.r
+              if (Math.abs(gap - 14) > 1) c.fail('LB', `${tag}: ${a.which} sits ${Math.round(gap)}px from the stage's edge, not 14px`)
+              if (b.t < g.stage.t - 0.5 || b.b + a.shadow > g.stage.b + 0.5) c.fail('LB', `${tag}: ${a.which} runs out of the stage vertically`)
+            }
+          }
+          if (width < 600 && g.foot && g.foot.t < g.img.b - 0.5) c.fail('LB', `${tag}: the row starts above the picture's bottom`)
+        } catch (e) {
+          c.fail('LB', `${tag}: threw ${e.message.split('\n')[0]}`)
+        } finally {
+          await o.close()
+        }
+      })
 
     c.note('LB', `${withImages.length} entries with images; opened ${opened}, paged ${paged}, swiped ${swiped}; looks ${ctx.looks.map((l) => l.name).join(', ')}`)
     if (!opened) c.fail('LB', 'no viewer opened on any entry')

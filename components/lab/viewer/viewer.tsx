@@ -2,7 +2,7 @@
 
 import { AnimatePresence, type Variants } from 'motion/react'
 import * as m from 'motion/react-m'
-import { useCallback, useEffect, useRef, useState, type CSSProperties, type TouchEvent } from 'react'
+import { useCallback, useEffect, useRef, useState, useSyncExternalStore, type CSSProperties, type TouchEvent } from 'react'
 import { createPortal } from 'react-dom'
 
 import { direction, swipeStep, wrap, type ViewerCopy, type ViewerItem } from '@/lib/lab/viewer'
@@ -21,6 +21,24 @@ export interface ViewerProps {
 const FOCUSABLE = 'button:not(:disabled), [href], [tabindex]:not([tabindex="-1"])'
 
 /**
+ * Below this width, previous and next leave the picture for a row under it, with the count between
+ * them: on a phone the picture is the whole width and buttons on it cover what it shows. The viewer
+ * renders only in the browser, after a click, so reading the width here cannot mismatch the server.
+ */
+const NARROW = '(max-width: 599.98px)'
+const subscribeNarrow = (f: () => void) => {
+  const q = window.matchMedia(NARROW)
+  q.addEventListener('change', f)
+  return () => q.removeEventListener('change', f)
+}
+const useNarrow = () =>
+  useSyncExternalStore(
+    subscribeNarrow,
+    () => window.matchMedia(NARROW).matches,
+    () => false,
+  )
+
+/**
  * The Lab's full-size image viewer, loaded on the first open (`zoom.tsx`). The canvas's viewer
  * (`Lightbox` in `components/apps/carousel.tsx`) in the Lab's frame language: a scrim, a window with
  * a title bar (the image's alt, the count, Close), the picture as large as fits but never past its
@@ -35,6 +53,7 @@ const FOCUSABLE = 'button:not(:disabled), [href], [tabindex]:not([tabindex="-1"]
  */
 export function Viewer({ items, start, copy, onClose }: ViewerProps) {
   const reduced = useReducedMotion()
+  const narrow = useNarrow()
   const n = items.length
   const [index, setIndex] = useState(() => wrap(start, n))
   const [dir, setDir] = useState<-1 | 0 | 1>(0)
@@ -170,6 +189,23 @@ export function Viewer({ items, start, copy, onClose }: ViewerProps) {
         gone: { y: LAB.windowOut.drop, transition: { duration: sec(LAB.windowOut.duration), ease: EASE_BEZIER } },
       }
 
+  const count = (
+    <span className="lab-viewer-count" data-viewer-count data-num aria-hidden="true">
+      {fill(copy.count, { i: index + 1, n })}
+    </span>
+  )
+  const prevBtn = (
+    <button type="button" className="lab-viewer-arrow lab-viewer-prev" data-viewer-prev aria-label={copy.prev} title={copy.prev} onClick={prev}>
+      <Chevron />
+    </button>
+  )
+  const nextBtn = (
+    <button type="button" className="lab-viewer-arrow lab-viewer-next" data-viewer-next aria-label={copy.next} title={copy.next} onClick={next}>
+      <Chevron />
+    </button>
+  )
+  const winClass = ['lab-viewer-win', captioned ? 'has-cap' : '', n > 1 && narrow ? 'has-foot' : ''].filter(Boolean).join(' ')
+
   return createPortal(
     <AnimatePresence onExitComplete={done}>
       {closing ? null : (
@@ -188,16 +224,12 @@ export function Viewer({ items, start, copy, onClose }: ViewerProps) {
           exit="gone"
         >
           <button type="button" className="lab-viewer-scrim" data-viewer-scrim aria-label={copy.scrim} tabIndex={-1} onClick={close} />
-          <m.div className={`lab-viewer-win${captioned ? ' has-cap' : ''}`} data-viewer-win variants={win}>
+          <m.div className={winClass} data-viewer-win variants={win}>
             <div className="lab-window-bar lab-viewer-bar">
               <h2 id="lab-viewer-title" className="lab-viewer-title" title={title}>
                 {title}
               </h2>
-              {n > 1 ? (
-                <span className="lab-viewer-count" data-viewer-count data-num aria-hidden="true">
-                  {fill(copy.count, { i: index + 1, n })}
-                </span>
-              ) : null}
+              {n > 1 && !narrow ? count : null}
               <button ref={closeBtn} type="button" className="lab-viewer-close" data-viewer-close aria-label={copy.close} title={copy.close} onClick={close}>
                 <Cross />
               </button>
@@ -223,18 +255,21 @@ export function Viewer({ items, start, copy, onClose }: ViewerProps) {
                 animate={{ opacity: 1, x: 0 }}
                 transition={{ duration: t(LAB.windowIn.duration), ease: EASE_BEZIER, opacity: { duration: t(LAB.windowIn.opacity) } }}
               />
-              {n > 1 ? (
+              {n > 1 && !narrow ? (
                 <>
-                  <button type="button" className="lab-viewer-arrow lab-viewer-prev" data-viewer-prev aria-label={copy.prev} title={copy.prev} onClick={prev}>
-                    <Chevron />
-                  </button>
-                  <button type="button" className="lab-viewer-arrow lab-viewer-next" data-viewer-next aria-label={copy.next} title={copy.next} onClick={next}>
-                    <Chevron />
-                  </button>
+                  {prevBtn}
+                  {nextBtn}
                 </>
               ) : null}
             </div>
-            {captioned ? <p className="lab-viewer-cap">{item.caption ?? ' '}</p> : null}
+            {captioned ? <p className="lab-viewer-cap">{item.caption ?? '\u00a0'}</p> : null}
+            {n > 1 && narrow ? (
+              <div className="lab-viewer-foot" data-viewer-foot>
+                {prevBtn}
+                {count}
+                {nextBtn}
+              </div>
+            ) : null}
             <p className="lab-viewer-live" aria-live="polite">
               {n > 1 ? fill(copy.pos, { i: index + 1, n, alt: title }) : ''}
             </p>

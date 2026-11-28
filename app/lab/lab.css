@@ -961,6 +961,7 @@ html:not([data-look='paper']) .lab-window-bar { box-shadow: 0 1px 0 0 var(--hair
   --lab-viewer-pad: 24px;
   --lab-viewer-bar: 44px;
   --lab-viewer-cap: 0px;
+  --lab-viewer-foot: 0px;
   position: fixed; inset: 0; z-index: 80;
   display: grid; place-items: center;
   padding: var(--lab-viewer-pad);
@@ -983,6 +984,7 @@ html:not([data-look='paper']) .lab-window-bar { box-shadow: 0 1px 0 0 var(--hair
   overflow: hidden;
 }
 .lab-viewer-win.has-cap { --lab-viewer-cap: 62px; }
+.lab-viewer-win.has-foot { --lab-viewer-foot: 62px; }
 .lab-viewer-bar { flex: none; min-height: var(--lab-viewer-bar); padding-right: 6px; }
 /* the alt as the title, up to two lines (the bar's height holds them); `contain` keeps a long alt
    from widening the window */
@@ -1023,12 +1025,12 @@ html:not([data-look='paper']) .lab-window-bar { box-shadow: 0 1px 0 0 var(--hair
   width: min(
     calc(var(--w) * 1px),
     calc(100vw - 2 * var(--lab-viewer-pad) - 2 * var(--lab-edge)),
-    calc((100vh - 2 * var(--lab-viewer-pad) - 2 * var(--lab-edge) - var(--lab-viewer-bar) - var(--lab-viewer-cap)) * var(--w) / var(--h))
+    calc((100vh - 2 * var(--lab-viewer-pad) - 2 * var(--lab-edge) - var(--lab-viewer-bar) - var(--lab-viewer-cap) - var(--lab-viewer-foot)) * var(--w) / var(--h))
   );
   width: min(
     calc(var(--w) * 1px),
     calc(100vw - 2 * var(--lab-viewer-pad) - 2 * var(--lab-edge)),
-    calc((100dvh - 2 * var(--lab-viewer-pad) - 2 * var(--lab-edge) - var(--lab-viewer-bar) - var(--lab-viewer-cap)) * var(--w) / var(--h))
+    calc((100dvh - 2 * var(--lab-viewer-pad) - 2 * var(--lab-edge) - var(--lab-viewer-bar) - var(--lab-viewer-cap) - var(--lab-viewer-foot)) * var(--w) / var(--h))
   );
   max-width: none;
   height: auto;
@@ -1036,8 +1038,10 @@ html:not([data-look='paper']) .lab-window-bar { box-shadow: 0 1px 0 0 var(--hair
   user-select: none;
   -webkit-user-drag: none;
 }
+/* previous and next: inside the stage, 14px from its edges, never on the frame (rule LB); on a
+   phone they sit in the row under the picture instead (.lab-viewer-foot) */
 .lab-viewer-arrow {
-  position: absolute; top: 50%; translate: 0 -50%;
+  flex: none;
   display: grid; place-items: center;
   width: 40px; height: 40px; padding: 0;
   border: var(--lab-edge) solid var(--box-edge);
@@ -1048,9 +1052,18 @@ html:not([data-look='paper']) .lab-window-bar { box-shadow: 0 1px 0 0 var(--hair
 }
 .lab-viewer-arrow:hover { transform: translate(-1px, -1px); box-shadow: 3px 3px 0 0 var(--shadow-ink); transition-duration: var(--lab-t-in); }
 .lab-viewer-arrow:active { transform: translate(1px, 1px); box-shadow: 1px 1px 0 0 var(--shadow-ink); transition-duration: var(--lab-t-press); }
-.lab-viewer-prev { left: 12px; }
-.lab-viewer-next { right: 12px; }
+.lab-viewer-stage > .lab-viewer-arrow { position: absolute; top: 50%; translate: 0 -50%; }
+.lab-viewer-stage > .lab-viewer-prev { left: 14px; }
+.lab-viewer-stage > .lab-viewer-next { right: 14px; }
 .lab-viewer-next svg { rotate: 180deg; }
+/* the phone's row: previous, the count, next; swiping the picture stays the main way to page */
+.lab-viewer-foot {
+  flex: none; box-sizing: border-box;
+  height: var(--lab-viewer-foot);
+  display: flex; align-items: center; justify-content: space-between; gap: 12px;
+  padding: 0 10px 2px;
+  border-top: var(--rule-w) solid var(--line);
+}
 /* the caption keeps its two lines on a picture without one, so paging never resizes the window */
 .lab-viewer-cap {
   flex: none; box-sizing: border-box;
@@ -1073,8 +1086,6 @@ html:not([data-look='paper']) .lab-window-bar { box-shadow: 0 1px 0 0 var(--hair
   .lab-viewer-win.has-cap { --lab-viewer-cap: 64px; }
   .lab-viewer-close { width: 44px; height: 44px; }
   .lab-viewer-arrow { width: 44px; height: 44px; }
-  .lab-viewer-prev { left: 8px; }
-  .lab-viewer-next { right: 8px; }
 }
 
 /* ---------- phone ---------- */
