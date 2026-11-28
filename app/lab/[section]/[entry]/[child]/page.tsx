@@ -1,9 +1,9 @@
 import { notFound } from 'next/navigation'
 
 import { EntryPage } from '@/components/lab/entry/entry'
-import { entryByPath, pathOf, routes } from '@/lib/lab/content'
-import { plainInline } from '@/lib/lab/text'
-import { labMetadata } from '@/lib/lab/seo'
+import { entryByPath, routes } from '@/lib/lab/content'
+import { labEntryMetadata, labJsonLd, labMetadata } from '@/lib/lab/seo'
+import { jsonLd } from '@/lib/seo/json-ld'
 
 /**
  * A child entry: a chapter under its series, a note under its study (API.md §3),
@@ -26,12 +26,18 @@ export async function generateMetadata({ params }: { params: Params }) {
   const { section, entry, child } = await params
   const e = entryByPath([section, entry, child])
   if (!e) return labMetadata()
-  return labMetadata({ title: e.title, description: plainInline(e.lede ?? ('keyLine' in e ? (e.keyLine ?? '') : '')), path: pathOf(e) })
+  return labEntryMetadata(e)
 }
 
 export default async function Page({ params }: { params: Params }) {
   const { section, entry, child } = await params
   const e = entryByPath([section, entry, child])
   if (!e) notFound()
-  return <EntryPage entry={e} />
+  return (
+    <>
+      {/* an Article and its breadcrumbs; jsonLd() escapes <, so no field can close the script */}
+      <script type="application/ld+json" dangerouslySetInnerHTML={{ __html: jsonLd(labJsonLd(e)) }} />
+      <EntryPage entry={e} />
+    </>
+  )
 }
