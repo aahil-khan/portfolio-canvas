@@ -1,0 +1,48 @@
+/*
+ * The error pages' few additions to the sub-page layout (`.site .doc`, in app/site.css). Kept
+ * apart so the error pages own them, and scoped under `.errpage` so nothing else can pick them up.
+ */
+
+/* a short page still fills the screen with its own ground, rather than stopping above white */
+.site[data-error-page] {
+  min-height: 100svh;
+}
+
+/* the links to go instead sit as a short column, not across a 1180px page */
+.site .errpage__links {
+  max-width: 26rem;
+  margin-top: clamp(1.75rem, 5vh, 2.5rem);
+}
+
+/* "Try again" is a button, drawn exactly as the links beside it (.site .doc__links a) */
+.site .errpage__links button {
+  display: inline-flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 0.6rem;
+  min-height: 44px;
+  padding-inline: 0.9rem;
+  border: 1.5px solid var(--border);
+  border-radius: var(--radius-chip);
+  background: transparent;
+  color: var(--ink);
+  font: inherit;
+  font-weight: 500;
+  text-align: left;
+  cursor: pointer;
+  transition: background 180ms var(--ease-out), transform 180ms var(--ease-out);
+}
+.site .errpage__links button:hover {
+  background: color-mix(in srgb, var(--accent) 18%, var(--surface));
+  transform: translate(-1px, -1px);
+}
+
+.site .errpage__ref {
+  margin-top: 1.25rem;
+  font-size: 0.8125rem;
+  color: var(--ink-subtle);
+}
+.site .errpage__ref code {
+  font-size: inherit;
+  color: var(--ink-muted);
+}

@@ -3,6 +3,8 @@ import Link from 'next/link'
 
 import { DocBar, DocFoot } from '@/components/site/doc'
 import { profile, projects, site } from '@/content'
+import { itemListLd, jsonLd } from '@/lib/seo/json-ld'
+import { pageMeta } from '@/lib/seo/meta'
 import { SITE_URL } from '@/lib/site'
 
 import '../site.css'
@@ -18,32 +20,23 @@ import '../site.css'
  * delivered the front page. Both this page and the project pages now name their destination.
  */
 
-export const metadata: Metadata = {
+export const metadata: Metadata = pageMeta({
+  path: '/work',
   title: `${site.workPage.indexTitle} — ${profile.name}`,
   description: site.workPage.indexLede,
-  alternates: { canonical: '/work' },
-}
+})
 
 export default function WorkIndex() {
   const sorted = [...projects].sort((a, b) => b.year - a.year)
   const back = { href: '/#work', label: site.nav.work }
 
-  const jsonLd = {
-    '@context': 'https://schema.org',
-    '@type': 'ItemList',
-    itemListElement: sorted.map((p, i) => ({
-      '@type': 'ListItem',
-      position: i + 1,
-      url: `${SITE_URL}/work/${p.slug}`,
-      name: p.name,
-    })),
-  }
+  const list = itemListLd(sorted.map((p) => ({ name: p.name, url: `${SITE_URL}/work/${p.slug}` })))
 
   return (
     <main data-scroll-page className="site">
       <script
         type="application/ld+json"
-        dangerouslySetInnerHTML={{ __html: JSON.stringify(jsonLd) }}
+        dangerouslySetInnerHTML={{ __html: jsonLd(list) }}
       />
 
       <DocBar back={back} />

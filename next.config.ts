@@ -1,6 +1,8 @@
 import { readFileSync } from "node:fs";
 import type { NextConfig } from "next";
 
+import { LAB_X_ROBOTS_HIDDEN, labPublic } from "./lib/lab/visibility";
+
 /** The easter-egg photo, wherever /edit currently points it. */
 const hiddenPortrait: string | undefined = JSON.parse(
   readFileSync("content/data/profile.json", "utf8"),
@@ -13,6 +15,20 @@ const nextConfig: NextConfig = {
    * Vercel deploy from 1aeff73 to the fix failed that way. `VERCEL` is set in Vercel's builds.
    */
   output: process.env.VERCEL ? undefined : 'standalone',
+
+  /*
+   * `check:lab` builds the Lab's test fixture (LAB_FIXTURE=kinds) beside the real build rather
+   * than over it, so the two can be served side by side. Unset everywhere else.
+   */
+  distDir: process.env.NEXT_DIST_DIR || '.next',
+
+  /*
+   * The Lab's loaders read files by computed paths at build, so the tracer lists most of the
+   * project for any route that validates content (`/` and `/canvas` do). The test fixture must
+   * never travel with a default build (check-lab rule 4), so it is left out of every trace unless
+   * it is the fixture build.
+   */
+  outputFileTracingExcludes: process.env.LAB_FIXTURE === 'kinds' ? {} : { '/**': ['content/lab/fixture/**/*'] },
 
   /*
    * `/resume` was the plain, printable surface back when `/` was the canvas. The front page is
@@ -30,9 +46,20 @@ const nextConfig: NextConfig = {
    * stop crawlers seeing this header at all.
    */
   async headers() {
-    return hiddenPortrait
-      ? [{ source: hiddenPortrait, headers: [{ key: 'X-Robots-Tag', value: 'noindex, noimageindex' }] }]
-      : []
+    return [
+      ...(hiddenPortrait
+        ? [{ source: hiddenPortrait, headers: [{ key: 'X-Robots-Tag', value: 'noindex, noimageindex' }] }]
+        : []),
+      /*
+       * The Lab, while it is hidden (`lib/lab/visibility.ts`). The header reaches what a meta tag
+       * cannot: OG images, `.md` twins and anything else served under /lab. `/lab/:path*` matches
+       * `/lab` itself too. Same reasoning as the portrait: no robots.txt Disallow, which would
+       * publish the path and stop crawlers ever seeing this.
+       */
+      ...(labPublic
+        ? []
+        : [{ source: '/lab/:path*', headers: [{ key: 'X-Robots-Tag', value: LAB_X_ROBOTS_HIDDEN }] }]),
+    ]
   },
 };
 

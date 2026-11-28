@@ -20,6 +20,7 @@
  */
 
 import type { Rejection } from './ping'
+import type { EventName } from './events'
 
 const URL_ = process.env.UPSTASH_REDIS_REST_URL
 const TOKEN = process.env.UPSTASH_REDIS_REST_TOKEN
@@ -147,9 +148,30 @@ const mem = {
     geo: new Map<string, number>(),
     since: 0,
     diag: new Map<string, number>(),
+    viewDay: new Map<string, number>(),
+    gateSince: 0,
   },
   opens: new Map<string, number>(),
+  openDay: new Map<string, Map<string, number>>(),
   refs: new Map<string, number>(),
+  ev: new Map<string, number>(),
+  evDay: new Map<string, Map<string, number>>(),
+  evOpen: new Map<string, Map<string, number>>(),
+}
+
+/** `map[key] += by`, for the in-memory fallback's counters. */
+function bump(map: Map<string, number>, key: string, by = 1): void {
+  map.set(key, (map.get(key) ?? 0) + by)
+}
+
+/** The day's inner map in one of the in-memory fallback's per-day tables. */
+function dayMap(table: Map<string, Map<string, number>>, day: string): Map<string, number> {
+  let m = table.get(day)
+  if (!m) {
+    m = new Map<string, number>()
+    table.set(day, m)
+  }
+  return m
 }
 
 /* ------------------------------------------------------------------ notes */
@@ -310,6 +332,10 @@ const V = {
   geo: `${VNS}:geo`,
   since: `${VNS}:since`,
   diag: `${VNS}:diag`,
+  /** Admitted page loads per day. Added with the shared gate, so older days have none. */
+  viewDay: (d: string) => `${VNS}:views:${d}`,
+  /** Epoch ms when the shared admission gate first counted anything (SET NX). */
+  gateSince: `${VNS}:gate:since`,
 } as const
 
 export interface Visitors {
@@ -390,6 +416,8 @@ export async function recordVisit(id: string, country: string | null, buckets: s
     }
     day.add(id)
     mem.vis.views += 1
+    bump(mem.vis.viewDay, today)
+    if (!mem.vis.gateSince) mem.vis.gateSince = now
     mem.vis.online.set(id, now)
     if (!mem.vis.since) mem.vis.since = now
     if (fresh && country) mem.vis.geo.set(country, (mem.vis.geo.get(country) ?? 0) + 1)
@@ -401,6 +429,9 @@ export async function recordVisit(id: string, country: string | null, buckets: s
     ['PFADD', V.day(today), id],
     ['EXPIRE', V.day(today), DAY_TTL_SEC],
     ['INCR', V.views],
+    ['INCR', V.viewDay(today)],
+    ['EXPIRE', V.viewDay(today), DAY_TTL_SEC],
+    ['SET', V.gateSince, now, 'NX'],
     ['ZADD', V.online, now, id],
     // sweep the window on every write, so nothing else has to own expiring it
     ['ZREMRANGEBYSCORE', V.online, '-inf', now - ONLINE_SEC * 1000],
@@ -595,13 +626,15 @@ export async function recordOpens(ids: string[], referrer: string | null): Promi
   if (!live) {
     fallbackWarning()
     for (const id of ids) {
-      mem.opens.set(id, (mem.opens.get(id) ?? 0) + 1)
+      bump(mem.opens, id)
+      bump(dayMap(mem.openDay, today), id)
     }
-    if (referrer) mem.refs.set(referrer, (mem.refs.get(referrer) ?? 0) + 1)
+    if (referrer) bump(mem.refs, referrer)
+    if (!mem.vis.gateSince) mem.vis.gateSince = Date.now()
     return
   }
 
-  const cmds: (string | number)[][] = []
+  const cmds: (string | number)[][] = [['SET', V.gateSince, Date.now(), 'NX']]
   for (const id of ids) {
     cmds.push(['HINCRBY', C.opens, id, 1])
     cmds.push(['HINCRBY', C.openDay(today), id, 1])
@@ -636,6 +669,220 @@ export async function getOpens(): Promise<CardOpens> {
     .sort((a, b) => b.n - a.n)
 
   return { cards, referrers, total: cards.reduce((t, c) => t + c.n, 0) }
+}
+
+/**
+ * Card opens against admitted visits, a day at a time.
+ *
+ * Opens wait for the same admission gate as the visit ping, so from the day the gate shipped the
+ * two are counted over the same people, and their ratio means something: how much an admitted
+ * visit opens. Days before the per-day visit counter existed come back as null, never zero, so
+ * the page shows a gap instead of a ratio over nothing.
+ */
+export interface DayTally {
+  day: string
+  /** Admitted page loads that day, or null before the counter existed. */
+  visits: number | null
+  /** Distinct visitors that day. */
+  visitors: number
+  /** Card opens that day. */
+  opens: number
+}
+
+export interface OpensVsVisits {
+  days: DayTally[]
+  /** Epoch ms when the shared gate first counted anything, or null. */
+  gateSince: number | null
+}
+
+export async function getOpensVsVisits(): Promise<OpensVsVisits> {
+  const days = chartDays()
+  if (!live) {
+    fallbackWarning()
+    return {
+      days: days.map((day) => ({
+        day,
+        visits: mem.vis.viewDay.get(day) ?? null,
+        visitors: mem.vis.day.get(day)?.size ?? 0,
+        opens: [...(mem.openDay.get(day)?.values() ?? [])].reduce((t, n) => t + n, 0),
+      })),
+      gateSince: mem.vis.gateSince || null,
+    }
+  }
+  const out = await pipe([
+    ['GET', V.gateSince],
+    ...days.flatMap((d) => [
+      ['GET', V.viewDay(d)],
+      ['PFCOUNT', V.day(d)],
+      ['HVALS', C.openDay(d)],
+    ]),
+  ])
+  if (!out) return { days: days.map((day) => ({ day, visits: null, visitors: 0, opens: 0 })), gateSince: null }
+  const [since, ...rest] = out
+  return {
+    days: days.map((day, i) => {
+      const [v, u, o] = rest.slice(i * 3, i * 3 + 3)
+      return {
+        day,
+        visits: v === null || v === undefined ? null : Number(v) || 0,
+        visitors: Number(u) || 0,
+        opens: Array.isArray(o) ? o.reduce((t: number, n) => t + (Number(n) || 0), 0) : 0,
+      }
+    }),
+    gateSince: Number(since) || null,
+  }
+}
+
+/* ---------------------------------------------------------------- events */
+
+/**
+ * Analytics events (`lib/events.ts`), as plain counters.
+ *
+ * Three hashes, none holding a row per event or anything about who sent it:
+ *   - `ev`, all time: each event's name, each closed-set prop as `name.prop:value`, and why
+ *     `/api/events` turned requests away (`rej:<reason>`);
+ *   - `ev:<day>`, the same counts for one day, kept for the chart window;
+ *   - `ev:open:<day>`, the open-ended values (`name|path`, `lead_use.lead|id`), one day each,
+ *     expiring, and capped at `OPEN_FIELD_CAP` fields a day. Paths are shape-checked but not
+ *     checked against real routes, so the cap and the expiry are what keep forged ones from
+ *     growing it: a flood can fill one day's hash, and that day ages out on its own.
+ */
+
+const E = {
+  all: `${VNS}:ev`,
+  day: (d: string) => `${VNS}:ev:${d}`,
+  open: (d: string) => `${VNS}:ev:open:${d}`,
+} as const
+
+const OPEN_FIELD_CAP = 2000
+
+/** Why `/api/events` refused a request. Each is a `rej:<reason>` counter in the all-time hash. */
+export type EventRejection = 'ua' | 'origin' | 'type' | 'size' | 'body' | 'rate'
+
+export async function noteEventRejected(reason: EventRejection): Promise<void> {
+  const field = `rej:${reason}`
+  if (!live) {
+    fallbackWarning()
+    bump(mem.ev, field)
+    return
+  }
+  await cmd(['HINCRBY', E.all, field, 1])
+}
+
+/** Counts one admitted batch. `counts` and `open` come from `eventFields`, already validated. */
+export async function recordEvents(counts: string[], open: string[]): Promise<void> {
+  if (!counts.length) return
+  const today = utcDay()
+  const tally = (fields: string[]) => {
+    const m = new Map<string, number>()
+    for (const f of fields) bump(m, f)
+    return m
+  }
+  const c = tally(counts)
+  const o = tally(open)
+
+  if (!live) {
+    fallbackWarning()
+    for (const [f, n] of c) {
+      bump(mem.ev, f, n)
+      bump(dayMap(mem.evDay, today), f, n)
+    }
+    const om = dayMap(mem.evOpen, today)
+    for (const [f, n] of o) if (om.has(f) || om.size < OPEN_FIELD_CAP) bump(om, f, n)
+    if (!mem.vis.gateSince) mem.vis.gateSince = Date.now()
+    return
+  }
+
+  const out = await pipe([
+    ...[...c].flatMap(([f, n]) => [
+      ['HINCRBY', E.all, f, n],
+      ['HINCRBY', E.day(today), f, n],
+    ]),
+    ['EXPIRE', E.day(today), DAY_TTL_SEC],
+    ['SET', V.gateSince, Date.now(), 'NX'],
+    ['HLEN', E.open(today)],
+  ])
+  if (!o.size) return
+  // the cap is checked a round trip before the write, so it can overshoot by one batch: fine
+  const held = Number(out?.[out.length - 1]) || 0
+  if (held >= OPEN_FIELD_CAP) return
+  await pipe([...[...o].map(([f, n]) => ['HINCRBY', E.open(today), f, n]), ['EXPIRE', E.open(today), DAY_TTL_SEC]])
+}
+
+export interface EventStats {
+  /** One row per allowlisted name, in list order: today, the chart window, all time. */
+  names: { name: EventName; today: number; days: number; all: number }[]
+  /** `name.prop` → its values, all time, largest first. */
+  props: { key: string; rows: { k: string; n: number }[] }[]
+  /** The open-ended values over the chart window: `name|path` → n, largest first. */
+  open: { k: string; n: number }[]
+  /** Why `/api/events` refused requests, largest first. */
+  rejected: { k: string; n: number }[]
+}
+
+export async function getEvents(names: readonly EventName[]): Promise<EventStats> {
+  const days = chartDays()
+  let all: Record<string, number> = {}
+  const perDay: Record<string, number>[] = []
+  const openDays: Record<string, number>[] = []
+
+  const nums = (h: Record<string, string> | Map<string, number> | undefined) => {
+    const r: Record<string, number> = {}
+    if (!h) return r
+    for (const [k, v] of h instanceof Map ? h : Object.entries(h)) r[k] = Number(v) || 0
+    return r
+  }
+
+  if (!live) {
+    fallbackWarning()
+    all = nums(mem.ev)
+    for (const d of days) {
+      perDay.push(nums(mem.evDay.get(d)))
+      openDays.push(nums(mem.evOpen.get(d)))
+    }
+  } else {
+    const out = await pipe([['HGETALL', E.all], ...days.flatMap((d) => [['HGETALL', E.day(d)], ['HGETALL', E.open(d)]])])
+    if (out) {
+      all = nums(readHash(out[0]))
+      days.forEach((_, i) => {
+        perDay.push(nums(readHash(out[1 + i * 2])))
+        openDays.push(nums(readHash(out[2 + i * 2])))
+      })
+    }
+  }
+
+  const sum = (rows: Record<string, number>[], k: string) => rows.reduce((t, r) => t + (r[k] ?? 0), 0)
+  const bySize = (rows: { k: string; n: number }[]) => rows.sort((a, b) => b.n - a.n || a.k.localeCompare(b.k))
+
+  const props = new Map<string, { k: string; n: number }[]>()
+  const rejected: { k: string; n: number }[] = []
+  for (const [field, n] of Object.entries(all)) {
+    if (n <= 0) continue
+    if (field.startsWith('rej:')) {
+      rejected.push({ k: field.slice(4), n })
+      continue
+    }
+    const m = field.match(/^([a-z_]+\.[a-z]+):(.+)$/)
+    if (!m) continue
+    const rows = props.get(m[1]) ?? []
+    rows.push({ k: m[2], n })
+    props.set(m[1], rows)
+  }
+
+  const open = new Map<string, number>()
+  for (const d of openDays) for (const [k, n] of Object.entries(d)) bump(open, k, n)
+
+  return {
+    names: names.map((name) => ({
+      name,
+      today: perDay[perDay.length - 1]?.[name] ?? 0,
+      days: sum(perDay, name),
+      all: all[name] ?? 0,
+    })),
+    props: [...props].sort(([a], [b]) => a.localeCompare(b)).map(([key, rows]) => ({ key, rows: bySize(rows) })),
+    open: bySize([...open].map(([k, n]) => ({ k, n }))).filter((r) => r.n > 0),
+    rejected: bySize(rejected),
+  }
 }
 
 /* -------------------------------------------------------------- rate limit */

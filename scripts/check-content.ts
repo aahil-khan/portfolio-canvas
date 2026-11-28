@@ -3,6 +3,8 @@
  *
  *   npm run content:check
  *
+ * The Lab's two sets (real and demo) go through `validateLab` too.
+ *
  * Seconds instead of a full build — the quick check after a hand edit, and the one the
  * update-content skill runs before it commits.
  */
@@ -11,6 +13,7 @@ import path from 'node:path'
 
 import { validateSet } from '../lib/edit/rules.ts'
 import { FILES, type ContentSet } from '../content/schema/index.ts'
+import { formatLabIssue, validateLabSets } from '../lib/lab/validate-sets.ts'
 
 const root = path.resolve(import.meta.dirname, '..')
 const set = {} as ContentSet
@@ -24,9 +27,15 @@ for (const f of FILES) {
 }
 
 const issues = validateSet(set, (p) => existsSync(path.join(root, 'public', p.slice(1))))
-if (issues.length) {
+const all = validateLabSets({ root })
+// a real link with no unfurl yet is a warning: printed, never a failure
+const lab = all.filter((i) => !i.warning)
+for (const i of all.filter((i) => i.warning)) console.warn(`  ! ${formatLabIssue(i)}`)
+if (issues.length || lab.length) {
   for (const i of issues) console.error(`  • ${i.path}: ${i.message}`)
-  console.error(`\n${issues.length} problem${issues.length === 1 ? '' : 's'} in content/data/`)
+  for (const i of lab) console.error(`  • ${formatLabIssue(i)}`)
+  const n = issues.length + lab.length
+  console.error(`\n${n} problem${n === 1 ? '' : 's'} in content/data/ and the Lab's sets`)
   process.exit(1)
 }
-console.log(`content/data: ${FILES.length} files valid`)
+console.log(`content/data: ${FILES.length} files valid; the Lab: real and demo sets valid`)

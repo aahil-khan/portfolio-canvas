@@ -2,6 +2,9 @@ import { existsSync } from 'node:fs'
 import path from 'node:path'
 
 import { validateSet } from '../lib/edit/rules.ts'
+import { loadSet } from '../lib/lab/content.ts'
+import { parseBody } from '../lib/lab/markdown/pipeline.ts'
+import { formatLabIssue, validateLabSets } from '../lib/lab/validate-sets.ts'
 import { apps, dockLayout, externalApps } from './apps'
 import { props } from './props'
 import type { ContentSet } from './schema/index.ts'
@@ -24,7 +27,8 @@ import writing from './data/writing.json' with { type: 'json' }
  *
  * The editable content (`content/data/`) is checked by `validateSet` — the same function `/edit`
  * runs before it commits, so a save that passes there passes here. What stays below is the
- * content only code edits: the dock and the desk notes.
+ * content only code edits: the dock and the desk notes. The Lab's content (`content/data/lab*.json`
+ * and the demo set) is checked by `validateLab`, over both sets.
  */
 
 const PUBLIC = path.join(process.cwd(), 'public')
@@ -40,6 +44,26 @@ export function validateContent(): void {
 
   for (const { path: at, message } of validateSet(SET, (p) => existsSync(path.join(PUBLIC, p.slice(1)))))
     errors.push(`content/data/${at}: ${message}`)
+
+  // the Lab: both sets, real and demo, whichever is active. A warning (a real link with no unfurl
+  // yet) is printed and never fails the build
+  for (const i of validateLabSets()) {
+    if (!i.warning) errors.push(formatLabIssue(i))
+    else console.warn(`Lab content warning: ${formatLabIssue(i)}`)
+  }
+  // and every body through the pipeline that renders it, which `content:check` (plain Node) cannot
+  // load: a body it cannot parse (an unknown directive, an image with no size, a link left open)
+  // fails the build rather than the page
+  for (const name of ['real', 'demo'] as const) {
+    const set = loadSet(name)
+    for (const [id, md] of Object.entries(set.bodies)) {
+      try {
+        parseBody(md)
+      } catch (e) {
+        errors.push(`${set.bodyFiles[id]}: ${(e as Error).message} [${name} set]`)
+      }
+    }
+  }
 
   const dupes = (label: string, slugs: readonly string[]) => {
     const seen = new Set<string>()

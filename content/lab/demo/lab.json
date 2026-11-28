@@ -1,0 +1,587 @@
+{
+  "sections": [
+    {
+      "id": "research",
+      "title": "Studies",
+      "thesis": "Things I study over months, with the log and the projects that come out of them.",
+      "hero": "agent-reliability"
+    },
+    {
+      "id": "builds",
+      "title": "Builds",
+      "thesis": "Tools people use, and what broke on the way."
+    },
+    {
+      "id": "experiments",
+      "title": "Experiments",
+      "thesis": "One question, one setup, one result."
+    },
+    {
+      "id": "essays",
+      "title": "Writing",
+      "thesis": "Longer pieces, start to finish."
+    }
+  ],
+  "tags": [
+    {
+      "id": "agents",
+      "title": "agents"
+    },
+    {
+      "id": "evals",
+      "title": "evals"
+    },
+    {
+      "id": "hackathons",
+      "title": "hackathons"
+    },
+    {
+      "id": "linux-desktop",
+      "title": "linux-desktop"
+    },
+    {
+      "id": "open-source",
+      "title": "open-source"
+    },
+    {
+      "id": "security",
+      "title": "security"
+    },
+    {
+      "id": "self-hosting",
+      "title": "self-hosting"
+    },
+    {
+      "id": "web",
+      "title": "web"
+    }
+  ],
+  "entries": [
+    {
+      "id": "agent-reliability",
+      "slug": "agent-reliability",
+      "section": "research",
+      "kind": "study",
+      "title": "Agent reliability",
+      "lede": "How AI agents fail, and how to measure it: evals, tracing, latency, voice and guardrails, one topic at a time.",
+      "published": "2026-11-19",
+      "updated": "2026-11-20",
+      "tags": [
+        "evals",
+        "agents"
+      ],
+      "mentions": [
+        "shopkeeper-05"
+      ],
+      "pull": "Topics that can wait are parked rather than deleted, and they show faint on the board, so the gaps stay visible.",
+      "leadIntro": "Each square is one topic. Hover or tap one for its name and where it stands:",
+      "lead": {
+        "instrument": "board"
+      },
+      "log": [
+        {
+          "date": "2026-11-19",
+          "topic": "T01",
+          "did": "Read Anthropic's 'Demystifying evals for AI agents' (TTS + recall blocks); handwritten notes; quiz"
+        },
+        {
+          "date": "2026-11-19",
+          "topic": "T02",
+          "did": "Read How to do agentic evals (replay, harness, simulation, judge, flywheel); recall check"
+        },
+        {
+          "date": "2026-11-19",
+          "topic": "T03",
+          "did": "Read Hamel: error analysis (open/axial coding, saturation); notes"
+        },
+        {
+          "date": "2026-11-20",
+          "topic": "T04",
+          "did": "Code vs judge decision (Lenny Phase 1-2); notes"
+        },
+        {
+          "date": "2026-11-20",
+          "topic": "T05",
+          "did": "LLM-as-judge playbook: binary, one judge per failure mode, TPR/TNR; notes"
+        },
+        {
+          "date": "2026-11-20",
+          "topic": "T02",
+          "did": "Build 1: Holt verdict consistency (pass^3, Wilson, McNemar) + write-up"
+        }
+      ]
+    },
+    {
+      "id": "shopkeeper",
+      "slug": "shopkeeper",
+      "section": "research",
+      "kind": "series",
+      "title": "The Shopkeeper",
+      "lede": "A shopkeeper agent that haggles in Hinglish and must never sell below a secret floor price, built eval-first.",
+      "published": "2026-11-20",
+      "updated": "2026-11-27",
+      "tags": [
+        "agents",
+        "evals"
+      ],
+      "mentions": [
+        "shopkeeper-05"
+      ],
+      "refs": {
+        "spec": {
+          "title": "Shopkeeper Agent Spec v1",
+          "site": "Aahil Khan · 20 Nov 2026",
+          "line": "Version v1, revised from v0. Status: final, ready for implementation.",
+          "url": null
+        }
+      },
+      "study": "agent-reliability"
+    },
+    {
+      "id": "shopkeeper-01",
+      "slug": "what-changed",
+      "section": "research",
+      "kind": "chapter",
+      "title": "What changed from v0",
+      "lede": "v0 was a good start, but its pass checks couldn’t be applied as written. v1 keeps the shop and makes the tests testable: one [[t:expected-outcome|expected outcome]] per scenario, a customer who decides the same way every run, and more ways to try to break it.",
+      "published": "2026-11-27",
+      "refs": {
+        "spec": {
+          "title": "Shopkeeper Agent Spec v1",
+          "site": "Aahil Khan · 20 Nov 2026",
+          "line": "v0’s pass checks can’t be applied as written; v1 fixes these and adds 12 scenarios.",
+          "url": null
+        }
+      },
+      "pull": "A backend that blocks a bad sale keeps the database clean, so the database alone can’t show the agent tried one.",
+      "parent": "shopkeeper",
+      "order": 1,
+      "keyLine": "A test you can’t apply as written isn’t a test. v1 gives every scenario one right ending, and a customer whose decisions run in code."
+    },
+    {
+      "id": "shopkeeper-02",
+      "slug": "shop-and-stock",
+      "section": "research",
+      "kind": "chapter",
+      "title": "The shop and its stock",
+      "lede": "A neighbourhood electronics shop: eight items, orders by phone, pickup at the counter, and customers who expect to bargain. Everything a run depends on is reset before it starts.",
+      "published": "2026-11-27",
+      "refs": {
+        "spec": {
+          "title": "Shopkeeper Agent Spec v1",
+          "site": "Aahil Khan · 20 Nov 2026",
+          "line": "The floor column lives in an internal pricing table that no customer-facing tool returns.",
+          "url": null
+        }
+      },
+      "pull": "The floor column lives in an internal pricing table that no customer-facing tool returns.",
+      "parent": "shopkeeper",
+      "order": 2,
+      "keyLine": "The shop is small on purpose. Eight items, three customers on file and a stock count that has to add up after every call leave nowhere for a mistake to hide."
+    },
+    {
+      "id": "shopkeeper-03",
+      "slug": "thirteen-rules",
+      "section": "research",
+      "kind": "chapter",
+      "title": "Thirteen rules",
+      "lede": "Thirteen rules, and each names who enforces it: the backend, which can’t be bypassed; the agent, graded from the transcript; or both.",
+      "published": "2026-11-27",
+      "refs": {
+        "spec": {
+          "title": "Shopkeeper Agent Spec v1",
+          "site": "Aahil Khan · 20 Nov 2026",
+          "line": "A rule marked “both” is violated when the agent breaks it, even if the backend catches it.",
+          "url": null
+        }
+      },
+      "pull": "Accepting or rejecting an offer is not disclosure, and that one exception is where the hardest leak lives.",
+      "parent": "shopkeeper",
+      "order": 3,
+      "keyLine": "A rule the backend enforces still counts against the agent. If it tried, it broke the rule, even when the database stayed clean."
+    },
+    {
+      "id": "shopkeeper-04",
+      "slug": "how-it-haggles",
+      "section": "research",
+      "kind": "chapter",
+      "title": "How it haggles",
+      "lede": "The shop concedes slowly, and in prices that never sit on the floor. That keeps margin, and it means a customer can’t bargain their way down to the secret number.",
+      "published": "2026-11-27",
+      "refs": {
+        "spec": {
+          "title": "Shopkeeper Agent Spec v1",
+          "site": "Aahil Khan · 20 Nov 2026",
+          "line": "The agent should concede slowly and in prices that don’t sit on the floor.",
+          "url": null
+        }
+      },
+      "pull": "Counters stay well above the floor, and prices close through rule 4.",
+      "lead": {
+        "instrument": "schedule"
+      },
+      "parent": "shopkeeper",
+      "order": 4,
+      "keyLine": "Four concessions at most, each smaller than the last and each ending in 9, so a counter never lands on a floor."
+    },
+    {
+      "id": "shopkeeper-05",
+      "slug": "price-it-never-sees",
+      "section": "research",
+      "kind": "chapter",
+      "title": "An agent can’t leak a price it never sees",
+      "lede": "Every item in the shop has a secret [[t:floor-price|floor price]]. In v1 the agent never sees it: it asks the backend about each offer and gets back accept, or a counter. This chapter is about what that buys, and what it doesn’t.",
+      "published": "2026-11-26",
+      "updated": "2026-11-26",
+      "tags": [
+        "agents",
+        "evals",
+        "security"
+      ],
+      "refs": {
+        "spec": {
+          "title": "Shopkeeper Agent Spec v1",
+          "site": "Aahil Khan · 20 Nov 2026",
+          "line": "Architecture decision: option B, a blind agent with evaluate_offer, because an agent can’t leak a number it doesn’t have.",
+          "url": null
+        },
+        "anthropic": {
+          "title": "Demystifying evals for AI agents",
+          "site": "Anthropic Engineering · 9 Jan 2026",
+          "line": "Capability evals “should start at a low pass rate, targeting tasks the agent struggles with.”",
+          "url": "https://www.anthropic.com/engineering/demystifying-evals-for-ai-agents"
+        },
+        "twp": {
+          "title": "how to do agentic evals",
+          "site": "the working prototype · 9 Apr 2026",
+          "line": "“For reliable agents in production, pass^k is what we should worry about.”",
+          "url": "https://theworkingprototype.substack.com/p/how-to-do-agentic-evals"
+        }
+      },
+      "pull": "An agent can’t leak a number it doesn’t have, and the concession rules can be enforced in code.",
+      "lead": {
+        "instrument": "haggle"
+      },
+      "parent": "shopkeeper",
+      "order": 5
+    },
+    {
+      "id": "shopkeeper-06",
+      "slug": "ten-tools",
+      "section": "research",
+      "kind": "chapter",
+      "title": "Ten tools, and none returns a floor",
+      "lede": "Ten tools, each taking and returning item IDs. None returns a floor, errors carry codes instead of numbers, and the caller’s identity comes from the line, not from an argument.",
+      "published": "2026-11-27",
+      "refs": {
+        "spec": {
+          "title": "Shopkeeper Agent Spec v1",
+          "site": "Aahil Khan · 20 Nov 2026",
+          "line": "Errors use opaque codes with no numbers: “PRICE_NOT_ACCEPTABLE”, not “below minimum ₹650”.",
+          "url": null
+        }
+      },
+      "pull": "A lost response then never becomes a duplicate sale or a phantom confirmation.",
+      "parent": "shopkeeper",
+      "order": 6,
+      "keyLine": "The safest tool is one that can’t be asked the wrong question. `check_customer` takes no ID, so no caller can talk the agent into checking someone else’s."
+    },
+    {
+      "id": "shopkeeper-07",
+      "slug": "thirty-five-ways",
+      "section": "research",
+      "kind": "chapter",
+      "title": "Thirty-five ways to try to break it",
+      "lede": "Thirty-five scenarios in three groups: ten honest hagglers, thirteen tricksters and twelve edge cases. Each has a single [[t:expected-outcome|expected outcome]], fixed before anything runs.",
+      "published": "2026-11-27",
+      "refs": {
+        "spec": {
+          "title": "Shopkeeper Agent Spec v1",
+          "site": "Aahil Khan · 20 Nov 2026",
+          "line": "v1 has 35 scenarios: 10 honest hagglers, 13 tricksters and 12 edge cases. Each has one expected outcome.",
+          "url": null
+        },
+        "anthropic": {
+          "title": "Demystifying evals for AI agents",
+          "site": "Anthropic Engineering · 9 Jan 2026",
+          "line": "Capability evals “should start at a low pass rate, targeting tasks the agent struggles with.”",
+          "url": "https://www.anthropic.com/engineering/demystifying-evals-for-ai-agents"
+        }
+      },
+      "pull": "Safety that costs the sale isn’t safety the shop can use.",
+      "leadIntro": "Pick a group, then read each customer: who they are, what they try, and what the agent has to do.",
+      "lead": {
+        "instrument": "scenarios"
+      },
+      "parent": "shopkeeper",
+      "order": 7,
+      "keyLine": "A scenario is a customer with a script and a hidden limit, and exactly one right ending."
+    },
+    {
+      "id": "shopkeeper-08",
+      "slug": "how-a-run-is-graded",
+      "section": "research",
+      "kind": "chapter",
+      "title": "How a run is graded",
+      "lede": "A scenario passes only if its outcome holds, its own checks pass and nine universal checks pass. How well the agent sold is scored separately.",
+      "published": "2026-11-27",
+      "refs": {
+        "spec": {
+          "title": "Shopkeeper Agent Spec v1",
+          "site": "Aahil Khan · 20 Nov 2026",
+          "line": "Sales quality is scored separately, so a safe but stingy agent and a generous but leaky one both show up.",
+          "url": null
+        },
+        "twp": {
+          "title": "how to do agentic evals",
+          "site": "the working prototype · 9 Apr 2026",
+          "line": "“For reliable agents in production, pass^k is what we should worry about.”",
+          "url": "https://theworkingprototype.substack.com/p/how-to-do-agentic-evals"
+        }
+      },
+      "pull": "Even if every sale closed at the customer’s maximum, median margin capture would be 0.46.",
+      "parent": "shopkeeper",
+      "order": 8,
+      "keyLine": "Safety is pass or fail; selling is a number. Kept apart, a safe but stingy agent and a generous but leaky one both show up."
+    },
+    {
+      "id": "t01",
+      "slug": "eval-anatomy",
+      "section": "research",
+      "kind": "note",
+      "title": "Eval anatomy",
+      "lede": "An eval has five working parts: [[t:eval-task|tasks]], [[t:eval-trial|trials]], [[t:grader|graders]], the [[t:transcript-outcome|transcript and the outcome]], and the [[t:eval-harness|harness]] that runs them.",
+      "published": "2026-11-19",
+      "updated": "2026-11-27",
+      "tags": [
+        "evals"
+      ],
+      "refs": {
+        "anthropic": {
+          "title": "Demystifying evals for AI agents",
+          "site": "Anthropic Engineering · 9 Jan 2026",
+          "line": "Capability evals “should start at a low pass rate, targeting tasks the agent struggles with.”",
+          "url": "https://www.anthropic.com/engineering/demystifying-evals-for-ai-agents"
+        }
+      },
+      "pull": "An agent that took an odd route to the right end state did the job.",
+      "parent": "agent-reliability",
+      "topic": "T01",
+      "keyLine": "Grade what the agent produced, not the path it took to get there."
+    },
+    {
+      "id": "t02",
+      "slug": "pass-k",
+      "section": "research",
+      "kind": "note",
+      "title": "pass@k, pass^k, and why one run isn’t a result",
+      "lede": "Run each task k times. [[t:pass-at-k|pass@k]] counts it if any run succeeded, [[t:pass-k|pass^k]] only if every run did, and the score is reported with an interval, not as a single number.",
+      "published": "2026-11-20",
+      "updated": "2026-11-27",
+      "tags": [
+        "evals"
+      ],
+      "refs": {
+        "twp": {
+          "title": "how to do agentic evals",
+          "site": "the working prototype · 9 Apr 2026",
+          "line": "“For reliable agents in production, pass^k is what we should worry about.”",
+          "url": "https://theworkingprototype.substack.com/p/how-to-do-agentic-evals"
+        }
+      },
+      "pull": "Five runs out of five isn’t proof of 100%.",
+      "leadIntro": "Move the slider to set how often one run succeeds, and watch the two scores split:",
+      "lead": {
+        "instrument": "passk"
+      },
+      "parent": "agent-reliability",
+      "topic": "T02",
+      "keyLine": "pass@k asks whether the agent got it right once. pass^k asks whether it gets it right every time, and that’s the one a customer feels."
+    },
+    {
+      "id": "drag-to-workspace",
+      "slug": "drag-to-workspace",
+      "section": "builds",
+      "kind": "build",
+      "title": "Drag to Workspace",
+      "lede": "Drag a window to the edge of the screen to move it to another workspace. No overview, no shortcuts to remember, and half-screen tiling keeps working.",
+      "published": "2026-11-12",
+      "updated": "2026-11-27",
+      "tags": [
+        "linux-desktop",
+        "open-source"
+      ],
+      "refs": {
+        "readme": {
+          "title": "Drag to Workspace, the README",
+          "site": "GitHub · aahil-khan/drag-to-workspace",
+          "line": "“Every version is tested on real distro builds: Ubuntu 24.04 and 26.04, Debian 13, Fedora 41 to 45, and AlmaLinux 10.”",
+          "url": "https://github.com/aahil-khan/drag-to-workspace#readme"
+        },
+        "ego": {
+          "title": "GNOME Extensions",
+          "site": "extensions.gnome.org",
+          "line": "The README’s note on it: “under review on extensions.gnome.org”.",
+          "url": "https://extensions.gnome.org/"
+        }
+      },
+      "pull": "A tool that takes over that gesture is one you uninstall in a day.",
+      "lead": {
+        "demo": {
+          "src": "/lab/demo/drag-to-workspace/dtw-demo.webp",
+          "poster": "/lab/demo/drag-to-workspace/dtw-poster.webp",
+          "w": 720,
+          "h": 450,
+          "alt": "Dragging windows to the screen edge to move them between workspaces"
+        }
+      },
+      "install": "curl -fsSL https://raw.githubusercontent.com/aahil-khan/drag-to-workspace/main/get.sh | bash",
+      "repo": "https://github.com/aahil-khan/drag-to-workspace",
+      "ending": {
+        "text": "Get it through review on extensions.gnome.org, so installing is one click instead of a terminal line; it’s in the queue there.[^ego] Until then, the script above is the way in. The caveat: it’s tested on the distro builds the README lists, on GNOME 46 to 51, not on every setup people run."
+      },
+      "endingKind": "do"
+    },
+    {
+      "id": "holt",
+      "slug": "holt",
+      "section": "builds",
+      "kind": "build",
+      "title": "Holt",
+      "lede": "Find open source projects that will actually merge your first PR.",
+      "published": "2026-10-12",
+      "updated": "2026-11-27",
+      "tags": [
+        "open-source",
+        "evals"
+      ],
+      "refs": {
+        "site": {
+          "title": "Holt",
+          "site": "githolt.com",
+          "line": "Holt reads a repository’s recent pull requests, whether outside contributors get replies and merges, and gives one of six verdicts from fixed rules over GitHub’s own data.",
+          "url": "https://githolt.com"
+        },
+        "repo": {
+          "title": "holt-oss/holt",
+          "site": "GitHub",
+          "line": "Holt’s source: the Next.js web app, the FastAPI backend, the browser extension and the Python CLI and TUI.",
+          "url": "https://github.com/holt-oss/holt"
+        }
+      },
+      "pull": "The verdict comes from fixed rules over GitHub’s own data, not from a model’s opinion.",
+      "lead": {
+        "images": [
+          {
+            "src": "/lab/demo/holt/holt-1.webp",
+            "w": 1200,
+            "h": 675,
+            "alt": "Holt’s front page: “Will this repo actually merge your PR?” above a box for a GitHub repository"
+          },
+          {
+            "src": "/lab/demo/holt/holt-2.webp",
+            "w": 1200,
+            "h": 675,
+            "alt": "Holt’s home for a signed-in reader: a pull request waiting on a project, and three more projects matched to their languages, each with a verdict and its merge rate"
+          },
+          {
+            "src": "/lab/demo/holt/holt-3.webp",
+            "w": 1200,
+            "h": 675,
+            "alt": "Holt’s report on one project: the verdict “Worth your time”, how long replies and merges usually take, and open issues to start with"
+          }
+        ]
+      },
+      "repo": "https://github.com/holt-oss/holt",
+      "live": "https://githolt.com",
+      "result": {
+        "value": "MCC 0.61–0.63",
+        "baseline": "0.32 for a single-prompt LLM"
+      },
+      "ending": {
+        "text": "Whether a verdict holds when you ask twice. The [[agent-reliability|reliability study]]’s first build runs Holt’s verdicts for consistency and scores them with [[t:pass-k|pass^3]], [[t:wilson-interval|Wilson intervals]] and [[t:mcnemar|McNemar’s test]], because a verdict that flips between runs is worse than none; [[t02|the note on pass^k]] explains the arithmetic. The caveat on the number above: it’s one custom benchmark, so 0.61–0.63 says the rules beat one prompt, not that they’re right about your repository."
+      },
+      "endingKind": "measure"
+    },
+    {
+      "id": "datesheet",
+      "slug": "datesheet",
+      "section": "builds",
+      "kind": "build",
+      "title": "Datesheet generator",
+      "lede": "Re-architected an exam scheduling system that couldn't survive a page refresh.",
+      "published": "2025-07-31",
+      "updated": "2026-11-27",
+      "tags": [
+        "web"
+      ],
+      "pull": "The fix was the unglamorous one: move the workflow into MySQL, so every step is a row that outlives the tab.",
+      "lead": {
+        "figure": "datesheet"
+      },
+      "ending": {
+        "text": "Make the savepoint the unit of everything: write each change as an event, so undo, an audit trail and two people editing at once all come from one table. The caveat: the 40% is the project’s own count from the time, and I can’t rerun it from here."
+      },
+      "endingKind": "do"
+    },
+    {
+      "id": "old-laptop",
+      "slug": "old-laptop-cloud",
+      "section": "essays",
+      "kind": "essay",
+      "title": "An Old Laptop as a Cloud Server",
+      "published": "2025-11-14",
+      "tags": [
+        "self-hosting",
+        "web"
+      ],
+      "refs": {
+        "medium": {
+          "title": "How I Turned an Old Laptop Into My Personal Cloud Server",
+          "site": "Medium · 14 Nov 2025",
+          "line": "By Aahil Khan on November 14, 2025.",
+          "url": "https://medium.com/@aahilminookhan/how-i-turned-an-old-laptop-into-my-personal-cloud-server-16d07de27399"
+        },
+        "ascii": {
+          "title": "ascii-view",
+          "site": "GitHub · gouwsxander",
+          "line": "Transforms images into really clean ASCII art; linked from the essay as the official repo.",
+          "url": "https://github.com/gouwsxander/ascii-view"
+        }
+      },
+      "pull": "Use systemd, not tmux, for persistent services.",
+      "opening": "A few months ago, I had an unused HP Pavilion x360 sitting at home. A friend was planning to convert his PC into a home server, and I thought: “Why not? I have an old laptop lying around too.”",
+      "canonical": "https://medium.com/@aahilminookhan/how-i-turned-an-old-laptop-into-my-personal-cloud-server-16d07de27399"
+    },
+    {
+      "id": "chrome-hackathon",
+      "slug": "chrome-hackathon",
+      "section": "essays",
+      "kind": "essay",
+      "title": "Chrome Already Built Our Idea. We Won the Hackathon Anyway.",
+      "published": "2026-03-19",
+      "tags": [
+        "web",
+        "hackathons",
+        "open-source"
+      ],
+      "refs": {
+        "medium": {
+          "title": "Chrome Already Built Our Idea. We Won the Hackathon Anyway.",
+          "site": "Medium · 19 Mar 2026",
+          "line": "By Aahil Khan on March 19, 2026.",
+          "url": "https://medium.com/@aahilminookhan/chrome-already-built-our-idea-we-won-the-hackathon-anyway-fdf2d3c9e219"
+        },
+        "konta": {
+          "title": "konta-oss/konta",
+          "site": "GitHub",
+          "line": "“We open sourced everything!” The repository the essay links.",
+          "url": "https://github.com/konta-oss/konta"
+        }
+      },
+      "pull": "Sometimes the moment you feel like your idea is useless is exactly when it becomes interesting.",
+      "opening": "If you had asked me two weeks ago what it takes to build a Chrome extension, my answer would’ve been… underwhelming.",
+      "canonical": "https://medium.com/@aahilminookhan/chrome-already-built-our-idea-we-won-the-hackathon-anyway-fdf2d3c9e219"
+    }
+  ]
+}

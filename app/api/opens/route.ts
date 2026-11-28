@@ -1,6 +1,7 @@
 import { NextResponse } from 'next/server'
 
 import { apps, externalApps } from '@/content/apps'
+import { isBotUA } from '@/lib/ping'
 import { allow, bucketFor, recordOpens } from '@/lib/store'
 
 /**
@@ -13,6 +14,10 @@ import { allow, bucketFor, recordOpens } from '@/lib/store'
  * Everything here is treated as hostile, because anyone can post to it. Card ids are checked
  * against the real set rather than trusted, so the hash cannot be filled with junk keys, and the
  * referrer is length-capped and shape-checked before it becomes a Redis field name.
+ *
+ * The browser only posts here once the site's admission gate (`lib/admission.ts`) has let the tab
+ * in, and the same bot filter as every other counter turns away clients that say what they are.
+ * Before both, this counted from the first card open, so scrapers filled the table.
  */
 
 export const dynamic = 'force-dynamic'
@@ -33,6 +38,8 @@ const isCard = (id: string) => DOCK_IDS.has(id) || SPAWNED.test(id)
 const isHost = (h: string) => h.length <= MAX_HOST && /^[a-z0-9.-]+\.[a-z]{2,}$/i.test(h)
 
 export async function POST(request: Request) {
+  if (isBotUA(request.headers.get('user-agent'))) return NextResponse.json({ counted: false }, { status: 403 })
+
   let body: unknown
   try {
     body = await request.json()

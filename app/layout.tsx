@@ -6,6 +6,7 @@ import { DEFAULT_THEME, themeCss } from '@/content/themes'
 import { themeBootScript } from '@/lib/theme'
 import { mobileBootScript } from '@/lib/use-mobile'
 import { SITE_URL } from '@/lib/site'
+import { feedAlternate } from '@/lib/seo/meta'
 
 import './globals.css'
 import './desktop.css'
@@ -39,10 +40,22 @@ export const metadata: Metadata = {
   // it; in a tab strip it is truncated to noise long before the interesting half is reached.
   title: profile.name,
   description: profile.intro,
+  /*
+   * The defaults for a page that states none of its own: the 404, the error page. Every
+   * indexable page builds all of these through `pageMeta()` (lib/seo/meta.ts), because Next
+   * merges each of these objects shallowly and a page's own would replace them whole.
+   */
+  alternates: { types: feedAlternate },
   openGraph: {
     title: `${profile.name} — ${profile.role.prefix} ${profile.role.emphasis}`,
     description: profile.intro,
     type: 'profile',
+    siteName: profile.name,
+  },
+  twitter: {
+    card: 'summary_large_image',
+    title: `${profile.name} — ${profile.role.prefix} ${profile.role.emphasis}`,
+    description: profile.intro,
   },
 }
 

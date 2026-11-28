@@ -1,14 +1,18 @@
 /**
  * The GitHub contribution calendar.
  *
- * SERVER ONLY — reads `GITHUB_TOKEN`. Called from `buildCards()`, which runs during render on
- * the server, so the finished grid ships as HTML: no client JS, no loading state, and a height
+ * SERVER ONLY — reads `GITHUB_TOKEN`, which is never logged or sent anywhere but GitHub. Called
+ * from `buildCards()` (the canvas card) and from the front page's Work section, both during render
+ * on the server, so the finished grid ships as HTML: no client JS, no loading state, and a height
  * that is already correct when MeasureRig measures it.
  *
  * The calendar is not in GitHub's REST API — it only exists in GraphQL, and that endpoint
  * requires auth even for public data. Without a token this returns null and the card renders an
  * honest empty state rather than a skeleton that never resolves.
  */
+
+import { readFile } from 'node:fs/promises'
+import path from 'node:path'
 
 const ENDPOINT = 'https://api.github.com/graphql'
 
@@ -49,7 +53,7 @@ const QUERY = `query($login: String!) {
   }
 }`
 
-interface ApiResponse {
+export interface ApiResponse {
   data?: {
     user?: {
       contributionsCollection: {
@@ -92,12 +96,40 @@ function levelFor(count: number, [t1, t2, t3]: [number, number, number]): number
   return 1
 }
 
-export async function fetchContributions(login: string): Promise<Contributions | null> {
+/**
+ * A recorded GraphQL response to read in place of the network, for tests, `check:lab` rule GH and
+ * screenshots. A path to a JSON file holding exactly what the endpoint returns. Never set on a
+ * deploy: it exists so the calendar can be proved without a token anywhere near a test run.
+ */
+const FIXTURE_ENV = 'GITHUB_CONTRIB_FIXTURE'
+
+/**
+ * How long the fetch may hold a render. GitHub's calendar query is usually well under a second,
+ * but a cold one has taken long enough that `/`'s first request after a deploy ran past 20s. After
+ * this the calendar is null, as with no token: `/` renders without the block, the canvas card shows
+ * its empty state, nothing is cached for the failure, and the next revalidation tries again.
+ */
+export const TIMEOUT_MS = 3000
+
+export async function fetchContributions(
+  login: string,
+  { timeoutMs = TIMEOUT_MS }: { timeoutMs?: number } = {},
+): Promise<Contributions | null> {
+  const fixture = process.env[FIXTURE_ENV]
+  if (fixture) return readFixture(fixture)
+
   const token = process.env.GITHUB_TOKEN
   if (!token) return null
 
-  let json: ApiResponse
-  try {
+  // the signal stops the request and its body; the race holds even where a fetch ignores it
+  // (Next drops the signal from a background revalidation)
+  const signal = AbortSignal.timeout(timeoutMs)
+  let timer: ReturnType<typeof setTimeout> | undefined
+  const late = new Promise<'late'>((resolve) => {
+    timer = setTimeout(() => resolve('late'), timeoutMs)
+  })
+
+  const request = async (): Promise<ApiResponse | null> => {
     const res = await fetch(ENDPOINT, {
       method: 'POST',
       headers: {
@@ -107,18 +139,49 @@ export async function fetchContributions(login: string): Promise<Contributions |
         'User-Agent': 'portfolio-canvas',
       },
       body: JSON.stringify({ query: QUERY, variables: { login } }),
+      signal,
       next: { revalidate: REVALIDATE },
     })
     if (!res.ok) {
       console.warn(`[github] contributions failed: ${res.status}`)
       return null
     }
-    json = (await res.json()) as ApiResponse
-  } catch (err) {
-    console.warn('[github] contributions threw:', err)
-    return null
+    return (await res.json()) as ApiResponse
   }
 
+  let json: ApiResponse | null
+  try {
+    const won = await Promise.race([request(), late])
+    if (won === 'late') {
+      console.warn(`[github] contributions took over ${timeoutMs}ms; rendering without them`)
+      return null
+    }
+    json = won
+  } catch (err) {
+    // an abort lands here too, if it beats the timer by a tick; never print the request itself
+    const name = err instanceof Error ? err.name : 'Error'
+    if (name === 'TimeoutError' || name === 'AbortError') {
+      console.warn(`[github] contributions took over ${timeoutMs}ms; rendering without them`)
+    } else {
+      console.warn('[github] contributions threw:', err instanceof Error ? err.message : String(err))
+    }
+    return null
+  } finally {
+    clearTimeout(timer)
+  }
+
+  return json && parseContributions(json)
+}
+
+async function readFixture(file: string): Promise<Contributions | null> {
+  return parseContributions(JSON.parse(await readFile(path.resolve(file), 'utf8')) as ApiResponse)
+}
+
+/**
+ * The GraphQL response, as the calendar both surfaces draw: padded weeks, ramp levels, month
+ * labels. Pure, so a recorded response can be checked without a network or a token.
+ */
+export function parseContributions(json: ApiResponse): Contributions | null {
   if (json.errors?.length) {
     console.warn('[github] contributions errors:', json.errors.map((e) => e.message).join('; '))
     return null

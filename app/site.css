@@ -248,6 +248,8 @@
     border-radius: var(--radius-pill);
     padding: 0.1rem 0.45rem;
     background: var(--surface);
+    /* its own fill needs its own ink: the pill's --accent-ink is only legible on --accent */
+    color: var(--ink);
   }
 
   .site .drawer__scrim {
@@ -842,6 +844,201 @@
 @media (max-width: 860px) {
   .site .case { grid-template-columns: 1fr; }
   .site .case:nth-child(even) .case__shot { order: 0; }
+}
+
+/* ---------- GitHub contributions, at the end of Work ----------
+ *
+ * GitHub's own profile calendar (design/DIRECTION.md, "The contributions calendar on `/`") in the
+ * site's frame: the border and the offset are ours, the squares, labels and tooltip are GitHub's.
+ * Its own class names, because desktop.css is global and the canvas card's `.gh` would bring the
+ * card's styles along.
+ *
+ * The greens (`--c0`…`--c4`), the squares' outline (`--c-line`) and the tooltip's ground
+ * (`--c-tip`) are set per theme by `scaleCss()` in lib/contrib-grid.ts, from each theme's `dark`
+ * flag, in a <style> the component hoists into <head>.
+ *
+ * The block is as wide as the wrap, like the cases above it, and the calendar scales to fill it.
+ * `--contrib-step` is the width left of the weekday labels shared among the weeks (the last has no
+ * gap: 3/13 of a step), so squares and gaps grow together. It never drops under 13px: there the
+ * SVG is 1:1 (10px squares) and the strip scrolls. The month labels sit on a grid of the same step
+ * and the weekday labels on rows of it, which keeps each over its week and beside its day.
+ */
+.site .contrib {
+  --contrib-months-h: 17px;
+  --contrib-days-w: 2rem;
+  /* the size of the meta lines on this page (`.case__no`) */
+  --contrib-label: 0.8125rem;
+  position: relative;
+  margin-top: clamp(3.5rem, 10vh, 7rem);
+  min-width: 0;
+  border: var(--bw) solid var(--border);
+  border-radius: var(--radius-card);
+  background: var(--surface);
+  box-shadow: var(--shadow-hard-lg);
+  padding: clamp(1.25rem, 3vw, 1.75rem);
+}
+.site .contrib__title {
+  margin-bottom: 1rem;
+  /* a card's heading on this page, as `.job h3` */
+  font-size: 1.375rem;
+  letter-spacing: -0.015em;
+}
+.site .contrib__body { position: relative; min-width: 0; container-type: inline-size; }
+/* on the children, so `cqw` is the body's width */
+.site .contrib__body > * {
+  --contrib-step: max(13px, calc((100cqw - var(--contrib-days-w) - 6px) / (var(--weeks) - 3 / 13)));
+  --contrib-cell: calc(var(--contrib-step) * 10 / 13);
+}
+
+.site .contrib__cal {
+  display: grid;
+  grid-template-columns: var(--contrib-days-w) minmax(0, 1fr);
+  column-gap: 6px;
+  font-size: var(--contrib-label);
+  color: var(--ink-subtle);
+}
+.site .contrib__days {
+  display: grid;
+  grid-template-rows: repeat(7, var(--contrib-cell));
+  row-gap: calc(var(--contrib-step) - var(--contrib-cell));
+  padding-top: calc(var(--contrib-months-h) + 4px);
+  line-height: var(--contrib-cell);
+  white-space: nowrap;
+}
+
+/*
+ * Scrolls sideways when the year is wider than the frame. `direction: rtl` starts it at the right,
+ * on the newest weeks, with no script, as the canvas card does; the children read left to right.
+ */
+.site .contrib__scroll {
+  overflow-x: auto;
+  overscroll-behavior-x: contain;
+  scrollbar-width: none;
+  direction: rtl;
+}
+.site .contrib__scroll::-webkit-scrollbar { display: none; }
+.site .contrib__scroll > * { direction: ltr; }
+.site .contrib__in { display: grid; gap: 4px; width: max-content; }
+
+/*
+ * Where the year does not fit (under 724px: the weekday column, its gap and 53 weeks at 1:1), the
+ * strip fades out at its left edge, so a month label or square is never sliced there. The same
+ * width of padding before the oldest week keeps that week clear when scrolled to the far end.
+ */
+@container (max-width: 723px) {
+  .site .contrib__scroll { mask-image: linear-gradient(to right, transparent 6px, #000 32px); }
+  .site .contrib__in { padding-left: 32px; }
+}
+
+.site .contrib__months {
+  display: grid;
+  /* the last week is never labelled (LABEL_WEEKS), and its column would outrun the SVG */
+  grid-template-columns: repeat(calc(var(--weeks) - 1), var(--contrib-step));
+  height: var(--contrib-months-h);
+  line-height: var(--contrib-months-h);
+  white-space: nowrap;
+}
+.site .contrib__svg {
+  display: block;
+  overflow: visible;
+  width: calc(var(--contrib-step) * (var(--weeks) - 3 / 13));
+  height: calc(var(--contrib-step) * (7 - 3 / 13));
+}
+.site .contrib__svg rect {
+  fill: var(--c0);
+  stroke: var(--c-line);
+  stroke-width: 1px;
+  shape-rendering: geometricPrecision;
+}
+.site .contrib__svg [data-l='1'] { fill: var(--c1); }
+.site .contrib__svg [data-l='2'] { fill: var(--c2); }
+.site .contrib__svg [data-l='3'] { fill: var(--c3); }
+.site .contrib__svg [data-l='4'] { fill: var(--c4); }
+/* the hover layer reads the pointer off the SVG; the squares' own `<title>` would double it */
+.site .contrib__body[data-hover] rect { pointer-events: none; }
+
+.site .contrib__foot {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: space-between;
+  gap: 0.25rem 1rem;
+  margin-top: 8px;
+  font-size: var(--contrib-label);
+  color: var(--ink-subtle);
+}
+.site .contrib__foot a {
+  display: inline-flex;
+  align-items: center;
+  min-height: 24px;
+  color: var(--ink);
+  font-size: 0.8125rem;
+  text-decoration: underline;
+  text-underline-offset: 3px;
+}
+.site .contrib__key { display: inline-flex; align-items: center; gap: 3px; }
+.site .contrib__key i {
+  width: var(--contrib-cell);
+  height: var(--contrib-cell);
+  border-radius: calc(var(--contrib-cell) / 5);
+  background: var(--c0);
+  box-shadow: inset 0 0 0 1px var(--c-line);
+}
+.site .contrib__key i:first-of-type { margin-left: 2px; }
+.site .contrib__key i:last-of-type { margin-right: 2px; }
+.site .contrib__key [data-l='1'] { background: var(--c1); }
+.site .contrib__key [data-l='2'] { background: var(--c2); }
+.site .contrib__key [data-l='3'] { background: var(--c3); }
+.site .contrib__key [data-l='4'] { background: var(--c4); }
+
+/* GitHub's tooltip: a dark ground, white text, a caret that points at the square */
+.site .contrib__tip,
+.site .contrib__ring {
+  position: absolute;
+  top: 0;
+  left: 0;
+  pointer-events: none;
+  /*
+   * They jump from square to square, never glide. Stated, because the reduced-motion rule in
+   * globals.css gives every element a 0.01ms transition on `all`, and a moved tooltip would then
+   * be read (and, for a frame, drawn) where the last square was.
+   */
+  transition: none;
+}
+.site .contrib__tip[hidden],
+.site .contrib__ring[hidden] { display: none; }
+.site .contrib__tip {
+  z-index: 2;
+  padding: 5px 8px;
+  border-radius: 6px;
+  background: var(--c-tip);
+  color: #fff;
+  font-size: var(--contrib-label);
+  font-weight: 500;
+  line-height: 1.4;
+  white-space: nowrap;
+}
+.site .contrib__tip::after {
+  content: '';
+  position: absolute;
+  top: 100%;
+  left: var(--caret, 50%);
+  border: 5px solid transparent;
+  border-top-color: var(--c-tip);
+  transform: translateX(-50%);
+}
+.site .contrib__ring {
+  z-index: 1;
+  /* its size is the hovered square's, set by contrib-hover.tsx */
+  border-radius: 3px;
+  outline: 1.5px solid var(--ink);
+  outline-offset: 1px;
+}
+
+@media (max-width: 560px) {
+  /* a thumb's target on a phone, as the case links have */
+  .site .contrib__foot a { min-height: 44px; }
+  .site .contrib__title { font-size: 1.1875rem; }
 }
 
 /* ---------- credentials ---------- */
@@ -1714,4 +1911,15 @@ html:has(.site)::-webkit-scrollbar-thumb:hover {
 
 @media (prefers-reduced-motion: reduce) {
   .site .job__chev { transition: none; }
+}
+
+/* ---------- without JavaScript ----------
+ *
+ * Non-negotiable 5: nothing visible may need a script to work. The theme toggle and the phone's
+ * menu button are both client controls, so with scripting off they would press and do nothing;
+ * the page they would change is already complete without them. `check:lab` rule J holds this.
+ */
+@media (scripting: none) {
+  .site .themepick,
+  .site .burger { display: none; }
 }
