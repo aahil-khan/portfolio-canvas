@@ -4,7 +4,7 @@ import type { ReactNode } from 'react'
 import './lists.css'
 
 /**
- * The top of a list page: the eyebrow (its "The Lab" a quiet link home), the title, and the line
+ * The top of a list page: the eyebrow (its "The Lab" a link home, underlined as running text is), the title, and the line
  * under it. `size="hero"` is a section page's title, the Lab's only hero size (DIRECTION, "The Lab
  * → Type"); every other list page takes the entry title's size.
  */
@@ -28,7 +28,7 @@ export function ListHead({
   return (
     <div className="lab-lhead" data-list-head="">
       <p className="lab-eyebrow lab-lhead-eyebrow">
-        <Link className="quiet" href="/lab">
+        <Link href="/lab">
           {lab}
         </Link>
         {eyebrow ? <span>{eyebrow}</span> : null}
