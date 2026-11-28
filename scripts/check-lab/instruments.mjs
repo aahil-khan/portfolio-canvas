@@ -289,6 +289,8 @@ function fixtureEntries(root) {
 
 /** Keyboard on a one-tab-stop widget: Tab reaches it once, and arrows move its active descendant. */
 async function oneTabStop(page, sel) {
+  // hydrated first: a key pressed before React attaches its handlers moves nothing
+  await page.waitForSelector(`${sel}[tabindex="0"][aria-activedescendant]`, { timeout: 15000 }).catch(() => {})
   return page.evaluate(async (sel) => {
     const w = document.querySelector(sel)
     if (!w) return { missing: true }

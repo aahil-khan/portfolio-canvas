@@ -71,6 +71,8 @@
 .lab .lab-tbl td { color: var(--ink-muted); }
 .lab .lab-tbl .n { text-align: right; font-variant-numeric: tabular-nums; white-space: nowrap; }
 .lab .lab-tbl code { font-size: var(--lab-fs-code); overflow-wrap: anywhere; }
+/* the heading row is already tinted (the title bar); a code chip's tint on top of it falls under 7:1 in some dark themes */
+.lab .lab-tbl thead code { padding: 0; background: none; }
 /* code in muted text (cells, the caption's second line) takes full ink: muted ink on the code tint falls under 7:1 in some dark themes */
 .lab :is(.lab-instr, .lab-caption) code { color: var(--ink); }
 /* compare: the chosen column reads in ink, under an accent bar on its heading */
