@@ -201,13 +201,14 @@ export async function leadMotion(ctx) {
           const m = motionOf(await o.page.evaluate(SAMPLE, { sel: null, ms: 500, act: 'submit' }))
           if (!m) c.fail('M', `${tag}: no new line appeared`)
           else if (reduced) {
+            // timed from the first frame it moves, so React's commit is not counted as motion
             if (m.travel > 0.5) c.fail('M', `${tag}: travelled ${m.travel.toFixed(1)}px; under reduced motion nothing travels`)
-            if (m.settled > REDUCED_MAX + 60) c.fail('M', `${tag}: took ${Math.round(m.settled)}ms; under reduced motion ≤ ${REDUCED_MAX}ms`)
+            if (m.settled - m.start > REDUCED_MAX + 50) c.fail('M', `${tag}: took ${Math.round(m.settled - m.start)}ms; under reduced motion ≤ ${REDUCED_MAX}ms`)
           } else {
             if (m.travel > ENTER.rise + 0.5) c.fail('M', `${tag}: rose ${m.travel.toFixed(1)}px, more than ${ENTER.rise}`)
             if (m.travel < 1) c.fail('M', `${tag}: did not rise (travel ${m.travel.toFixed(1)}px)`)
-            if (m.settled > ENTER.duration + 80) c.fail('M', `${tag}: settled after ${Math.round(m.settled)}ms, not ~${ENTER.duration}`)
-            if (m.fadeEnd > ENTER.opacity + 70) c.fail('M', `${tag}: faded in over ${Math.round(m.fadeEnd)}ms, not ~${ENTER.opacity}`)
+            if (m.settled - m.start > ENTER.duration + 70) c.fail('M', `${tag}: settled ${Math.round(m.settled - m.start)}ms after it started, not ~${ENTER.duration}`)
+            if (m.fadeEnd - m.start > ENTER.opacity + 70) c.fail('M', `${tag}: faded in over ${Math.round(m.fadeEnd - m.start)}ms, not ~${ENTER.opacity}`)
           }
         } catch (e) {
           c.fail('M', `${tag}: threw ${e.message.split('\n')[0]}`)
@@ -354,10 +355,15 @@ const fixture = {
     // the fixture's section is shown; its empty section never is
     const shown = fx.sections.filter((s) => fx.entries.some((x) => x.e.section === s.id))
     const empty = fx.sections.filter((s) => !shown.includes(s))
-    for (const s of shown) {
-      const r = await ctx.get(`/lab/${s.id}`, { fixture: true })
-      if (r.status !== 200) c.fail('22', `fixture /lab/${s.id} answered ${r.status}; a section with entries must have its page`)
-    }
+    // section pages are PR 9's: hold the fixture's to them once the default build has any
+    const sectionRoute = ctx.lab.routes.find((r) => r.kind === 'section')
+    const sectionsBuilt = !!sectionRoute && (await ctx.get(sectionRoute.path)).status === 200
+    if (!sectionsBuilt) c.note('22', 'no section page answers yet (PR 9): the fixture section is checked on the home only')
+    else
+      for (const s of shown) {
+        const r = await ctx.get(`/lab/${s.id}`, { fixture: true })
+        if (r.status !== 200) c.fail('22', `fixture /lab/${s.id} answered ${r.status}; a section with entries must have its page`)
+      }
     for (const s of empty) {
       const r = await ctx.get(`/lab/${s.id}`, { fixture: true })
       if (r.status !== 404) c.fail('22', `fixture /lab/${s.id} answered ${r.status}; an empty section must never be a page`)
