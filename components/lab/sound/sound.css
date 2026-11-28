@@ -165,7 +165,7 @@
 }
 .lab-fader input[type='range']::-moz-range-thumb { width: 14px; height: 14px; border-radius: 999px; background: var(--raised); border: 2px solid var(--box-edge); }
 
-.lab-sound-credit { margin: 6px 10px 2px; color: var(--ink-muted); }
+.lab-sound-menu .lab-sound-credit { margin: 6px 0 2px; padding: 0 10px; color: var(--ink-muted); }
 
 .lab-sound-menu :focus-visible { outline: 2px solid var(--focus); outline-offset: -2px; }
 
