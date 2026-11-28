@@ -1,0 +1,542 @@
+<!doctype html>
+<html lang="en-GB" data-look="paper" data-theme="cream">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>Lab extras · the surfaces the mockup never drew</title>
+<link rel="stylesheet" href="extras.css">
+<script>
+// The one owner of the view and the look, before first paint. Query params only:
+//   ?view=<id>   one of VIEWS below; none = the index of every view
+//   ?look=paper|lab  ?theme=cream|tokyo-night (Paper and the site)  ?mode=light|dark (the Lab theme)
+//   ?bare        hides the mockup's corner tag, for screenshots and the check
+(function () {
+  var q = new URLSearchParams(location.search), h = document.documentElement;
+  var view = q.get('view') || 'index';
+  var family = { 'site-nav': 'site', 'site-band': 'site', 'site-contrib': 'site', 'canvas-lab': 'site' }[view] || 'lab';
+  var look = family === 'lab' && q.get('look') === 'lab' ? 'lab' : 'paper';
+  var theme = q.get('theme') === 'tokyo-night' ? 'tokyo-night' : 'cream';
+  if (view === 'index' || view === 'cards') { look = 'paper'; theme = 'cream'; }
+  h.setAttribute('data-view', view);
+  h.setAttribute('data-look', look);
+  if (look === 'lab') { h.removeAttribute('data-theme'); h.setAttribute('data-mode', q.get('mode') === 'light' ? 'light' : 'dark'); }
+  else h.setAttribute('data-theme', theme);
+  if (q.has('bare')) h.setAttribute('data-bare', '');
+})();
+</script>
+</head>
+<body>
+<main id="app"></main>
+<div class="mock-tag" id="mock-tag"></div>
+
+<!-- assets the views use; the bundle turns every src into a data: URI -->
+<template id="assets">
+  <img data-k="dtw" src="../lab-v2b/assets/dtw-poster.webp" alt="">
+  <img data-k="laptop" src="../lab-v2b/assets/essay-old-laptop-1.webp" alt="">
+  <img data-k="watch" src="assets/watch-front.webp" alt="">
+  <img data-k="github" src="../../public/logos/github-original.svg" alt="">
+  <audio data-k="kokoro-am-michael-p1-90" src="audio/kokoro-am-michael-p1-90.opus"></audio>
+  <audio data-k="kokoro-bm-george-p6-80" src="audio/kokoro-bm-george-p6-80.opus"></audio>
+  <audio data-k="kokoro-am-fenrir-p4-100" src="audio/kokoro-am-fenrir-p4-100.opus"></audio>
+  <audio data-k="kokoro-bm-fable-p1-90" src="audio/kokoro-bm-fable-p1-90.opus"></audio>
+  <audio data-k="kokoro-am-puck-p4-80" src="audio/kokoro-am-puck-p4-80.opus"></audio>
+  <audio data-k="kokoro-bm-lewis-p8-80" src="audio/kokoro-bm-lewis-p8-80.opus"></audio>
+  <audio data-k="kokoro-am-liam-t2-80" src="audio/kokoro-am-liam-t2-80.opus"></audio>
+  <audio data-k="kokoro-bm-daniel-p2-90" src="audio/kokoro-bm-daniel-p2-90.opus"></audio>
+</template>
+
+<script>
+(function () {
+'use strict';
+var q = new URLSearchParams(location.search);
+var VIEW = document.documentElement.getAttribute('data-view');
+var asset = function (k) { var el = document.getElementById('assets').content.querySelector('[data-k="' + k + '"]'); return el ? el.getAttribute('src') : ''; };
+var esc = function (s) { return String(s).replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;'); };
+
+// ---------------------------------------------------------------------------------------------
+// Sample content. The real Lab starts empty and shows demo content until Aahil adds his own, so
+// every title, date and count below is a SAMPLE, taken from the approved mockup's demo entries.
+// What is being judged is the surface around it.
+// ---------------------------------------------------------------------------------------------
+var SECTIONS = [
+  { id: 'studies', title: 'Studies', thesis: 'Things I study over months, with the log and the projects that come out of them.', count: 5,
+    top: [{ id: 'shopkeeper', d: '20 Nov', title: 'The Shopkeeper', sub: 'A haggling agent with a secret floor price.', kind: 'Series' },
+          { id: 'agent-reliability', d: '19 Nov', title: 'Agent reliability', sub: 'How AI agents fail, and how to measure it.', kind: 'Study' }] },
+  { id: 'builds', title: 'Builds', thesis: 'Tools people use, and what broke on the way.', count: 3,
+    top: [{ id: 'drag-to-workspace', d: '12 Nov', title: 'Drag to Workspace', sub: 'Send a window to another workspace by dragging.', kind: 'Build' },
+          { id: 'holt', d: '12 Oct', title: 'Holt', sub: 'Will this repo merge your PR?', kind: 'Build' }] },
+  { id: 'writing', title: 'Writing', thesis: 'Longer pieces, start to finish.', count: 2,
+    top: [{ id: 'chrome-hackathon', d: '19 Mar', title: 'Chrome Already Built Our Idea.', sub: 'We won the hackathon anyway.', kind: 'Essay' },
+          { id: 'old-laptop', d: '14 Nov 2025', title: 'An Old Laptop as a Cloud Server', sub: 'Self-hosting, end to end.', kind: 'Essay' }] },
+];
+var LATEST = [
+  { d: '26 Nov 2026', title: 'An agent can’t leak a price it never sees', where: 'Chapter 05 of The Shopkeeper · Studies' },
+  { d: '20 Nov 2026', title: 'pass@k, pass^k, and why one run isn’t a result', where: 'A note in Agent reliability · Studies' },
+  { d: '12 Nov 2026', title: 'Drag to Workspace', where: 'A build · Builds' },
+];
+var TOTAL = SECTIONS.reduce(function (n, s) { return n + s.count; }, 0);
+
+// ---------------------------------------------------------------------------------------------
+// Shared pieces
+// ---------------------------------------------------------------------------------------------
+var ICON = {
+  sun: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" aria-hidden="true"><circle cx="12" cy="12" r="4"/><path d="M12 2.5v2M12 19.5v2M2.5 12h2M19.5 12h2M5.2 5.2l1.4 1.4M17.4 17.4l1.4 1.4M18.8 5.2l-1.4 1.4M6.6 17.4l-1.4 1.4"/></svg>',
+  moon: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linejoin="round" aria-hidden="true"><path d="M20 14.2A8.2 8.2 0 0 1 9.8 4a8.2 8.2 0 1 0 10.2 10.2Z"/></svg>',
+  flask: function (s) { return '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" width="' + s + '" height="' + s + '" aria-hidden="true"><path d="M9 3h6"/><path d="M10 3v6.2L4.6 18.4A1.7 1.7 0 0 0 6.1 21h11.8a1.7 1.7 0 0 0 1.5-2.6L14 9.2V3"/><path d="M7.2 15h9.6"/></svg>'; },
+  pen: function (s) { return '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" width="' + s + '" height="' + s + '" aria-hidden="true"><path d="M4 20h4L19.5 8.5a2.1 2.1 0 0 0-3-3L5 17v3Z"/><path d="M14.5 6.5l3 3"/></svg>'; },
+  arrowL: '<svg class="arr" viewBox="0 0 20 20" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M16 10H4M9 5l-5 5 5 5"/></svg>',
+  play: '<svg class="ic-play" viewBox="0 0 20 20" aria-hidden="true"><path d="M6 3.5v13l11-6.5z" fill="currentColor"/></svg><svg class="ic-stop" viewBox="0 0 20 20" aria-hidden="true"><rect x="5" y="5" width="10" height="10" rx="1.5" fill="currentColor"/></svg>',
+};
+var themeIsDark = function () { var h = document.documentElement; return h.getAttribute('data-theme') === 'tokyo-night' || h.getAttribute('data-mode') === 'dark'; };
+
+// ---------------------------------------------------------------------------------------------
+// / (the front page): the bar, with Lab
+// ---------------------------------------------------------------------------------------------
+function siteBar(stuck) {
+  return '<header class="bar"' + (stuck ? ' data-stuck="1"' : '') + '>' +
+    '<a class="mark" href="#top" aria-label="Top of page">AK</a>' +
+    '<nav aria-label="Sections"><a href="#about">About</a><a href="#skills">Skills</a><a href="#experience">Experience</a><a href="#work">Work</a>' +
+    '<a class="nav-route" href="/lab">Lab</a><a href="#contact">Contact</a></nav>' +
+    '<button type="button" class="themepick" aria-label="Switch to ' + (themeIsDark() ? 'light' : 'dark') + '">' + (themeIsDark() ? ICON.moon : ICON.sun) + '</button>' +
+    '<a class="bar__cta" href="#resume"><span>Résumé</span><span class="long"> PDF ↓</span></a>' +
+    '<button type="button" class="burger" aria-expanded="' + (VIEW === 'site-nav') + '" aria-label="Close menu"><span></span><span></span><span></span></button>' +
+  '</header>';
+}
+function drawer() {
+  return '<button type="button" class="drawer__scrim" tabindex="-1" aria-hidden="true"></button>' +
+    '<div class="drawer" id="site-drawer"><nav aria-label="Sections">' +
+    '<a href="#about">About</a><a href="#skills">Skills</a><a href="#experience">Experience</a><a href="#work">Work</a>' +
+    '<a class="nav-route" href="/lab">Lab</a><a href="#contact">Contact</a>' +
+    '<a class="drawer__desk" href="/canvas">The desk <span class="drawer__badge">highly recommended</span></a></nav></div>';
+}
+function workTail(withContrib) {
+  return '<section class="work" id="work"><div class="wrap">' +
+    '<article class="case"><a class="case__shot" href="/work/konta" tabindex="-1" aria-hidden="true"><span>Konta</span></a>' +
+    '<div class="case__body"><p class="case__no">04 / 2025 · Product</p><h3>Konta</h3><p class="case__tag">Local-first context aware browsing</p>' +
+    '<p class="case__lede">A Chrome extension that turns your browsing into a private, on-device knowledge base.</p>' +
+    '<div class="s-chips"><span class="s-chip">React</span><span class="s-chip">TypeScript</span></div>' +
+    '<a class="case__go" href="/work/konta">Read the write-up <span aria-hidden="true">→</span></a></div></article>' +
+    (withContrib ? contrib() : '') +
+  '</div></section>';
+}
+function credsHead() {
+  return '<section><div class="wrap"><div class="section__head"><p class="eyebrow">The rest of it</p><h2>Education, awards, writing</h2></div>' +
+    '<div class="creds"><div class="cred"><h3>Education</h3><ul><li><b>B.E. Computer Engineering</b><span>Thapar Institute of Engineering &amp; Technology</span></li></ul></div>' +
+    '<div class="cred"><h3>Awards</h3><ul><li><b>Winner</b><span>Economic Times 2.0 Hackathon</span></li></ul></div>' +
+    '<div class="cred"><h3>Writing</h3><ul><li><b>Chrome Already Built Our Idea.</b><span>We won the hackathon anyway. · 6 min · 2026</span></li></ul></div></div></div></section>';
+}
+
+// NEW: the From the Lab band. Server-rendered in the build; works with JS off (no reveal on it).
+function fromLab() {
+  return '<section class="fromlab" id="fromlab" aria-labelledby="fromlab-h"><div class="wrap">' +
+    '<div class="section__head"><p class="eyebrow">From the Lab</p><h2 id="fromlab-h">The working, written up</h2>' +
+    '<p>Longer pages on what I study, build and try, including the parts that didn’t work.</p></div>' +
+    '<div class="fromlab__grid">' +
+      '<div class="fromlab__list">' + LATEST.map(function (e) {
+        return '<a class="fromlab__row" href="/lab"><time>' + e.d.replace(' ', ' ').replace(/ (\d{4})$/, ' $1') + '</time><b>' + esc(e.title) + '</b><span>' + esc(e.where) + '</span></a>';
+      }).join('') + '</div>' +
+      '<div class="fromlab__side"><h3>Sections</h3><ul class="fromlab__secs">' + SECTIONS.map(function (s) {
+        return '<li><a href="/lab/' + s.id + '">' + s.title + '</a><span>' + s.count + ' entries</span></li>';
+      }).join('') + '</ul>' +
+      '<a class="pill-go" href="/lab">Everything in the Lab <span aria-hidden="true">→</span></a></div>' +
+    '</div></div></section>';
+}
+
+// NEW: GitHub contributions, the canvas card's grid as a server-rendered block inside Work.
+// SAMPLE data: a seeded pseudo-random year. The build reads lib/github.ts and renders nothing without a token.
+function contrib() {
+  var seed = 7, rnd = function () { seed = (seed * 16807) % 2147483647; return (seed - 1) / 2147483646; };
+  var end = new Date(Date.UTC(2026, 10, 27)), start = new Date(end); start.setUTCDate(start.getUTCDate() - 364 - end.getUTCDay());
+  var weeks = [], months = [], total = 0, d = new Date(start), lastM = -1;
+  for (var w = 0; w < 53; w++) {
+    var col = [];
+    for (var i = 0; i < 7; i++) {
+      if (d > end) { col.push(null); } else {
+        var r = rnd(), wk = (d.getUTCDay() === 0 || d.getUTCDay() === 6) ? 0.55 : 1, n = r < 0.28 * wk ? 0 : Math.floor(Math.pow(rnd(), 1.8) * 14 * wk) + 1;
+        total += n; col.push(n === 0 ? 0 : n < 3 ? 1 : n < 6 ? 2 : n < 10 ? 3 : 4);
+        if (i === 0 && d.getUTCMonth() !== lastM) { if (w < 51 && (!months.length || w - months[months.length - 1][0] >= 3)) months.push([w, d.toLocaleString('en-GB', { month: 'short', timeZone: 'UTC' })]); lastM = d.getUTCMonth(); }
+      }
+      d.setUTCDate(d.getUTCDate() + 1);
+    }
+    weeks.push(col);
+  }
+  var cells = weeks.map(function (c) { return c.map(function (l) { return l === null ? '<i class="gh__d gh__d--pad"></i>' : '<i class="gh__d"' + (l ? ' data-l="' + l + '"' : '') + '></i>'; }).join(''); }).join('');
+  return '<div class="contrib" id="contrib">' +
+    '<div class="contrib__head"><h3>On GitHub this year</h3><p><strong>' + total.toLocaleString('en-GB') + '</strong> contributions in the last year.</p></div>' +
+    '<div class="gh"><div class="gh__scroll" data-scroll-x><div class="gh__in">' +
+      '<div class="gh__months" aria-hidden="true">' + months.map(function (m) { return '<span style="grid-column:' + (m[0] + 1) + '/span 4">' + m[1] + '</span>'; }).join('') + '</div>' +
+      '<div class="gh__grid" role="img" aria-label="' + total + ' contributions in the last year, one square a day">' + cells + '</div>' +
+    '</div></div>' +
+    '<div class="gh__foot"><a href="https://github.com/aahil-khan">aahil-khan</a><span class="gh__key">Less <i class="gh__d"></i><i class="gh__d" data-l="1"></i><i class="gh__d" data-l="2"></i><i class="gh__d" data-l="3"></i><i class="gh__d" data-l="4"></i> More</span></div>' +
+    '</div></div>';
+}
+
+// ---------------------------------------------------------------------------------------------
+// The Lab's own furniture: the bar (with Back to the desk) and the footer
+// ---------------------------------------------------------------------------------------------
+function labBar(fromDesk) {
+  var h = document.documentElement, labTheme = h.getAttribute('data-look') === 'lab';
+  var back = '<a class="back-desk" href="/canvas">' + ICON.arrowL + 'Back to the desk</a>';
+  return '<header class="bar"><div class="bar-left">' +
+      (fromDesk ? back + '<span class="back-sep" aria-hidden="true"></span>' : '') +
+      '<a class="mark-ak" href="/" aria-label="Aahil Khan, home"><span>AK</span></a><a class="bar-lab" href="/lab">Lab</a></div>' +
+    '<div class="bar-right">' +
+      '<div class="look" role="group" aria-label="Look"><button type="button" aria-pressed="' + !labTheme + '">Paper</button><button type="button" aria-pressed="' + labTheme + '">Lab theme</button></div>' +
+      '<button type="button" class="ctl look-phone" aria-label="Look: switch to ' + (labTheme ? 'Paper' : 'the Lab theme') + '">' + (labTheme ? 'Paper' : 'Lab theme') + '</button>' +
+      '<button type="button" class="ctl ctl-icon" aria-label="Text: line length and size"><span class="i-aa" aria-hidden="true">Aa</span></button>' +
+      '<button type="button" class="ctl ctl-icon" aria-label="Switch to ' + (themeIsDark() ? 'light' : 'dark') + '"><svg class="i-theme" viewBox="0 0 20 20" aria-hidden="true">' +
+        (themeIsDark() ? '<path d="M15.6 12.6A6.6 6.6 0 0 1 7.4 4.4a6.6 6.6 0 1 0 8.2 8.2z"/>' : '<circle cx="10" cy="10" r="3.6"/><path d="M10 1.8v2.4M10 15.8v2.4M1.8 10h2.4M15.8 10h2.4M4.2 4.2l1.7 1.7M14.1 14.1l1.7 1.7M4.2 15.8l1.7-1.7M14.1 5.9l1.7-1.7"/>') + '</svg></button>' +
+      '<button type="button" class="ctl" aria-label="Sound and music"><span class="i-speaker" aria-hidden="true"></span><span class="sound-word">Sound</span><span class="chev" aria-hidden="true"></span></button>' +
+    '</div></header>' +
+    (fromDesk ? '<div class="back-row">' + back + '<span class="hint">Your windows are where you left them.</span></div>' : '');
+}
+function labFoot(current) {
+  var link = function (href, t) { return '<a href="' + href + '"' + (current === href ? ' aria-current="page"' : '') + '>' + t + '</a>'; };
+  return '<footer class="foot"><p class="foot-line"><span>Bareilly · 18:42 IST</span>' + link('/', 'Home') + link('/lab', 'Lab') + link('/canvas', 'The desk') +
+    link('/colophon', 'Colophon') + link('/agents', 'For AI agents') + '<span>build <code>764f587</code></span></p></footer>';
+}
+
+// ---------------------------------------------------------------------------------------------
+// Views
+// ---------------------------------------------------------------------------------------------
+var LOOKS_SITE = [['cream', 'theme=cream'], ['tokyo-night', 'theme=tokyo-night']];
+var LOOKS_LAB = [['Paper · cream', 'look=paper&theme=cream'], ['Paper · tokyo-night', 'look=paper&theme=tokyo-night'], ['Lab theme · Light', 'look=lab&mode=light'], ['Lab theme · Dark', 'look=lab&mode=dark']];
+
+var VIEWS = {
+  'site-nav': { title: '/ · the nav, with Lab', looks: LOOKS_SITE, what: 'Lab joins the nav between Work and Contact, as a route (the small outward arrow says it leaves the page). On a phone it sits in the drawer, in the same place.',
+    render: function () {
+      return '<div class="site" id="top">' + siteBar(false) +
+        '<section class="hero"><div class="hero__grid" aria-hidden="true"></div><div class="wrap hero__inner"><p class="eyebrow">Bareilly, India</p>' +
+        '<h1 class="name"><span>Aahil</span><span>Khan</span></h1><p class="headline">Full-stack engineer building <b>AI retrieval and agent systems</b> that hold up in production.</p>' +
+        '<a class="cta" href="#work">See the work <i aria-hidden="true">→</i></a></div></section>' +
+        drawer() + '</div>';
+    } },
+  'site-band': { title: '/ · From the Lab, after Work', looks: LOOKS_SITE, scrollTo: 'fromlab', what: 'The band after Work: the three newest entries of any kind, the sections with their counts, and one way in. /’s own frame and type; the Lab’s handwritten dates are the one thing borrowed.',
+    render: function () { return '<div class="site drawer-closed">' + siteBar(true) + workTail(false) + fromLab() + credsHead() + drawer() + '</div>'; } },
+  'site-contrib': { title: '/ · GitHub contributions, in Work', looks: LOOKS_SITE, scrollTo: 'contrib', what: 'The canvas card’s calendar as a framed block at the end of Work. An ink ramp, not a colour: / has no card colour, and a yellow ramp would spend the accent. On a phone it scrolls sideways inside its frame and opens on the newest weeks.',
+    render: function () { return '<div class="site drawer-closed">' + siteBar(true) + workTail(true) + fromLab() + drawer() + '</div>'; } },
+  'canvas-lab': { title: '/canvas · the Lab window, in Words', looks: LOOKS_SITE, what: 'A Lab tile in the Words folder opens a window: the prompt, each section’s two newest top-level entries, and the front page. On a phone the desk is desktop-only today, so the phone frame is the unchanged desk-only page.',
+    render: renderDesk },
+  'back-desk': { title: 'Lab · ← Back to the desk', looks: LOOKS_LAB, what: 'After arriving from the canvas, the bar’s first item is a door back. Desktop: a framed pill before the mark. Phone: a row of its own under the bar, because in the mockup it wrapped to three lines and broke the bar.',
+    render: function () {
+      return '<div class="lab">' + labBar(true) + '<div class="page"><article>' +
+        '<p class="series"><a href="/lab/studies/shopkeeper">The Shopkeeper</a> · chapter 05 of 08</p>' +
+        '<h1 class="title">An agent can’t leak a price it never sees</h1>' +
+        '<p class="entry-meta meta"><time datetime="2026-11-26">26 Nov 2026</time><span>Studies · 6 min read</span><span class="sample-flag">sample entry</span></p>' +
+        '<p class="lede">Every item in the shop has a secret floor price. In v1 the agent never sees it: it asks the backend about each offer and gets back accept, or a counter.</p>' +
+        '<div class="box lead-frame"><div class="window-bar"><span>The haggle, live</span><span class="meta">try it</span></div><div class="body"><p>The chapter’s lead instrument sits here, as on the approved mockup.</p></div></div>' +
+        '</article></div>' + labFoot('') + '</div>';
+    } },
+  'cards': { title: 'Share cards · 1200 × 630', looks: [['all looks on one page', '']], what: 'Six kinds of page in Paper and the Lab theme (Light, Dark), at the real size and scaled to fit. An entry’s image is fitted whole, never cropped: a wide one and a tall one prove it.',
+    render: renderCards },
+  'colophon': { title: 'Colophon', looks: LOOKS_LAB, what: 'Fonts, code, sound and the voice, each with its licence; the one analytics sentence; how to cite.',
+    render: renderColophon },
+  'agents': { title: 'For AI agents', looks: LOOKS_LAB, what: 'Where the plain-text versions are, how to cite, and a usage note that is his to write.',
+    render: renderAgents },
+  'voices': { title: 'The name · new voices', looks: LOOKS_LAB, what: 'Eight takes in American and British male voices (Kokoro-82M, local), each labelled voice, accent and licence, with its measured syllable lengths.',
+    render: renderVoices },
+  'name-hover': { title: 'The name · the hover', looks: LOOKS_LAB, what: 'Hovering the name shows आहिल · اءحل and a voice bubble. Pressing the bubble plays the name and its dots move while it plays. Nothing plays on hover.',
+    render: renderNameHover },
+};
+
+// ---------- the desk ----------
+function renderDesk() {
+  if (innerWidth < 760) {
+    return '<div class="deskonly"><p class="eyebrow">Best viewed on desktop</p><h1>This part is desktop only</h1>' +
+      '<p>The desk is an infinite canvas — windows you drag around, pan and zoom. It needs a pointer and room to move, and a phone has neither.</p>' +
+      '<div class="box">Want to try it anyway? Turn on desktop site in your browser’s menu and reload this page.</div>' +
+      '<a class="back" href="/">← Back to the site</a>' +
+      '<p class="mock-note">Mockup note: unchanged. A phone never reaches the Lab window; it reaches the Lab from / instead.</p></div>';
+  }
+  var LAB_C = '#C9DDF7', LAB_T = '#EAF2FC';   // proposed: a glass blue, apart from the Words lavender
+  var tile = function (id, label, c, svg, opts) {
+    opts = opts || {};
+    return '<button type="button" class="dock__item' + (opts.inFolder ? ' dock__item--in' : '') + (opts.hover ? ' is-hover' : '') + '" aria-label="' + label + '"' + (opts.open ? ' data-open="true"' : '') + '>' +
+      '<span class="dock__icon" style="--c:' + c + '">' + svg + '</span><span class="dock__tip">' + label + '</span></button>';
+  };
+  var sv = function (p, s) { return '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" width="' + s + '" height="' + s + '" aria-hidden="true">' + p + '</svg>'; };
+  var dock = '<nav id="dock" aria-label="Open a card"><div class="dock__panel">' +
+    tile('about', 'About', '#FACC00', sv('<circle cx="12" cy="8" r="3.5"/><path d="M5 20c0-3.6 3.1-6 7-6s7 2.4 7 6"/>', 22)) +
+    tile('work', 'Work', '#A8E6A1', sv('<rect x="3" y="8" width="18" height="12" rx="2"/><path d="M7 8V5.5A1.5 1.5 0 0 1 8.5 4h7A1.5 1.5 0 0 1 17 5.5V8"/>', 22)) +
+    tile('experience', 'Experience', '#FFB4A2', sv('<path d="M6 4v16"/><circle cx="6" cy="8" r="2"/><circle cx="6" cy="16" r="2"/><path d="M11 8h8M11 16h6"/>', 22)) +
+    tile('stack', 'Stack', '#A9D6FF', sv('<path d="M12 3 3 7.5l9 4.5 9-4.5L12 3Z"/><path d="m3 12.5 9 4.5 9-4.5"/><path d="m3 17 9 4.5L21 17"/>', 22)) +
+    tile('contact', 'Contact', '#B8F2E6', sv('<rect x="3" y="5" width="18" height="14" rx="2"/><path d="m3.5 7 8.5 6 8.5-6"/>', 22)) +
+    '<div class="dock__folder" data-open="true"><button type="button" class="dock__item dock__item--folder" aria-label="Words — 4 cards" aria-expanded="true" data-open="true"><span class="dock__icon" style="--c:#D9C2FF">' +
+      sv('<path d="M7 3h7l4 4v11a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2Z"/><path d="M14 3v4h4"/><path d="M8.5 12h7M8.5 15.5h4.5"/>', 22) +
+      '<span class="dock__caret" aria-hidden="true"><svg viewBox="0 0 12 12" width="9" height="9" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"><path d="M4 2.5 8 6l-4 3.5"/></svg></span></span><span class="dock__tip">Words · 4</span></button>' +
+      '<div class="dock__tray"><div class="dock__tray-inner">' +
+        tile('writing', 'Writing', '#D9C2FF', ICON.pen(19), { inFolder: true, open: true }) +
+        tile('archive', 'Archive', '#FFD9A8', sv('<rect x="3" y="4" width="18" height="5" rx="1.5"/><path d="M5 9v10a1 1 0 0 0 1 1h12a1 1 0 0 0 1-1V9"/><path d="M10 13h4"/>', 19), { inFolder: true }) +
+        tile('resume', 'Résumé', '#FFE0A3', sv('<path d="M6 3h8l4 4v14H6V3Z"/><path d="M14 3v4h4"/><path d="M9 12h6M9 16h6"/>', 19), { inFolder: true }) +
+        tile('lab', 'Lab', LAB_C, ICON.flask(19), { inFolder: true, open: true, hover: true }) +
+      '</div></div></div>' +
+    '<div class="dock__folder"><button type="button" class="dock__item dock__item--folder" aria-label="Live — 4 cards" aria-expanded="false"><span class="dock__icon" style="--c:#BCC7F5;border-style:dashed">' + sv('<path d="M3 12h4l2.5-6 4 12L16 12h5"/>', 22) +
+      '<span class="dock__caret" aria-hidden="true" style="transform:none"><svg viewBox="0 0 12 12" width="9" height="9" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"><path d="M4 2.5 8 6l-4 3.5"/></svg></span></span><span class="dock__tip">Live · 4</span></button></div>' +
+    tile('arcade', 'Arcade', '#DCE8A0', sv('<rect x="4" y="3" width="16" height="13" rx="2"/><path d="M8 19h8M10 16v3M14 16v3"/><circle cx="12" cy="8" r="1.6"/><path d="M12 9.6V12"/>', 22)) +
+    tile('themes', 'Themes', '#FFC2E2', sv('<circle cx="12" cy="12" r="8.5"/><path d="M12 3.5a8.5 8.5 0 0 1 0 17V3.5Z" fill="currentColor" stroke="none"/>', 22)) +
+    tile('tutorial', 'How it works', '#F7D9B0', sv('<path d="M5.5 3.5 12 20l2.2-5.8L20 12 5.5 3.5Z"/><path d="M3.6 9.3 2 8.8M4.6 6.2 3.4 5M8.8 4.6 8.3 3"/>', 22)) +
+    '<span class="dock__sep" aria-hidden="true"></span>' +
+    tile('github', 'GitHub', '#E8E6DE', '<img src="' + asset('github') + '" alt="" width="22" height="22">') +
+    tile('linkedin', 'LinkedIn', '#E8E6DE', '<svg viewBox="0 0 24 24" fill="currentColor" width="22" height="22" aria-hidden="true"><path d="M6.94 8.5v11.5H3.5V8.5h3.44Zm.23-3.35a2 2 0 1 1-4 0 2 2 0 0 1 4 0ZM20.5 14.2V20h-3.43v-5.4c0-1.36-.49-2.28-1.7-2.28-.93 0-1.48.62-1.72 1.22-.09.22-.11.52-.11.82V20H10.1s.05-10.42 0-11.5h3.44v1.63c.45-.7 1.27-1.7 3.1-1.7 2.26 0 3.96 1.48 3.96 4.66Z"/></svg>') +
+    '</div></nav>';
+  var pill = '<div id="pill"><button type="button">Fit all</button><button type="button">Minimise all</button><button type="button">Go to ▾</button><button type="button">Random</button><button type="button">Arrange ▾</button>' +
+    '<span class="sep" aria-hidden="true"></span><button type="button">' + (themeIsDark() ? ICON.moon : ICON.sun).replace('<svg ', '<svg width="15" height="15" ') + ' Theme ▾</button><button type="button">The site</button><button type="button">Sound ▾</button></div>';
+  var labWin = '<div class="card lab-win" data-focused="true" style="left:calc(50% - 500px);top:92px;width:600px;max-height:min(640px, calc(100vh - 230px));transform:rotate(-0.6deg);--c:' + LAB_C + ';--c-soft:' + LAB_T + '">' +
+    '<div class="card__head"><span class="card__ico">' + ICON.flask(15) + '</span><span class="card__name">Lab</span>' +
+    '<span class="card__scroll" aria-hidden="true"><svg viewBox="0 0 24 24" width="13" height="13" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"><path d="M8 10l4-4 4 4M8 14l4 4 4-4"/></svg></span>' +
+    '<button type="button" class="card__x" aria-label="Close Lab"></button></div>' +
+    '<div class="card__body">' +
+      '<p class="lede">The Lab is where I write up what I study, build and try, as full pages.</p>' +
+      '<p>Opening one takes you off the desk to a reading page; the desk stays exactly as you left it.</p>' +
+      '<p class="start"><a class="link" href="/lab?from=desk">Or start at the Lab’s front page →</a></p>' +
+      SECTIONS.map(function (s) {
+        return '<div class="sec"><div class="sec-head"><b>' + s.title + '</b><a href="/lab/' + s.id + '?from=desk">All ' + s.count + '</a></div>' +
+          s.top.map(function (e) {
+            return '<a class="item" href="/lab/' + s.id + '/' + e.id + '?from=desk"><span class="yr">' + e.d.replace(/ /g, ' ') + '</span><span><span class="ttl">' + esc(e.title) + '</span><span class="sub">' + esc(e.sub) + '</span></span><span class="tag">' + e.kind + '</span></a>';
+          }).join('') + '</div>';
+      }).join('') +
+      '<div class="front"><p>Every Lab page has ← Back to the desk at the top.</p></div>' +
+    '</div></div>';
+  var writing = '<div class="card" style="left:calc(50% + 160px);top:170px;width:520px;transform:rotate(0.8deg);--c:#D9C2FF;--c-soft:#F0E8FF">' +
+    '<div class="card__head"><span class="card__ico">' + ICON.pen(15) + '</span><span class="card__name">Writing</span><button type="button" class="card__x" aria-label="Close Writing"></button></div>' +
+    '<div class="card__body"><a class="item" href="#"><span class="yr">2026</span><span><span class="ttl">Chrome Already Built Our Idea.</span><span class="sub">We won the hackathon anyway.</span></span><span class="tag">6 min</span></a>' +
+    '<a class="item" href="#"><span class="yr">2025</span><span><span class="ttl">An Old Laptop as a Cloud Server</span><span class="sub">Self-hosting, end to end.</span></span><span class="tag">8 min</span></a></div></div>';
+  return '<div class="desk">' + '<div id="grid"></div>' + writing + labWin + pill + dock + '</div>';
+}
+
+// ---------- share cards ----------
+var CARD_LOOKS = [['Paper', 'data-look="paper" data-theme="cream"'], ['Lab theme · Light', 'data-look="lab" data-mode="light"'], ['Lab theme · Dark', 'data-look="lab" data-mode="dark"']];
+var CARD_KINDS = [
+  { id: 'home', name: 'The Lab’s front page', note: 'No entry to name, so the line and the sections carry it.',
+    html: function () { return { path: 'aahil-khan.xyz/<b>lab</b>', main: '<p class="og-kind">The Lab · Aahil Khan</p><h3 class="og-title xl">What I’m studying, building and breaking.</h3>' +
+      '<div class="og-secs">' + SECTIONS.map(function (s) { return '<span>' + s.title + '</span>'; }).join('') + '</div>', foot: '<span>' + TOTAL + ' entries</span>' }; } },
+  { id: 'section', name: 'A section', note: 'The section’s own name and thesis, and what it holds.',
+    html: function () { return { path: 'aahil-khan.xyz/lab/<b>studies</b>', main: '<p class="og-kind">A section of the Lab</p><h3 class="og-title xl">Studies</h3><p class="og-lede">' + SECTIONS[0].thesis + '</p>',
+      foot: '<time>26 Nov 2026</time><span>5 entries · a study, a series, two notes</span>' }; } },
+  { id: 'chapter', name: 'A chapter', note: 'The series line over the title; the chapter number drawn as the mockup’s outlined numeral.',
+    html: function () { return { path: 'aahil-khan.xyz/lab/studies/shopkeeper/<b>05</b>', side: '<div class="og-num" aria-hidden="true">05</div>',
+      main: '<p class="og-kind">The Shopkeeper · Chapter 05 of 08</p><h3 class="og-title">An agent can’t leak a price it never sees</h3><p class="og-lede">It asks the backend about each offer, and gets back accept or a counter.</p>',
+      foot: '<time>26 Nov 2026</time><span>6 min read</span>' }; } },
+  { id: 'build', name: 'A build, with a wide image', note: 'The lead’s still, fitted whole: a 16:10 screenshot is never cropped to the box.',
+    html: function () { return { path: 'aahil-khan.xyz/lab/builds/<b>drag-to-workspace</b>', side: '<div class="og-still"><img src="' + asset('dtw') + '" alt=""></div>',
+      main: '<p class="og-kind">A build</p><h3 class="og-title">Drag to Workspace</h3><p class="og-lede">Drag a window to the screen’s edge and it goes to the next workspace.</p>',
+      foot: '<time>12 Nov 2026</time><span>GNOME Shell</span>' }; } },
+  { id: 'experiment', name: 'An experiment, with a tall image', note: 'A 3:4 photo, fitted whole the other way: the box keeps its width and the picture its shape.',
+    html: function () { return { path: 'aahil-khan.xyz/lab/experiments/<b>cheap-smartwatch</b>', side: '<div class="og-still"><img src="' + asset('watch') + '" alt=""></div>',
+      main: '<p class="og-kind">An experiment</p><h3 class="og-title">A cheap smartwatch, opened up</h3><p class="og-lede">Finding the test pads first.</p>',
+      foot: '<time>12\u00a0Jul\u00a02026</time><span>in progress</span>' }; } },
+  { id: 'essay', name: 'An essay', note: 'The essay’s first picture as the still, as its own unfurl uses, fitted whole.',
+    html: function () { return { path: 'aahil-khan.xyz/lab/writing/<b>old-laptop</b>', side: '<div class="og-still"><img src="' + asset('laptop') + '" alt=""></div>',
+      main: '<p class="og-kind">An essay</p><h3 class="og-title">An Old Laptop as a Cloud Server</h3><p class="og-lede">Self-hosting, end to end.</p>',
+      foot: '<time>14 Nov 2025</time><span>8 min read</span>' }; } },
+];
+function ogCard(kind, look) {
+  var c = kind.html();
+  return '<figure class="og-slot"><div class="og-fit"><div class="og" ' + look[1] + ' data-og="' + kind.id + '"><div class="og-win">' +
+    '<div class="og-bar"><span class="og-ak">AK</span><span class="og-path">' + c.path + '</span></div>' +
+    '<div class="og-body' + (c.side ? ' has-still' : '') + '"><div class="og-main">' + c.main +
+      '<p class="og-foot">' + c.foot + '<span class="who">Aahil Khan</span></p></div>' + (c.side || '') + '</div>' +
+    '</div></div></div><figcaption>' + look[0] + '</figcaption></figure>';
+}
+function renderCards() {
+  return '<div class="cards-page"><h1>Share cards</h1>' +
+    '<p>What a Lab link looks like when it is pasted into LinkedIn, X or WhatsApp. Each is drawn at 1200 × 630 and scaled down here. Titles and dates are sample content.</p>' +
+    CARD_KINDS.map(function (k) {
+      return '<section class="card-row"><h2>' + k.name + '</h2><p>' + k.note + '</p><div class="card-set">' + CARD_LOOKS.map(function (l) { return ogCard(k, l); }).join('') + '</div></section>';
+    }).join('') + '</div>';
+}
+function fitCards() {
+  document.querySelectorAll('.og-fit').forEach(function (f) { f.firstElementChild.style.setProperty('--s', String(f.clientWidth / 1200)); });
+}
+
+// ---------- colophon ----------
+function facts(rows) {
+  return '<ul class="facts">' + rows.map(function (r) { return '<li><b>' + r[0] + '</b><span>' + r[1] + '</span><span class="lic">' + r[2] + '</span></li>'; }).join('') + '</ul>';
+}
+function citeBox() {
+  return '<div class="box cite"><div class="window-bar"><span>Cite an entry</span><span class="sample-flag">sample entry</span></div>' +
+    '<pre>Khan, Aahil. “An agent can’t leak a price it never sees.” The Lab, 26 November 2026. https://aahil-khan.xyz/lab/studies/shopkeeper/05</pre></div>';
+}
+function renderColophon() {
+  return '<div class="lab">' + labBar(false) + '<div class="page"><article class="prose">' +
+    '<p class="eyebrow">Aahil Khan · Colophon</p><h1 class="title">How this site is made</h1>' +
+    '<p class="lede">One person, a handful of open-source projects and a lot of hard borders. This page lists what the site is built from, who made those parts, and how to cite it.</p>' +
+    '<h2>Type</h2>' + facts([['Space Grotesk', 'Florian Karsten. Every heading and paragraph.', 'SIL Open Font License 1.1'], ['Space Mono', 'Colophon Foundry. Code, and nothing else.', 'SIL Open Font License 1.1'], ['Caveat', 'Pablo Impallari. Dates, by hand.', 'SIL Open Font License 1.1']]) +
+    '<h2>Code</h2>' + facts([['Next.js and React', 'The framework and the renderer.', 'MIT'], ['Motion', 'Every enter, exit and page change in the Lab.', 'MIT'], ['Lenis', 'Smooth scrolling on desktop.', 'MIT'],
+      ['GSAP', 'The scroll-linked motion on the front page.', 'GSAP Standard License'], ['Floating UI', 'Where a preview window opens.', 'MIT'], ['unified, remark and rehype', 'Lab pages, from Markdown to HTML at build time.', 'MIT'],
+      ['Shiki', 'Code highlighting, at build time.', 'MIT'], ['feed', 'The RSS and Atom feeds.', 'MIT']]) +
+    '<p>The desk uses none of these beyond Next and React: its pan, zoom, drag and animation are written by hand.</p>' +
+    '<h2>Sound</h2>' + facts([['Interface cues and noise', 'Synthesised in the browser with Web Audio. There are no sound files.', 'made here'],
+      ['Radio', 'Six public internet stations, streamed from their own servers and named in the Sound menu.', 'theirs'],
+      ['His name', 'Spoken by Kokoro-82M, voice af_heart, rendered once to one small file.', 'Apache 2.0']]) +
+    '<h2>Counting</h2><p>Pages are counted by the site’s own counter: no cookies, no identifiers, and nothing sent to anyone else.</p>' +
+    '<h2>Inspired by</h2><p><a href="https://yevtam.com">yevtam.com</a> for the dock and the cursor, and <a href="https://ajvadlaseen.com">ajvadlaseen.com</a> for the type, borders and shadows. Everything else is mine.</p>' +
+    '<h2>How to cite</h2><p>Name the page, its date and its address. Every Lab page shows the date it was written and the date it last changed; cite the one you read.</p>' + citeBox() +
+    '</article></div>' + labFoot('/colophon') + '</div>';
+}
+
+// ---------- For AI agents ----------
+function renderAgents() {
+  var ep = function (path, text) { return '<li class="box"><div class="window-bar"><code>' + path + '</code></div><p>' + text + '</p></li>'; };
+  return '<div class="lab">' + labBar(false) + '<div class="page"><article class="prose">' +
+    '<p class="eyebrow">Aahil Khan · For AI agents</p><h1 class="title">For AI agents</h1>' +
+    '<p class="lede">If you are a model reading this site, or building one that does: every page has a plain-text version, and this page says where they are.</p>' +
+    '<h2>Where the text is</h2><ul class="endpoints">' +
+      ep('/llms.txt', 'The map: every page, one line each, in the llmstxt.org format.') +
+      ep('/llms-full.txt', 'Every page’s text in one file, for reading the whole site at once.') +
+      ep('&lt;any page&gt;.md', 'Add .md to any address for that page as Markdown, with absolute links. Each page also names it in a link tag.') +
+      ep('/feed.xml', 'New Lab pages as RSS and Atom, newest first.') +
+    '</ul>' +
+    '<h2>Fetch one</h2><div class="box cite"><div class="window-bar"><span>A Lab page, as Markdown</span><span class="sample-flag">sample entry</span></div><pre>curl https://aahil-khan.xyz/lab/studies/shopkeeper/05.md</pre></div>' +
+    '<h2>Using what you read</h2><p>Quote and summarise freely, with a link to the page. Say when a page is dated or marked as a draft: the dates are there so a reader can tell what is current.</p>' +
+    '<h2>How to cite</h2>' + citeBox() +
+    '</article></div>' + labFoot('/agents') + '</div>';
+}
+
+// ---------- the name: takes, and the hover ----------
+// "Aahil" alone, as "aaa hil": two syllables about equal, the stress on the first, never ah-HILL. Round 4 (Aahil:
+// "i hate all hindi voices go for american or british"): Kokoro-82M's American and British male voices, one take
+// each, from 474 renders (tools/render-takes.py). aa / hil are measured from each shipped Opus file
+// (tools/measure-takes.py), all within 0.95-1.09; tools/score-takes.py checked that aa is not quieter or lower than hil.
+var TAKES = [
+  { k: 'kokoro-am-michael-p1-90', engine: 'Kokoro-82M', voice: 'am_michael', accent: 'American', lic: 'Apache 2.0', input: 'ˈɑːhɪl', how: 'phonemes', sp: 'speed 0.9', aa: 0.26, hil: 0.26, kb: 4.7 },
+  { k: 'kokoro-bm-george-p6-80', engine: 'Kokoro-82M', voice: 'bm_george', accent: 'British', lic: 'Apache 2.0', input: 'ˈaːːhɪl', how: 'phonemes', sp: 'speed 0.8', aa: 0.41, hil: 0.42, kb: 8.0 },
+  { k: 'kokoro-am-fenrir-p4-100', engine: 'Kokoro-82M', voice: 'am_fenrir', accent: 'American', lic: 'Apache 2.0', input: 'ˈɑːːˌhɪl', how: 'phonemes', sp: 'speed 1.0', aa: 0.20, hil: 0.21, kb: 3.6 },
+  { k: 'kokoro-bm-fable-p1-90', engine: 'Kokoro-82M', voice: 'bm_fable', accent: 'British', lic: 'Apache 2.0', input: 'ˈɑːhɪl', how: 'phonemes', sp: 'speed 0.9', aa: 0.24, hil: 0.23, kb: 5.0 },
+  { k: 'kokoro-am-puck-p4-80', engine: 'Kokoro-82M', voice: 'am_puck', accent: 'American', lic: 'Apache 2.0', input: 'ˈɑːːˌhɪl', how: 'phonemes', sp: 'speed 0.8', aa: 0.25, hil: 0.25, kb: 4.7 },
+  { k: 'kokoro-bm-lewis-p8-80', engine: 'Kokoro-82M', voice: 'bm_lewis', accent: 'British', lic: 'Apache 2.0', input: 'ˈɑː hɪl', how: 'phonemes, as two words', sp: 'speed 0.8', aa: 0.33, hil: 0.33, kb: 5.6 },
+  { k: 'kokoro-am-liam-t2-80', engine: 'Kokoro-82M', voice: 'am_liam', accent: 'American', lic: 'Apache 2.0', input: 'Aah-hil', how: 'the respelling', sp: 'speed 0.8', aa: 0.35, hil: 0.32, kb: 6.9 },
+  { k: 'kokoro-bm-daniel-p2-90', engine: 'Kokoro-82M', voice: 'bm_daniel', accent: 'British', lic: 'Apache 2.0', input: 'ˈɑːːhɪl', how: 'phonemes', sp: 'speed 0.9', aa: 0.30, hil: 0.28, kb: 6.9 },
+];
+window.TAKES = TAKES;   // read by check.mjs (rule P)
+var DEFAULT_TAKE = TAKES[0].k;   // the bubble plays take 1 unless the reader picks another
+var pickedTake = function () { try { var k = localStorage.getItem('extras.take'); return TAKES.some(function (t) { return t.k === k; }) ? k : DEFAULT_TAKE; } catch (e) { return DEFAULT_TAKE; } };
+
+// The hover (Aahil, round 3): one line, no second "Aahil" (the reader is already hovering it): आहिल · اءحل and a
+// voice bubble. Sound only from the bubble (click, tap, Enter); its dots move for exactly as long as the clip plays.
+// A screen reader hears the button's "Aahil" once, then "pronounced AA-hil"; the scripts are decorative.
+function nameTip(id) {
+  return '<span class="nt" role="group" aria-label="Aahil, written and said">' +
+    '<span class="nt-dev nt-x" lang="hi" aria-hidden="true">आहिल</span><i class="nt-rule" aria-hidden="true"></i>' +
+    '<span class="nt-ar nt-x" lang="ar" dir="rtl" aria-hidden="true">اءحل</span>' +
+    '<button type="button" class="nt-say" aria-label="Play how Aahil is said: AA-hil"><span class="nt-dots" aria-hidden="true"><i></i><i></i><i></i></span>' +
+    '<span id="' + id + '"><span class="sr">pronounced </span>AA-hil</span></button></span>';
+}
+function nameLine(id, state) {
+  return '<p class="name-line">I’m <span class="name-wrap' + (state ? ' is-open' : '') + '"><button type="button" class="name" aria-describedby="' + id + '" aria-expanded="' + !!state + '">Aahil</button>' +
+    nameTip(id).replace('class="nt-say"', 'class="nt-say' + (state === 'playing' ? ' is-playing is-demo' : '') + '"') + '</span>. I don’t take myself seriously, but I take my projects very seriously.</p>';
+}
+function wireName(root) {
+  var audio = {}, current = null;
+  root.querySelectorAll('.name-wrap').forEach(function (w) {
+    var b = w.querySelector('button.name'), say = w.querySelector('.nt-say'), sticky = w.classList.contains('is-open');
+    var open = function () { w.classList.add('is-open'); b.setAttribute('aria-expanded', 'true'); };
+    var close = function () { if (!sticky && !w.contains(document.activeElement)) { w.classList.remove('is-open'); b.setAttribute('aria-expanded', 'false'); } };
+    w.addEventListener('mouseenter', open); w.addEventListener('mouseleave', close);
+    w.addEventListener('focusin', open); w.addEventListener('focusout', function () { setTimeout(close, 0); });
+    b.addEventListener('click', function () { if (w.classList.contains('is-open') && !sticky) { w.classList.remove('is-open'); b.setAttribute('aria-expanded', 'false'); } else open(); });
+    say.addEventListener('click', function () {
+      var k = pickedTake(); var a = audio[k] = audio[k] || new Audio(asset(k));
+      if (current) { current.a.pause(); current.s.classList.remove('is-playing'); }
+      current = { a: a, s: say };
+      say.classList.remove('is-demo');
+      a.onplaying = function () { say.classList.add('is-playing'); };
+      a.onended = a.onpause = function () { say.classList.remove('is-playing'); };
+      a.currentTime = 0; a.play();
+    });
+  });
+}
+
+function renderVoices() {
+  var bar = function (t) { var max = 0.45; return '<span class="syl" aria-hidden="true"><i style="width:' + Math.round(t.aa / max * 100) + '%"></i><i style="width:' + Math.round(t.hil / max * 100) + '%"></i></span>'; };
+  return '<div class="lab">' + labBar(false) + '<div class="page"><article>' +
+    '<p class="eyebrow">Mockup · the name</p><h1 class="title">“Aahil”, in new voices</h1>' +
+    '<p class="lede">The last round of voices: eight American and British men, one take each, all Kokoro-82M on this machine. Each says “aaa hil”, the two syllables within a few hundredths of a second of each other and the stress on the first, measured from the clip itself. If none of them is right, the name ships without a voice.</p>' +
+    '<h2 class="takes-h">American and British · Kokoro-82M</h2><ol class="takes">' + TAKES.map(function (t, i) {
+        var n = i + 1;
+        return '<li class="box take" data-take="' + t.k + '"><button type="button" class="play" aria-label="Play take ' + n + ', ' + t.voice + ', ' + t.accent + '">' + ICON.play + '</button>' +
+          '<h3><span class="n">TAKE ' + n + '</span>' + t.voice + ' · ' + t.accent + ' male</h3>' +
+          '<p class="fed">' + t.engine + ', from ' + t.how + ' <code>' + t.input + '</code>, ' + t.sp + ' · <span class="lic">' + t.lic + '</span></p>' +
+          '<p class="facts-mini">aa ' + t.aa.toFixed(2) + ' s · hil ' + t.hil.toFixed(2) + ' s · ratio ' + (t.aa / t.hil).toFixed(2) + bar(t) + t.kb.toFixed(1) + ' KB Opus</p>' +
+          '<div class="use"><button type="button" data-pick="' + t.k + '" aria-pressed="' + (t.k === pickedTake()) + '">Use on the name</button></div>' +
+          '<audio preload="auto" src="' + asset(t.k) + '"></audio></li>';
+      }).join('') + '</ol>' +
+    '<div class="box namedemo"><div class="window-bar"><span>On the name</span><span class="meta" data-picked></span></div><div class="in">' + nameLine('say-demo', null) +
+      '<p class="meta" style="margin-top:10px">Hover the name, then press the voice bubble.</p></div></div>' +
+    '</article></div>' + labFoot('') + '</div>';
+}
+function wireVoices() {
+  var playing = null;
+  var stop = function () { if (playing) { playing.audio.pause(); playing.audio.currentTime = 0; playing.li.classList.remove('is-playing'); playing = null; } };
+  var label = function () { var k = pickedTake(); document.querySelector('[data-picked]').textContent = 'take ' + (TAKES.findIndex(function (t) { return t.k === k; }) + 1); };
+  document.querySelectorAll('.take').forEach(function (li) {
+    var a = li.querySelector('audio'), b = li.querySelector('.play');
+    b.addEventListener('click', function () {
+      var was = playing && playing.li === li; stop(); if (was) return;
+      playing = { li: li, audio: a }; li.classList.add('is-playing'); a.play();
+    });
+    a.addEventListener('ended', function () { if (playing && playing.li === li) { li.classList.remove('is-playing'); playing = null; } });
+  });
+  document.querySelectorAll('[data-pick]').forEach(function (btn) {
+    btn.addEventListener('click', function () {
+      try { localStorage.setItem('extras.take', btn.dataset.pick); } catch (e) { /* private mode */ }
+      document.querySelectorAll('[data-pick]').forEach(function (x) { x.setAttribute('aria-pressed', String(x === btn)); });
+      label();
+    });
+  });
+  label();
+  wireName(document);
+}
+
+// The hover, drawn open twice: at rest, and while the clip plays (the dots move).
+function renderNameHover() {
+  var spec = function (state, title, note) {
+    return '<section class="box hover-spec"><div class="window-bar"><span>' + title + '</span><span class="meta">' + note + '</span></div><div class="in">' +
+      nameLine('say-' + state, state) + '</div></section>';
+  };
+  return '<div class="lab">' + labBar(false) + '<div class="page"><article>' +
+    '<p class="eyebrow">Mockup · the name, on hover</p><h1 class="title">Aahil, on hover</h1>' +
+    '<p class="lede">Hovering his name shows it in Devanagari and Arabic script, with a voice bubble. Pressing the bubble plays the name, and its dots move for as long as the clip lasts. Nothing plays on hover.</p>' +
+    '<div class="hover-specs">' + spec('open', 'Hovering', 'the bubble waits') + spec('playing', 'Playing', 'after a press on the bubble') + '</div>' +
+    '<p class="confirm">The spellings are final: <span lang="hi" class="cf-dev">आहिल</span> in Devanagari, <span lang="ar" dir="rtl" class="cf-ar">اءحل</span> in Arabic script. The bubble plays take 1 unless another is picked on the voices page.</p>' +
+    '</article></div>' + labFoot('') + '</div>';
+}
+
+// ---------- the index ----------
+function renderIndex() {
+  return '<div class="ix"><h1>The surfaces the mockup never drew</h1>' +
+    '<p>Plan plan-the-real-lab, PR 3. A static proof of every door into the Lab, the share cards, the colophon, For AI agents, GitHub contributions on /, and the takes of the name, for a verdict before any of it is built in React.</p>' +
+    '<p>Every entry title, date and count is sample content: the real Lab starts empty and shows demo content until Aahil adds his own. Judge the surfaces, not the words in them.</p>' +
+    '<div class="ix-grid">' + Object.keys(VIEWS).map(function (id) {
+      var v = VIEWS[id];
+      return '<div class="ix-card"><h2>' + esc(v.title) + '</h2><p>' + esc(v.what) + '</p><ul>' + v.looks.map(function (l) {
+        return '<li><a href="?view=' + id + (l[1] ? '&' + l[1] : '') + '">' + esc(l[0]) + '</a></li>';
+      }).join('') + '</ul></div>';
+    }).join('') + '</div>' +
+    '<div class="ix-decide"><h2>What to decide in round 4</h2><ol>' +
+      '<li>The voice: one of the eight American and British takes, by ear, or no voice at all.</li>' +
+      '<li>The share cards’ look: Paper, or the Lab theme in Light or Dark.</li>' +
+    '</ol><p>Approved: the band, the Lab tile’s colour, the agents note (round 1), the one-line hover (round 3), and the spellings आहिल and اءحل (round 4).</p></div></div>';
+}
+
+// ---------------------------------------------------------------------------------------------
+var app = document.getElementById('app');
+var v = VIEWS[VIEW];
+app.innerHTML = v ? '<div class="view">' + v.render() + '</div>' : renderIndex();
+document.title = (v ? v.title : 'Index') + ' · Lab extras';
+var tag = document.getElementById('mock-tag');
+tag.innerHTML = v ? '<span>Mockup · ' + esc(v.title) + '</span><a href="?">All views</a>' : '<span>Mockup · Lab extras</span>';
+if (VIEW === 'cards') { fitCards(); addEventListener('resize', fitCards); }
+if (VIEW === 'voices') wireVoices();
+if (VIEW === 'name-hover') wireName(document);
+if (VIEW === 'canvas-lab') addEventListener('resize', function () { if ((innerWidth < 760) !== !document.querySelector('.desk')) app.innerHTML = '<div class="view">' + renderDesk() + '</div>'; });
+if (v && v.scrollTo) {
+  var target = document.getElementById(v.scrollTo);
+  var place = function () { var y = target.getBoundingClientRect().top + scrollY - (VIEW === 'site-band' ? 190 : 120); scrollTo(0, Math.max(0, y)); };
+  document.fonts.ready.then(place);
+}
+document.fonts.ready.then(function () { document.documentElement.setAttribute('data-ready', '1'); });
+})();
+</script>
+</body>
+</html>
