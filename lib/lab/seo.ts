@@ -52,8 +52,17 @@ export function canonicalUrl(path: string): string {
   return new URL(path, SITE_URL).toString().replace(/\/$/, '')
 }
 
-/** A Lab page's share card, absolute: the `opengraph-image` route beside the page. */
-export const cardUrl = (path: string) => canonicalUrl(`${path.replace(/\/$/, '')}/opengraph-image`)
+/** The pages that have a card of their own: the home, a section, an entry (`app/lab/**\/opengraph-image.tsx`). */
+const OWN_CARD = new Set(['home', 'section', 'entry'])
+
+/**
+ * A Lab page's share card, absolute: the `opengraph-image` route beside the page, or the home's for a
+ * page with none of its own (the index, a tag, the glossary).
+ */
+export function cardUrl(path: string): string {
+  const own = routes().some((r) => r.path === path && OWN_CARD.has(r.kind))
+  return canonicalUrl(`${own ? path.replace(/\/$/, '') : LAB_HOME}/opengraph-image`)
+}
 
 export function labMetadata({ title, description, path, type = 'website', published, updated, tags }: LabPageMeta = {}): Metadata {
   const robots = labPublic ? { index: true, follow: true } : LAB_ROBOTS_HIDDEN
