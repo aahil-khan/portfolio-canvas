@@ -39,7 +39,9 @@ export async function highlight(code: string, lang: string | null | undefined): 
     await hl.loadLanguage(l as keyof typeof bundledLanguages)
     loaded.add(l)
   }
-  const root = hl.codeToHast(code, { lang: l, theme: 'lab' }) as Root
+  // no tokenize time limit: under load the 500ms default gives up and leaves the rest of a line one
+  // unhighlighted span (a flaky test, a wrong page); bodies are ours and render at build, never on a request
+  const root = hl.codeToHast(code, { lang: l, theme: 'lab', tokenizeTimeLimit: 0 }) as Root
   const pre = root.children.find((c): c is Element => c.type === 'element' && c.tagName === 'pre')
   if (!pre) throw new Error('shiki returned no <pre>')
   pre.properties = { ...pre.properties, dataLanguage: l }
