@@ -933,7 +933,7 @@ const rule = (id, title) => ({
   },
 })
 
-export default [
+const rules = [
   rule('20', 'No AudioContext and no media on load; the Lab\'s cues peak ≤ 0.08; no hover sound'),
   rule('N', 'The name: आहिल · اءحل and a bubble labelled AA-hil; hover never plays; a click plays once; the dots move only while it plays; Escape closes; nothing fetched on load'),
   rule('S', 'The Sound menu is the canvas\'s 292 × 417 (±10%), reflows nothing, keeps the frame; the canvas\'s own menu unchanged'),
@@ -942,3 +942,4 @@ export default [
   rule('25', 'A station and a noise survive three soft navigations: the same <audio>, the same AudioContext'),
   rule('26', 'Noise: peaks ≤ 0.25, a limiter (−12 dB, 8:1), fades ≥ 0.5s, never through the cue bus'),
 ]
+export default rules
