@@ -72,7 +72,7 @@ function labPlace(win: Win, parent: () => HTMLElement | null): Middleware {
       })
       // the link scrolled off the screen (or under the bar): the window has nothing to point at
       const hidden = !rects.length || rects.every((r) => r.bottom <= top - 8 || r.top >= vh)
-      return { x: p.x, y: p.y, data: { ...p, hidden } }
+      return { x: p.x, y: p.y, data: { ...p, hidden, vh } }
     },
   }
 }
@@ -143,7 +143,7 @@ export function PreviewWindow({
     middleware: win.sheet ? [] : [labPlace(win, parent)],
     whileElementsMounted: win.sheet ? undefined : (r, f, u) => autoUpdate(r, f, u, { elementResize: true, ancestorScroll: true, ancestorResize: true }),
   })
-  const p = middlewareData.labPlace as (Placement & { hidden: boolean }) | undefined
+  const p = middlewareData.labPlace as (Placement & { hidden: boolean; vh: number }) | undefined
 
   // the content growing (the entry arriving, an image loading) re-places it, even past a height cap
   useEffect(() => {
@@ -253,6 +253,8 @@ export function PreviewWindow({
     : {
         ...(present ? {} : { pointerEvents: 'none' as const }),
         ...floatingStyles,
+        // above its link it hangs from its bottom edge: content arriving grows it upward, away from the link
+        ...(p?.side === 'above' && p.bottom != null ? { top: 'auto', bottom: p.vh - p.bottom } : {}),
         zIndex: 35 + win.level,
         transformOrigin: origin,
         visibility: shown ? undefined : ('hidden' as const),

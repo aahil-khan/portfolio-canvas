@@ -165,6 +165,11 @@ test('the triangle geometry', () => {
   assert.ok(!inSafeTriangle({ x: 300, y: 750 }, { x: 300, y: 700 }, win))
   // jitter at the point itself counts
   assert.ok(inSafeTriangle({ x: 302, y: 97 }, { x: 300, y: 100 }, win))
+  // the bridge: the strip between the link and the window, as wide as the window
+  const under = { left: 100, top: 108, right: 560, bottom: 500 }
+  assert.ok(inSafeTriangle({ x: 540, y: 103 }, { x: 110, y: 100 }, under))
+  assert.ok(!inSafeTriangle({ x: 580, y: 103 }, { x: 110, y: 100 }, under))
+  assert.ok(!inSafeTriangle({ x: 300, y: 90 }, { x: 110, y: 100 }, under))
 })
 
 test('a stack of three: a link inside window i opens i + 1; no fourth; Esc closes the top only', () => {
@@ -271,4 +276,17 @@ test('links crossed on the way through the triangle do not open', () => {
   r.machine.enter('b', 0, 'hover')
   r.to(300 + 400 + 90)
   assert.deepEqual(r.opened.map((o) => o.trigger), ['b'])
+})
+
+test('focus landing on a link keeps that link’s own pending open', () => {
+  const r = rig()
+  r.machine.enter('a', 0, 'focus')
+  r.machine.blur('a')
+  r.to(300)
+  assert.deepEqual(r.opened.map((o) => o.trigger), ['a'])
+  const q = rig()
+  q.machine.enter('a', 0, 'focus')
+  q.machine.blur()
+  q.to(1000)
+  assert.equal(q.opened.length, 0)
 })

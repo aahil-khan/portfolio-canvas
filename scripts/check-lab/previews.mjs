@@ -20,7 +20,8 @@
  *       without an image, the quiet card for a link with no unfurl, and zero cross-origin requests.
  *   M   windows enter in 180ms (opacity over 120), rising 6px from 0.98, a cascaded one from its
  *       side; leave in 120ms, 4px down, no scale; the one easing; reduced motion opacity only, ≤ 120ms.
- *       Then the home bands' stagger, from lists.mjs's `bandMotion(ctx)` when PR 9 exports it.
+ *       Then the home bands' stagger and the leads drawing in, from lists.mjs's `bandMotion(ctx)`
+ *       (PR 9) and instruments.mjs's `leadMotion(ctx)` (PR 11) when they export them.
  *
  * The hooks it reads (components/lab/preview/**): `[data-preview-layer][data-count]` (open windows),
  * `[data-preview-window="<kind>"][data-level][data-for][data-via][data-state][data-side][data-step]`,
@@ -174,7 +175,13 @@ async function hover(page, sel, i = 0, where = 'middle', level = 0, scope = null
   const link = await aim(page, sel, i, where, scope)
   if (!link) return { err: `no visible ${sel}` }
   await page.mouse.move(link.x, link.y)
-  if (!(await waitCount(page, level + 1)) || !(await settled(page, level))) return { link, err: `${link.key}: no window opened within 2.5s of hovering it` }
+  if (!(await waitCount(page, level + 1)) || !(await settled(page, level))) {
+    const hit = await page.evaluate(({ x, y }) => {
+      const el = document.elementFromPoint(x, y)
+      return el ? `${el.tagName.toLowerCase()}${el.getAttribute('data-preview') ? `[${el.getAttribute('data-preview')}]` : ''} in ${el.closest('[data-preview-window]')?.getAttribute('data-for') ?? 'the page'}` : 'nothing'
+    }, link)
+    return { link, err: `${link.key}: no window opened within 2.5s of hovering it (at ${link.x},${link.y}: ${hit}; ${await count(page)} open)` }
+  }
   const wins = await page.evaluate(WINS)
   // the link may have moved while the window placed itself (it never should): re-read its rects
   const now = await page.evaluate(({ key, level }) => {
@@ -524,8 +531,10 @@ async function runAll(ctx) {
         const b = document.querySelector('header[data-bar]').getBoundingClientRect()
         return { x: Math.round(b.width / 2), y: Math.round(b.top + b.height / 2) }
       })
+      // the next link's spot, found now so the hover can follow the close at once
+      const next = await aim(p, 'a[data-preview^="term:"]', 2, 'keep')
       await p.mouse.move(bar.x, bar.y)
-      await sleep(600)
+      await waitCount(p, 0, 1500)
       const cl = await p.evaluate(() => {
         const leave = window.__pv.overs.filter((o) => !o.inWin && !o.link).at(-1)
         const gone = window.__pv.counts.find((x) => x.n === 0 && x.t >= leave.t)
@@ -535,14 +544,20 @@ async function runAll(ctx) {
       else if (Math.abs(cl - 220) > TOL) c.fail('W2', `${tag1440}: closing took ${Math.round(cl)}ms, not 220 ± ${TOL}`)
       else c.note('W2', `close ${Math.round(cl)}ms`)
       // within 600ms of that close, the next opens at 90 again
-      await sleep(150)
-      await hover(p, 'a[data-preview^="term:"]', 2)
-      const g2 = await p.evaluate(() => {
-        const e = window.__pv.enters.at(-1)
-        const ev = window.__pv.events.find((x) => x.t >= e.t)
-        return ev ? ev.t - e.t : null
-      })
-      if (g2 === null || Math.abs(g2 - 90) > TOL) c.fail('W2', `${tag1440}: within 600ms of a close the next open took ${g2 === null ? 'forever' : Math.round(g2) + 'ms'}, not 90 ± ${TOL}`)
+      if (next) {
+        await sleep(120)
+        await p.mouse.move(next.x, next.y)
+        await waitCount(p, 1)
+        const g2 = await p.evaluate(() => {
+          const e = window.__pv.enters.at(-1)
+          const closed = window.__pv.counts.filter((x) => x.n === 0 && x.t <= e.t).at(-1)
+          const ev = window.__pv.events.find((x) => x.t >= e.t)
+          return ev ? { open: ev.t - e.t, sinceClose: closed ? e.t - closed.t : null } : null
+        })
+        if (!g2 || Math.abs(g2.open - 90) > TOL) c.fail('W2', `${tag1440}: ${g2 ? Math.round(g2.sinceClose) + 'ms' : 'just'} after a close the next open took ${g2 ? Math.round(g2.open) + 'ms' : 'forever'}, not 90 ± ${TOL}`)
+        else c.note('W2', `${Math.round(g2.sinceClose)}ms after a close, the next open ${Math.round(g2.open)}ms`)
+        await settled(p, 0)
+      }
       // re-entry cancels a close
       const cur = (await p.evaluate(WINS))[0]
       if (cur) {
@@ -783,16 +798,25 @@ async function runAll(ctx) {
     }
   }
 
-  // ---------- M: the home bands, PR 9's part ----------
-  try {
-    const lists = await import('./lists.mjs')
-    if (typeof lists.bandMotion === 'function') {
-      const r = await lists.bandMotion(ctx)
+  // ---------- M: the other lanes' motion, each from its own file when it exports it ----------
+  // Rule M is one id with three owners: this file (windows), PR 9 (the home bands' stagger, from
+  // lists.mjs's `bandMotion`) and PR 11 (leads drawing on first view, from instruments.mjs's
+  // `leadMotion`). check-lab allows one definition per id, so the others export a function instead.
+  for (const [file, fn, owner] of [
+    ['./lists.mjs', 'bandMotion', 'the band stagger is PR 9’s'],
+    ['./instruments.mjs', 'leadMotion', 'leads drawing in are PR 11’s'],
+  ]) {
+    let mod = null
+    try {
+      mod = await import(file)
+    } catch {
+      /* not landed yet */
+    }
+    if (typeof mod?.[fn] === 'function') {
+      const r = await mod[fn](ctx)
       for (const f of r?.fail ?? []) c.fail('M', f)
       for (const n of r?.notes ?? []) c.note('M', n)
-    } else c.note('M', 'lists.mjs exports no bandMotion yet: the band stagger is PR 9’s')
-  } catch {
-    c.note('M', 'no lists.mjs yet: the band stagger is PR 9’s')
+    } else c.note('M', `${file.slice(2)} exports no ${fn} yet: ${owner}`)
   }
 
   return { c }
@@ -969,10 +993,12 @@ const rule = (id, title, needs = ['server', 'browser']) => ({
   },
 })
 
-export default [
+const rules = [
   rule('P', 'Every internal link, term, tag and citation previews (and has its References line); each kind opens the right card; lab:preview-open carries the right via'),
   rule('W', 'Whole-entry windows: every paragraph, contained wheel, a stack of 3 cascading, Esc closes the top, a press closes those above, prefixed ids'),
   rule('W2', 'Never over the link at any width or edge; 360/460 and min(60vh, 500px); 300 / 90 / 220ms; the safe triangle; re-placement; the phone sheet'),
   rule('Z', 'Unfurl cards: image, favicon, domain, 2-line title, 3-line description; a text card; the quiet card; zero cross-origin requests'),
   rule('M', 'Motion: windows in 180ms (opacity 120) rising 6px from 0.98, cascaded from their side, out 120ms 4px down; reduced: opacity ≤ 120ms; the bands (PR 9)'),
 ]
+
+export default rules

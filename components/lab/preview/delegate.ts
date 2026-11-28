@@ -181,7 +181,7 @@ export class Delegate {
       }
     }
     if (this.keepOf(target) >= 0) this.intent.focusKept()
-    else this.intent.blur()
+    else this.intent.blur(a ?? undefined)
   }
   private press(a: HTMLAnchorElement, via: 'tap' | 'click') {
     this.loadData()

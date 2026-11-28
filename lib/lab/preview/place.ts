@@ -36,6 +36,8 @@ export interface Placement {
   /** Set when the room on the chosen side is less than the window's height. */
   maxHeight: number | null
   side: 'below' | 'above'
+  /** Above its link, the window hangs from this y (its bottom edge), so growing never covers the link. */
+  bottom: number | null
   /** Which way a cascaded window stepped from its parent; null on the page. */
   step: 'right' | 'left' | null
 }
@@ -99,7 +101,7 @@ export function place(o: PlaceInput): Placement {
     maxHeight = Math.max(0, Math.floor(roomAbove))
     y = top - GAP - maxHeight
   }
-  return { x: Math.round(x), y: Math.round(y), width, maxHeight, side, step }
+  return { x: Math.round(x), y: Math.round(y), width, maxHeight, side, bottom: side === 'above' ? Math.floor(top - GAP) : null, step }
 }
 
 /** Whether two rects overlap (touching edges do not). */

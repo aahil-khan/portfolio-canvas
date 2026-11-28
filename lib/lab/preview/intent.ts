@@ -85,6 +85,12 @@ export function inSafeTriangle(p: Point, from: Point, rect: Rect): boolean {
   // a few pixels of slack around the point itself, for the jitter of a hand starting to move
   const slack = 4
   if (Math.abs(p.x - from.x) <= slack && Math.abs(p.y - from.y) <= slack) return true
+  // the bridge: the strip between the link and the window, as wide as the window (Floating UI's
+  // safePolygon has the same), so a hand drifting sideways along the gap is still on its way
+  if (p.x >= rect.left && p.x <= rect.right) {
+    if (from.y <= rect.top && p.y >= from.y - slack && p.y <= rect.top) return true
+    if (from.y >= rect.bottom && p.y <= from.y + slack && p.y >= rect.bottom) return true
+  }
   return inTriangle(p, from, a, b)
 }
 
@@ -169,9 +175,12 @@ export class Intent<T> {
     this.armClose(this.firstHoverAbove(keep), t, false)
   }
 
-  /** Focus moved to something that is not a window or a window's link: focus-opened windows close. */
-  blur(): void {
-    if (this.pending?.via === 'focus') this.cancelPending()
+  /**
+   * Focus moved to something that is not a window or a window's link: focus-opened windows close.
+   * `except` is where focus went when that is itself a link with an open pending: it stays pending.
+   */
+  blur(except?: T): void {
+    if (this.pending?.via === 'focus' && this.pending.trigger !== except) this.cancelPending()
     const i = this.stack.findIndex((o) => o.via === 'focus')
     if (i < 0) return
     this.host.cancel(this.focusClosing)
