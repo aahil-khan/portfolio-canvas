@@ -148,14 +148,24 @@ const overlaps = (a, b) => a.left < b.right - 0.5 && b.left < a.right - 0.5 && a
 async function aim(page, sel, i, where = 'middle', scope = null) {
   return page.evaluate(
     async ({ sel, i, where, scope }) => {
-      const root = scope ? [...document.querySelectorAll('[data-preview-window][data-state="open"]')].find((w) => +w.dataset.level === scope) : document.querySelector('main')
-      const a = [...(root?.querySelectorAll(sel) ?? [])].filter((x) => window.__lc.visible(x) && x.getClientRects().length)[i]
-      if (!a) return null
+      // scope is a window's level, and 0 is one: only null means the page
+      const root = scope != null ? [...document.querySelectorAll('[data-preview-window][data-state="open"]')].find((w) => +w.dataset.level === scope) : document.querySelector('main')
       const L = window.__lc
       const bar = document.querySelector('header[data-bar]')?.getBoundingClientRect().bottom ?? 56
-      if (scope) {
+      const found = [...(root?.querySelectorAll(sel) ?? [])].filter((x) => L.visible(x) && x.getClientRects().length && (scope != null || !x.closest('[data-preview-window]')))
+      // 'free': the first from i on that is on the screen now and not under an open window
+      const pointOf = (r) => ({ x: Math.round((r.left + Math.min(r.right, r.left + 40)) / 2), y: Math.round((r.top + r.bottom) / 2) })
+      const uncovered = (x) => [...x.getClientRects()].some((r) => {
+        const q = pointOf(r)
+        if (r.top < bar || r.bottom > innerHeight) return false
+        const hit = document.elementFromPoint(q.x, q.y)
+        return !!hit && (hit === x || x.contains(hit))
+      })
+      const a = where === 'free' ? (found.slice(i).find(uncovered) ?? null) : found[i]
+      if (!a) return null
+      if (scope != null) {
         a.scrollIntoView({ block: 'center', behavior: 'instant' })
-      } else if (where !== 'keep') {
+      } else if (where !== 'keep' && where !== 'free') {
         const r = a.getBoundingClientRect()
         const docTop = r.top + scrollY
         const y = where === 'top' ? docTop - bar - 8 : where === 'bottom' ? docTop + r.height - innerHeight + 12 : docTop - innerHeight / 2
@@ -163,7 +173,7 @@ async function aim(page, sel, i, where = 'middle', scope = null) {
         await L.frames(120)
       }
       const rects = [...a.getClientRects()].map((r) => ({ left: r.left, top: r.top, right: r.right, bottom: r.bottom }))
-      const first = rects.find((r) => r.bottom > 0 && r.top < innerHeight) ?? rects[0]
+      const first = (where === 'free' ? [...a.getClientRects()].find((r) => r.top >= bar && r.bottom <= innerHeight) : null) ?? rects.find((r) => r.bottom > 0 && r.top < innerHeight) ?? rects[0]
       return { key: a.getAttribute('data-preview'), href: a.href, words: a.textContent.trim(), rects, x: Math.round((first.left + Math.min(first.right, first.left + 40)) / 2), y: Math.round((first.top + first.bottom) / 2), vw: document.documentElement.clientWidth, vh: innerHeight, bar }
     },
     { sel, i, where, scope },
@@ -171,10 +181,11 @@ async function aim(page, sel, i, where = 'middle', scope = null) {
 }
 
 /** Hovers a link and waits for its window: `{ link, win }`, or `{ link, err }`. */
-async function hover(page, sel, i = 0, where = 'middle', level = 0, scope = null) {
+async function hover(page, sel, i = 0, where = 'middle', level = 0, scope = null, steps = 1) {
   const link = await aim(page, sel, i, where, scope)
   if (!link) return { err: `no visible ${sel}` }
-  await page.mouse.move(link.x, link.y)
+  // steps > 1 travels there as a hand does, so the pointer leaves the last link at its edge
+  await page.mouse.move(link.x, link.y, { steps })
   if (!(await waitCount(page, level + 1)) || !(await settled(page, level))) {
     const hit = await page.evaluate(({ x, y }) => {
       const el = document.elementFromPoint(x, y)
@@ -385,17 +396,28 @@ async function runAll(ctx) {
 
     // P: focus by keyboard opens with via "focus"
     {
-      await p.evaluate(() => {
+      // focus what comes before the first visible term in the tab order (something that takes
+      // focus: a link hidden at this width does not), then Tab onto the term
+      const from = await p.evaluate(() => {
         window.__pv.events.length = 0
-        const a = document.querySelector('main a[data-preview^="term:"]')
-        const all = [...document.querySelectorAll('main a[href], main button')]
-        const before = all[all.indexOf(a) - 1]
-        before?.focus({ preventScroll: false })
+        const L = window.__lc
+        const tabbable = (x) => x.tabIndex >= 0 && L.visible(x) && x.getClientRects().length && !x.closest('[inert], [aria-hidden="true"]')
+        const all = [...document.querySelectorAll('main a[href], main button:not([disabled]), main summary, main [tabindex]')].filter(tabbable)
+        const a = all.find((x) => x.matches('a[data-preview^="term:"]'))
+        if (!a) return { err: 'no visible term to tab onto' }
+        for (let i = all.indexOf(a) - 1; i >= 0; i--) {
+          all[i].focus({ preventScroll: false })
+          if (document.activeElement === all[i]) return { key: a.getAttribute('data-preview') }
+        }
+        return { err: 'nothing before the first term takes focus' }
       })
-      await p.keyboard.press('Tab')
-      const opened = await waitCount(p, 1, 1500)
+      if (!from.err) await p.keyboard.press('Tab')
+      const landed = await p.evaluate(() => document.activeElement?.getAttribute('data-preview') ?? document.activeElement?.tagName.toLowerCase())
+      const opened = !from.err && (await waitCount(p, 1, 1500))
       const via = await p.evaluate(() => window.__pv.events.map((e) => e.via))
-      if (!opened) c.fail('P', `${tag1440}: tabbing onto a term opened nothing`)
+      if (from.err) c.fail('P', `${tag1440}: ${from.err}`)
+      else if (landed !== from.key) c.fail('P', `${tag1440}: Tab from the element before ${from.key} landed on ${landed}`)
+      else if (!opened) c.fail('P', `${tag1440}: tabbing onto a term opened nothing`)
       else if (!via.includes('focus')) c.fail('P', `${tag1440}: a focus-open fired via ${via.join(', ') || 'nothing'}, not "focus"`)
       // the Tab bridge: Tab from the link goes into its window
       if (opened) {
@@ -509,21 +531,37 @@ async function runAll(ctx) {
       await sleep(800)
       const t1 = await hover(p, 'a[data-preview^="term:"]', 0)
       const m = await p.evaluate(() => {
+        // to lab:preview-open, dispatched as the timer fires, as the next opens are timed: the
+        // count on the layer also holds React's render, which a loaded machine stretches
         const e = window.__pv.enters.at(-1)
-        const open = window.__pv.counts.find((x) => x.n === 1 && x.t >= e.t)
+        const open = window.__pv.events.find((x) => x.t >= e.t)
         return open ? open.t - e.t : null
       })
       if (t1.err || m === null) c.fail('W2', `${tag1440}: no first open to time`)
       else if (Math.abs(m - 300) > TOL) c.fail('W2', `${tag1440}: a first open took ${Math.round(m)}ms, not 300 ± ${TOL}`)
       else c.note('W2', `first open ${Math.round(m)}ms`)
       // the next link, with the first still open: 90ms
-      const t2 = await hover(p, 'a[data-preview^="term:"]', 1)
+      // a term on the screen that the open card doesn't cover, or else the next one, scrolled to
+      let t2 = await hover(p, 'a[data-preview^="term:"]', 1, 'free', 0, null, 12)
+      if (t2.err && !t2.link) t2 = await hover(p, 'a[data-preview^="term:"]', 1)
+      // a window is already open, so hover() returns before this one replaces it: wait for its open
+      if (!t2.err) {
+        try {
+          await p.waitForFunction(() => {
+            const e = window.__pv.enters.at(-1)
+            return !!e && window.__pv.events.some((x) => x.t >= e.t)
+          }, null, { timeout: 1500 })
+          await settled(p, 0)
+        } catch {
+          t2.err = `${t2.link.key}: no open within 1.5s of hovering it`
+        }
+      }
       const g = await p.evaluate(() => {
         const e = window.__pv.enters.at(-1)
         const ev = window.__pv.events.find((x) => x.t >= e.t)
         return ev ? ev.t - e.t : null
       })
-      if (t2.err || g === null) c.fail('W2', `${tag1440}: no second open to time`)
+      if (t2.err || g === null) c.fail('W2', `${tag1440}: no second open to time${t2.err ? ` (${t2.err})` : ''}`)
       else if (Math.abs(g - 90) > TOL) c.fail('W2', `${tag1440}: the next open, a window being open, took ${Math.round(g)}ms, not 90 ± ${TOL}`)
       else c.note('W2', `next open in the grace ${Math.round(g)}ms`)
       // the close: off to the bar's empty middle, straight up (out of the triangle)
@@ -532,7 +570,7 @@ async function runAll(ctx) {
         return { x: Math.round(b.width / 2), y: Math.round(b.top + b.height / 2) }
       })
       // the next link's spot, found now so the hover can follow the close at once
-      const next = await aim(p, 'a[data-preview^="term:"]', 2, 'keep')
+      const next = await aim(p, 'a[data-preview^="term:"]', 0, 'free')
       await p.mouse.move(bar.x, bar.y)
       await waitCount(p, 0, 1500)
       const cl = await p.evaluate(() => {

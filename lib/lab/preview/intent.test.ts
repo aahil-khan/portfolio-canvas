@@ -290,3 +290,70 @@ test('focus landing on a link keeps that link’s own pending open', () => {
   q.to(1000)
   assert.equal(q.opened.length, 0)
 })
+
+test('a link the triangle held back opens once its window closes, if the pointer rests on it', () => {
+  // a jump straight onto the next link: pointerout reports the new position, so the triangle's
+  // start is the link itself, and the over there is "on the way"
+  const win: Rect = { left: 100, top: 108, right: 560, bottom: 500 }
+  const r = rig({ 0: win })
+  r.machine.enter('a', 0, 'hover')
+  r.to(300)
+  r.machine.leave('a', { x: 300, y: 60 })
+  r.machine.at(-1, { x: 300, y: 60 })
+  r.machine.enter('b', 0, 'hover')
+  r.to(300 + 219)
+  assert.deepEqual(r.opened.map((o) => o.trigger), ['a'])
+  r.to(300 + 220) // a closes; b, still under the pointer, opens on the grace's delay
+  assert.equal(r.opened.length, 0)
+  r.to(300 + 220 + 89)
+  assert.equal(r.opened.length, 0)
+  r.to(300 + 220 + 90)
+  assert.deepEqual(r.opened.map((o) => o.trigger), ['b'])
+
+  // leaving the held link first: nothing opens
+  const q = rig({ 0: win })
+  q.machine.enter('a', 0, 'hover')
+  q.to(300)
+  q.machine.leave('a', { x: 300, y: 60 })
+  q.machine.at(-1, { x: 300, y: 60 })
+  q.machine.enter('b', 0, 'hover')
+  q.to(400)
+  q.machine.leave('b', { x: 300, y: 62 })
+  q.to(2000)
+  assert.equal(q.opened.length, 0)
+
+  // Esc forgets it too
+  const e = rig({ 0: win })
+  e.machine.enter('a', 0, 'hover')
+  e.to(300)
+  e.machine.leave('a', { x: 300, y: 60 })
+  e.machine.at(-1, { x: 300, y: 60 })
+  e.machine.enter('b', 0, 'hover')
+  e.machine.escape()
+  e.to(2000)
+  assert.equal(e.opened.length, 0)
+})
+
+test('a held link opens as soon as the hand leaves the triangle while still on it', () => {
+  const win: Rect = { left: 100, top: 108, right: 560, bottom: 500 }
+  const r = rig({ 0: win })
+  r.machine.enter('a', 0, 'hover')
+  r.to(300)
+  r.machine.leave('a', { x: 120, y: 100 })
+  r.machine.at(-1, { x: 140, y: 104 })
+  r.machine.enter('b', 0, 'hover')
+  r.to(350)
+  r.machine.at(-1, { x: 60, y: 104 }) // still on b, which runs left out of the triangle
+  r.to(350 + 89)
+  assert.deepEqual(r.opened.map((o) => o.trigger), ['a'])
+  r.to(350 + 90)
+  assert.deepEqual(r.opened.map((o) => o.trigger), ['b'])
+})
+
+test('the bridge counts only when the hand left through the edge facing the window', () => {
+  const under = { left: 100, top: 108, right: 560, bottom: 500 }
+  // left through the bottom (y 100, 8px above the window): the strip under the line is on the way
+  assert.ok(inSafeTriangle({ x: 400, y: 104 }, { x: 110, y: 100 }, under))
+  // left sideways from the middle of the line (y 89): the rest of that line is not
+  assert.ok(!inSafeTriangle({ x: 400, y: 92 }, { x: 160, y: 89 }, under))
+})

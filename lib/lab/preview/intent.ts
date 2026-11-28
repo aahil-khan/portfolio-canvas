@@ -70,6 +70,9 @@ export function inTriangle(p: Point, a: Point, b: Point, c: Point): boolean {
   return !(neg && pos)
 }
 
+/** How far from the window the hand may leave its link for the bridge to count: the 8px gap and slack. */
+const BRIDGE = 12
+
 /**
  * The safe zone from `from` (where the pointer left the link) toward `rect` (the window): the
  * triangle from the point to the window's two near corners, on whichever side faces the point.
@@ -86,10 +89,12 @@ export function inSafeTriangle(p: Point, from: Point, rect: Rect): boolean {
   const slack = 4
   if (Math.abs(p.x - from.x) <= slack && Math.abs(p.y - from.y) <= slack) return true
   // the bridge: the strip between the link and the window, as wide as the window (Floating UI's
-  // safePolygon has the same), so a hand drifting sideways along the gap is still on its way
+  // safePolygon has the same), so a hand drifting sideways along the gap is still on its way. Only
+  // when the hand left through the link's edge facing the window: one that left sideways, from the
+  // middle of the line, is not in the gap, and the rest of that line is not on its way
   if (p.x >= rect.left && p.x <= rect.right) {
-    if (from.y <= rect.top && p.y >= from.y - slack && p.y <= rect.top) return true
-    if (from.y >= rect.bottom && p.y <= from.y + slack && p.y >= rect.bottom) return true
+    if (from.y <= rect.top && rect.top - from.y <= BRIDGE && p.y >= from.y - slack && p.y <= rect.top) return true
+    if (from.y >= rect.bottom && from.y - rect.bottom <= BRIDGE && p.y <= from.y + slack && p.y >= rect.bottom) return true
   }
   return inTriangle(p, from, a, b)
 }
@@ -102,6 +107,12 @@ export class Intent<T> {
   private safe: { from: Point; level: number } | null = null
   /** The last `at()` found the pointer moving through the safe triangle. */
   private holding = false
+  /**
+   * A link the triangle kept from opening while the pointer is on it. It opens once the hand leaves
+   * the triangle, or once the window it was heading for closes: a pointer resting on a link always
+   * ends up opening it.
+   */
+  private blocked: { trigger: T; level: number } | null = null
   /** When the stack last became empty, for the grace. */
   private emptiedAt = -Infinity
   private readonly host: IntentHost<T>
@@ -127,7 +138,11 @@ export class Intent<T> {
     if (level >= MAX_STACK) return
     // on its way to a window, the hand may cross other links: they don't open (Floating UI's
     // safePolygon blocks them the same way). Call `at()` first with the same move.
-    if (via === 'hover' && this.holding && this.safe && level <= this.safe.level && this.stack[this.safe.level]?.trigger !== trigger) return
+    if (via === 'hover' && this.holding && this.safe && level <= this.safe.level && this.stack[this.safe.level]?.trigger !== trigger) {
+      this.blocked = { trigger, level }
+      return
+    }
+    if (this.blocked?.trigger === trigger) this.blocked = null
     const here = this.stack[level]
     if (here && here.trigger === trigger) {
       this.cancelPending()
@@ -147,6 +162,7 @@ export class Intent<T> {
 
   /** The pointer left `trigger` at `point`. */
   leave(trigger: T, point: Point | null): void {
+    if (this.blocked?.trigger === trigger) this.blocked = null
     if (this.pending && this.pending.trigger === trigger && this.pending.via === 'hover') this.cancelPending()
     const i = this.stack.findIndex((o) => o.trigger === trigger)
     this.safe = i >= 0 && point ? { from: point, level: i } : null
@@ -173,6 +189,7 @@ export class Intent<T> {
     this.holding = false
     if (this.safe && keep >= this.safe.level) this.safe = null
     this.armClose(this.firstHoverAbove(keep), t, false)
+    this.unblock(t)
   }
 
   /**
@@ -200,6 +217,7 @@ export class Intent<T> {
   press(trigger: T, level: number, via: 'tap' | 'click'): void {
     if (level >= MAX_STACK) return
     this.cancelPending()
+    this.blocked = null
     const here = this.stack[level]
     if (here && here.trigger === trigger) {
       here.via = via
@@ -211,12 +229,14 @@ export class Intent<T> {
   /** A press landed at `keep` (the deepest window it is in, -1 for the page): close what is above. */
   down(keep: number): void {
     this.cancelPending()
+    this.blocked = null
     if (keep + 1 < this.stack.length) this.closeFrom(keep + 1)
   }
 
   /** Esc: the top window only. Returns what it closed. */
   escape(): Opened<T> | null {
     this.cancelPending()
+    this.blocked = null
     const top = this.stack[this.stack.length - 1]
     if (!top) return null
     this.closeFrom(top.level)
@@ -239,6 +259,7 @@ export class Intent<T> {
 
   closeAll(): void {
     this.cancelPending()
+    this.blocked = null
     this.closeFrom(0)
   }
 
@@ -271,8 +292,17 @@ export class Intent<T> {
     const handle = this.host.schedule(() => {
       this.closing = null
       this.closeFrom(level)
+      this.unblock(this.host.now())
     }, Math.max(0, at - this.host.now()))
     this.closing = { level, at, handle }
+  }
+
+  /** The link the triangle held back opens now, on the usual delay (the grace's, by now). */
+  private unblock(t: number): void {
+    const b = this.blocked
+    if (!b) return
+    this.blocked = null
+    this.enter(b.trigger, b.level, 'hover', t)
   }
 
   private cancelPending(): void {
