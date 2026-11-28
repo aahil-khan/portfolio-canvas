@@ -82,7 +82,7 @@ export const TABLE = [
   {
     id: 'unfurl-tools',
     pkgs: ['open-graph-scraper', 'sharp'],
-    from: ['scripts/**'],
+    from: ['scripts/**', 'lib/lab/og/raster.ts'], // raster.ts: server-only, build time only (next/og can't draw WebP)
     marker: null, // scripts never reach .next; the import scan is the whole proof
   },
   {

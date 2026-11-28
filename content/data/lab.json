@@ -195,7 +195,13 @@
     "homeEmpty": "The Lab is being set up. Studies, builds and essays will appear here as they are written.",
     "notFoundTitle": "Nothing is written here.",
     "notFoundBody": "This page isn’t in the Lab. It may have moved, or it was never written.",
-    "studyLog": "The log"
+    "studyLog": "The log",
+    "ogHomeKind": "The Lab · Aahil Khan",
+    "ogSectionKind": "A section of the Lab",
+    "ogSectionMeta": "{count} · {kinds}",
+    "ogChapterKind": "{series} · Chapter {n} of {total}",
+    "ogAlt": "{title}: a page of Aahil Khan’s Lab",
+    "ogSiteName": "Aahil Khan · the Lab"
   },
   "sections": [],
   "tags": [],
