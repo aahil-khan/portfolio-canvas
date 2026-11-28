@@ -910,6 +910,184 @@ html:not([data-look='paper']) .lab-window-bar { box-shadow: 0 1px 0 0 var(--hair
 .lab-404 p { margin-top: 18px; max-width: 40em; }
 .lab-404 .lab-chip { margin-top: 28px; }
 
+/* viewer */
+/* ---------- the image viewer (components/lab/viewer) ----------
+   Every body and lead image opens full size. The cursor and the "View full size" hint key on what
+   the listener writes at mount (`data-zoom-ready`, `data-zoom-hint`), so with JavaScript off an
+   image is only an image and nothing about it looks pressable (rule J). */
+.lab img[data-zoom-ready] { cursor: zoom-in; }
+.lab figure[data-zoom-hint] { position: relative; }
+.lab figure[data-zoom-hint]::after,
+.lab figure[data-zoom-hint]::before {
+  position: absolute; z-index: 1;
+  pointer-events: none;
+  opacity: 0; transform: translateY(-2px);
+  transition: opacity var(--lab-t-out) var(--lab-ease), transform var(--lab-t-out) var(--lab-ease);
+}
+/* the hint: a chip in the picture's top right corner, its words from copy.viewerHint */
+.lab figure[data-zoom-hint]::after {
+  content: attr(data-zoom-hint);
+  top: 10px; right: 10px;
+  display: inline-flex; align-items: center;
+  min-height: 30px; padding: 0 32px 0 10px;
+  border: var(--lab-edge) solid var(--box-edge);
+  border-radius: var(--radius-chip);
+  background: var(--raised);
+  color: var(--ink);
+  font: 500 var(--lab-fs-meta) / 1 var(--lab-sans);
+  white-space: nowrap;
+  box-shadow: 2px 2px 0 0 var(--shadow-ink);
+}
+/* its icon, four corners pointing out, drawn in the ink so it follows every theme */
+.lab figure[data-zoom-hint]::before {
+  content: '';
+  z-index: 2;
+  top: calc(10px + var(--lab-edge) + 8px); right: calc(10px + var(--lab-edge) + 10px);
+  width: 14px; height: 14px;
+  background: var(--ink);
+  -webkit-mask: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 14 14' fill='none' stroke='black' stroke-width='1.75' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpath d='M1.5 5V1.5H5M9 1.5h3.5V5M12.5 9v3.5H9M5 12.5H1.5V9'/%3E%3C/svg%3E") center / contain no-repeat;
+  mask: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 14 14' fill='none' stroke='black' stroke-width='1.75' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpath d='M1.5 5V1.5H5M9 1.5h3.5V5M12.5 9v3.5H9M5 12.5H1.5V9'/%3E%3C/svg%3E") center / contain no-repeat;
+}
+@media (hover: hover) {
+  .lab figure[data-zoom-hint]:hover::after,
+  .lab figure[data-zoom-hint]:hover::before { opacity: 1; transform: none; transition-duration: var(--lab-t-in); }
+}
+.lab figure[data-zoom-hint]:has(> img:focus-visible)::after,
+.lab figure[data-zoom-hint]:has(> img:focus-visible)::before { opacity: 1; transform: none; }
+
+/* the viewer: a scrim, and a window framed like every other (rule K) holding the picture as large
+   as fits, never past its own pixels (--w, --h, written by the component) */
+.lab-viewer {
+  --lab-viewer-pad: 24px;
+  --lab-viewer-bar: 44px;
+  --lab-viewer-cap: 0px;
+  --lab-viewer-foot: 0px;
+  position: fixed; inset: 0; z-index: 80;
+  display: grid; place-items: center;
+  padding: var(--lab-viewer-pad);
+  overscroll-behavior: contain;
+}
+.lab-viewer-scrim {
+  position: absolute; inset: 0;
+  margin: 0; padding: 0; border: 0; border-radius: 0;
+  background: color-mix(in srgb, var(--canvas-base) 90%, transparent);
+  cursor: zoom-out;
+}
+.lab-viewer-win {
+  position: relative;
+  display: flex; flex-direction: column;
+  min-width: min(360px, 100%); max-width: 100%; max-height: 100%;
+  border: var(--lab-edge) solid var(--box-edge);
+  border-radius: var(--radius-window);
+  background: var(--raised);
+  box-shadow: var(--float-shadow);
+  overflow: hidden;
+}
+.lab-viewer-win.has-cap { --lab-viewer-cap: 62px; }
+.lab-viewer-win.has-foot { --lab-viewer-foot: 62px; }
+.lab-viewer-bar { flex: none; min-height: var(--lab-viewer-bar); padding-right: 6px; }
+/* the alt as the title, up to two lines (the bar's height holds them); `contain` keeps a long alt
+   from widening the window */
+.lab-viewer-title {
+  flex: 1 1 0; min-width: 0; contain: inline-size;
+  display: -webkit-box; -webkit-box-orient: vertical; -webkit-line-clamp: 2; line-clamp: 2;
+  overflow: hidden;
+  font-size: var(--lab-fs-meta); font-weight: 500; line-height: 1.3;
+  color: var(--ink);
+  text-wrap: pretty;
+}
+.lab-viewer-count {
+  flex: none;
+  padding: 3px 8px;
+  border: 1px solid var(--border-strong);
+  border-radius: 999px;
+  font-size: var(--lab-fs-meta); line-height: 1.2;
+  font-variant-numeric: tabular-nums;
+  color: var(--ink-muted);
+}
+.lab-viewer-close {
+  flex: none;
+  display: grid; place-items: center;
+  width: 32px; height: 32px; padding: 0;
+  border: 0; border-radius: var(--radius-chip);
+  background: transparent; color: var(--ink);
+  transition: box-shadow var(--lab-t-out) var(--lab-ease);
+}
+.lab-viewer-close:hover { box-shadow: inset 0 0 0 1.5px var(--border-strong); transition-duration: var(--lab-t-in); }
+.lab-viewer-stage {
+  position: relative;
+  display: grid; place-items: center;
+  min-height: 0;
+  background: var(--surface);
+  touch-action: pan-x pan-y pinch-zoom;
+}
+.lab .lab-viewer-img {
+  width: min(
+    calc(var(--w) * 1px),
+    calc(100vw - 2 * var(--lab-viewer-pad) - 2 * var(--lab-edge)),
+    calc((100vh - 2 * var(--lab-viewer-pad) - 2 * var(--lab-edge) - var(--lab-viewer-bar) - var(--lab-viewer-cap) - var(--lab-viewer-foot)) * var(--w) / var(--h))
+  );
+  width: min(
+    calc(var(--w) * 1px),
+    calc(100vw - 2 * var(--lab-viewer-pad) - 2 * var(--lab-edge)),
+    calc((100dvh - 2 * var(--lab-viewer-pad) - 2 * var(--lab-edge) - var(--lab-viewer-bar) - var(--lab-viewer-cap) - var(--lab-viewer-foot)) * var(--w) / var(--h))
+  );
+  max-width: none;
+  height: auto;
+  aspect-ratio: var(--w) / var(--h);
+  user-select: none;
+  -webkit-user-drag: none;
+}
+/* previous and next: inside the stage, 14px from its edges, never on the frame (rule LB); on a
+   phone they sit in the row under the picture instead (.lab-viewer-foot) */
+.lab-viewer-arrow {
+  flex: none;
+  display: grid; place-items: center;
+  width: 40px; height: 40px; padding: 0;
+  border: var(--lab-edge) solid var(--box-edge);
+  border-radius: 999px;
+  background: var(--raised); color: var(--ink);
+  box-shadow: 2px 2px 0 0 var(--shadow-ink);
+  transition: transform var(--lab-t-out) var(--lab-ease), box-shadow var(--lab-t-out) var(--lab-ease);
+}
+.lab-viewer-arrow:hover { transform: translate(-1px, -1px); box-shadow: 3px 3px 0 0 var(--shadow-ink); transition-duration: var(--lab-t-in); }
+.lab-viewer-arrow:active { transform: translate(1px, 1px); box-shadow: 1px 1px 0 0 var(--shadow-ink); transition-duration: var(--lab-t-press); }
+.lab-viewer-stage > .lab-viewer-arrow { position: absolute; top: 50%; translate: 0 -50%; }
+.lab-viewer-stage > .lab-viewer-prev { left: 14px; }
+.lab-viewer-stage > .lab-viewer-next { right: 14px; }
+.lab-viewer-next svg { rotate: 180deg; }
+/* the phone's row: previous, the count, next; swiping the picture stays the main way to page */
+.lab-viewer-foot {
+  flex: none; box-sizing: border-box;
+  height: var(--lab-viewer-foot);
+  display: flex; align-items: center; justify-content: space-between; gap: 12px;
+  padding: 0 10px 2px;
+  border-top: var(--rule-w) solid var(--line);
+}
+/* the caption keeps its two lines on a picture without one, so paging never resizes the window */
+.lab-viewer-cap {
+  flex: none; box-sizing: border-box;
+  height: var(--lab-viewer-cap);
+  padding: 10px 14px;
+  border-top: var(--rule-w) solid var(--line);
+  contain: inline-size;
+  display: -webkit-box; -webkit-box-orient: vertical; -webkit-line-clamp: 2; line-clamp: 2;
+  overflow: hidden;
+  font-size: var(--lab-fs-meta); line-height: 1.45;
+  text-align: center;
+  color: var(--ink-muted);
+}
+.lab-viewer-live {
+  position: absolute; width: 1px; height: 1px; margin: -1px; padding: 0; border: 0;
+  overflow: hidden; clip-path: inset(50%); white-space: nowrap;
+}
+@media (max-width: 760px) {
+  .lab-viewer { --lab-viewer-pad: 8px; --lab-viewer-bar: 48px; }
+  .lab-viewer-win.has-cap { --lab-viewer-cap: 64px; }
+  .lab-viewer-close { width: 44px; height: 44px; }
+  .lab-viewer-arrow { width: 44px; height: 44px; }
+}
+
 /* ---------- phone ---------- */
 @media (max-width: 760px) {
   .lab { --lab-pad: 16px; --lab-lh-body: 1.65; }
