@@ -168,8 +168,40 @@ Native `:focus-visible` rings are untouched — the dot is decoration, not a rep
 
 ## Sound
 
-Synthesised via Web Audio. **Zero audio files.** Muted on arrival. One `AudioContext`, unlocked
-on first gesture. This must never be startling.
+Synthesised via Web Audio. **Zero audio files, with one exception: his name** (below). Muted on
+arrival. One `AudioContext`, unlocked on first gesture. This must never be startling.
+
+**The one file.** `public/audio/name.opus` (4.7 KB) is take 1 of the name round (PR #53): Kokoro-82M,
+voice `am_michael`, American male, from the phonemes `ˈɑːhɪl` at speed 0.9, rendered on the server
+by `prototype/lab-v2b-extras/tools/render-takes.py`. Kokoro-82M and its voices are **Apache 2.0**
+(hexgrad/Kokoro-82M). Copied unchanged from `prototype/lab-v2b-extras/audio/kokoro-am-michael-p1-90.opus`.
+It is fetched the first time the name's tooltip opens, never on load, and played through one
+`<audio>` element (`playClip()` in `lib/audio.ts`).
+
+**Mute and "muted on arrival" are two different things**, and `lib/audio.ts` is the one owner of
+both. Arrival leaves the interface cues off (`canvas.sound`), a default nobody chose. **Mute** (the
+Lab's Sound menu, beside Master) is a choice, and silences everything: cues, the radio, the noise
+and the name. A press on the name's voice bubble is the one sound the arrival default does not
+block (Aahil, 28 Nov); Mute always does. Mute holds for the visit across the Lab's soft
+navigations and is not stored.
+
+**The Lab's cues** (`peek`, `turn`, `counter`, `deal`) sit under the desk's: none peaks above 0.04,
+inside the 0.08 ceiling, through the same chain and make-up gain. `peek` plays for a preview opened
+by a tap, a click or focus, `turn` for a page turned from the chapter picker, `counter` and `deal`
+for the instruments (API.md §7). **No hover sounds in the Lab.**
+
+**Noise** (the Lab's Sound menu → Noise): five textures synthesised in the browser (`lib/noise.ts`:
+Brown, Pink, Rain, Room fan, Waves), on an ambience bus of its own, never the cue bus: texture →
+0.8s fade → the Noise level → a limiter (−12 dB, 8:1) → Master and Mute. Each peaks at or under
+0.22 at full level, under the 0.25 ceiling. A station and a noise may play together.
+
+**The Lab's Sound menu** is the canvas's, row for row and at its size (292 × 417): Interface sounds,
+Ambience, Radio · Noise behind a segmented row (Tracks joins once Aahil approves a list), the mixer
+(Master with Mute, then Music, Noise and Interface folded away), a credit. It is a drop-down under
+its pill at every width, never a sheet, in the Lab's frame (`--raised`, 2px `--box-edge`, the float
+offset) instead of the canvas's glass, its smallest text the meta size. The station sounding is
+filled `--mark` under `--accent-ink`; the one chosen but silent has a 3px accent edge. A stored "on"
+never resumes in the Lab: nothing plays until the reader presses something.
 
 Cue gains stay low — the loudest, `theme`, peaks near 0.08 where its five voices overlap — and
 those numbers encode the balance *between* cues. The interface bus then applies a make-up gain of
@@ -296,6 +328,7 @@ meta size, never as big sans.
 | Caveat | 500 | `time, [data-annot], [data-dot]`, never more than 8 words |
 | Literata (Aa: Serif) | 200–900, roman and italic | the reading text, once a reader picks it. Declared, never preloaded, so it is fetched only then |
 | the system's sans (Aa: System) | — | the reading text, once a reader picks it |
+| Tiro Devanagari Hindi, Noto Naskh Arabic | 400, 500 | his name's tooltip only (आहिल, اءحل), each subset to the name's glyphs (3.8 and 2.5 KB, OFL, licences in `public/fonts/lab-name/`). Registered through the FontFace API the first time the tooltip opens, so no stylesheet declares them and they count toward no page's three |
 
 **The reading text** is an entry's title, sub-line, lead intro and column. The chrome around it (the
 bar, the rail, chips, end headings) stays Space Grotesk in every setting.
@@ -429,6 +462,30 @@ floating under the bar's words (27 Nov). The dot (22px) is ink-outlined; in Lab 
 filled `--raised`. The footer hop happens only once `p = 1`. Chapter ticks are 14×6px,
 `--ink` at 18% on light grounds and **34% on dark ones** (decision 13), the current one filled
 `--accent`.
+
+### The name (Aahil, 22–28 Nov)
+
+Wherever a Lab page says his name (`Name`, API.md §6), the first word, **Aahil**, is
+double-underlined (1px, `--ink-muted`, 4px offset; `currentColor` and 3px on hover, focus and open).
+With JavaScript off it is only that word; once the script runs it is a button.
+
+- **The tooltip**: one line, **आहिल · اءحل** and a voice bubble. No second "Aahil": the reader is
+  pointing at it. Devanagari in Tiro Devanagari Hindi at 1.3125rem, Arabic script (Naskh, not
+  Nastaliq) at 1.25rem, `lang="hi"` and `lang="ar" dir="rtl"`, a `--ink-muted` middle dot between.
+  The spellings are final and are copy (`copy.nameDevanagari`, `copy.nameArabic`).
+- **The frame**: `--raised`, the 2px `--box-edge` frame, 12px radius, the box's hard offset; 48px
+  tall (56px on a coarse pointer). The bubble is the one accent: an `--accent` pill under
+  `--accent-ink`, framed, a 2px offset, three 4px dots and **AA-hil** at the meta size, 700. Its
+  accessible name and its `title` carry the pronunciation, "AA-hil", never "AH-hil".
+- **Opening**: on hover (a mouse or pen) or keyboard focus, 140ms opacity and 180ms transform, rising
+  4px. Above the name, or below it where the bar leaves no room; slid sideways to stay 8px inside
+  the screen at 390px; never over the name. Closing: Escape, a press outside, focus leaving, or the
+  pointer leaving, after a 220ms grace (`INTENT.close`) and across a bridge over the 10px gap. On
+  touch, a tap on the name opens and closes it, a tap outside closes it.
+- **Sound only from the bubble**: a click, a tap, Enter or Space. Never on hover or focus. Each
+  press plays the clip once from its start. While it sounds, and only then, the dots bounce
+  (520ms, staggered 110ms); under reduced motion they stand still as a small level meter instead.
+- **Loading**: nothing on load. The first open fetches the two fonts and the clip.
 
 ### Demo content
 

@@ -1,0 +1,90 @@
+/* ---------- his name, and its tooltip (components/lab/name) ----------
+   DIRECTION, "The Lab → The name". The double underline is `.lab-name`'s (app/lab/lab.css); once the
+   page's script runs the word is a button, reset here to read as the same word. The tooltip is the
+   Lab's window language at a hover's size: the frame, a hard offset, the scripts in ink, and the one
+   accent on the voice bubble. */
+
+.lab-name-wrap { position: relative; display: inline-block; text-indent: 0; }
+button.lab-name {
+  display: inline; margin: 0; padding: 0;
+  font: inherit; color: inherit; letter-spacing: inherit;
+  background: none; border: 0; border-radius: 2px;
+  cursor: pointer;
+  transition: text-decoration-color var(--lab-t-hover) var(--lab-ease), text-underline-offset var(--lab-t-hover) var(--lab-ease);
+}
+button.lab-name:hover,
+button.lab-name:focus-visible,
+.lab-name-wrap[data-open] button.lab-name { text-decoration-color: currentColor; text-underline-offset: 3px; }
+
+.lab-name-tip {
+  position: absolute; z-index: 25;
+  left: var(--tip-x, -14px); bottom: calc(100% + 10px);
+  display: inline-flex; align-items: center; gap: 10px;
+  height: 48px; padding: 0 6px 0 14px;
+  white-space: nowrap;
+  font: 400 var(--lab-fs-meta) / 1 var(--lab-sans);
+  letter-spacing: normal;
+  color: var(--ink); background: var(--raised);
+  border: var(--lab-edge) solid var(--box-edge);
+  border-radius: var(--radius-window);
+  box-shadow: var(--box-shadow);
+  opacity: 1; transform: none;
+  transition: opacity 140ms var(--lab-ease), transform 180ms var(--lab-ease);
+}
+.lab-name-tip[data-side='below'] { bottom: auto; top: calc(100% + 10px); }
+.lab-name-tip[hidden] { display: none; }
+@starting-style {
+  .lab-name-tip { opacity: 0; transform: translateY(4px); }
+  .lab-name-tip[data-side='below'] { transform: translateY(-4px); }
+}
+/* a bridge over the gap, so the pointer can cross from the name to the bubble */
+.lab-name-tip::after { content: ''; position: absolute; left: 0; right: 0; top: 100%; height: 14px; }
+.lab-name-tip[data-side='below']::after { top: auto; bottom: 100%; }
+
+.lab-name-dev { font: 400 1.3125rem / 1 'Lab Name Devanagari', 'Tiro Devanagari Hindi', serif; }
+.lab-name-ar { font: 500 1.25rem / 1 'Lab Name Arabic', 'Noto Naskh Arabic', serif; padding-bottom: 3px; }
+.lab-name-sep { color: var(--ink-muted); font-size: 1rem; }
+
+/* the voice bubble: a round-ended chip, its dots and the word as it is said */
+.lab-name-say {
+  display: inline-flex; align-items: center; gap: 7px;
+  height: 34px; margin-left: 2px; padding: 0 12px 0 10px;
+  border-radius: 999px;
+  border: var(--lab-edge) solid var(--box-edge);
+  background: var(--accent); color: var(--accent-ink);
+  box-shadow: 2px 2px 0 0 var(--shadow-ink);
+  font: 700 var(--lab-fs-meta) / 1 var(--lab-sans); letter-spacing: 0.04em;
+  cursor: pointer;
+  transition: transform var(--lab-t-out) var(--lab-ease), box-shadow var(--lab-t-out) var(--lab-ease);
+}
+.lab-name-say:hover { transform: translate(-1px, -1px); box-shadow: 3px 3px 0 0 var(--shadow-ink); transition-duration: var(--lab-t-in); }
+.lab-name-say:active { transform: translate(1px, 1px); box-shadow: 1px 1px 0 0 var(--shadow-ink); transition-duration: var(--lab-t-press); }
+.lab-name-say:focus-visible { outline: 2px solid var(--focus); outline-offset: 2px; }
+.lab-name-dots { display: inline-flex; align-items: center; gap: 3px; height: 14px; }
+.lab-name-dots i { width: 4px; height: 4px; border-radius: 2px; background: currentColor; }
+/* while the clip sounds, and only then, the dots bounce */
+.lab-name-say[data-playing] .lab-name-dots i { animation: lab-name-dot 520ms var(--lab-ease) infinite; }
+.lab-name-say[data-playing] .lab-name-dots i:nth-child(2) { animation-delay: 110ms; }
+.lab-name-say[data-playing] .lab-name-dots i:nth-child(3) { animation-delay: 220ms; }
+@keyframes lab-name-dot {
+  0%, 100% { transform: translateY(2px); }
+  45% { transform: translateY(-4px); }
+}
+
+/* touch: the bubble is a 44px target, the tooltip grows to hold it */
+@media (pointer: coarse) {
+  .lab-name-tip { height: 56px; }
+  .lab-name-say { height: 44px; padding: 0 14px 0 12px; }
+}
+
+/* reduced motion: nothing moves (app/lab/lab.css stops every animation), so playing is a still
+   state of its own: the dots stand up as a small level meter */
+@media (prefers-reduced-motion: reduce) {
+  .lab-name-say[data-playing] .lab-name-dots { align-items: flex-end; }
+  .lab-name-say[data-playing] .lab-name-dots i { width: 3px; border-radius: 1px; }
+  .lab-name-say[data-playing] .lab-name-dots i:nth-child(1) { height: 8px; }
+  .lab-name-say[data-playing] .lab-name-dots i:nth-child(2) { height: 14px; }
+  .lab-name-say[data-playing] .lab-name-dots i:nth-child(3) { height: 10px; }
+}
+
+@media print { .lab-name-tip { display: none !important; } }

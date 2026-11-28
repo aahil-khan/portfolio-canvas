@@ -28,6 +28,15 @@ type Cue =
   | 'score'
   | 'fail'
   | 'unlock'
+  // the Lab (plan PR 12): previews, page turns, instruments. None of them is a hover sound.
+  | 'peek'
+  | 'turn'
+  | 'counter'
+  | 'deal'
+
+/** The cues the Lab may play, by the names its cross-lane events carry (API.md §7). */
+export const LAB_CUES = ['peek', 'turn', 'counter', 'deal'] as const
+export type LabCue = (typeof LAB_CUES)[number]
 
 const KEY = 'canvas.sound'
 const KEY_UI_VOL = 'canvas.uiVolume'
@@ -62,10 +71,21 @@ let volumes = { ui: uiVolume, master: masterVolume }
 /** Shared LFO output, patched into every oscillator's detune for tape warble. */
 let wobble: GainNode | null = null
 
+/**
+ * The one AudioContext for the whole site, created on the first sound someone asks for and never
+ * before (check:lab rule 20). The interface cues below and the Lab's noise (`lib/ambience.ts`) share
+ * it, each on its own bus, so a page never holds two.
+ */
+export function audioContext(): AudioContext {
+  if (!ctx) ctx = new AudioContext()
+  if (ctx.state === 'suspended') void ctx.resume()
+  return ctx
+}
+
 /** Build the shared chain once. */
 function audio(): { ctx: AudioContext; bus: GainNode } {
   if (ctx && bus) return { ctx, bus }
-  ctx = new AudioContext()
+  ctx = audioContext()
 
   const master = ctx.createGain()
   master.gain.value = uiVolume * masterVolume * UI_MAKEUP
@@ -254,6 +274,28 @@ const CUES: Record<Cue, () => void> = {
       voice({ f, dur: 0.9, gain: 0.026, type: 'sine', at: i * 0.09, detune: i * 3 }),
     )
   },
+  /*
+   * The Lab's cues. A reading surface is quieter than the desk, so these sit under the window cues:
+   * none peaks above 0.04 before the make-up gain, well inside the 0.08 ceiling (DIRECTION, "Sound").
+   * Same pentatonic table, same chain, so a page turn under a station never clashes with it.
+   */
+  // a preview opening on a tap, a click or focus: the softest touch, one high note
+  peek: () => voice({ f: vary(P.g4 * 2, 30), dur: 0.12, gain: 0.016, type: 'sine' }),
+  // a page turning: a short brushed sweep and a low note under it
+  turn: () => {
+    noise(0.16, 0.018, 700, 1700)
+    voice({ f: vary(P.c4), dur: 0.22, gain: 0.018, type: 'sine', at: 0.04 })
+  },
+  // a counter ticking over in an instrument: two notes a fifth apart, the second quieter
+  counter: () => {
+    voice({ f: vary(P.e4, 12), dur: 0.14, gain: 0.022, type: 'triangle' })
+    voice({ f: vary(P.e4 * 1.5, 12), dur: 0.1, gain: 0.01, type: 'sine', at: 0.035 })
+  },
+  // a card dealt onto a board: a flick of paper, then the card settling
+  deal: () => {
+    noise(0.07, 0.022, 2200, 900)
+    voice({ f: vary(P.a3, 20), dur: 0.18, gain: 0.02, type: 'triangle', at: 0.02 })
+  },
 }
 
 /** Interface-cue level, 0–1. Multiplied by master before it reaches the bus. */
@@ -331,7 +373,7 @@ export function setMasterVolume(v: number): void {
 }
 
 export function play(cue: Cue): void {
-  if (!enabled) return
+  if (!enabled || muted) return
   loadVolumes()
   const { ctx: c } = audio()
   if (c.state === 'suspended') void c.resume()
@@ -378,4 +420,119 @@ export function setSoundOn(on: boolean): void {
     /* private mode — the preference just won't persist */
   }
   for (const l of listeners) l()
+}
+
+/*
+ * Mute, and the one sound that ignores "muted on arrival".
+ *
+ * Two states that are easy to blur, so they are kept apart here and nowhere else:
+ *
+ *   - **Interface sounds off** is how every visitor arrives (`enabled` above). It is a default, not
+ *     a choice anyone made, and it silences only the interface cues.
+ *   - **Muted** is a choice: the Mute button in the Lab's Sound menu. It silences everything that
+ *     comes out of this site — the cues, the radio, the noise and the name.
+ *
+ * His name is the exception to the first and never to the second (Aahil's decision, 28 Nov): a
+ * reader who presses the voice bubble asked to hear it, so the arrival default does not block it,
+ * while a reader who pressed Mute is never spoken to. Components ask `clipAllowed()`; none of them
+ * reads either flag itself.
+ *
+ * Mute lives in memory for the visit. The Lab's pages are soft navigations, so it holds across
+ * them; a full reload starts unmuted, as every visit does (no storage key holds it: API.md §10).
+ */
+let muted = false
+/* One object per state, so useSyncExternalStore sees a stable snapshot. */
+let mixState = { enabled: false, muted: false }
+
+export function isMuted(): boolean {
+  return muted
+}
+
+export function setMuted(m: boolean): void {
+  muted = m
+  if (muted) for (const a of clips.values()) a.pause()
+  for (const l of listeners) l()
+}
+
+/** Interface sounds and Mute as one snapshot, for the Lab's Sound menu. */
+export function getMixSnapshot(): { enabled: boolean; muted: boolean } {
+  const on = getSoundSnapshot()
+  if (mixState.enabled !== on || mixState.muted !== muted) mixState = { enabled: on, muted }
+  return mixState
+}
+const SERVER_MIX = { enabled: false, muted: false }
+export const getMixServerSnapshot = () => SERVER_MIX
+
+/** May a clip the reader asked for play now? Only Mute says no. */
+export function clipAllowed(): boolean {
+  return !muted
+}
+
+/*
+ * Clips: the site's one exception to "zero audio files" is his name, a 4.7 KB Opus file. Each
+ * source gets one `<audio>` element, made the first time it is prepared and reused for every play,
+ * so pressing the bubble ten times fetches it once. Nothing is made, and nothing fetched, until a
+ * caller asks: the name prepares its clip when its tooltip first opens, never on load.
+ *
+ * An element rather than a decoded buffer: it needs no AudioContext, so hearing the name never
+ * starts the Web Audio graph, and it plays at the Master level.
+ */
+const clips = new Map<string, HTMLAudioElement>()
+/** Who is listening to each clip's current play, so a second press hands over cleanly. */
+const runs = new Map<string, { onPlaying?: () => void; onDone?: () => void }>()
+
+function clipElement(src: string): HTMLAudioElement {
+  let a = clips.get(src)
+  if (a) return a
+  const el = new Audio()
+  el.preload = 'auto'
+  el.hidden = true
+  el.setAttribute('aria-hidden', 'true')
+  el.dataset.clip = ''
+  el.src = src
+  const finish = () => {
+    const run = runs.get(src)
+    runs.delete(src)
+    run?.onDone?.()
+  }
+  el.addEventListener('playing', () => runs.get(src)?.onPlaying?.())
+  el.addEventListener('ended', finish)
+  el.addEventListener('pause', finish)
+  el.addEventListener('error', finish)
+  document.body.appendChild(el)
+  clips.set(src, el)
+  a = el
+  return a
+}
+
+/** Starts fetching a clip, so a later `playClip` starts at once. Safe to call repeatedly. */
+export function prepareClip(src: string): void {
+  clipElement(src)
+}
+
+/**
+ * Plays a clip once from its start, unless the reader muted. `onPlaying` fires when sound actually
+ * starts, `onDone` when it ends, is paused (Mute) or fails; a caller ties its "playing" look to
+ * exactly that span. A press while it plays starts it again from the top, without a pause between.
+ * Returns false when nothing will play.
+ */
+export function playClip(src: string, on: { onPlaying?: () => void; onDone?: () => void } = {}): boolean {
+  if (!clipAllowed()) return false
+  loadVolumes()
+  const a = clipElement(src)
+  const prev = runs.get(src)
+  runs.set(src, on)
+  a.volume = masterVolume
+  a.currentTime = 0
+  if (!a.paused) {
+    // already sounding: back to the top, no pause between; the new caller takes over the run
+    if (prev && prev !== on) prev.onDone?.()
+    on.onPlaying?.()
+  }
+  a.play().catch(() => {
+    if (runs.get(src) !== on) return
+    runs.delete(src)
+    on.onDone?.()
+  })
+  return true
 }

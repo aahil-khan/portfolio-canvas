@@ -1,0 +1,182 @@
+/* ---------- the Sound menu (components/lab/sound) ----------
+   The canvas's menu (app/desktop.css, "sound menu" and "volume mixer"), row for row and at its
+   size, 292 wide: rule S holds it to the canvas's 292 × 417 within 10%. What changes is the
+   frame: the canvas's menu is glass on a fixed pill; here it is the Lab's window, a 2px frame and
+   a zero-blur offset (rule K), in every theme. The smallest text is the Lab's meta size, 13px. */
+
+.lab-sound { position: relative; display: inline-flex; }
+.lab-sound-btn { padding: 0 14px 0 11px; }
+.lab-sound-btn.is-on { color: var(--ink); }
+.lab-sound-btn .lab-eq { margin-left: -2px; }
+
+.lab-sound-menu {
+  position: absolute; z-index: 40;
+  top: calc(100% + 8px); right: 0;
+  width: 292px; max-width: calc(100vw - 16px);
+  max-height: calc(100vh - var(--lab-bar-h) - 16px);
+  max-height: calc(100dvh - var(--lab-bar-h) - 16px);
+  overflow-y: auto; overscroll-behavior: contain;
+  display: flex; flex-direction: column; gap: 1px;
+  padding: 6px;
+  border: var(--lab-edge) solid var(--box-edge);
+  border-radius: 14px;
+  background: var(--raised); color: var(--ink);
+  box-shadow: var(--float-shadow);
+  font-size: var(--lab-fs-meta); line-height: 1.3;
+  text-align: left;
+}
+
+/* rows: a two-line switch item, and one-line picks */
+.lab-sound-item, .lab-sound-pick {
+  display: flex; flex-direction: column; align-items: flex-start; gap: 1px;
+  width: 100%; padding: 6px 10px;
+  border: 0; border-radius: 9px;
+  background: none; color: var(--ink);
+  font: inherit; text-align: left;
+  cursor: pointer;
+  transition: background-color var(--lab-t-out) var(--lab-ease);
+}
+.lab-sound-item:hover, .lab-sound-pick:hover,
+.lab-sound-item:focus-visible, .lab-sound-pick:focus-visible {
+  background: color-mix(in srgb, var(--ink) 9%, transparent);
+  transition-duration: var(--lab-t-in);
+}
+.lab-sound-row { display: flex; align-items: center; justify-content: space-between; gap: 10px; width: 100%; }
+.lab-sound-label { font-weight: 700; }
+.lab-sound-hint { color: var(--ink-muted); display: inline-flex; align-items: center; gap: 6px; }
+
+/* the switch: the canvas's, drawn in the theme's frame and accent */
+.lab-sw {
+  flex: none; position: relative;
+  width: 30px; height: 18px; border-radius: 999px;
+  border: 2px solid var(--box-edge);
+  background: color-mix(in srgb, var(--ink) 12%, transparent);
+  transition: background-color 160ms var(--lab-ease);
+}
+.lab-sw::after {
+  content: ''; position: absolute; top: 2px; left: 2px;
+  width: 10px; height: 10px; border-radius: 999px;
+  background: var(--ink);
+  transition: transform 160ms var(--lab-ease), background-color 160ms var(--lab-ease);
+}
+[aria-checked='true'] > .lab-sound-row > .lab-sw { background: var(--accent); }
+[aria-checked='true'] > .lab-sound-row > .lab-sw::after { transform: translateX(12px); background: var(--accent-ink); }
+
+/* the sources: Radio and Noise behind a segmented row, the list under it */
+.lab-sound-sources {
+  margin-top: 4px; padding-top: 6px;
+  border-top: var(--rule-w) solid var(--line);
+}
+.lab-sound-head { display: flex; align-items: center; justify-content: space-between; gap: 8px; padding: 2px 4px 6px 6px; }
+.lab-sound-seg {
+  display: inline-flex; padding: 2px; gap: 2px;
+  border-radius: 999px;
+  border: var(--rule-w) solid var(--line);
+}
+.lab-sound-seg button, .lab-sound-shuffle {
+  min-height: 26px; padding: 0 11px;
+  border: 0; border-radius: 999px;
+  background: none; color: var(--ink-muted);
+  font: inherit; font-weight: 500;
+  cursor: pointer;
+  transition: background-color var(--lab-t-out) var(--lab-ease), color var(--lab-t-out) var(--lab-ease);
+}
+.lab-sound-seg button:hover, .lab-sound-shuffle:hover { color: var(--ink); background: color-mix(in srgb, var(--ink) 9%, transparent); transition-duration: var(--lab-t-in); }
+.lab-sound-seg button[aria-selected='true'] { background: var(--ink); color: var(--raised); }
+.lab-sound-shuffle { border: var(--rule-w) solid var(--line); }
+
+.lab-sound-list { display: flex; flex-direction: column; gap: 1px; }
+.lab-sound-list[hidden] { display: none; }
+.lab-sound-pick { flex-direction: row; align-items: center; gap: 10px; padding-block: 5px; }
+.lab-sound-pick .lab-sound-label { flex: none; }
+.lab-sound-pick .lab-sound-hint {
+  display: block; flex: 1; min-width: 0;
+  overflow: hidden; text-overflow: ellipsis; white-space: nowrap; text-align: right;
+}
+/* the chosen one is marked by an edge; the one sounding is filled, under the mark's own ink */
+.lab-sound-pick[data-selected] { box-shadow: inset 3px 0 0 0 var(--accent); }
+.lab-sound-pick[data-live] { background: var(--mark); color: var(--accent-ink); box-shadow: none; }
+.lab-sound-pick[data-live] .lab-sound-hint { color: var(--accent-ink); }
+
+/* the playing meter */
+.lab-eq { flex: none; display: inline-flex; align-items: flex-end; gap: 2px; height: 12px; }
+.lab-eq i { width: 3px; border-radius: 1px; background: currentColor; animation: lab-eq 900ms ease-in-out infinite; transform-origin: bottom; }
+.lab-eq i:nth-child(1) { height: 60%; animation-delay: -300ms; }
+.lab-eq i:nth-child(2) { height: 100%; animation-delay: -600ms; }
+.lab-eq i:nth-child(3) { height: 45%; }
+@keyframes lab-eq {
+  0%, 100% { transform: scaleY(0.4); }
+  50% { transform: scaleY(1); }
+}
+
+/* connecting: a ring with a gap. Under reduced motion app/lab/lab.css stops it, and the word says it */
+.lab-spin {
+  flex: none; display: inline-block;
+  width: 11px; height: 11px; border-radius: 999px;
+  border: 2px solid color-mix(in srgb, var(--ink) 22%, transparent);
+  border-top-color: var(--ink);
+  animation: lab-spin 620ms linear infinite;
+}
+@keyframes lab-spin { to { transform: rotate(360deg); } }
+
+/* the mixer: Master and Mute, the other three folded away */
+.lab-mix {
+  margin-top: 6px; padding: 9px 4px 4px 10px;
+  border-top: var(--rule-w) solid var(--line);
+}
+.lab-mix-master { display: grid; grid-template-columns: 1fr auto auto; align-items: center; gap: 6px; }
+.lab-mix-btn {
+  width: 26px; height: 26px; padding: 0;
+  display: grid; place-items: center;
+  border: 0; border-radius: 999px;
+  background: color-mix(in srgb, var(--ink) 9%, transparent); color: var(--ink-muted);
+  cursor: pointer;
+  transition: background-color var(--lab-t-out) var(--lab-ease), color var(--lab-t-out) var(--lab-ease);
+}
+.lab-mix-btn:hover { background: color-mix(in srgb, var(--ink) 16%, transparent); color: var(--ink); transition-duration: var(--lab-t-in); }
+.lab-mix-btn[aria-expanded='true'] { color: var(--ink); }
+.lab-mix-btn[aria-expanded='true'] svg { transform: rotate(180deg); }
+.lab-mix-btn svg { transition: transform 160ms var(--lab-ease); }
+.lab-mix-btn[aria-pressed='true'] { background: var(--ink); color: var(--raised); }
+.lab-mix-detail { display: grid; grid-template-rows: 0fr; opacity: 0; transition: grid-template-rows 160ms var(--lab-ease), opacity 120ms ease; }
+.lab-mix-detail[data-open] { grid-template-rows: 1fr; opacity: 1; }
+.lab-mix-detail-in { display: grid; gap: 7px; min-height: 0; overflow: hidden; padding-right: calc(2 * 26px + 12px); padding-block: 2px 4px; }
+.lab-mix-detail[data-open] .lab-mix-detail-in { margin-top: 7px; padding-top: 7px; border-top: 1px dashed var(--line); }
+
+.lab-fader { display: grid; grid-template-columns: 62px 1fr 28px; align-items: center; gap: 8px; }
+.lab-fader-name { font-weight: 500; color: var(--ink-muted); }
+.lab-fader-pct { text-align: right; font-variant-numeric: tabular-nums; color: var(--ink-muted); }
+.lab-fader.is-primary .lab-fader-name, .lab-fader.is-primary .lab-fader-pct { color: var(--ink); font-weight: 700; }
+.lab-fader input[type='range'] { -webkit-appearance: none; appearance: none; width: 100%; height: 18px; margin: 0; background: none; cursor: pointer; }
+.lab-fader input[type='range']::-webkit-slider-runnable-track {
+  height: 6px; border-radius: 999px;
+  border: 1.5px solid var(--box-edge);
+  background: linear-gradient(to right, var(--accent) 0 var(--fill), color-mix(in srgb, var(--ink) 12%, transparent) var(--fill) 100%);
+}
+.lab-fader input[type='range']::-moz-range-track {
+  height: 6px; border-radius: 999px;
+  border: 1.5px solid var(--box-edge);
+  background: linear-gradient(to right, var(--accent) 0 var(--fill), color-mix(in srgb, var(--ink) 12%, transparent) var(--fill) 100%);
+}
+.lab-fader input[type='range']::-webkit-slider-thumb {
+  -webkit-appearance: none; appearance: none;
+  width: 14px; height: 14px; margin-top: -5.5px; border-radius: 999px;
+  background: var(--raised); border: 2px solid var(--box-edge);
+}
+.lab-fader input[type='range']::-moz-range-thumb { width: 14px; height: 14px; border-radius: 999px; background: var(--raised); border: 2px solid var(--box-edge); }
+
+.lab-sound-credit { margin: 6px 10px 2px; color: var(--ink-muted); }
+
+.lab-sound-menu :focus-visible { outline: 2px solid var(--focus); outline-offset: -2px; }
+
+/* a phone: the word goes, the pill is a 44px target, the menu stays a drop-down at the canvas's size */
+@media (max-width: 760px) {
+  .lab-sound-btn { padding: 0; width: 44px; }
+  .lab-sound-btn .lab-sound-word, .lab-sound-btn .lab-eq { display: none; }
+  .lab-sound-menu { right: -2px; }
+}
+@media (pointer: coarse) {
+  .lab-sound-pick { min-height: 31px; }
+}
+
+@media print { .lab-sound { display: none !important; } }
