@@ -1,60 +1,98 @@
-/*
- * PLACEHOLDER, replaced outright by PR 9 (plan `plan-the-real-lab`, "9 · Home, section pages,
- * index, tags, glossary"). PR 6 ships it so `/lab` answers while the shell and the entry pages are
- * reviewed: the intro, the empty Lab's note (API.md, "The empty Lab"), and otherwise a plain list
- * of every top-level entry by section.
- */
 import Link from 'next/link'
 
+import { Band } from '@/components/lab/lists/band'
+import { Arrow } from '@/components/lab/lists/head'
+import { EntryRow } from '@/components/lab/lists/row'
+import { ColumnTransition } from '@/components/lab/motion/column-transition'
 import { Name } from '@/components/lab/name'
 import { profile } from '@/content'
-import { getLab, homeBands, pathOf } from '@/lib/lab/content'
+import { getLab, homeBands, latest, routes } from '@/lib/lab/content'
 import { labMetadata } from '@/lib/lab/seo'
-import { bareillyToday, formatDay } from '@/lib/lab/view'
+import { bareillyToday, fill } from '@/lib/lab/view'
+
+import '@/components/lab/lists/lists.css'
 
 export const metadata = labMetadata({ path: '/lab' })
 
+/**
+ * The Lab's home (plan PR 9; README, "The home is evergreen"). It names no entry in its own
+ * furniture, so it reads the same after a month with nothing new: the intro, with his name in the
+ * Name slot (API.md §6); New here?; one framed band per section with its first five top-level
+ * entries (decision 1); the six newest entries of any kind (decision 2); and "All N entries".
+ * No Now line, nothing pinned, nothing counting progress, no relative dates (H1–H3).
+ *
+ * With demo off and nothing written (API.md, "The empty Lab"), it is the intro and a short note.
+ */
 export default function LabHome() {
-  const { copy } = getLab()
+  const { copy, entries } = getLab()
   const bands = homeBands()
+  const newest = latest(6)
   const today = bareillyToday()
+  const all = routes().filter((r) => r.kind === 'entry').length
   const [before, after = ''] = copy.homeIntro.split('{name}')
   return (
-    <div className="lab-page">
+    <ColumnTransition className="lab-list lab-home">
+      <div data-lists="home">
       <section className="lab-intro">
         <p className="lab-eyebrow">{copy.homeEyebrow}</p>
         <h1 className="lab-home-title">{copy.homeTitle}</h1>
-        <p className="lab-intro-text">
+        <p className="lab-intro-text lab-home-intro">
           {before}
           <Name name={profile.name} />
-          {after}
+          {after} {copy.homeBrand}
         </p>
-        <p className="lab-intro-text">{copy.homeBrand}</p>
       </section>
-      {bands.length ? (
-        <div className="lab-sections">
-          {bands.map(({ section, entries }) => (
-            <section key={section.id}>
-              <h2>{section.title}</h2>
-              <p className="meta">{section.thesis}</p>
-              <ul className="lab-rows">
-                {entries.map((e) => (
-                  <li key={e.id}>
-                    <Link className="lab-row-title" href={pathOf(e)} data-preview={`entry:${e.id}`}>
-                      {e.title}
-                    </Link>
-                    {e.published ? <time dateTime={e.published}>{formatDay(e.published, today)}</time> : null}
-                  </li>
-                ))}
-              </ul>
-            </section>
-          ))}
-        </div>
+
+      {bands.length && entries.length ? (
+        <>
+          <section className="lab-lblock lab-new" aria-labelledby="lab-new-title">
+            <h2 id="lab-new-title" className="lab-lblock-title">
+              {copy.newTitle}
+            </h2>
+            <div className="lab-new-grid">
+              {(['What', 'Read', 'Start'] as const).map((k) => (
+                <div key={k}>
+                  <h3 className="lab-new-h">{copy[`new${k}H`]}</h3>
+                  <p>{copy[`new${k}`]}</p>
+                </div>
+              ))}
+            </div>
+          </section>
+
+          <section className="lab-lblock" aria-labelledby="lab-sections-title">
+            <h2 id="lab-sections-title" className="lab-lblock-title">
+              {copy.homeSections}
+            </h2>
+            <div className="lab-bands">
+              {bands.map(({ section, entries: rows, total }) => (
+                <Band key={section.id} section={section} entries={rows} total={total} today={today} copy={copy} />
+              ))}
+            </div>
+          </section>
+
+          <section className="lab-lblock" aria-labelledby="lab-latest-title">
+            <h2 id="lab-latest-title" className="lab-lblock-title">
+              {copy.homeLatest}
+            </h2>
+            <ul className="lab-lrows lab-lrows-latest" data-latest="">
+              {newest.map((e) => (
+                <EntryRow key={e.id} entry={e} today={today} />
+              ))}
+            </ul>
+            <p className="lab-all">
+              <Link href="/lab/index">
+                {fill(copy.homeAll, { n: all })}
+                <Arrow />
+              </Link>
+            </p>
+          </section>
+        </>
       ) : (
         <p className="lab-note box" data-box>
           {copy.homeEmpty}
         </p>
       )}
-    </div>
+      </div>
+    </ColumnTransition>
   )
 }
