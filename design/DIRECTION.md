@@ -176,7 +176,8 @@ voice `am_michael`, American male, from the phonemes `ˈɑːhɪl` at speed 0.9, 
 by `prototype/lab-v2b-extras/tools/render-takes.py`. Kokoro-82M and its voices are **Apache 2.0**
 (hexgrad/Kokoro-82M). Copied unchanged from `prototype/lab-v2b-extras/audio/kokoro-am-michael-p1-90.opus`.
 It is fetched the first time the name's tooltip opens, never on load, and played through one
-`<audio>` element (`playClip()` in `lib/audio.ts`).
+`<audio>` element (`playClip()` in `lib/audio.ts`) at **half the Master level**: the file peaks at
+−0.9 dBFS, and at full Master it would sit ~11 dB over the cues and above the radio.
 
 **Mute and "muted on arrival" are two different things**, and `lib/audio.ts` is the one owner of
 both. Arrival leaves the interface cues off (`canvas.sound`), a default nobody chose. **Mute** (the

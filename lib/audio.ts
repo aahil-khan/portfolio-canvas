@@ -478,6 +478,13 @@ export function clipAllowed(): boolean {
  * starts the Web Audio graph, and it plays at the Master level.
  */
 const clips = new Map<string, HTMLAudioElement>()
+/*
+ * The name clip is mastered near full scale (it peaks at −0.9 dBFS). At the Master level alone it
+ * would land some 11 dB over the cues and above the radio (≈ 0.4), which is startling for a word.
+ * Half of Master puts its peak near the music's, so pressing the bubble is never the loudest thing
+ * on the page.
+ */
+const CLIP_LEVEL = 0.5
 /** Who is listening to each clip's current play, so a second press hands over cleanly. */
 const runs = new Map<string, { onPlaying?: () => void; onDone?: () => void }>()
 
@@ -522,7 +529,7 @@ export function playClip(src: string, on: { onPlaying?: () => void; onDone?: () 
   const a = clipElement(src)
   const prev = runs.get(src)
   runs.set(src, on)
-  a.volume = masterVolume
+  a.volume = masterVolume * CLIP_LEVEL
   a.currentTime = 0
   if (!a.paused) {
     // already sounding: back to the top, no pause between; the new caller takes over the run

@@ -253,8 +253,15 @@ function COLUMN() {
       (!end || p.compareDocumentPosition(end) & Node.DOCUMENT_POSITION_FOLLOWING),
   )
   if (!ps.length) return null
+  // the column is where most of them sit: a figure or an instrument may run wider, by design
   const rs = ps.map((p) => p.getBoundingClientRect())
-  return { l: Math.min(...rs.map((r) => r.left)), r: Math.max(...rs.map((r) => r.right)), t: 0, b: innerHeight }
+  const count = new Map()
+  for (const r of rs) {
+    const k = `${Math.round(r.left)}:${Math.round(r.right)}`
+    count.set(k, (count.get(k) ?? 0) + 1)
+  }
+  const [l, r] = [...count].sort((a, b) => b[1] - a[1])[0][0].split(':').map(Number)
+  return { l, r, t: 0, b: innerHeight }
 }
 
 function MENU() {
