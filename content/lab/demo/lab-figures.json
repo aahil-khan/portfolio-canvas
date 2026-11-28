@@ -846,7 +846,7 @@
     }
   },
   "datesheet": {
-    "instrument": "datesheet",
+    "instrument": "before-after",
     "data": {
       "copy": {
         "before": "Session-based state: a page refresh lost the work.",

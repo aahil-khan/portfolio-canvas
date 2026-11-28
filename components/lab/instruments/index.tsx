@@ -1,15 +1,42 @@
-import type { CSSProperties, ReactNode } from 'react'
+import type { ReactNode } from 'react'
 
+import { getLab, pathOf } from '@/lib/lab/content'
+import { ITEMS, type Item } from '@/lib/lab/haggle'
 import type { Entry, Figure as FigureData, LeadName, StudyData } from '@/lib/lab/types'
-import { fill } from '@/lib/lab/view'
+import { bareillyToday, fill, formatDay } from '@/lib/lab/view'
+
+import { BeforeAfter } from './before-after'
+import { Board } from './board'
+import { Chart, type ChartRow } from './chart'
+import { Demo } from './demo'
+import { Haggle, type LogWords } from './haggle'
+import { Install } from './install'
+import { Keyline, Logline } from './keyline'
+import { Drawn } from './live'
+import { Cover, Opening } from './opening'
+import { Passk, type PasskCopy } from './passk'
+import { SeriesProgress } from './progress'
+import { Result } from './result'
+import { ScenarioBrowser, type Scenario, type ScenarioGroup } from './scenario-browser'
+import { Screens } from './screens'
+import { Steps, type StepsCopy } from './steps'
+import { Table } from './table'
+
+import './instruments.css'
 
 /**
- * The instruments slot (API.md §6). PR 6 ships the static, server-rendered fallback of every lead
- * and figure, readable with JavaScript off; PR 11 replaces the module's insides with the real
- * registry (each instrument a static fallback plus a client island) and keeps `Lead` and `Figure`.
+ * The instruments slot (API.md §6), PR 11: the real registry behind `Lead` and `Figure`.
+ *
+ * Every instrument is server-rendered in its opening state, so it is complete with JavaScript off
+ * and the client island (where it has one) hydrates the same markup. The interactive ones are the
+ * board, the haggle, the scenario browser, pass@k, the screens carousel, the demo's pause and the
+ * install line's copy; the rest are figures that only draw. Controls that need JavaScript carry
+ * `data-needs-js` (hidden under `scripting: none`); what stands in for them without it carries
+ * `data-no-js`. Each lead draws once, on first view (`live.tsx`, `instruments.css`).
  *
  * Words come from the data (an entry's fields, a figure's `caption` and `data.copy`) or from the
- * Lab's copy, passed in; nothing here is a sentence of its own.
+ * Lab's copy (`lab.json`, the `instr*` block and the keys PR 2 wrote), passed in; nothing here is a
+ * sentence of its own. The shapes each instrument reads are `lib/lab/instruments/schemas.ts`.
  */
 
 type Copy = Record<string, string>
@@ -27,236 +54,185 @@ export interface LeadProps {
   rendered: { keyLine?: ReactNode; opening?: ReactNode }
 }
 
-const strings = (v: unknown): string[] => (typeof v === 'string' ? [v] : [])
+const obj = (v: unknown): Record<string, unknown> => (v && typeof v === 'object' && !Array.isArray(v) ? (v as Record<string, unknown>) : {})
+const words = (v: unknown): Copy => Object.fromEntries(Object.entries(obj(v)).filter(([, x]) => typeof x === 'string')) as Copy
 
-/** A table from `{ head, rows }` figure data (compare, spec tables). */
-function Table({ data }: { data: Record<string, unknown> }) {
-  const head = Array.isArray(data.head) ? (data.head as string[]) : null
-  const rows = Array.isArray(data.rows) ? (data.rows as unknown[][]) : []
+/** The priced item a figure names (`data.item`), else its first, else the spec's charger. */
+function itemOf(d: Record<string, unknown>): Item {
+  const items = obj(d.items) as Record<string, Item>
+  const id = typeof d.item === 'string' ? d.item : Object.keys(items)[0]
+  const it = items[id] ?? ITEMS['CHG-20W']
+  return { id: it.id ?? id, name: it.name, list: it.list, floor: it.floor }
+}
+
+/** The Lab's words for the haggle's log, from the `instrLog*` copy. */
+const logWords = (c: Copy): LogWords => ({
+  context: c.instrLogContext,
+  system: c.instrLogSystem,
+  item: c.instrLogItem,
+  tools: c.instrLogTools,
+  returns: c.instrLogReturns,
+  blind: c.instrLogBlind,
+  told: c.instrLogTold,
+  shop: c.instrLogShopName,
+  itemLine: c.instrLogItemLine,
+  floor: c.instrLogFloor,
+  call: c.instrLogCall,
+  offer: c.instrLogOffer,
+  accept: c.instrLogAccept,
+  agreed: c.instrLogAgreed,
+  counter: c.instrLogCounter,
+  toolsB: c.instrLogToolsB,
+  toolsA: c.instrLogToolsA,
+  transcript: c.instrTranscript,
+})
+
+/** A figure's caption: its own, else its data's. */
+const captionOf = (f: FigureData) => f.caption ?? (typeof obj(f.data.copy).caption === 'string' ? (obj(f.data.copy).caption as string) : undefined)
+
+/** The words under a figure: its caption, and anything the instrument adds beneath (the haggle's "how it decides"). */
+function Under({ f, as: Tag = 'p' }: { f: FigureData; as?: 'p' | 'figcaption' }) {
+  const caption = captionOf(f)
+  const c = words(f.data.copy)
+  const how = f.instrument === 'haggle' && c.schedule ? [c.note, c.schedule].filter(Boolean).join(' ') : ''
+  if (!caption && !how) return null
   return (
-    <div className="lab-instr-scroll">
-      <table>
-        {head ? (
-          <thead>
-            <tr>
-              {head.map((h, i) => (
-                <th key={i} scope="col">
-                  {h}
-                </th>
-              ))}
-            </tr>
-          </thead>
-        ) : null}
-        <tbody>
-          {rows.map((r, i) => (
-            <tr key={i}>
-              {(Array.isArray(r) ? r : [r]).map((c, j) => (
-                <td key={j}>{String(c ?? '')}</td>
-              ))}
-            </tr>
-          ))}
-        </tbody>
-      </table>
-    </div>
+    <Tag className="lab-caption">
+      {caption ? <span className="lab-caption-line">{caption}</span> : null}
+      {how ? <span className="lab-caption-line lab-caption-more">{how}</span> : null}
+    </Tag>
   )
 }
 
-/** Ranges on a 0–max scale (the chart instrument), as bars. */
-function Bars({ data }: { data: Record<string, unknown> }) {
-  const max = typeof data.max === 'number' ? data.max : 1
-  const rows = (Array.isArray(data.rows) ? data.rows : []) as { label: string; lo: number; hi?: number; base?: boolean }[]
-  return (
-    <div className="lab-bars">
-      {rows.map((r) => (
-        <div className="lab-bar-row" key={r.label} data-base={r.base ? '' : undefined}>
-          <span>{r.label}</span>
-          <span className="lab-bar-track" aria-hidden="true">
-            <span className="lab-bar-fill" style={{ width: `${Math.max(0, Math.min(1, (r.hi ?? r.lo) / max)) * 100}%` }} />
-          </span>
-          <span data-num>{r.hi !== undefined ? `${r.lo}–${r.hi}` : r.lo}</span>
-        </div>
-      ))}
-    </div>
-  )
-}
-
-/** A figure's static fallback: its data as a table or bars where it has that shape, else its words. */
-function StaticFigure({ figure }: { figure: FigureData }) {
-  const d = figure.data
-  const copy = (d.copy && typeof d.copy === 'object' ? d.copy : {}) as Record<string, unknown>
-  let inner: ReactNode
-  if (Array.isArray(d.rows) && d.rows.every((r) => Array.isArray(r))) inner = <Table data={d} />
-  else if (Array.isArray(d.rows)) inner = <Bars data={d} />
-  else {
-    const lines = [...strings(copy.q), ...strings(copy.before), ...strings(copy.after), ...strings(copy.p)]
-    const note = strings(copy.illus)
-    inner = lines.length ? (
-      <>
-        {lines.map((l, i) => (
-          <p key={i} className={i ? undefined : 'lab-instr-q'}>
-            {l}
-          </p>
-        ))}
-        {note.map((l) => (
-          <p key={l} className="meta">
-            {l}
-          </p>
-        ))}
-      </>
-    ) : null
+/** The instrument's insides, by its registered name (`INSTRUMENT_SCHEMAS`). `null` for a name with nothing to draw. */
+function draw(f: FigureData, copy: Copy): ReactNode {
+  const d = f.data
+  const c = words(d.copy)
+  switch (f.instrument) {
+    case 'compare':
+      return <Table kind="compare" head={d.head as string[]} rows={d.rows as string[][]} chosen={typeof d.chosen === 'number' ? d.chosen : undefined} />
+    case 'spec-table':
+      return <Table kind="spec-table" head={d.head as string[]} rows={d.rows as string[][]} num={Array.isArray(d.num) ? (d.num as number[]) : []} />
+    case 'chart':
+      return <Chart rows={d.rows as ChartRow[]} max={Number(d.max) || 1} />
+    case 'schedule':
+      return <Steps item={itemOf(d)} copy={c as unknown as StepsCopy} />
+    case 'haggle':
+      return <Haggle item={itemOf(d)} copy={c} words={logWords(copy)} />
+    case 'scenarios':
+      return <ScenarioBrowser groups={d.groups as ScenarioGroup[]} items={d.items as Scenario[]} copy={c} />
+    case 'passk':
+      return <Passk copy={c as unknown as PasskCopy} ks={Array.isArray(d.ks) ? (d.ks as number[]) : undefined} p0={typeof d.p === 'number' ? d.p : undefined} />
+    case 'before-after':
+      return <BeforeAfter before={c.before} after={c.after} labels={{ before: copy.instrBefore, after: copy.instrAfter }} />
+    default:
+      return null
   }
-  const caption = figure.caption ?? (typeof copy.caption === 'string' ? copy.caption : undefined)
+}
+
+/** A figure in its frame: a box that draws on first view, then the words under it. */
+function Framed({ f, copy, body }: { f: FigureData; copy: Copy; body: boolean }) {
+  const inner = draw(f, copy)
+  if (!inner) return null
   return (
     <>
-      {inner ? (
-        <div className="lab-instr box" data-box data-instrument={figure.instrument}>
-          <div className="lab-instr-body">{inner}</div>
-        </div>
-      ) : null}
-      {caption ? <p className="lab-caption">{caption}</p> : null}
+      <Drawn className="lab-instr box" data-box="" data-instrument={f.instrument}>
+        {inner}
+      </Drawn>
+      <Under f={f} as={body ? 'figcaption' : 'p'} />
     </>
   )
 }
 
-/** `::figure{of}` in a body. */
+/** `::figure{of}` in a body: the figure, framed, with its caption as the `<figcaption>`. */
 export function Figure({ of, figure }: { of: string; figure?: FigureData }) {
+  const lab = getLab()
   if (!figure) return <figure data-figure={of} />
   return (
-    <figure data-figure={of}>
-      <StaticFigure figure={figure} />
+    <figure data-figure={of} className="lab-figure" data-wide={figure.instrument === 'compare' || figure.instrument === 'spec-table' ? '' : undefined}>
+      <Framed f={figure} copy={lab.copy} body />
     </figure>
   )
 }
 
-/** A study's board: one square per topic, in rows by track. */
-function Board({ study, copy }: { study: StudyData; copy: Copy }) {
-  const count = (s: string) => study.topics.filter((t) => t.status === s).length
-  return (
-    <div className="lab-instr box" data-box>
-      <div className="lab-instr-body">
-        <div className="lab-board" role="list" aria-label={copy.boardLabel}>
-          {study.tracks.map((track) => (
-            <div className="lab-board-row" role="listitem" key={track}>
-              <span className="meta">{track}</span>
-              <span className="lab-squares">
-                {study.topics
-                  .filter((t) => t.track === track)
-                  .map((t) => (
-                    <i
-                      key={t.id}
-                      className="lab-sq"
-                      data-status={t.status}
-                      title={`${t.topic} · ${copy[`status${t.status[0].toUpperCase()}${t.status.slice(1)}`] ?? t.status}`}
-                      style={t.status === 'doing' && t.est ? ({ '--fill': `${Math.round((t.spent / t.est) * 100)}%` } as CSSProperties) : undefined}
-                    />
-                  ))}
-              </span>
-            </div>
-          ))}
-        </div>
-        <p className="meta">{fill(copy.boardKey, { done: count('done'), doing: count('doing'), rest: study.topics.length - count('done') - count('doing') })}</p>
-      </div>
-    </div>
-  )
+/** Which note writes up each of a study's topics: topic id → its page. */
+function topicNotes(studyId: string): Record<string, { href: string; id: string }> {
+  const out: Record<string, { href: string; id: string }> = {}
+  for (const e of getLab().entries)
+    if (e.kind === 'note' && e.parent === studyId && e.topic && !e.draft && e.published) out[e.topic] = { href: pathOf(e), id: e.id }
+  return out
 }
 
+/** A study's status words, by status, from the copy (`statusDone` …). */
+const statusWords = (c: Copy) => Object.fromEntries(['done', 'doing', 'todo', 'parked', 'later'].map((s) => [s, c[`status${s[0].toUpperCase()}${s.slice(1)}`] ?? s]))
+
 export function Lead({ entry: e, name, copy, figures, study, chapters, rendered }: LeadProps) {
+  const today = bareillyToday()
   switch (name) {
     case 'board':
-      return study ? <Board study={study} copy={copy} /> : null
+      return study ? (
+        <Drawn className="lab-instr box" data-box="" data-instrument="board">
+          <Board
+            study={study}
+            notes={topicNotes(e.id)}
+            today={today}
+            labels={{ label: copy.boardLabel, key: copy.boardKey, track: copy.topicTrack, hours: copy.instrHours, note: copy.topicNote, status: statusWords(copy) }}
+          />
+        </Drawn>
+      ) : null
     case 'logline': {
       const last = e.kind === 'study' ? e.log?.[e.log.length - 1] : undefined
-      return last ? <p className="lab-keyline box" data-box>{last.did}</p> : null
+      return last ? <Logline did={last.did} date={<time dateTime={last.date}>{formatDay(last.date, today)}</time>} /> : null
     }
     case 'progress':
       return chapters?.length ? (
-        <div className="lab-instr box" data-box>
-          <div className="lab-instr-body">
-            <div className="lab-progress" aria-hidden="true">
-              {chapters.map((c) => (
-                <i key={c.order} data-on={c.out ? '' : undefined} />
-              ))}
-            </div>
-            <p className="meta">
-              {fill(copy.progressSeries, { done: chapters.filter((c) => c.out).length, total: chapters.length })}
-            </p>
-          </div>
-        </div>
+        <Drawn className="lab-instr box" data-box="" data-instrument="progress">
+          <SeriesProgress chapters={chapters} label={copy.progressSeries} />
+        </Drawn>
       ) : e.kind === 'series' && e.premise ? (
-        <p className="lab-keyline box" data-box>{e.premise}</p>
+        <Logline did={e.premise} />
       ) : null
     case 'instrument': {
-      const id = e.lead?.of ?? e.id
-      const fig = figures[id]
-      if (fig) return <StaticFigure figure={fig} />
-      return rendered.keyLine ? <div className="lab-keyline box" data-box>{rendered.keyLine}</div> : null
+      const fig = figures[e.lead?.of ?? e.id]
+      if (fig) {
+        const intro = !e.leadIntro ? words(fig.data.copy).intro : undefined
+        return (
+          <>
+            {intro ? <p className="lab-lead-intro">{intro}</p> : null}
+            <Framed f={fig} copy={copy} body={false} />
+          </>
+        )
+      }
+      return rendered.keyLine ? <Keyline>{rendered.keyLine}</Keyline> : null
     }
     case 'keyline':
-      return <div className="lab-keyline box" data-box>{rendered.keyLine}</div>
-    case 'demo': {
-      const d = e.lead?.demo
-      return d ? (
-        <figure className="lab-shot">
-          {/* the still poster: the animated demo is PR 11's, behind reduced motion */}
-          <img src={d.poster} width={d.w} height={d.h} alt={d.alt} fetchPriority="high" decoding="async" />
-        </figure>
+      return <Keyline>{rendered.keyLine}</Keyline>
+    case 'demo':
+      return e.lead?.demo ? <Demo demo={e.lead.demo} labels={{ pause: copy.instrPause, play: copy.instrPlay }} /> : null
+    case 'screens':
+      return e.lead?.images?.length ? (
+        <Screens images={e.lead.images} labels={{ label: fill(copy.carLabel, { title: e.title }), prev: copy.carPrev, next: copy.carNext, pos: copy.carPos }} />
       ) : null
-    }
-    case 'screens': {
-      const imgs = e.lead?.images ?? []
-      const [first, ...rest] = imgs
-      if (!first) return null
-      const img = (i: (typeof imgs)[number], priority: boolean) => (
-        <figure className="lab-shot" key={i.src}>
-          <img src={i.src} width={i.w} height={i.h} alt={i.alt} loading={priority ? undefined : 'lazy'} fetchPriority={priority ? 'high' : undefined} decoding="async" />
-        </figure>
-      )
-      return rest.length ? (
-        <div className="lab-shots">
-          {img(first, true)}
-          <div>{rest.slice(0, 2).map((i) => img(i, false))}</div>
-        </div>
-      ) : (
-        img(first, true)
-      )
-    }
     case 'figure': {
-      const fig = e.lead?.figure ? figures[e.lead.figure] : undefined
-      return fig ? <StaticFigure figure={fig} /> : null
+      const fig = e.lead?.figure ? figures[e.lead.of ?? e.id] ?? figures[e.lead.figure] : undefined
+      return fig ? <Framed f={fig} copy={copy} body={false} /> : null
     }
     case 'install':
       return e.kind === 'build' && e.install ? (
-        <div className="lab-instr box" data-box>
-          <div className="lab-instr-body">
-            <pre>
-              <code>{e.install}</code>
-            </pre>
-          </div>
-        </div>
+        <Drawn className="lab-instr box" data-box="" data-instrument="install">
+          <Install command={e.install} labels={{ copy: copy.instrCopy, copied: copy.instrCopied }} />
+        </Drawn>
       ) : null
     case 'result':
       return e.kind === 'experiment' ? (
-        <div className="lab-instr box" data-box>
-          <div className="lab-instr-body">
-            <p className="meta">{e.result.question}</p>
-            <p className="lab-result">
-              <strong>{e.result.value}</strong>
-              {e.result.baseline ? <span className="meta">{e.result.baseline}</span> : null}
-            </p>
-            <p className="meta">{e.result.setup}</p>
-          </div>
-        </div>
+        <Drawn className="lab-instr box" data-box="" data-instrument="result">
+          <Result result={e.result} against={copy.instrAgainst} />
+        </Drawn>
       ) : null
-    case 'cover': {
-      const c = e.lead?.cover
-      return c ? (
-        <figure className="lab-shot">
-          <img src={c.src} width={c.w} height={c.h} alt={c.alt} fetchPriority="high" decoding="async" />
-        </figure>
-      ) : null
-    }
+    case 'cover':
+      return e.lead?.cover ? <Cover image={e.lead.cover} /> : null
     case 'opening':
-      return <div className="lab-opening">{rendered.opening}</div>
+      return <Opening>{rendered.opening}</Opening>
     default:
       return null
   }

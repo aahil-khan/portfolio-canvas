@@ -517,7 +517,7 @@
       ],
       "pull": "The fix was the unglamorous one: move the workflow into MySQL, so every step is a row that outlives the tab.",
       "lead": {
-        "figure": "datesheet"
+        "figure": "before-after"
       },
       "ending": {
         "text": "Make the savepoint the unit of everything: write each change as an event, so undo, an audit trail and two people editing at once all come from one table. The caveat: the 40% is the project’s own count from the time, and I can’t rerun it from here."
