@@ -250,7 +250,9 @@ export async function renderBody(md: string, ctx: BodyContext): Promise<ReactNod
       return el('aside', { className: ['side'], dataSide: '' }, children)
     },
     labImage(state: State, node: LabImage) {
-      const img = el('img', { src: node.src, width: node.w, height: node.h, alt: node.alt, loading: 'lazy', decoding: 'async' }, [])
+      // `data-zoom`: the image viewer (components/lab/viewer) opens it full size. Only an attribute, so
+      // with JavaScript off the image is just an image, and nothing about it looks pressable.
+      const img = el('img', { src: node.src, width: node.w, height: node.h, alt: node.alt, loading: 'lazy', decoding: 'async', dataZoom: '' }, [])
       const caption = node.caption ? [el('figcaption', {}, state.all({ type: 'paragraph', children: node.caption as PhrasingContent[] }))] : []
       return el('figure', {}, [img, ...caption])
     },

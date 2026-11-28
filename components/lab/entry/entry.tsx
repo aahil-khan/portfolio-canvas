@@ -11,11 +11,13 @@ import { SeriesLine } from '@/components/lab/entry/series-line'
 import { Share } from '@/components/lab/entry/share'
 import { Lead } from '@/components/lab/instruments'
 import { ColumnTransition } from '@/components/lab/motion/column-transition'
+import { ImageZoom } from '@/components/lab/viewer/zoom'
 import { backlinks, bodyOf, children, getLab, pathOf, readTime, related } from '@/lib/lab/content'
 import { renderBody } from '@/lib/lab/markdown/pipeline'
 import { canonicalUrl } from '@/lib/lab/seo'
 import type { Entry } from '@/lib/lab/types'
 import { plainInline } from '@/lib/lab/text'
+import { viewerCopy } from '@/lib/lab/viewer'
 import { bareillyToday, formatDay, kindWords, pad2, resolveLead } from '@/lib/lab/view'
 
 /** Inline Markdown (a key line, an opening) rendered the way bodies are, links and all. */
@@ -278,6 +280,7 @@ export async function EntryPage({ entry: e }: { entry: Entry }) {
           ) : null}
         </nav>
       ) : null}
+      <ImageZoom key={e.id} entry={e.id} copy={viewerCopy(copy)} />
     </article>
   )
 }

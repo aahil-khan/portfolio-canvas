@@ -58,7 +58,7 @@ const ALL_IDS = [
   '1', '2', '4', 'T', 'Q', 'E', 'L', 'O', 'F', 'B', '5', '6', '7', '8', '9', '10', '11', '12', '13', 'C',
   '14', '15', '16', '17', '18', 'K', 'U', 'D', 'R', 'H1', 'H2', 'H3', 'G', 'V', 'X', 'Y', 'P', 'W', 'W2',
   'Z', 'M', '19', '20', 'N', 'S', '23', '24', '25', '26', '21', 'J', 'A', '22', '22h', 'I', 'OG', 'EV',
-  'GH', 'SB', 'AG', 'DR', 'LH',
+  'GH', 'SB', 'AG', 'DR', 'LH', 'LB',
 ]
 
 /** The check's matrix (plan, "The matrix"). `--quick` narrows it for iteration only. */

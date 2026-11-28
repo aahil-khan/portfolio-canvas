@@ -106,7 +106,7 @@ test('side notes, figures and images', () => {
   const h = html(':::side[Where this ran.]\nOn Medium[^a].\n:::\n\n::figure{of="fig-one"}\n\n![A dashboard](/lab/pic/a.webp "w=800 h=455 | My [[tool|server]] dashboard")')
   assert.match(h, /<aside class="side" data-side=""><p><strong>Where this ran\.<\/strong> On Medium<sup>/)
   assert.match(h, /<div data-fig="fig-one"><\/div>/)
-  assert.match(h, /<figure><img src="\/lab\/pic\/a.webp" width="800" height="455" alt="A dashboard" loading="lazy" decoding="async"\/><figcaption>My <a [^>]*data-preview="entry:tool">server<\/a> dashboard<\/figcaption><\/figure>/)
+  assert.match(h, /<figure><img src="\/lab\/pic\/a.webp" width="800" height="455" alt="A dashboard" loading="lazy" decoding="async" data-zoom=""\/><figcaption>My <a [^>]*data-preview="entry:tool">server<\/a> dashboard<\/figcaption><\/figure>/)
 })
 
 test('an image without its size, or beside text, is refused; so is an unknown directive', () => {
