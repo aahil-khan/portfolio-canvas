@@ -252,7 +252,9 @@ export function PreviewWindow({
   const origin = win.sheet ? '50% 100%' : step === 'left' ? '100% 0%' : `${Math.round(originX)}px ${p?.side === 'above' ? '100%' : '0%'}`
   const shown = win.sheet || isPositioned
   const hidden = reduced ? { opacity: 0 } : { opacity: 0, transform: from }
-  const visible = reduced ? { opacity: 1 } : { opacity: 1, transform: 'translate(0px, 0px) scale(1)' }
+  // the step is known only once placed, in the same render that shows the window: keyframes start
+  // the transform from it, rather than from what the window mounted with
+  const visible = reduced ? { opacity: 1 } : { opacity: 1, transform: [from, 'translate(0px, 0px) scale(1)'] }
   const transition = reduced
     ? { duration: sec(REDUCED.maxDuration), ease: EASE_BEZIER }
     : { duration: sec(LAB.windowIn.duration), ease: EASE_BEZIER, opacity: { duration: sec(LAB.windowIn.opacity), ease: EASE_BEZIER } }
