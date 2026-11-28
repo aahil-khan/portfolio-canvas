@@ -1,0 +1,196 @@
+/* ---------- the Lab's previews: windows, cards and the sheet ----------
+   DIRECTION, "Windows, cards and the sheet" and "Motion and hover timing". Loaded with the
+   controller, on a reader's first intent, never with the page. Every value is a Lab token or one
+   of the table's; the window keeps the frame language (rule K): the 2px --border edge, the
+   zero-blur offset, a title bar, 12px radii. Position comes from the controller (left/top), and
+   Motion owns transform and opacity. */
+
+.lab .lab-pv {
+  position: fixed;
+  display: flex;
+  flex-direction: column;
+  width: 360px;
+  max-width: calc(100vw - 32px);
+  border: var(--lab-edge) solid var(--box-edge);
+  border-radius: var(--radius-window);
+  background: var(--raised);
+  background-clip: padding-box;
+  box-shadow: var(--float-shadow);
+  color: var(--ink);
+  overflow: hidden;
+  font-size: var(--lab-fs-body);
+  line-height: 1.5;
+  text-align: left;
+  outline: none;
+}
+.lab .lab-pv.is-full { width: 460px; max-height: min(60vh, 500px); }
+.lab .lab-pv:focus-visible { outline: 2px solid var(--focus); outline-offset: 3px; }
+
+/* the title bar: what it is, the date, Close */
+.lab .lab-pv-bar {
+  flex: none;
+  gap: 10px;
+  padding: 3px 5px 3px 14px;
+  justify-content: flex-start;
+  color: var(--ink);
+}
+.lab .lab-pv-bar-title { min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.lab .lab-pv-bar time,
+.lab .lab-pv-bar-meta { margin-left: auto; color: var(--ink); white-space: nowrap; }
+.lab .lab-pv-bar-meta { font-variant-numeric: tabular-nums; }
+.lab .lab-pv-bar time { font-size: var(--lab-fs-hand); line-height: 1; }
+.lab .lab-pv-close {
+  flex: none;
+  margin-left: auto;
+  min-height: 30px;
+  padding: 0 10px;
+  border: 0;
+  border-radius: var(--radius-chip);
+  background: transparent;
+  color: var(--ink);
+  font: 500 var(--lab-fs-meta) / 1 var(--lab-sans);
+  transition: background-color var(--lab-t-out) var(--lab-ease), transform var(--lab-t-out) var(--lab-ease);
+}
+.lab .lab-pv-bar time + .lab-pv-close,
+.lab .lab-pv-bar-meta + .lab-pv-close { margin-left: 2px; }
+.lab .lab-pv-close:hover { background: color-mix(in srgb, var(--ink) 8%, transparent); transition-duration: var(--lab-t-in); }
+.lab .lab-pv-close:active { background: color-mix(in srgb, var(--ink) 13%, transparent); transform: translateY(1px); transition-duration: var(--lab-t-press); }
+.lab .lab-pv-close:focus-visible { outline-offset: -2px; }
+
+/* the body: the only thing that scrolls, and never into the page behind */
+.lab .lab-pv-body {
+  flex: 1 1 auto;
+  min-height: 0;
+  overflow-y: auto;
+  overscroll-behavior: contain;
+  scrollbar-gutter: stable;
+}
+.lab .lab-pv.is-card .lab-pv-body { scrollbar-gutter: auto; }
+
+/* ---------- a card: a term, a tag, a reference, a link out ---------- */
+.lab .lab-pv-card { display: grid; gap: 8px; padding: 14px 16px 16px; }
+.lab .lab-pv-title {
+  font-size: var(--lab-fs-lede);
+  line-height: 1.2;
+  letter-spacing: -0.01em;
+  font-weight: 700;
+  text-wrap: balance;
+}
+.lab .lab-pv-title code { font-size: 0.82em; }
+.lab .lab-pv-text { font-size: var(--lab-fs-body); line-height: 1.55; color: var(--ink); }
+.lab .lab-pv-site { font-size: var(--lab-fs-meta); line-height: 1.45; color: var(--ink-muted); }
+.lab .lab-pv-why {
+  padding-top: 10px;
+  margin-top: 2px;
+  box-shadow: 0 calc(-1 * var(--rule-w)) 0 0 var(--line);
+  font-size: var(--lab-fs-meta);
+  color: var(--ink-muted);
+}
+.lab .lab-pv-wait { padding: 18px 22px; color: var(--ink-muted); font-size: var(--lab-fs-meta); }
+.lab .lab-pv-list { list-style: none; margin: 2px 0 0; padding: 0; display: grid; gap: 8px; font-size: var(--lab-fs-meta); line-height: 1.45; }
+.lab .lab-pv-list a { font-weight: 500; }
+.lab .lab-pv-list .meta { display: block; margin-top: 1px; }
+.lab .lab-pv-more {
+  display: flex; flex-wrap: wrap; align-items: baseline; gap: 4px 18px;
+  margin-top: 2px;
+  font-size: var(--lab-fs-meta); font-weight: 500; line-height: 1.45;
+}
+
+/* a link out, unfurled: the page's image across the top, then domain, title, description */
+.lab .lab-pv-unfurl { display: grid; gap: 6px; min-width: 0; }
+.lab .lab-pv-uf-img {
+  display: block;
+  width: calc(100% + 32px); max-width: none; height: auto;
+  aspect-ratio: 640 / 336; object-fit: cover;
+  margin: -14px -16px 6px;
+  background: color-mix(in srgb, var(--ink) 6%, var(--raised));
+  box-shadow: 0 var(--rule-w) 0 0 var(--line);
+}
+.lab .lab-pv-uf-site { display: flex; align-items: center; gap: 8px; min-width: 0; font-size: var(--lab-fs-meta); line-height: 1.3; color: var(--ink-muted); }
+.lab .lab-pv-uf-site span { min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.lab .lab-pv-uf-icon { flex: none; width: 16px; height: 16px; border-radius: 3px; }
+.lab .lab-pv-uf-title {
+  font-size: var(--lab-fs-body); font-weight: 700; line-height: 1.3; letter-spacing: 0;
+  display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical; overflow: hidden;
+}
+.lab .lab-pv-uf-desc {
+  font-size: var(--lab-fs-meta); line-height: 1.5; color: var(--ink-muted);
+  display: -webkit-box; -webkit-line-clamp: 3; -webkit-box-orient: vertical; overflow: hidden;
+}
+
+/* ---------- a whole entry, read inside its window ----------
+   The entry page's own markup, laid out for 460px whatever the viewport: its grid, rail and
+   sticky boxes are the page's, so each is set back to a single column here. */
+.lab .lab-pv-entry { padding: 18px 22px 26px; }
+.lab .lab-pv-body .lab-entry { display: block; max-width: none; margin: 0; padding: 0; }
+.lab .lab-pv-body .lab-entry-flow { display: block; }
+.lab .lab-pv-body .lab-num { display: none; }
+.lab .lab-pv-body .lab-entry-title,
+.lab .lab-pv-body .lab-entry-head .lab-entry-title { font-size: var(--lab-fs-h2); line-height: 1.15; letter-spacing: -0.01em; max-width: none; }
+.lab .lab-pv-title-link { text-decoration-color: transparent; text-underline-offset: 4px; }
+.lab .lab-pv-title-link:hover { text-decoration-color: currentColor; }
+.lab .lab-pv-body .lab-entry-meta { margin-top: 10px; }
+.lab .lab-pv-body .lab-entry-sub { max-width: none; }
+.lab .lab-pv-body .lab-lead { margin-top: 20px; }
+.lab .lab-pv-body .lab-body { margin-top: 24px; }
+.lab .lab-pv-body .lab-prose :where(p, li, blockquote, h2, h3) { max-width: none; }
+.lab .lab-pv-body :is(.lab-ending, .lab-refs, .lab-caption, .lab-opening, .lab-lead-intro) { max-width: none; }
+.lab .lab-pv-body .lab-pull { max-width: none; }
+.lab .lab-pv-body .lab-block { margin-top: 40px; }
+.lab .lab-pv-body .lab-refs { margin-top: 40px; }
+.lab .lab-pv-body .lab-rows li { grid-template-columns: 2.2em minmax(0, 1fr); }
+.lab .lab-pv-body .lab-rows li > :last-child:not(.lab-row-lede):not(.lab-row-title) { grid-column: 2; }
+.lab .lab-pv-body :is(.lab-shots, .lab-nextprev) { grid-template-columns: 1fr; }
+.lab .lab-pv-body .lab-nextprev { gap: 12px; margin-top: 32px; }
+.lab .lab-pv-body .lab-nextprev .np-next { grid-column: 1; }
+.lab .lab-pv-body .lab-board-row { grid-template-columns: 1fr; gap: 4px; }
+.lab .lab-pv-body .lab-picker { z-index: auto; }
+.lab .lab-pv-body .lab-picker-panel { position: static; margin-top: 8px; width: auto; box-shadow: var(--box-shadow); }
+.lab .lab-pv-body .lab-rail {
+  display: block; contain: none; align-self: auto;
+  margin-top: 40px; padding-top: 18px;
+  box-shadow: 0 calc(-1 * var(--rule-w)) 0 0 var(--line);
+}
+.lab .lab-pv-body .lab-rail-in { position: static; display: grid; gap: 24px; height: auto; overflow: visible; padding: 0; }
+.lab .lab-pv-body .lab-rail-sec { display: block; overflow: visible; }
+.lab .lab-pv-body .lab-rail-list { overflow: visible; mask-image: none; padding: 0; margin: 0; }
+
+/* ---------- the sheet: touch, pinned to the bottom ----------
+   One surface: the screen's own edge, so it draws only its top edge plus the mockup's lift (the one
+   blurred shadow), a card at most 55vh, a whole entry at most 92vh (its height set in the code so the
+   tapped words show above it), and a 44px Close. */
+.lab .lab-pv.is-sheet {
+  left: 0; right: 0; bottom: 0; top: auto;
+  width: auto; max-width: none;
+  max-height: 55vh; max-height: 55dvh;
+  border-width: var(--lab-edge) 0 0;
+  border-radius: 16px 16px 0 0;
+  box-shadow: 0 -12px 32px -20px color-mix(in srgb, var(--ink) 35%, transparent);
+  padding-bottom: env(safe-area-inset-bottom);
+}
+.lab .lab-pv.is-sheet.is-full { max-height: 92vh; max-height: 92dvh; }
+.lab .lab-pv.is-sheet .lab-pv-bar {
+  min-height: 52px;
+  padding: 4px 4px 0 16px;
+  background: transparent;
+  box-shadow: none;
+}
+.lab .lab-pv.is-sheet.is-full .lab-pv-bar { padding-bottom: 4px; box-shadow: 0 1px 0 0 var(--hair); }
+.lab .lab-pv.is-sheet .lab-pv-close {
+  min-height: 44px; min-width: 44px; padding: 0 12px;
+  text-decoration: underline; text-underline-offset: 4px; text-decoration-color: var(--ink-muted);
+}
+.lab .lab-pv.is-sheet .lab-pv-card { padding-top: 4px; padding-bottom: 20px; }
+.lab .lab-pv.is-sheet .lab-pv-entry { padding: 14px 16px 28px; }
+.lab .lab-pv.is-sheet :is(.lab-pv-more a, .lab-pv-list a) { display: inline-flex; align-items: center; min-height: 44px; }
+.lab .lab-pv.is-sheet .lab-pv-list { gap: 0; }
+.lab .lab-pv.is-sheet .lab-pv-list .meta { margin-top: -8px; margin-bottom: 4px; }
+.lab .lab-pv.is-sheet .lab-pv-uf-img { margin-top: -4px; }
+.lab .lab-pv.is-sheet .lab-pv-body .lab-pv-entry :is(.lab-rows a, .lab-end-list a, .lab-tag-list a, .lab-refs a, .lab-chapters a) { display: inline-flex; align-items: center; min-height: 44px; }
+
+/* reduced motion: Motion runs opacity only (MotionConfig, from lib/motion/reduced.ts); the controls
+   here change colour only */
+@media (prefers-reduced-motion: reduce) {
+  .lab .lab-pv-close:active { transform: none; }
+}
+.lab .lab-pv-entry:empty { display: none; }

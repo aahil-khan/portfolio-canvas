@@ -195,7 +195,12 @@
     "homeEmpty": "The Lab is being set up. Studies, builds and essays will appear here as they are written.",
     "notFoundTitle": "Nothing is written here.",
     "notFoundBody": "This page isn’t in the Lab. It may have moved, or it was never written.",
-    "studyLog": "The log"
+    "studyLog": "The log",
+    "pvLoading": "Opening the page",
+    "pvFailed": "This page didn’t open here. Follow the link to read it.",
+    "pvOpenPage": "Open the page",
+    "pvWindowLabel": "A preview of {title}",
+    "pvSheetLabel": "A preview of {title}, over the page"
   },
   "sections": [],
   "tags": [],
