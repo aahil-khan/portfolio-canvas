@@ -1,8 +1,10 @@
 /**
- * The instruments' rules (plan PR 11): M (motion), 22 (the fixture, and every lead working) and
- * 22h (the haggle's fidelity). Lane module for scripts/check-lab.mjs (API.md §11).
+ * The instruments' rules (plan PR 11): 22 (the fixture, and every lead working) and 22h (the
+ * haggle's fidelity), and `leadMotion`, the leads' half of rule M. Lane module for
+ * scripts/check-lab.mjs (API.md §11). Rule M belongs to PR 10 (previews.mjs), which calls
+ * `leadMotion`; until that file defines M, rule 22 runs it.
  *
- *   M    Motion as DIRECTION's Lab table says, read through `getAnimations()` and frame sampling:
+ *   leadMotion  Motion as DIRECTION's Lab table says, read through `getAnimations()` and frame sampling:
  *        - every lead draws once on first view: CSS animations `lab-draw-*`, 450ms on the one
  *          easing, delays in 30ms steps, all finished soon after load, and none under reduced motion;
  *        - a figure in the body does not draw (it is read where it stands, never caught
@@ -23,7 +25,7 @@
  * Pages are found by what they render (`[data-instrument]`, `[data-lead]`), never by an entry id
  * (rule 4: no file outside the demo set names a demo id).
  */
-import { readFileSync } from 'node:fs'
+import { readdirSync, readFileSync } from 'node:fs'
 import path from 'node:path'
 
 import { createShop, evaluate, fidelity, PERSONAS, simulate, ITEMS } from '../../lib/lab/haggle.ts'
@@ -120,11 +122,11 @@ function motionOf(samples) {
 // M
 // ---------------------------------------------------------------------------------------------
 
-const motion = {
-  id: 'M',
-  title: 'Motion: leads draw once on first view (450ms, 30ms steps, the one easing); body figures stay still; enters rise ≤ 6px in 180ms; a page change rises 8px in 240ms; reduced motion only fades',
-  needs: ['server', 'browser'],
-  async run(ctx) {
+/**
+ * The leads' motion, as one function rule M calls (PR 10's scripts/check-lab/previews.mjs owns M).
+ * Until a file defines M, rule 22 below runs it. Returns `{ fail, notes }`, or `{ notBuilt }`.
+ */
+export async function leadMotion(ctx) {
     const info = await builtRoutes(ctx)
     if (info.notBuilt) return { notBuilt: info.notBuilt }
     const c = collector(['M'])
@@ -257,7 +259,12 @@ const motion = {
 
     c.note('M', `${info.entries.length} entries at ${widths.join(' and ')}; instruments seen: ${[...pages.keys()].filter((k) => !k.includes(':')).join(', ')}`)
     return c.result('M')
-  },
+}
+
+/** Whether another lane's file defines rule M (PR 10); until one does, rule 22 runs `leadMotion`. */
+function mDefinedElsewhere(root) {
+  const dir = path.join(root, 'scripts/check-lab')
+  return readdirSync(dir).some((f) => f.endsWith('.mjs') && f !== 'instruments.mjs' && /\bid:\s*['"]M['"]/.test(readFileSync(path.join(dir, f), 'utf8')))
 }
 
 // ---------------------------------------------------------------------------------------------
@@ -298,7 +305,7 @@ async function oneTabStop(page, sel) {
 
 const fixture = {
   id: '22',
-  title: 'Fixture: every kind’s template and lead renders on the first screen; its section shows, its empty one never; the board and the scenario list are each one tab stop',
+  title: 'Fixture: every kind’s template and lead renders on the first screen; its section shows, its empty one never; the board and the scenario list are each one tab stop; leads draw as DIRECTION says (until rule M runs leadMotion)',
   needs: ['server', 'browser', 'fixture'],
   async run(ctx) {
     const c = collector(['22'])
@@ -390,6 +397,15 @@ const fixture = {
       }
     }
     c.note('22', `${fx.entries.length} fixture entries at 390 and 1440: ${fx.entries.map((x) => `${x.e.kind} → ${x.lead}`).join(', ')}`)
+
+    // the leads' motion: rule M's (PR 10) once that file exists; here until then
+    if (mDefinedElsewhere(ctx.root)) c.note('22', 'lead motion is checked by rule M (another lane defines it)')
+    else {
+      const m = await leadMotion(ctx)
+      if (m.notBuilt) c.fail('22', `lead motion: not built (${m.notBuilt})`)
+      for (const f of m.fail ?? []) c.fail('22', `lead motion: ${f}`)
+      for (const n of m.notes ?? []) c.note('22', `lead motion: ${n}`)
+    }
     return c.result('22')
   },
 }
@@ -479,6 +495,6 @@ const haggle = {
   },
 }
 
-const rules = [motion, fixture, haggle]
+const rules = [fixture, haggle]
 
 export default rules
