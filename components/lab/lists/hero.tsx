@@ -100,17 +100,17 @@ export function Strip({ section, entries, today }: { section: Section; entries: 
               <article className="lab-card box" data-box data-hero-entry={e.id}>
                 <div className="lab-card-media" data-picture={pic ? '' : undefined}>
                   {pic ? (
-                    // eslint-disable-next-line @next/next/no-img-element -- sizes are declared; next/image would add a loader for three stills
+                    // eslint-disable-next-line @next/next/no-img-element -- sizes are declared, as the leads' stills are; next/image would add a loader
                     <img src={pic.src} width={pic.w} height={pic.h} alt={pic.alt} decoding="async" />
                   ) : (
-                    <p className="lab-card-words">{words}</p>
+                    <div className="lab-card-words">{words}</div>
                   )}
                 </div>
                 <div className="lab-card-body">
-                  <p className="lab-card-meta meta">
+                  <div className="lab-card-meta meta">
                     <span>{rowKind(e)}</span>
                     {day ? <time dateTime={day}>{formatDay(day, today)}</time> : null}
-                  </p>
+                  </div>
                   <h3 className="lab-card-title">
                     <Link className="lab-card-link" href={pathOf(e)}>
                       {e.title}

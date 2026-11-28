@@ -52,8 +52,8 @@
 
 /* ---------- the head of a list page ---------- */
 .lab-lhead { max-width: var(--lab-measure); }
-.lab-lhead-eyebrow { display: flex; flex-wrap: wrap; align-items: baseline; gap: 0 0.4em; }
 .lab-lhead-eyebrow a { color: inherit; }
+.lab-lhead-eyebrow span { margin-left: 0.4em; }
 .lab-lhead-hero {
   font-size: var(--lab-fs-hero);
   line-height: 0.95;
@@ -324,7 +324,7 @@
   .lab-filter-btn { min-height: 44px; padding: 0 16px; }
   .lab-lrows-kids { margin-left: 0; }
   .lab-all a { display: inline-flex; align-items: center; min-height: 44px; }
-  .lab-other-tags a { display: inline-block; padding: 10px 0; }
+  .lab-other-tags { line-height: 2.4; }
 }
 @media (min-width: 761px) and (max-width: 1023px) {
   .lab-strip-list { gap: 16px; }

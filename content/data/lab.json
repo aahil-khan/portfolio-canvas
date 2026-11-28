@@ -214,7 +214,6 @@
     "listsNumbers": "no|one|two|three|four|five|six|seven|eight|nine|ten|eleven|twelve",
     "listsAnd": "and",
     "listsWith": "{kind} · {holds}",
-    "listsBandCount": "{count} in all",
     "listsIndexEmpty": "Nothing is written here yet. Every entry will be listed here, by year, as it is published.",
     "listsGlossaryEmpty": "No terms yet. Each one arrives with the first page that uses it.",
     "listsShown": "Showing {count}",
