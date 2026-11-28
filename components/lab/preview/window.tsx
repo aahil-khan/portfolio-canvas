@@ -191,11 +191,23 @@ export function PreviewWindow({
     const f = frame.current
     if (!win.sheet || !f) return
     const vh = window.innerHeight
+    if (win.level > 0) {
+      // a sheet opened from a sheet: the words tapped are in the sheet below, so that sheet scrolls
+      // them up under its own bar, and this one stops short of them
+      const below = document.querySelector(`[data-preview-window][data-state="open"][data-level="${win.level - 1}"]`)
+      const pBody = below?.querySelector<HTMLElement>('[data-pv-body]')
+      if (pBody) pBody.scrollTop += win.trigger.getBoundingClientRect().top - (pBody.getBoundingClientRect().top + 8)
+      const r = win.trigger.getBoundingClientRect()
+      const room = Math.round(vh - r.bottom - 12)
+      const most = Math.round(vh * (full ? 0.92 : 0.55))
+      f.style.maxHeight = `${Math.min(most, room)}px`
+      if (full) f.style.height = `${Math.min(most, room)}px`
+      return
+    }
     if (full) {
       const r = win.trigger.getBoundingClientRect()
       f.style.height = `${Math.round(Math.min(vh * 0.92, vh - roof() - Math.min(r.height, 64) - 16))}px`
     }
-    if (win.level > 0) return
     const lab = document.querySelector<HTMLElement>('[data-lab]')
     const h = f.offsetHeight
     // room under the last line of the page, so even the footer's links can be scrolled clear
