@@ -71,6 +71,8 @@
 .lab .lab-tbl td { color: var(--ink-muted); }
 .lab .lab-tbl .n { text-align: right; font-variant-numeric: tabular-nums; white-space: nowrap; }
 .lab .lab-tbl code { font-size: var(--lab-fs-code); overflow-wrap: anywhere; }
+/* code in muted text (cells, the caption's second line) takes full ink: muted ink on the code tint falls under 7:1 in some dark themes */
+.lab :is(.lab-instr, .lab-caption) code { color: var(--ink); }
 /* compare: the chosen column reads in ink, under an accent bar on its heading */
 .lab .lab-tbl[data-kind='compare'] { table-layout: fixed; }
 .lab .lab-tbl[data-kind='compare'] tbody th { width: 22%; }

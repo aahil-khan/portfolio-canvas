@@ -188,11 +188,11 @@ export function Haggle({ item, copy, words }: { item: Item; copy: HaggleCopy; wo
         <form className="lab-hg-form" onSubmit={onSubmit} noValidate data-needs-js data-draw="in" style={at(3)}>
           <label className="lab-hg-field" htmlFor={uid}>
             <span aria-hidden="true">₹</span>
-            <span className="sr">{copy.label}</span>
             <input
               ref={input}
               id={uid}
               name="offer"
+              aria-label={copy.label}
               inputMode="numeric"
               autoComplete="off"
               enterKeyHint="send"
